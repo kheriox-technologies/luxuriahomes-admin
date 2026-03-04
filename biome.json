@@ -14,6 +14,7 @@
     "ignoreUnknown": false,
     "includes": [
       "!**/components/ui",
+      "!**/hooks/use-media-query.ts",
       "!**/.next",
       "!**/dist",
       "!**/.turbo",
