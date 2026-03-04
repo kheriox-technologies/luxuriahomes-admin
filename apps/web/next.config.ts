@@ -1,9 +1,9 @@
-import "@monorepo-template/env/web";
-import type { NextConfig } from "next";
+import '@repo/env/web';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  typedRoutes: true,
-  reactCompiler: true,
+	typedRoutes: true,
+	reactCompiler: true,
 };
 
 export default nextConfig;

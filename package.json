@@ -16,7 +16,7 @@
     "fix": "ultracite fix"
   },
   "dependencies": {
-    "@monorepo-template/env": "workspace:*",
+    "@repo/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },

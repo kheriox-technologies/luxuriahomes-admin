@@ -20,7 +20,7 @@ importers:
 
   .:
     dependencies:
-      '@monorepo-template/env':
+      '@repo/env':
         specifier: workspace:*
         version: link:packages/env
       dotenv:
@@ -51,7 +51,7 @@ importers:
       '@base-ui/react':
         specifier: ^1.0.0
         version: 1.2.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@monorepo-template/env':
+      '@repo/env':
         specifier: workspace:*
         version: link:../../packages/env
       babel-plugin-react-compiler:
@@ -136,6 +136,9 @@ importers:
       '@monorepo-template/config':
         specifier: workspace:*
         version: link:../config
+      '@types/node':
+        specifier: ^20
+        version: 20.19.35
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

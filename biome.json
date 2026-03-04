@@ -5,10 +5,15 @@
     "clientKind": "git",
     "useIgnoreFile": false
   },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
   "files": {
     "ignoreUnknown": false,
     "includes": [
-      "**",
+      "!**/components/ui",
       "!**/.next",
       "!**/dist",
       "!**/.turbo",
@@ -28,6 +33,28 @@
       "!**/convex/_generated"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["packages/backend/convex/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/admin/emails/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "tab"
@@ -67,11 +94,6 @@
         "noInferrableTypes": "error",
         "noUselessElse": "error"
       }
-    }
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double"
     }
   },
   "css": {
