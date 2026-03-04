@@ -1,0 +1,31 @@
+{
+  "name": "monorepo-template",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "dev:native": "turbo -F native dev",
+    "dev:web": "turbo -F web dev",
+    "check": "ultracite check",
+    "fix": "ultracite fix"
+  },
+  "dependencies": {
+    "@monorepo-template/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.0",
+    "@monorepo-template/config": "workspace:*",
+    "turbo": "^2.8.12",
+    "typescript": "catalog:",
+    "ultracite": "7.2.4"
+  },
+  "packageManager": "pnpm@10.30.3"
+}
