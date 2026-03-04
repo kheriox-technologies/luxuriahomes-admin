@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils';
 const raleway = Raleway({ variable: '--font-sans' });
 
 export const metadata: Metadata = {
-	title: 'Web Application',
-	description: 'Web Application',
+	title: 'Admin Application',
+	description: 'Admin Application',
 };
 
 type RootLayoutProps = Readonly<{

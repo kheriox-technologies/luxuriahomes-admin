@@ -1,4 +1,4 @@
-import '@repo/env/web';
+import '@repo/env/admin';
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
