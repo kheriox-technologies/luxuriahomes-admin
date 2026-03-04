@@ -1,4 +1,4 @@
-import { env } from '@repo/env/web';
+import { env } from '@workspace/env/web';
 
 export default function Footer() {
 	return (

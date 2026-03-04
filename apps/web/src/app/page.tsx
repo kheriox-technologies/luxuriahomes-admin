@@ -1,4 +1,4 @@
-import { env } from '@repo/env/web';
+import { env } from '@workspace/env/web';
 import PageHeading from '@/components/page-heading';
 import { cn } from '@/lib/utils';
 

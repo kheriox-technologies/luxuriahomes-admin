@@ -2,7 +2,7 @@
 
 import { ClerkProvider } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
-import { env } from '@repo/env/web';
+import { env } from '@workspace/env/web';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import type { ComponentProps, ReactNode } from 'react';
 import { AnchoredToastProvider, ToastProvider } from '@/components/ui/toast';

@@ -20,13 +20,13 @@
     "fix": "ultracite fix"
   },
   "dependencies": {
-    "@repo/env": "workspace:*",
+    "@workspace/env": "workspace:*",
     "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.0",
-    "@monorepo-template/config": "workspace:*",
+    "@workspace/config": "workspace:*",
     "@types/node": "^20",
     "turbo": "^2.8.12",
     "typescript": "catalog:",
