@@ -7,7 +7,7 @@ export default function Home() {
 		<div className={cn('flex h-full flex-col')}>
 			<PageHeading
 				description="Welcome to the home page"
-				heading={`Landing page for ${env.NEXT_PUBLIC_APP_NAME}`}
+				heading={`${env.NEXT_PUBLIC_APP_NAME} Home`}
 			/>
 		</div>
 	);
