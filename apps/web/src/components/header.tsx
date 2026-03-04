@@ -1,28 +1,12 @@
-'use client';
-import Link from 'next/link';
+import { env } from '@repo/env/web';
 
-import { ModeToggle } from './mode-toggle';
+import { ModeToggle } from '@/components/mode-toggle';
 
 export default function Header() {
-	const links = [{ to: '/', label: 'Home' }] as const;
-
 	return (
-		<div>
-			<div className="flex flex-row items-center justify-between px-2 py-1">
-				<nav className="flex gap-4 text-lg">
-					{links.map(({ to, label }) => {
-						return (
-							<Link href={to} key={to}>
-								{label}
-							</Link>
-						);
-					})}
-				</nav>
-				<div className="flex items-center gap-2">
-					<ModeToggle />
-				</div>
-			</div>
-			<hr />
-		</div>
+		<header className="flex w-full items-center justify-between border-b px-4 py-3">
+			<h1 className="font-semibold text-xl">{env.NEXT_PUBLIC_APP_NAME}</h1>
+			<ModeToggle />
+		</header>
 	);
 }
