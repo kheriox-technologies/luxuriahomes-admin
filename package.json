@@ -17,7 +17,8 @@
     "dev:web": "turbo -F web dev",
     "dev:admin": "turbo -F admin dev",
     "check": "ultracite check",
-    "fix": "ultracite fix"
+    "fix": "ultracite fix",
+    "prepare": "husky"
   },
   "dependencies": {
     "@workspace/env": "workspace:*",
@@ -26,8 +27,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.0",
-    "@workspace/config": "workspace:*",
     "@types/node": "^20",
+    "@workspace/config": "workspace:*",
+    "husky": "^9.1.7",
     "turbo": "^2.8.12",
     "typescript": "catalog:",
     "ultracite": "7.2.4"
