@@ -1,5 +1,5 @@
 {
-  "extends": "@workspace/config/tsconfig.base.json",
+  "extends": "@workspace/config/base.json",
   "compilerOptions": {
     "strictNullChecks": true
   }
