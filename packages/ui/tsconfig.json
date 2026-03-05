@@ -1,6 +1,10 @@
 {
   "extends": "@workspace/config/base.json",
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/ui/*": ["./src/*"]
+    },
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["dom", "dom.iterable", "ESNext"],
