@@ -20,21 +20,7 @@ import {
 	SidebarMenuSubItem,
 } from '@workspace/ui/components/sidebar';
 import { useQuery } from 'convex/react';
-import {
-	ChevronDown,
-	Drama,
-	Group,
-	Images,
-	IndianRupee,
-	Languages,
-	LayoutDashboard,
-	ListVideo,
-	type LucideIcon,
-	ShieldCheck,
-	UserCheck,
-	Users,
-	Video,
-} from 'lucide-react';
+import { ChevronDown, LayoutDashboard, type LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -63,90 +49,6 @@ const items: SidebarItem[] = [
 		url: '/dashboard',
 		path: '/dashboard',
 		icon: LayoutDashboard,
-	},
-	{
-		title: 'Videos',
-		url: '/videos',
-		path: '/videos',
-		icon: Video,
-	},
-	{
-		title: 'Series',
-		url: '/series',
-		path: '/series',
-		icon: ListVideo,
-	},
-	{
-		title: 'Banners',
-		url: '/banners',
-		path: '/banners',
-		icon: Images,
-	},
-	{
-		title: 'Categories',
-		url: '/categories',
-		path: '/categories',
-		icon: Group,
-	},
-	{
-		title: 'Genres',
-		url: '/genres',
-		path: '/genres',
-		icon: Drama,
-	},
-	{
-		title: 'Languages',
-		url: '/languages',
-		path: '/languages',
-		icon: Languages,
-	},
-	{
-		title: 'Maturity Ratings',
-		url: '/maturity-ratings',
-		path: '/maturity-ratings',
-		icon: UserCheck,
-	},
-	{
-		title: 'Users',
-		url: '/users',
-		path: '/users',
-		icon: Users,
-	},
-	{
-		title: 'Packages',
-		url: '#',
-		path: '#',
-		icon: IndianRupee,
-		items: [
-			{
-				title: 'Rental Packages',
-				url: '/rental-packages',
-				path: '/rental-packages',
-			},
-			{
-				title: 'Subscription Packages',
-				url: '/subscription-packages',
-				path: '/subscription-packages',
-			},
-			{
-				title: 'Aspiration Packages',
-				url: '/aspiration-packages',
-				path: '/aspiration-packages',
-			},
-		],
-	},
-	{
-		title: 'Administration',
-		url: '#',
-		path: '#',
-		icon: ShieldCheck,
-		items: [
-			{
-				title: 'Custom Roles',
-				url: '/administration/roles',
-				path: '/administration',
-			},
-		],
 	},
 ];
 
@@ -211,8 +113,16 @@ const AppSidebar = () => {
 	return (
 		<Sidebar>
 			<SidebarHeader>
-				<div className="mt-4 mb-4 flex justify-center">
-					<Image alt="Logo" height={32} priority src="/logo.png" width={120} />
+				<div className="mt-2 mb-2 flex justify-center">
+					<Link href="/">
+						<Image
+							alt="Logo"
+							height={32}
+							priority
+							src="/logo.png"
+							width={150}
+						/>
+					</Link>
 				</div>
 			</SidebarHeader>
 			<SidebarContent>
