@@ -72,6 +72,9 @@ importers:
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@workspace/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       babel-plugin-react-compiler:
         specifier: ^1.0.0
         version: 1.0.0
@@ -191,6 +194,43 @@ importers:
       '@workspace/config':
         specifier: workspace:*
         version: link:../config
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/ui:
+    dependencies:
+      '@base-ui/react':
+        specifier: ^1.0.0
+        version: 1.2.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-table':
+        specifier: ^8.21.3
+        version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.546.0
+        version: 0.546.0(react@19.2.4)
+      react-day-picker:
+        specifier: ^9.14.0
+        version: 9.14.0(react@19.2.4)
+      tailwind-merge:
+        specifier: ^3.3.1
+        version: 3.5.0
+    devDependencies:
+      '@workspace/config':
+        specifier: workspace:*
+        version: link:../config
+      react:
+        specifier: ^19.2.3
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.3
+        version: 19.2.4(react@19.2.4)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

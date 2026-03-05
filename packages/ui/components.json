@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "../../packages/ui/src/styles/globals.css",
+    "css": "src/styles/globals.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -15,13 +15,10 @@
   "menuColor": "default",
   "menuAccent": "subtle",
   "aliases": {
-    "components": "@/components",
+    "components": "@workspace/ui/components",
     "utils": "@workspace/ui/lib/utils",
     "ui": "@workspace/ui/components",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
-  },
-  "registries": {
-    "@coss": "https://coss.com/ui/r/{name}.json"
+    "lib": "@workspace/ui/lib",
+    "hooks": "@workspace/ui/hooks"
   }
 }

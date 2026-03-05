@@ -1,6 +1,6 @@
 import { env } from '@workspace/env/web';
+import { cn } from '@workspace/ui/lib/utils';
 import PageHeading from '@/components/page-heading';
-import { cn } from '@/lib/utils';
 
 export default function Home() {
 	return (

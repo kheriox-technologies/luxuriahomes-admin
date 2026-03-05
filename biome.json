@@ -13,8 +13,9 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
-      "!**/components/ui",
-      "!**/hooks/use-media-query.ts",
+      "!packages/ui/src/components",
+      "!packages/ui/src/hooks",
+      "!packages/ui/src/lib",
       "!**/.next",
       "!**/dist",
       "!**/.turbo",

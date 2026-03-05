@@ -1,0 +1,13 @@
+{
+  "extends": "@workspace/config/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "lib": ["dom", "dom.iterable", "ESNext"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "strictNullChecks": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

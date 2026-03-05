@@ -1,7 +1,7 @@
 import { UserButton } from '@clerk/nextjs';
+import { Separator } from '@workspace/ui/components/separator';
 import Image from 'next/image';
 import { ModeToggle } from '@/components/mode-toggle';
-import { Separator } from '@/components/ui/separator';
 
 export default function Header() {
 	return (

@@ -1,11 +1,11 @@
 'use client';
 import { useAuth, useClerk } from '@clerk/nextjs';
+import { Button } from '@workspace/ui/components/button';
+import { Card, CardContent, CardFooter } from '@workspace/ui/components/card';
 import { AlertTriangle, CircleX, LoaderIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { DEFAULT_ERROR, ERROR_CODES, type ErrorCode } from '@/lib/error-codes';
 
 const ErrorContent = () => {

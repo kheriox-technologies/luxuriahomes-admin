@@ -3,11 +3,14 @@
 import { ClerkProvider, useAuth } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { env } from '@workspace/env/web';
+import {
+	AnchoredToastProvider,
+	ToastProvider,
+} from '@workspace/ui/components/toast';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import type { ComponentProps, ReactNode } from 'react';
-import { AnchoredToastProvider, ToastProvider } from '@/components/ui/toast';
 
 const convex = new ConvexReactClient(env.NEXT_PUBLIC_CONVEX_URL || '');
 
