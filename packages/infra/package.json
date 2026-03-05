@@ -1,0 +1,24 @@
+{
+  "name": "@workspace/infra",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "preview:dev": "pulumi preview --stack dev",
+    "preview:prod": "pulumi preview --stack prod",
+    "up:dev": "pulumi up --stack dev",
+    "up:prod": "pulumi up --stack prod",
+    "destroy:dev": "pulumi destroy --stack dev",
+    "destroy:prod": "pulumi destroy --stack prod"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^6.0.0",
+    "@pulumi/pulumi": "^3.0.0",
+    "@aws-sdk/client-sts": "^3.700.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3",
+    "ts-node": "^10.9.2"
+  }
+}

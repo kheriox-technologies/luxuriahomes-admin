@@ -18,7 +18,13 @@
     "dev:admin": "turbo -F admin dev",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "prepare": "husky"
+    "prepare": "husky",
+    "infra:preview:dev": "pnpm --filter @workspace/infra preview:dev",
+    "infra:preview:prod": "pnpm --filter @workspace/infra preview:prod",
+    "infra:up:dev": "pnpm --filter @workspace/infra up:dev",
+    "infra:up:prod": "pnpm --filter @workspace/infra up:prod",
+    "infra:destroy:dev": "pnpm --filter @workspace/infra destroy:dev",
+    "infra:destroy:prod": "pnpm --filter @workspace/infra destroy:prod"
   },
   "dependencies": {
     "@workspace/env": "workspace:*",

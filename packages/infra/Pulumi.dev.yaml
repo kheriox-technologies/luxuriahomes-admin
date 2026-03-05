@@ -1,0 +1,9 @@
+config:
+  aws:region: ap-southeast-2
+  aws:allowedAccountIds: ["333140338270"]
+  app:awsAccountId: "333140338270"
+  app:regionCode: "apse2"
+  app:appName: "Monorepo Template"
+  app:appCode: "mrt"
+  app:pulumiBackendUrl: "https://app.pulumi.com/kheriox-technologies"
+  app:logsRetentionDays: "7"
