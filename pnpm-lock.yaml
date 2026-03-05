@@ -66,6 +66,9 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@workspace/backend':
+        specifier: workspace:*
+        version: link:../../packages/backend
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env
@@ -142,6 +145,9 @@ importers:
 
   packages/backend:
     dependencies:
+      '@clerk/backend':
+        specifier: ^3.0.1
+        version: 3.0.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@convex-dev/workpool':
         specifier: ^0.3.1
         version: 0.3.2(convex-helpers@0.1.114(convex@1.32.0(react@19.2.4))(hono@4.12.5)(react@19.2.4)(typescript@5.9.3)(zod@4.3.6))(convex@1.32.0(react@19.2.4))
