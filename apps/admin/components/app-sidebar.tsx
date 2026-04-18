@@ -119,7 +119,7 @@ const AppSidebar = () => {
 							alt="Logo"
 							height={32}
 							priority
-							src="/logo.png"
+							src="/lh-admin-logo-no-bg.png"
 							width={150}
 						/>
 					</Link>
