@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server';
 
 type AuthContext =
@@ -49,4 +50,16 @@ export async function hasRole(
  */
 export async function isAdmin(ctx: AuthContext): Promise<boolean> {
 	return await hasRole(ctx, 'admin');
+}
+
+/**
+ * Throws ConvexError if the current user is not an admin.
+ */
+export async function requireAdmin(ctx: AuthContext): Promise<void> {
+	if (!(await isAdmin(ctx))) {
+		throw new ConvexError({
+			code: 'FORBIDDEN',
+			message: 'Admin role required',
+		});
+	}
 }
