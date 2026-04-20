@@ -20,7 +20,7 @@ import {
 	SidebarMenuSubItem,
 } from '@workspace/ui/components/sidebar';
 import { useQuery } from 'convex/react';
-import { ChevronDown, LayoutDashboard, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Folder, type LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -45,10 +45,10 @@ function isItemWithSub(item: SidebarItem): item is SidebarItemWithSub {
 // Menu items with path for role-based filtering.
 const items: SidebarItem[] = [
 	{
-		title: 'Dashboard',
-		url: '/dashboard',
-		path: '/dashboard',
-		icon: LayoutDashboard,
+		title: 'Projects',
+		url: '/projects',
+		path: '/projects',
+		icon: Folder,
 	},
 ];
 
