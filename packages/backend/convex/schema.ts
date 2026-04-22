@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { zodToConvex } from 'convex-helpers/server/zod';
 import { z } from 'zod';
 import {
+	australianAddressValidator,
 	projectClientValidator,
 	projectStatusValidator,
 } from './projects/shared';
@@ -21,7 +22,7 @@ export default defineSchema({
 	),
 	projects: defineTable({
 		name: v.string(),
-		address: v.string(),
+		address: australianAddressValidator,
 		status: projectStatusValidator,
 		client: projectClientValidator,
 		searchText: v.string(),

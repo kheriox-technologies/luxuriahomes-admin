@@ -2,13 +2,18 @@ import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { buildProjectSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
-import { projectClientPatchValidator, projectStatusValidator } from './shared';
+import {
+	assertAustralianAddress,
+	australianAddressValidator,
+	projectClientPatchValidator,
+	projectStatusValidator,
+} from './shared';
 
 export const update = mutation({
 	args: {
 		projectId: v.id('projects'),
 		name: v.optional(v.string()),
-		address: v.optional(v.string()),
+		address: v.optional(australianAddressValidator),
 		status: v.optional(projectStatusValidator),
 		client: v.optional(projectClientPatchValidator),
 	},
@@ -30,7 +35,16 @@ export const update = mutation({
 			phone: patch.phone ?? existing.client.phone,
 			company:
 				patch.company !== undefined ? patch.company : existing.client.company,
+			address:
+				patch.address !== undefined ? patch.address : existing.client.address,
 		};
+
+		if (args.address) {
+			assertAustralianAddress(args.address);
+		}
+		if (patch.address !== undefined && patch.address) {
+			assertAustralianAddress(patch.address);
+		}
 
 		const name = args.name ?? existing.name;
 		const address = args.address ?? existing.address;

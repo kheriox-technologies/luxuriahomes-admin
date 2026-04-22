@@ -24,28 +24,43 @@ export function buildSearchText(
 	return tokens.join(' ').replace(/\s+/g, ' ').trim();
 }
 
+export interface AustralianAddressSearchFields {
+	postcode: string;
+	state: string;
+	street: string;
+	suburb: string;
+}
+
 export interface ProjectSearchDoc {
-	address: string;
+	address: AustralianAddressSearchFields;
 	client: {
 		firstName: string;
 		lastName: string;
 		email: string;
 		phone: string;
 		company?: string | undefined;
+		address?: AustralianAddressSearchFields | undefined;
 	};
 	name: string;
 	status: string;
 }
 
+function addressSearchParts(
+	address: AustralianAddressSearchFields
+): Array<string | undefined> {
+	return [address.street, address.suburb, address.state, address.postcode];
+}
+
 export function buildProjectSearchText(doc: ProjectSearchDoc): string {
 	return buildSearchText([
 		doc.name,
-		doc.address,
+		...addressSearchParts(doc.address),
 		doc.status,
 		doc.client.firstName,
 		doc.client.lastName,
 		doc.client.email,
 		doc.client.phone,
 		doc.client.company,
+		...(doc.client.address ? addressSearchParts(doc.client.address) : []),
 	]);
 }
