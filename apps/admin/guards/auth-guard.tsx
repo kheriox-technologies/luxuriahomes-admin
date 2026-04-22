@@ -16,7 +16,14 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 			<Authenticated>{children}</Authenticated>
 			<Unauthenticated>
 				<CenteredLayout>
-					<SignIn />
+					<SignIn
+						appearance={{
+							elements: {
+								logoBox: '!h-16',
+								logoImage: '!h-16 !w-auto',
+							},
+						}}
+					/>
 				</CenteredLayout>
 			</Unauthenticated>
 		</>
