@@ -50,6 +50,12 @@ const items: SidebarItem[] = [
 		path: '/projects',
 		icon: Folder,
 	},
+	{
+		title: 'Inclusions',
+		url: '/inclusions',
+		path: '/inclusions',
+		icon: Folder,
+	},
 ];
 
 function hasPathMatch(pathname: string, allowedPath: string): boolean {
@@ -128,7 +134,7 @@ const AppSidebar = () => {
 			<SidebarContent>
 				<SidebarGroup>
 					<SidebarGroupContent>
-						<SidebarMenu>
+						<SidebarMenu className="gap-2">
 							{filteredItems.map((item) => {
 								if (isItemWithSub(item)) {
 									const visibleSubItems = item.items.filter((sub) =>
