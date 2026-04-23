@@ -5,7 +5,7 @@ import { requireAdmin } from '../lib/checkIdentity';
 import {
 	assertAustralianAddress,
 	australianAddressValidator,
-	projectClientPatchValidator,
+	projectClientValidator,
 	projectStatusValidator,
 } from './shared';
 
@@ -15,7 +15,7 @@ export const update = mutation({
 		name: v.optional(v.string()),
 		address: v.optional(australianAddressValidator),
 		status: v.optional(projectStatusValidator),
-		client: v.optional(projectClientPatchValidator),
+		clients: v.optional(v.array(projectClientValidator)),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -27,41 +27,42 @@ export const update = mutation({
 			});
 		}
 
-		const patch = args.client ?? {};
-		const client = {
-			firstName: patch.firstName ?? existing.client.firstName,
-			lastName: patch.lastName ?? existing.client.lastName,
-			email: patch.email ?? existing.client.email,
-			phone: patch.phone ?? existing.client.phone,
-			company:
-				patch.company !== undefined ? patch.company : existing.client.company,
-			address:
-				patch.address !== undefined ? patch.address : existing.client.address,
-		};
-
 		if (args.address) {
 			assertAustralianAddress(args.address);
-		}
-		if (patch.address !== undefined && patch.address) {
-			assertAustralianAddress(patch.address);
 		}
 
 		const name = args.name ?? existing.name;
 		const address = args.address ?? existing.address;
 		const status = args.status ?? existing.status;
 
+		let clients = existing.clients;
+		if (args.clients !== undefined) {
+			if (args.clients.length < 1) {
+				throw new ConvexError({
+					code: 'CLIENTS_REQUIRED',
+					message: 'At least one client is required',
+				});
+			}
+			for (const client of args.clients) {
+				if (client.address) {
+					assertAustralianAddress(client.address);
+				}
+			}
+			clients = args.clients;
+		}
+
 		const searchText = buildProjectSearchText({
 			name,
 			address,
 			status,
-			client,
+			clients,
 		});
 
 		await ctx.db.patch(args.projectId, {
 			name,
 			address,
 			status,
-			client,
+			clients,
 			searchText,
 		});
 		return args.projectId;

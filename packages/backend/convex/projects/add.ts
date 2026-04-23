@@ -1,4 +1,4 @@
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { buildProjectSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
@@ -14,25 +14,33 @@ export const add = mutation({
 		name: v.string(),
 		address: australianAddressValidator,
 		status: projectStatusValidator,
-		client: projectClientValidator,
+		clients: v.array(projectClientValidator),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
+		if (args.clients.length < 1) {
+			throw new ConvexError({
+				code: 'CLIENTS_REQUIRED',
+				message: 'At least one client is required',
+			});
+		}
 		assertAustralianAddress(args.address);
-		if (args.client.address) {
-			assertAustralianAddress(args.client.address);
+		for (const client of args.clients) {
+			if (client.address) {
+				assertAustralianAddress(client.address);
+			}
 		}
 		const searchText = buildProjectSearchText({
 			name: args.name,
 			address: args.address,
 			status: args.status,
-			client: args.client,
+			clients: args.clients,
 		});
 		return await ctx.db.insert('projects', {
 			name: args.name,
 			address: args.address,
 			status: args.status,
-			client: args.client,
+			clients: args.clients,
 			searchText,
 		});
 	},

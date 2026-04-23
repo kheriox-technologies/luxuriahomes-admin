@@ -31,16 +31,18 @@ export interface AustralianAddressSearchFields {
 	suburb: string;
 }
 
+export interface ProjectClientSearchFields {
+	address?: AustralianAddressSearchFields | undefined;
+	company?: string | undefined;
+	email: string;
+	firstName: string;
+	lastName: string;
+	phone: string;
+}
+
 export interface ProjectSearchDoc {
 	address: AustralianAddressSearchFields;
-	client: {
-		firstName: string;
-		lastName: string;
-		email: string;
-		phone: string;
-		company?: string | undefined;
-		address?: AustralianAddressSearchFields | undefined;
-	};
+	clients: ProjectClientSearchFields[];
 	name: string;
 	status: string;
 }
@@ -52,15 +54,21 @@ function addressSearchParts(
 }
 
 export function buildProjectSearchText(doc: ProjectSearchDoc): string {
+	const clientParts: Array<string | undefined> = [];
+	for (const c of doc.clients) {
+		clientParts.push(
+			c.firstName,
+			c.lastName,
+			c.email,
+			c.phone,
+			c.company,
+			...(c.address ? addressSearchParts(c.address) : [])
+		);
+	}
 	return buildSearchText([
 		doc.name,
 		...addressSearchParts(doc.address),
 		doc.status,
-		doc.client.firstName,
-		doc.client.lastName,
-		doc.client.email,
-		doc.client.phone,
-		doc.client.company,
-		...(doc.client.address ? addressSearchParts(doc.client.address) : []),
+		...clientParts,
 	]);
 }

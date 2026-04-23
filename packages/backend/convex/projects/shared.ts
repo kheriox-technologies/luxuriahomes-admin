@@ -51,12 +51,3 @@ export const projectClientValidator = v.object({
 	company: v.optional(v.string()),
 	address: v.optional(australianAddressValidator),
 });
-
-export const projectClientPatchValidator = v.object({
-	firstName: v.optional(v.string()),
-	lastName: v.optional(v.string()),
-	email: v.optional(v.string()),
-	phone: v.optional(v.string()),
-	company: v.optional(v.string()),
-	address: v.optional(australianAddressValidator),
-});

@@ -1,5 +1,6 @@
 'use client';
 
+import type { Doc } from '@workspace/backend/dataModel';
 import {
 	Combobox,
 	ComboboxEmpty,
@@ -102,6 +103,33 @@ const optionalClientAddressSchema = z
 		}
 	});
 
+export const clientDraftSchema = z.object({
+	firstName: z.string().trim().min(1, 'First name is required'),
+	lastName: z.string().trim().min(1, 'Last name is required'),
+	email: z.string().trim().email('Enter a valid email'),
+	phone: z.string().trim().min(1, 'Phone is required'),
+	company: z.string(),
+	address: optionalClientAddressSchema,
+});
+
+export type ClientDraftValues = z.infer<typeof clientDraftSchema>;
+
+export type ProjectStoredClient = Doc<'projects'>['clients'][number];
+
+export const emptyClientDraft: ClientDraftValues = {
+	firstName: '',
+	lastName: '',
+	email: '',
+	phone: '',
+	company: '',
+	address: {
+		street: '',
+		suburb: '',
+		state: '',
+		postcode: '',
+	},
+};
+
 export const projectCoreFormSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required'),
 	address: z.object({
@@ -114,14 +142,6 @@ export const projectCoreFormSchema = z.object({
 		postcode: z
 			.string()
 			.regex(postcodeRegex, 'Postcode must be exactly 4 digits'),
-	}),
-	client: z.object({
-		firstName: z.string().trim().min(1, 'First name is required'),
-		lastName: z.string().trim().min(1, 'Last name is required'),
-		email: z.string().trim().email('Enter a valid email'),
-		phone: z.string().trim().min(1, 'Phone is required'),
-		company: z.string(),
-		address: optionalClientAddressSchema,
 	}),
 });
 
@@ -154,19 +174,6 @@ export const emptyProjectCoreFormValues = {
 		state: '',
 		postcode: '',
 	},
-	client: {
-		firstName: '',
-		lastName: '',
-		email: '',
-		phone: '',
-		company: '',
-		address: {
-			street: '',
-			suburb: '',
-			state: '',
-			postcode: '',
-		},
-	},
 } as unknown as ProjectCoreFormValues;
 
 export const emptyEditProjectFormValues = {
@@ -188,6 +195,154 @@ export function formatFieldErrors(errors: readonly unknown[]): string {
 		})
 		.filter(Boolean)
 		.join(' ');
+}
+
+export function projectClientDisplayName(c: ProjectStoredClient): string {
+	return `${trim(c.firstName)} ${trim(c.lastName)}`.trim();
+}
+
+export function projectClientEmailPhoneLine(c: ProjectStoredClient): string {
+	return `${trim(c.email)} | ${trim(c.phone)}`;
+}
+
+export function projectClientAddressLine(c: ProjectStoredClient): string {
+	if (!c.address) {
+		return '';
+	}
+	const a = c.address;
+	return `${a.street}, ${a.suburb}, ${a.state} ${a.postcode}`;
+}
+
+/** Convex-shaped client from a validated draft (optional address from form fields). */
+export function projectClientFromDraft(
+	value: ClientDraftValues
+): ProjectStoredClient {
+	const companyTrimmed = trim(value.company);
+	const ca = value.address;
+	const clientAddressAny =
+		trim(ca.street) || trim(ca.suburb) || trim(ca.state) || trim(ca.postcode);
+
+	const clientAddress = clientAddressAny
+		? {
+				street: trim(ca.street),
+				suburb: trim(ca.suburb),
+				state: trim(ca.state) as AustralianState,
+				postcode: trim(ca.postcode),
+			}
+		: undefined;
+
+	return {
+		firstName: trim(value.firstName),
+		lastName: trim(value.lastName),
+		email: trim(value.email),
+		phone: trim(value.phone),
+		...(companyTrimmed ? { company: companyTrimmed } : {}),
+		...(clientAddress ? { address: clientAddress } : {}),
+	};
+}
+
+export function cloneProjectClientAddress(
+	address: NonNullable<ProjectStoredClient['address']>
+): NonNullable<ProjectStoredClient['address']> {
+	return {
+		street: address.street,
+		suburb: address.suburb,
+		state: address.state,
+		postcode: address.postcode,
+	};
+}
+
+export function projectClientAddressesEqual(
+	a: ProjectStoredClient['address'],
+	b: ProjectStoredClient['address']
+): boolean {
+	if (!(a || b)) {
+		return true;
+	}
+	if (!(a && b)) {
+		return false;
+	}
+	return (
+		a.street === b.street &&
+		a.suburb === b.suburb &&
+		a.state === b.state &&
+		a.postcode === b.postcode
+	);
+}
+
+export function clientDraftFromStored(
+	c: ProjectStoredClient
+): ClientDraftValues {
+	return {
+		firstName: c.firstName,
+		lastName: c.lastName,
+		email: c.email,
+		phone: c.phone,
+		company: c.company ?? '',
+		address: {
+			street: c.address?.street ?? '',
+			suburb: c.address?.suburb ?? '',
+			state: c.address?.state ?? '',
+			postcode: c.address?.postcode ?? '',
+		},
+	};
+}
+
+function sanitizeProjectClient(c: ProjectStoredClient): ProjectStoredClient {
+	const companyTrimmed = c.company !== undefined ? trim(c.company) : '';
+	const base: ProjectStoredClient = {
+		firstName: trim(c.firstName),
+		lastName: trim(c.lastName),
+		email: trim(c.email),
+		phone: trim(c.phone),
+		...(companyTrimmed ? { company: companyTrimmed } : {}),
+	};
+	if (!c.address) {
+		return base;
+	}
+	return {
+		...base,
+		address: {
+			street: trim(c.address.street),
+			suburb: trim(c.address.suburb),
+			state: c.address.state,
+			postcode: trim(c.address.postcode),
+		},
+	};
+}
+
+export function toConvexCreatePayload(
+	value: z.infer<typeof projectCoreFormSchema>,
+	clients: ProjectStoredClient[]
+) {
+	return {
+		name: trim(value.name),
+		address: {
+			street: trim(value.address.street),
+			suburb: trim(value.address.suburb),
+			state: value.address.state as AustralianState,
+			postcode: trim(value.address.postcode),
+		},
+		status: 'not_started' as const,
+		clients: clients.map(sanitizeProjectClient),
+	};
+}
+
+export function toConvexUpdatePayload(
+	value: z.infer<typeof editProjectFormSchema>,
+	clients: ProjectStoredClient[]
+) {
+	return {
+		name: trim(value.name),
+		address: {
+			street: trim(value.address.street),
+			suburb: trim(value.address.suburb),
+			state: value.address.state as AustralianState,
+			postcode: trim(value.address.postcode),
+		},
+		status: value.status,
+		clients: clients.map(sanitizeProjectClient),
+	};
 }
 
 export function AustralianStateCombobox({
@@ -290,78 +445,4 @@ export function ProjectStatusCombobox({
 			</ComboboxPopup>
 		</Combobox>
 	);
-}
-
-export function toConvexCreatePayload(
-	value: z.infer<typeof projectCoreFormSchema>
-) {
-	const companyTrimmed = trim(value.client.company);
-	const ca = value.client.address;
-	const clientAddressAny =
-		trim(ca.street) || trim(ca.suburb) || trim(ca.state) || trim(ca.postcode);
-
-	const clientAddress = clientAddressAny
-		? {
-				street: trim(ca.street),
-				suburb: trim(ca.suburb),
-				state: trim(ca.state) as AustralianState,
-				postcode: trim(ca.postcode),
-			}
-		: undefined;
-
-	return {
-		name: trim(value.name),
-		address: {
-			street: trim(value.address.street),
-			suburb: trim(value.address.suburb),
-			state: value.address.state as AustralianState,
-			postcode: trim(value.address.postcode),
-		},
-		status: 'not_started' as const,
-		client: {
-			firstName: trim(value.client.firstName),
-			lastName: trim(value.client.lastName),
-			email: trim(value.client.email),
-			phone: trim(value.client.phone),
-			...(companyTrimmed ? { company: companyTrimmed } : {}),
-			...(clientAddress ? { address: clientAddress } : {}),
-		},
-	};
-}
-
-export function toConvexUpdatePayload(
-	value: z.infer<typeof editProjectFormSchema>
-) {
-	const companyTrimmed = trim(value.client.company);
-	const ca = value.client.address;
-	const clientAddressAny =
-		trim(ca.street) || trim(ca.suburb) || trim(ca.state) || trim(ca.postcode);
-
-	const clientAddress = clientAddressAny
-		? {
-				street: trim(ca.street),
-				suburb: trim(ca.suburb),
-				state: trim(ca.state) as AustralianState,
-				postcode: trim(ca.postcode),
-			}
-		: undefined;
-
-	return {
-		name: trim(value.name),
-		address: {
-			street: trim(value.address.street),
-			suburb: trim(value.address.suburb),
-			state: value.address.state as AustralianState,
-			postcode: trim(value.address.postcode),
-		},
-		status: value.status,
-		client: {
-			firstName: trim(value.client.firstName),
-			lastName: trim(value.client.lastName),
-			email: trim(value.client.email),
-			phone: trim(value.client.phone),
-			company: companyTrimmed,
-			...(clientAddress ? { address: clientAddress } : {}),
-		},
-	};
 }

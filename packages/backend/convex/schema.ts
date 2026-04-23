@@ -24,7 +24,7 @@ export default defineSchema({
 		name: v.string(),
 		address: australianAddressValidator,
 		status: projectStatusValidator,
-		client: projectClientValidator,
+		clients: v.array(projectClientValidator),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
 });
