@@ -3,7 +3,14 @@
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
-import { Card, CardTitle } from '@workspace/ui/components/card';
+import {
+	Card,
+	CardFrame,
+	CardFrameAction,
+	CardFrameHeader,
+	CardFrameTitle,
+	CardPanel,
+} from '@workspace/ui/components/card';
 import {
 	Empty,
 	EmptyDescription,
@@ -66,30 +73,32 @@ function ProjectCard({ project }: { project: Project }) {
 			href={`/projects/${project._id}` as LinkProps<string>['href']}
 			prefetch
 		>
-			<Card
+			<CardFrame
 				className={cn(
 					'h-full transition-colors',
 					'group-hover:border-ring/32 group-hover:bg-accent/24'
 				)}
 			>
-				<div className="flex flex-col gap-3 p-6">
-					<div className="flex items-center justify-between gap-3">
-						<CardTitle className="min-w-0 truncate leading-snug">
-							{project.name}
-						</CardTitle>
+				<CardFrameHeader className="flex flex-row items-center justify-between gap-3">
+					<CardFrameTitle className="min-w-0 truncate leading-snug">
+						{project.name}
+					</CardFrameTitle>
+					<CardFrameAction>
 						<Badge className="shrink-0" size="lg" variant={badge.variant}>
 							{badge.label}
 						</Badge>
-					</div>
-					<div className="space-y-1 text-muted-foreground text-sm">
+					</CardFrameAction>
+				</CardFrameHeader>
+				<Card>
+					<CardPanel className="space-y-1 text-muted-foreground text-sm">
 						<p className="leading-snug">{project.address.street}</p>
 						<p className="leading-snug">
 							{project.address.suburb}, {project.address.state}{' '}
 							{project.address.postcode}
 						</p>
-					</div>
-				</div>
-			</Card>
+					</CardPanel>
+				</Card>
+			</CardFrame>
 		</Link>
 	);
 }

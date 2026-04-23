@@ -3,6 +3,7 @@
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import { Button } from '@workspace/ui/components/button';
+import { Card, CardPanel } from '@workspace/ui/components/card';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { Separator } from '@workspace/ui/components/separator';
@@ -344,28 +345,35 @@ export default function AddProjectForm() {
 							<p className="font-medium text-muted-foreground text-sm">
 								Client
 							</p>
-							<ProjectClientDraftFields
-								addressTitleSlot={
-									<ClientAddressTitleRow
-										onSameAsFirstChange={setSameAsFirstClient}
-										sameAsFirstClient={sameAsFirstClient}
-										showSameAsFirst={showSameAsFirstCheckbox}
-										title="Client address"
+							<Card>
+								<CardPanel className="space-y-4">
+									<p className="font-medium text-muted-foreground text-sm">
+										Client details
+									</p>
+									<ProjectClientDraftFields
+										addressTitleSlot={
+											<ClientAddressTitleRow
+												onSameAsFirstChange={setSameAsFirstClient}
+												sameAsFirstClient={sameAsFirstClient}
+												showSameAsFirst={showSameAsFirstCheckbox}
+												title="Client address"
+											/>
+										}
+										draft={draft}
+										setDraft={setDraft}
+										showAddressInputs={showAddressInputs}
 									/>
-								}
-								draft={draft}
-								setDraft={setDraft}
-								showAddressInputs={showAddressInputs}
-							/>
-							<div className="flex justify-end">
-								<Button
-									onClick={handleAddOrSaveClient}
-									type="button"
-									variant="outline"
-								>
-									{editingIndex === null ? 'Add Client' : 'Save Client'}
-								</Button>
-							</div>
+									<div className="flex justify-end">
+										<Button
+											onClick={handleAddOrSaveClient}
+											type="button"
+											variant="outline"
+										>
+											{editingIndex === null ? 'Add Client' : 'Save Client'}
+										</Button>
+									</div>
+								</CardPanel>
+							</Card>
 
 							{clients.length > 0 ? (
 								<div className="flex flex-col gap-3">

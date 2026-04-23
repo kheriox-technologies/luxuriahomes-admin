@@ -11,7 +11,14 @@ import {
 	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
-import { Card, CardPanel } from '@workspace/ui/components/card';
+import {
+	Card,
+	CardFrame,
+	CardFrameAction,
+	CardFrameHeader,
+	CardFrameTitle,
+	CardPanel,
+} from '@workspace/ui/components/card';
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
@@ -47,12 +54,12 @@ export function ProjectClientCard({
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const addressLine = projectClientAddressLine(client);
 	return (
-		<Card>
-			<CardPanel className="space-y-2 text-muted-foreground">
-				<div className="flex items-center justify-between gap-3">
-					<p className="font-semibold text-foreground leading-none">
-						{projectClientDisplayName(client)}
-					</p>
+		<CardFrame>
+			<CardFrameHeader className="grid-rows-1 items-center">
+				<CardFrameTitle className="min-w-0 truncate leading-none">
+					{projectClientDisplayName(client)}
+				</CardFrameTitle>
+				<CardFrameAction className="row-span-1 row-start-1 self-center">
 					<Group>
 						<Button
 							aria-label="Edit client"
@@ -104,17 +111,21 @@ export function ProjectClientCard({
 							</AlertDialogContent>
 						</AlertDialog>
 					</Group>
-				</div>
-				<p className="text-sm leading-snug">
-					{projectClientEmailPhoneLine(client)}
-				</p>
-				<p className="text-sm leading-snug">
-					{addressLine || (
-						<span className="text-muted-foreground/72">No address</span>
-					)}
-				</p>
-			</CardPanel>
-		</Card>
+				</CardFrameAction>
+			</CardFrameHeader>
+			<Card>
+				<CardPanel className="space-y-2 text-muted-foreground">
+					<p className="text-sm leading-snug">
+						{projectClientEmailPhoneLine(client)}
+					</p>
+					<p className="text-sm leading-snug">
+						{addressLine || (
+							<span className="text-muted-foreground/72">No address</span>
+						)}
+					</p>
+				</CardPanel>
+			</Card>
+		</CardFrame>
 	);
 }
 
