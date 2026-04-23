@@ -64,8 +64,21 @@ function ProjectCard({ project }: { project: Project }) {
 	);
 }
 
-export default function ProjectsList() {
-	const projects = useQuery(api.projects.list.list, {});
+export default function ProjectsList({
+	searchQuery = '',
+}: {
+	searchQuery?: string;
+}) {
+	const trimmedSearch = searchQuery.trim();
+	const listResults = useQuery(
+		api.projects.list.list,
+		trimmedSearch === '' ? {} : 'skip'
+	);
+	const searchResults = useQuery(
+		api.projects.search.search,
+		trimmedSearch !== '' ? { query: trimmedSearch } : 'skip'
+	);
+	const projects = trimmedSearch === '' ? listResults : searchResults;
 
 	if (projects === undefined) {
 		return (
@@ -75,7 +88,11 @@ export default function ProjectsList() {
 
 	if (projects.length === 0) {
 		return (
-			<div className="text-muted-foreground text-sm">No projects yet.</div>
+			<div className="text-muted-foreground text-sm">
+				{trimmedSearch === ''
+					? 'No projects yet.'
+					: 'No projects match your search.'}
+			</div>
 		);
 	}
 
