@@ -11,6 +11,7 @@
 import type * as inclusionCategories_add from "../inclusionCategories/add.js";
 import type * as inclusionCategories_list from "../inclusionCategories/list.js";
 import type * as inclusionCategories_remove from "../inclusionCategories/remove.js";
+import type * as inclusionCategories_search from "../inclusionCategories/search.js";
 import type * as inclusionCategories_shared from "../inclusionCategories/shared.js";
 import type * as inclusionCategories_update from "../inclusionCategories/update.js";
 import type * as lib_buildSearchText from "../lib/buildSearchText.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "inclusionCategories/add": typeof inclusionCategories_add;
   "inclusionCategories/list": typeof inclusionCategories_list;
   "inclusionCategories/remove": typeof inclusionCategories_remove;
+  "inclusionCategories/search": typeof inclusionCategories_search;
   "inclusionCategories/shared": typeof inclusionCategories_shared;
   "inclusionCategories/update": typeof inclusionCategories_update;
   "lib/buildSearchText": typeof lib_buildSearchText;

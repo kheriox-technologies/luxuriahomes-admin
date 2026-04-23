@@ -64,7 +64,7 @@ export function ProjectClientCard({
 						<Button
 							aria-label="Edit client"
 							onClick={onEdit}
-							size="icon-sm"
+							size="icon"
 							type="button"
 							variant="outline"
 						>
@@ -76,7 +76,7 @@ export function ProjectClientCard({
 								render={
 									<Button
 										aria-label="Delete client"
-										size="icon-sm"
+										size="icon"
 										type="button"
 										variant="destructive-outline"
 									/>

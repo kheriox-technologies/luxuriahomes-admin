@@ -18,7 +18,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import {
 	emptyInclusionCategoryFormValues,
 	inclusionCategoryFieldError,
@@ -67,15 +67,19 @@ export default function EditInclusionCategory({
 		},
 	});
 
+	useEffect(() => {
+		if (open) {
+			form.reset({ name: initialName });
+			return;
+		}
+
+		form.reset();
+	}, [form, initialName, open]);
+
 	return (
 		<Dialog
 			onOpenChange={(nextOpen) => {
 				setOpen(nextOpen);
-				if (nextOpen) {
-					form.reset({ name: initialName });
-					return;
-				}
-				form.reset();
 			}}
 			open={open}
 		>

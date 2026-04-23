@@ -72,3 +72,7 @@ export function buildProjectSearchText(doc: ProjectSearchDoc): string {
 		...clientParts,
 	]);
 }
+
+export function buildInclusionCategorySearchText(name: string): string {
+	return buildSearchText([name]);
+}

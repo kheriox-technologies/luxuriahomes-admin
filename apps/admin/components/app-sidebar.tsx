@@ -162,7 +162,10 @@ const AppSidebar = () => {
 									return (
 										<Collapsible defaultOpen={isOpen} key={item.title}>
 											<SidebarMenuItem>
-												<CollapsibleTrigger render={<div />}>
+												<CollapsibleTrigger
+													nativeButton={false}
+													render={<div />}
+												>
 													<SidebarMenuButton
 														isActive={isOpen}
 														tooltip={item.title}

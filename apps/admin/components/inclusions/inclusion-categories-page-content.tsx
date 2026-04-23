@@ -4,7 +4,12 @@ import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import { Card, CardPanel } from '@workspace/ui/components/card';
+import {
+	Card,
+	CardAction,
+	CardHeader,
+	CardTitle,
+} from '@workspace/ui/components/card';
 import {
 	Empty,
 	EmptyDescription,
@@ -13,9 +18,17 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Layers, Pencil, Trash2 } from 'lucide-react';
+import { Layers, Pencil, SearchIcon, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import AddInclusionCategory from '@/components/inclusions/add-inclusion-category';
 import DeleteInclusionCategory from '@/components/inclusions/delete-inclusion-category';
 import EditInclusionCategory from '@/components/inclusions/edit-inclusion-category';
@@ -26,9 +39,11 @@ type InclusionCategory = Doc<'inclusionCategories'>;
 function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 	return (
 		<Card>
-			<CardPanel>
-				<div className="flex items-center justify-between gap-3">
-					<p className="font-semibold leading-none">{category.name}</p>
+			<CardHeader className="flex flex-row items-center justify-between gap-3">
+				<CardTitle className="min-w-0 truncate leading-none">
+					{category.name}
+				</CardTitle>
+				<CardAction>
 					<div className="flex items-center gap-2">
 						<Badge size="lg" variant="info">
 							{category.count}
@@ -40,7 +55,7 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 								trigger={
 									<Button
 										aria-label="Edit category"
-										size="icon-sm"
+										size="icon"
 										type="button"
 										variant="outline"
 									>
@@ -55,7 +70,7 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 								trigger={
 									<Button
 										aria-label="Delete category"
-										size="icon-sm"
+										size="icon"
 										type="button"
 										variant="destructive-outline"
 									>
@@ -65,8 +80,8 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 							/>
 						</Group>
 					</div>
-				</div>
-			</CardPanel>
+				</CardAction>
+			</CardHeader>
 		</Card>
 	);
 }
@@ -88,7 +103,24 @@ function EmptyCategoriesState() {
 }
 
 export default function InclusionCategoriesPageContent() {
-	const categories = useQuery(api.inclusionCategories.list.list, {});
+	const [search, setSearch] = useState('');
+	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const trimmedSearch = debouncedSearch.trim();
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
+		return () => window.clearTimeout(id);
+	}, [search]);
+
+	const listResults = useQuery(
+		api.inclusionCategories.list.list,
+		trimmedSearch === '' ? {} : 'skip'
+	);
+	const searchResults = useQuery(
+		api.inclusionCategories.search.search,
+		trimmedSearch !== '' ? { query: trimmedSearch } : 'skip'
+	);
+	const categories = trimmedSearch === '' ? listResults : searchResults;
 	let content: ReactNode;
 
 	if (categories === undefined) {
@@ -96,7 +128,21 @@ export default function InclusionCategoriesPageContent() {
 			<div className="text-muted-foreground text-sm">Loading categories…</div>
 		);
 	} else if (categories.length === 0) {
-		content = <EmptyCategoriesState />;
+		if (trimmedSearch === '') {
+			content = <EmptyCategoriesState />;
+		} else {
+			content = (
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<SearchIcon aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No matching categories</EmptyTitle>
+						<EmptyDescription>Try another category name.</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			);
+		}
 	} else {
 		content = (
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -108,11 +154,27 @@ export default function InclusionCategoriesPageContent() {
 	}
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-4">
-			<PageHeading
-				heading="Inclusion Categories"
-				rightSlot={<AddInclusionCategory />}
-			/>
+		<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
+			<div className="mb-0 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+				<PageHeading className="mb-0" heading="Inclusion Categories" />
+				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
+					<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
+						<InputGroupAddon align="inline-start">
+							<InputGroupText>
+								<SearchIcon aria-hidden />
+							</InputGroupText>
+						</InputGroupAddon>
+						<InputGroupInput
+							aria-label="Search inclusion categories"
+							onChange={(e) => setSearch(e.target.value)}
+							placeholder="Search categories by name…"
+							type="search"
+							value={search}
+						/>
+					</InputGroup>
+					<AddInclusionCategory />
+				</div>
+			</div>
 			{content}
 		</div>
 	);

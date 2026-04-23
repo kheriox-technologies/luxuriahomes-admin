@@ -1,5 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
+import { buildInclusionCategorySearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
 import { ensureCategoryNameUnique, parseCategoryName } from './shared';
 
@@ -20,8 +21,9 @@ export const update = mutation({
 
 		const name = parseCategoryName(args.name);
 		await ensureCategoryNameUnique(ctx, name, args.categoryId);
+		const searchText = buildInclusionCategorySearchText(name);
 
-		await ctx.db.patch(args.categoryId, { name });
+		await ctx.db.patch(args.categoryId, { name, searchText });
 		return args.categoryId;
 	},
 });

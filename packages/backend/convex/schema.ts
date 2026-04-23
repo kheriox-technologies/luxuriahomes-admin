@@ -23,7 +23,10 @@ export default defineSchema({
 	inclusionCategories: defineTable({
 		name: v.string(),
 		count: v.number(),
-	}).index('by_name', ['name']),
+		searchText: v.string(),
+	})
+		.index('by_name', ['name'])
+		.searchIndex('search_inclusion_categories', { searchField: 'searchText' }),
 	projects: defineTable({
 		name: v.string(),
 		address: australianAddressValidator,
