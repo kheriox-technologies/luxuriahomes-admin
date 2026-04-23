@@ -2,8 +2,10 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
+import { Pencil, Trash2 } from 'lucide-react';
 import DeleteProject from '@/components/forms/delete-project';
 import EditProjectForm from '@/components/forms/edit-project';
 import PageHeading from '@/components/page-heading';
@@ -52,8 +54,37 @@ export default function ProjectDetailView({
 				heading={project.name}
 				rightSlot={
 					<div className="flex items-center gap-2">
-						<EditProjectForm projectId={projectId} />
-						<DeleteProject projectId={projectId} projectName={project.name} />
+						<EditProjectForm
+							projectId={projectId}
+							trigger={
+								<Button
+									aria-label="Edit project"
+									className="size-9 sm:h-8 sm:w-auto sm:px-[calc(--spacing(3)-1px)]"
+									size="icon"
+									variant="outline"
+								>
+									<Pencil className="sm:hidden" />
+									<span className="hidden sm:inline">Edit project</span>
+									<span className="sr-only sm:hidden">Edit project</span>
+								</Button>
+							}
+						/>
+						<DeleteProject
+							projectId={projectId}
+							projectName={project.name}
+							trigger={
+								<Button
+									aria-label="Delete project"
+									className="size-9 sm:h-8 sm:w-auto sm:px-[calc(--spacing(3)-1px)]"
+									size="icon"
+									variant="destructive-outline"
+								>
+									<Trash2 className="sm:hidden" />
+									<span className="hidden sm:inline">Delete project</span>
+									<span className="sr-only sm:hidden">Delete project</span>
+								</Button>
+							}
+						/>
 					</div>
 				}
 			/>

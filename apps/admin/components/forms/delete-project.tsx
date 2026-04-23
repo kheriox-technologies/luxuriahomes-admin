@@ -16,14 +16,16 @@ import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 
 export default function DeleteProject({
 	projectId,
 	projectName,
+	trigger,
 }: {
 	projectId: Id<'projects'>;
 	projectName: string;
+	trigger?: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
@@ -56,7 +58,11 @@ export default function DeleteProject({
 	return (
 		<AlertDialog onOpenChange={setOpen} open={open}>
 			<AlertDialogTrigger
-				render={<Button variant="destructive-outline">Delete project</Button>}
+				render={
+					trigger ?? (
+						<Button variant="destructive-outline">Delete project</Button>
+					)
+				}
 			/>
 			<AlertDialogContent>
 				<AlertDialogHeader>

@@ -20,7 +20,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { useEffect, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import {
 	ClientAddressTitleRow,
 	clientDraftErrorMessage,
@@ -75,8 +75,10 @@ function cloneClientsFromProject(
 
 export default function EditProjectForm({
 	projectId,
+	trigger,
 }: {
 	projectId: Id<'projects'>;
+	trigger?: ReactElement;
 }) {
 	const project = useQuery(api.projects.get.get, { projectId });
 	const [open, setOpen] = useState(false);
@@ -267,7 +269,9 @@ export default function EditProjectForm({
 			}}
 			open={open}
 		>
-			<SheetTrigger render={<Button variant="outline">Edit project</Button>} />
+			<SheetTrigger
+				render={trigger ?? <Button variant="outline">Edit project</Button>}
+			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
