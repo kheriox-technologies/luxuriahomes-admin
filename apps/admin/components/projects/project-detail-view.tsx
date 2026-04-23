@@ -4,6 +4,7 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
+import DeleteProject from '@/components/forms/delete-project';
 import EditProjectForm from '@/components/forms/edit-project';
 import PageHeading from '@/components/page-heading';
 
@@ -48,7 +49,12 @@ export default function ProjectDetailView({
 				className="mb-0"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
-				rightSlot={<EditProjectForm projectId={projectId} />}
+				rightSlot={
+					<div className="flex items-center gap-2">
+						<EditProjectForm projectId={projectId} />
+						<DeleteProject projectId={projectId} projectName={project.name} />
+					</div>
+				}
 			/>
 		</div>
 	);
