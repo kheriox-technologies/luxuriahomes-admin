@@ -79,3 +79,27 @@ export function buildInclusionCategorySearchText(
 ): string {
 	return buildSearchText([name, code]);
 }
+
+export interface InclusionVariantSearchFields {
+	code: string;
+	models: string[];
+	vendor: string;
+}
+
+export function buildInclusionVariantSearchText(
+	title: string,
+	fields: InclusionVariantSearchFields
+): string {
+	return buildSearchText([title, fields.code, fields.vendor, ...fields.models]);
+}
+
+export function buildInclusionAggregateSearchText(
+	title: string,
+	variants: InclusionVariantSearchFields[]
+): string {
+	const parts: Array<string | undefined> = [title];
+	for (const variant of variants) {
+		parts.push(variant.code, variant.vendor, ...variant.models);
+	}
+	return buildSearchText(parts);
+}
