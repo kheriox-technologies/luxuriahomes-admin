@@ -6,7 +6,7 @@ import {
 	projectClientAddressLine,
 	projectClientDisplayName,
 	projectClientEmailPhoneLine,
-} from '@/components/forms/project-form-shared';
+} from '@/components/projects/project-form-shared';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
 

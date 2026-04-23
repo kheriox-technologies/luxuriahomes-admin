@@ -9,8 +9,8 @@ import {
 import { cn } from '@workspace/ui/lib/utils';
 import { Building2, SearchIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import AddProjectForm from '@/components/forms/add-project';
 import PageHeading from '@/components/page-heading';
+import AddProjectForm from '@/components/projects/add-project';
 import ProjectsList from '@/components/projects/projects-list';
 
 export default function ProjectsPageContent() {

@@ -2,7 +2,9 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
+import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
+import { Card, CardPanel } from '@workspace/ui/components/card';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { Separator } from '@workspace/ui/components/separator';
@@ -17,83 +19,149 @@ import {
 	SheetTrigger,
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
-import { useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
+import { type ReactElement, useEffect, useState } from 'react';
 import {
 	ClientAddressTitleRow,
 	clientDraftErrorMessage,
 	ProjectClientCard,
 	ProjectClientDraftFields,
-} from '@/components/forms/project-client-ui';
+} from '@/components/projects/project-client-ui';
 import {
 	type AustralianState,
 	AustralianStateCombobox,
 	clientDraftFromStored,
 	clientDraftSchema,
 	cloneProjectClientAddress,
+	editProjectFormSchema,
 	emptyClientDraft,
-	emptyProjectCoreFormValues,
+	emptyEditProjectFormValues,
 	formatFieldErrors,
+	type ProjectStatus,
+	ProjectStatusCombobox,
 	type ProjectStoredClient,
 	projectClientAddressesEqual,
 	projectClientFromDraft,
-	projectCoreFormSchema,
-	toConvexCreatePayload,
-} from '@/components/forms/project-form-shared';
+	toConvexUpdatePayload,
+} from '@/components/projects/project-form-shared';
 
-const FORM_ID = 'add-project-form';
+const FORM_ID = 'edit-project-form';
 
-export default function AddProjectForm() {
+function projectDocToEditDefaults(project: Doc<'projects'>) {
+	return {
+		status: project.status,
+		name: project.name,
+		address: { ...project.address },
+	};
+}
+
+type ClientFormMode =
+	| { kind: 'hidden' }
+	| { kind: 'new' }
+	| { kind: 'edit'; index: number };
+
+function cloneClient(client: ProjectStoredClient): ProjectStoredClient {
+	return {
+		...client,
+		...(client.address ? { address: { ...client.address } } : {}),
+	};
+}
+
+function cloneClientsFromProject(
+	project: Doc<'projects'>
+): ProjectStoredClient[] {
+	return project.clients.map(cloneClient);
+}
+
+export default function EditProjectForm({
+	projectId,
+	trigger,
+}: {
+	projectId: Id<'projects'>;
+	trigger?: ReactElement;
+}) {
+	const project = useQuery(api.projects.get.get, { projectId });
 	const [open, setOpen] = useState(false);
 	const [clients, setClients] = useState<ProjectStoredClient[]>([]);
 	const [draft, setDraft] = useState(emptyClientDraft);
 	const [sameAsFirstClient, setSameAsFirstClient] = useState(true);
-	const [editingIndex, setEditingIndex] = useState<number | null>(null);
+	const [clientFormMode, setClientFormMode] = useState<ClientFormMode>({
+		kind: 'hidden',
+	});
 
-	const addProject = useMutation(api.projects.add.add);
+	const updateProject = useMutation(api.projects.update.update);
 
-	const showSameAsFirstCheckbox = clients.length >= 1 && editingIndex !== 0;
+	const showSameAsFirstCheckbox =
+		clientFormMode.kind !== 'hidden' &&
+		clients.length >= 1 &&
+		(clientFormMode.kind === 'new' ||
+			(clientFormMode.kind === 'edit' && clientFormMode.index !== 0));
+
 	const showAddressInputs =
-		clients.length === 0 || editingIndex === 0 || !sameAsFirstClient;
+		clientFormMode.kind === 'hidden'
+			? false
+			: clients.length === 0 ||
+				(clientFormMode.kind === 'edit' && clientFormMode.index === 0) ||
+				!sameAsFirstClient;
 
 	const form = useForm({
-		defaultValues: emptyProjectCoreFormValues,
+		defaultValues: emptyEditProjectFormValues,
 		validators: {
-			onChange: projectCoreFormSchema as never,
+			onChange: editProjectFormSchema as never,
 		},
 		onSubmit: async ({ value }) => {
-			const parsed = projectCoreFormSchema.parse(value);
+			const parsed = editProjectFormSchema.parse(value);
 			if (clients.length < 1) {
 				toastManager.add({
-					description: 'Add at least one client before saving.',
+					description: 'A project must have at least one client.',
 					title: 'Clients required',
 					type: 'error',
 				});
 				return;
 			}
 			try {
-				await addProject(toConvexCreatePayload(parsed, clients));
+				await updateProject({
+					projectId,
+					...toConvexUpdatePayload(parsed, clients),
+				});
 				toastManager.add({
-					title: 'Project created',
+					title: 'Project updated',
 					type: 'success',
 				});
-				form.reset();
-				setClients([]);
-				setDraft(emptyClientDraft);
-				setEditingIndex(null);
-				setSameAsFirstClient(true);
 				setOpen(false);
 			} catch (e) {
 				const message =
-					e instanceof Error ? e.message : 'Could not create project';
+					e instanceof Error ? e.message : 'Could not update project';
 				toastManager.add({
 					description: message,
-					title: 'Could not create project',
+					title: 'Could not update project',
 					type: 'error',
 				});
 			}
 		},
 	});
+
+	const hydrateFromProject = (nextProject: Doc<'projects'>) => {
+		const defaults = projectDocToEditDefaults(nextProject);
+		form.reset();
+		form.setFieldValue('name', defaults.name);
+		form.setFieldValue('status', defaults.status);
+		form.setFieldValue('address.street', defaults.address.street);
+		form.setFieldValue('address.suburb', defaults.address.suburb);
+		form.setFieldValue('address.state', defaults.address.state);
+		form.setFieldValue('address.postcode', defaults.address.postcode);
+		setClients(cloneClientsFromProject(nextProject));
+		setDraft(emptyClientDraft);
+		setSameAsFirstClient(true);
+		setClientFormMode({ kind: 'hidden' });
+	};
+
+	useEffect(() => {
+		if (!(open && project)) {
+			return;
+		}
+		hydrateFromProject(project);
+	}, [form, open, project]);
 
 	const buildClientFromDraft = (): ProjectStoredClient | null => {
 		const parsed = clientDraftSchema.safeParse(draft);
@@ -126,18 +194,19 @@ export default function AddProjectForm() {
 		if (!next) {
 			return;
 		}
-		if (editingIndex === null) {
+		if (clientFormMode.kind === 'new') {
 			setClients((prev) => [...prev, next]);
-		} else {
+		} else if (clientFormMode.kind === 'edit') {
+			const index = clientFormMode.index;
 			setClients((prev) => {
 				const copy = [...prev];
-				copy[editingIndex] = next;
+				copy[index] = next;
 				return copy;
 			});
 		}
 		setDraft(emptyClientDraft);
-		setEditingIndex(null);
 		setSameAsFirstClient(true);
+		setClientFormMode({ kind: 'hidden' });
 	};
 
 	const handleEditClient = (index: number) => {
@@ -146,7 +215,7 @@ export default function AddProjectForm() {
 			return;
 		}
 		setDraft(clientDraftFromStored(c));
-		setEditingIndex(index);
+		setClientFormMode({ kind: 'edit', index });
 		if (index > 0) {
 			setSameAsFirstClient(
 				projectClientAddressesEqual(c.address, clients[0]?.address)
@@ -157,35 +226,58 @@ export default function AddProjectForm() {
 	};
 
 	const handleDeleteClient = (index: number) => {
+		if (clients.length <= 1) {
+			toastManager.add({
+				description:
+					'Remove clients from the project only after adding another.',
+				title: 'At least one client required',
+				type: 'error',
+			});
+			return;
+		}
 		setClients((prev) => prev.filter((_, i) => i !== index));
-		if (editingIndex === index) {
+		if (clientFormMode.kind === 'edit' && clientFormMode.index === index) {
 			setDraft(emptyClientDraft);
-			setEditingIndex(null);
+			setClientFormMode({ kind: 'hidden' });
 			setSameAsFirstClient(true);
 		}
 	};
+
+	const startAddClient = () => {
+		setDraft(emptyClientDraft);
+		setSameAsFirstClient(true);
+		setClientFormMode({ kind: 'new' });
+	};
+
+	const clientFormVisible = clientFormMode.kind !== 'hidden';
 
 	return (
 		<Sheet
 			onOpenChange={(next) => {
 				setOpen(next);
-				if (!next) {
-					form.reset();
+				if (next) {
+					if (project) {
+						hydrateFromProject(project);
+					}
+				} else {
+					form.reset(emptyEditProjectFormValues);
 					setClients([]);
 					setDraft(emptyClientDraft);
-					setEditingIndex(null);
+					setClientFormMode({ kind: 'hidden' });
 					setSameAsFirstClient(true);
 				}
 			}}
 			open={open}
 		>
-			<SheetTrigger render={<Button variant="default">Add project</Button>} />
+			<SheetTrigger
+				render={trigger ?? <Button variant="outline">Edit project</Button>}
+			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
 			>
 				<SheetHeader>
-					<SheetTitle>Add project</SheetTitle>
+					<SheetTitle>Edit project</SheetTitle>
 				</SheetHeader>
 				<form
 					className="flex min-h-0 min-w-0 flex-1 flex-col"
@@ -214,6 +306,33 @@ export default function AddProjectForm() {
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 												placeholder="Project name"
+												value={field.state.value}
+											/>
+											{invalid ? (
+												<FieldError>
+													{formatFieldErrors(field.state.meta.errors)}
+												</FieldError>
+											) : null}
+										</Field>
+									);
+								}}
+							</form.Field>
+
+							<form.Field name="status">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>Status</FieldLabel>
+											<ProjectStatusCombobox
+												id={field.name}
+												invalid={invalid}
+												onBlur={field.handleBlur}
+												onChange={(next) =>
+													field.handleChange(next as ProjectStatus)
+												}
+												placeholder="Select status"
 												value={field.state.value}
 											/>
 											{invalid ? (
@@ -341,44 +460,76 @@ export default function AddProjectForm() {
 						<Separator />
 
 						<div className="flex flex-col gap-4">
-							<p className="font-medium text-muted-foreground text-sm">
-								Client
-							</p>
-							<ProjectClientDraftFields
-								addressTitleSlot={
-									<ClientAddressTitleRow
-										onSameAsFirstChange={setSameAsFirstClient}
-										sameAsFirstClient={sameAsFirstClient}
-										showSameAsFirst={showSameAsFirstCheckbox}
-										title="Client address"
-									/>
-								}
-								draft={draft}
-								setDraft={setDraft}
-								showAddressInputs={showAddressInputs}
-							/>
-							<div className="flex justify-end">
-								<Button
-									onClick={handleAddOrSaveClient}
-									type="button"
-									variant="outline"
-								>
-									{editingIndex === null ? 'Add Client' : 'Save Client'}
-								</Button>
+							<div className="flex items-center justify-between gap-3">
+								<p className="font-medium text-muted-foreground text-sm">
+									Clients
+								</p>
+								{clientFormMode.kind === 'hidden' ? (
+									<Button
+										onClick={startAddClient}
+										type="button"
+										variant="outline"
+									>
+										Add client
+									</Button>
+								) : null}
 							</div>
 
-							{clients.length > 0 ? (
-								<div className="flex flex-col gap-3">
-									{clients.map((c, index) => (
-										<ProjectClientCard
-											client={c}
-											key={`${c.email}-${index}`}
-											onDelete={() => handleDeleteClient(index)}
-											onEdit={() => handleEditClient(index)}
+							{clientFormVisible ? (
+								<Card>
+									<CardPanel className="space-y-4">
+										<p className="font-medium text-muted-foreground text-sm">
+											Client details
+										</p>
+										<ProjectClientDraftFields
+											addressTitleSlot={
+												<ClientAddressTitleRow
+													onSameAsFirstChange={setSameAsFirstClient}
+													sameAsFirstClient={sameAsFirstClient}
+													showSameAsFirst={showSameAsFirstCheckbox}
+													title="Client address"
+												/>
+											}
+											draft={draft}
+											setDraft={setDraft}
+											showAddressInputs={showAddressInputs}
 										/>
-									))}
-								</div>
+										<div className="flex justify-end gap-2">
+											<Button
+												onClick={() => {
+													setDraft(emptyClientDraft);
+													setSameAsFirstClient(true);
+													setClientFormMode({ kind: 'hidden' });
+												}}
+												type="button"
+												variant="ghost"
+											>
+												Cancel
+											</Button>
+											<Button
+												onClick={handleAddOrSaveClient}
+												type="button"
+												variant="outline"
+											>
+												{clientFormMode.kind === 'new'
+													? 'Add Client'
+													: 'Save Client'}
+											</Button>
+										</div>
+									</CardPanel>
+								</Card>
 							) : null}
+
+							<div className="flex flex-col gap-3">
+								{clients.map((c, index) => (
+									<ProjectClientCard
+										client={c}
+										key={`${c.email}-${index}`}
+										onDelete={() => handleDeleteClient(index)}
+										onEdit={() => handleEditClient(index)}
+									/>
+								))}
+							</div>
 						</div>
 					</SheetPanel>
 				</form>

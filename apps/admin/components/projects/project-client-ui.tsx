@@ -14,6 +14,7 @@ import { Button } from '@workspace/ui/components/button';
 import { Card, CardPanel } from '@workspace/ui/components/card';
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
@@ -27,8 +28,7 @@ import {
 	projectClientAddressLine,
 	projectClientDisplayName,
 	projectClientEmailPhoneLine,
-} from '@/components/forms/project-form-shared';
-
+} from '@/components/projects/project-form-shared';
 export function clientDraftErrorMessage(
 	error: z.ZodError<ClientDraftValues>
 ): string {
@@ -53,7 +53,7 @@ export function ProjectClientCard({
 					<p className="font-semibold text-foreground leading-none">
 						{projectClientDisplayName(client)}
 					</p>
-					<div className="flex items-center gap-2">
+					<Group>
 						<Button
 							aria-label="Edit client"
 							onClick={onEdit}
@@ -63,6 +63,7 @@ export function ProjectClientCard({
 						>
 							<Pencil />
 						</Button>
+						<GroupSeparator />
 						<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
 							<AlertDialogTrigger
 								render={
@@ -102,7 +103,7 @@ export function ProjectClientCard({
 								</AlertDialogFooter>
 							</AlertDialogContent>
 						</AlertDialog>
-					</div>
+					</Group>
 				</div>
 				<p className="text-sm leading-snug">
 					{projectClientEmailPhoneLine(client)}

@@ -6,9 +6,9 @@ import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
-import DeleteProject from '@/components/forms/delete-project';
-import EditProjectForm from '@/components/forms/edit-project';
 import PageHeading from '@/components/page-heading';
+import DeleteProject from '@/components/projects/delete-project';
+import EditProjectForm from '@/components/projects/edit-project';
 import ProjectDetailsTabs from '@/components/projects/project-details-tabs';
 
 function formatAddressLine(address: {
