@@ -25,6 +25,7 @@ import {
 	ChevronDown,
 	type LucideIcon,
 	SquaresIntersect,
+	Upload,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
@@ -72,6 +73,12 @@ const items: SidebarItem[] = [
 				path: '/inclusions/catalogue',
 			},
 		],
+	},
+	{
+		title: 'Upload test',
+		url: '/upload-test',
+		path: '/upload-test',
+		icon: Upload,
 	},
 ];
 

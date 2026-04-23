@@ -34,4 +34,11 @@ export default defineSchema({
 		clients: v.array(projectClientValidator),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
+	/** Temporary rows for `/upload-test`; references `_storage` so `getUrl` works. */
+	uploadTestImages: defineTable({
+		storageId: v.id('_storage'),
+		fileName: v.string(),
+		contentType: v.string(),
+		byteLength: v.number(),
+	}),
 });

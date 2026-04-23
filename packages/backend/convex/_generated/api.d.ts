@@ -31,6 +31,8 @@ import type * as projects_remove from "../projects/remove.js";
 import type * as projects_search from "../projects/search.js";
 import type * as projects_shared from "../projects/shared.js";
 import type * as projects_update from "../projects/update.js";
+import type * as uploadTest_finalize from "../uploadTest/finalize.js";
+import type * as uploadTest_generateUploadUrl from "../uploadTest/generateUploadUrl.js";
 
 import type {
   ApiFromModules,
@@ -62,6 +64,8 @@ declare const fullApi: ApiFromModules<{
   "projects/search": typeof projects_search;
   "projects/shared": typeof projects_shared;
   "projects/update": typeof projects_update;
+  "uploadTest/finalize": typeof uploadTest_finalize;
+  "uploadTest/generateUploadUrl": typeof uploadTest_generateUploadUrl;
 }>;
 
 /**
