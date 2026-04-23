@@ -197,7 +197,7 @@ function CardAction({
 }: useRender.ComponentProps<"div">) {
   const defaultProps = {
     className: cn(
-      "col-start-2 row-span-2 row-start-1 self-start justify-self-end inline-flex",
+      "col-start-2 row-span-2 row-start-1 self-center justify-self-end inline-flex",
       className,
     ),
     "data-slot": "card-action",

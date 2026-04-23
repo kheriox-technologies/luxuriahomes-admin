@@ -11,6 +11,9 @@ function messageFromParsedConvexError(value: unknown): string | null {
 	if (parsed.code === 'CATEGORY_NAME_EXISTS') {
 		return 'A category with this name already exists';
 	}
+	if (parsed.code === 'CATEGORY_CODE_EXISTS') {
+		return 'A category with this code already exists';
+	}
 	return null;
 }
 

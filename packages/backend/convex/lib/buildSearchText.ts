@@ -73,6 +73,9 @@ export function buildProjectSearchText(doc: ProjectSearchDoc): string {
 	]);
 }
 
-export function buildInclusionCategorySearchText(name: string): string {
-	return buildSearchText([name]);
+export function buildInclusionCategorySearchText(
+	name: string,
+	code: string
+): string {
+	return buildSearchText([name, code]);
 }

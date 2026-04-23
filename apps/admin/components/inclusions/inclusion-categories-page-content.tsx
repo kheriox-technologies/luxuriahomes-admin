@@ -40,9 +40,14 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between gap-3">
-				<CardTitle className="min-w-0 truncate leading-none">
-					{category.name}
-				</CardTitle>
+				<div className="min-w-0 flex-1">
+					<CardTitle className="truncate leading-tight">
+						{category.name}
+					</CardTitle>
+					<p className="mt-1 truncate font-medium text-muted-foreground text-xs tracking-wide">
+						{category.code}
+					</p>
+				</div>
 				<CardAction>
 					<div className="flex items-center gap-2">
 						<Badge size="lg" variant="info">
@@ -51,6 +56,7 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 						<Group>
 							<EditInclusionCategory
 								categoryId={category._id}
+								initialCode={category.code}
 								initialName={category.name}
 								trigger={
 									<Button

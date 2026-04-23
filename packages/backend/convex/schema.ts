@@ -22,10 +22,12 @@ export default defineSchema({
 	),
 	inclusionCategories: defineTable({
 		name: v.string(),
+		code: v.string(),
 		count: v.number(),
 		searchText: v.string(),
 	})
 		.index('by_name', ['name'])
+		.index('by_code', ['code'])
 		.searchIndex('search_inclusion_categories', { searchField: 'searchText' }),
 	projects: defineTable({
 		name: v.string(),

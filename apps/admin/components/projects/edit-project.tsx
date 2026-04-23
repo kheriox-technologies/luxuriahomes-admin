@@ -26,7 +26,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { type ReactElement, useEffect, useState } from 'react';
+import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import {
 	ClientAddressTitleRow,
 	clientDraftErrorMessage,
@@ -149,27 +149,30 @@ export default function EditProjectForm({
 		},
 	});
 
-	const hydrateFromProject = (nextProject: Doc<'projects'>) => {
-		const defaults = projectDocToEditDefaults(nextProject);
-		form.reset();
-		form.setFieldValue('name', defaults.name);
-		form.setFieldValue('status', defaults.status);
-		form.setFieldValue('address.street', defaults.address.street);
-		form.setFieldValue('address.suburb', defaults.address.suburb);
-		form.setFieldValue('address.state', defaults.address.state);
-		form.setFieldValue('address.postcode', defaults.address.postcode);
-		setClients(cloneClientsFromProject(nextProject));
-		setDraft(emptyClientDraft);
-		setSameAsFirstClient(true);
-		setClientFormMode({ kind: 'hidden' });
-	};
+	const hydrateFromProject = useCallback(
+		(nextProject: Doc<'projects'>) => {
+			const defaults = projectDocToEditDefaults(nextProject);
+			form.reset();
+			form.setFieldValue('name', defaults.name);
+			form.setFieldValue('status', defaults.status);
+			form.setFieldValue('address.street', defaults.address.street);
+			form.setFieldValue('address.suburb', defaults.address.suburb);
+			form.setFieldValue('address.state', defaults.address.state);
+			form.setFieldValue('address.postcode', defaults.address.postcode);
+			setClients(cloneClientsFromProject(nextProject));
+			setDraft(emptyClientDraft);
+			setSameAsFirstClient(true);
+			setClientFormMode({ kind: 'hidden' });
+		},
+		[form]
+	);
 
 	useEffect(() => {
 		if (!(open && project)) {
 			return;
 		}
 		hydrateFromProject(project);
-	}, [form, open, project]);
+	}, [hydrateFromProject, open, project]);
 
 	const buildClientFromDraft = (): ProjectStoredClient | null => {
 		const parsed = clientDraftSchema.safeParse(draft);

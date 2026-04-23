@@ -22,7 +22,7 @@ import { type ReactElement, useEffect, useState } from 'react';
 import {
 	emptyInclusionCategoryFormValues,
 	inclusionCategoryFieldError,
-	inclusionCategoryNameSchema,
+	inclusionCategoryFormSchema,
 } from '@/components/inclusions/inclusion-category-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -33,10 +33,12 @@ type InclusionCategory = Doc<'inclusionCategories'>;
 export default function EditInclusionCategory({
 	categoryId,
 	initialName,
+	initialCode,
 	trigger,
 }: {
 	categoryId: Id<'inclusionCategories'>;
 	initialName: InclusionCategory['name'];
+	initialCode: InclusionCategory['code'];
 	trigger: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
@@ -45,12 +47,16 @@ export default function EditInclusionCategory({
 	const form = useForm({
 		defaultValues: emptyInclusionCategoryFormValues,
 		validators: {
-			onChange: inclusionCategoryNameSchema as never,
+			onChange: inclusionCategoryFormSchema as never,
 		},
 		onSubmit: async ({ value }) => {
 			try {
-				const parsed = inclusionCategoryNameSchema.parse(value);
-				await updateCategory({ categoryId, name: parsed.name });
+				const parsed = inclusionCategoryFormSchema.parse(value);
+				await updateCategory({
+					categoryId,
+					name: parsed.name,
+					code: parsed.code.toUpperCase(),
+				});
 				toastManager.add({
 					title: 'Category updated',
 					type: 'success',
@@ -73,12 +79,12 @@ export default function EditInclusionCategory({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({ name: initialName });
+			form.reset({ name: initialName, code: initialCode });
 			return;
 		}
 
 		form.reset();
-	}, [form, initialName, open]);
+	}, [form, initialCode, initialName, open]);
 
 	return (
 		<Dialog
@@ -101,7 +107,7 @@ export default function EditInclusionCategory({
 						});
 					}}
 				>
-					<DialogPanel>
+					<DialogPanel className="flex flex-col gap-4">
 						<form.Field name="name">
 							{(field) => {
 								const invalid =
@@ -117,6 +123,33 @@ export default function EditInclusionCategory({
 											onBlur={field.handleBlur}
 											onChange={(e) => field.handleChange(e.target.value)}
 											placeholder="Category name"
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{inclusionCategoryFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="code">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Code</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											autoCapitalize="characters"
+											id={field.name}
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="e.g. KIT"
 											value={field.state.value}
 										/>
 										{invalid ? (

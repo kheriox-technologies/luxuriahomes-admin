@@ -17,11 +17,12 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+	defaultInclusionCategoryCodeFromName,
 	emptyInclusionCategoryFormValues,
 	inclusionCategoryFieldError,
-	inclusionCategoryNameSchema,
+	inclusionCategoryFormSchema,
 } from '@/components/inclusions/inclusion-category-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -29,22 +30,27 @@ const FORM_ID = 'add-inclusion-category-form';
 
 export default function AddInclusionCategory() {
 	const [open, setOpen] = useState(false);
+	const codeManuallyEditedRef = useRef(false);
 	const addCategory = useMutation(api.inclusionCategories.add.add);
 
 	const form = useForm({
 		defaultValues: emptyInclusionCategoryFormValues,
 		validators: {
-			onChange: inclusionCategoryNameSchema as never,
+			onChange: inclusionCategoryFormSchema as never,
 		},
 		onSubmit: async ({ value }) => {
 			try {
-				const parsed = inclusionCategoryNameSchema.parse(value);
-				await addCategory({ name: parsed.name });
+				const parsed = inclusionCategoryFormSchema.parse(value);
+				await addCategory({
+					name: parsed.name,
+					code: parsed.code.toUpperCase(),
+				});
 				toastManager.add({
 					title: 'Category added',
 					type: 'success',
 				});
 				form.reset();
+				codeManuallyEditedRef.current = false;
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
@@ -56,6 +62,7 @@ export default function AddInclusionCategory() {
 					type: 'error',
 				});
 				form.reset();
+				codeManuallyEditedRef.current = false;
 				setOpen(false);
 			}
 		},
@@ -67,6 +74,7 @@ export default function AddInclusionCategory() {
 				setOpen(nextOpen);
 				if (!nextOpen) {
 					form.reset();
+					codeManuallyEditedRef.current = false;
 				}
 			}}
 			open={open}
@@ -85,7 +93,7 @@ export default function AddInclusionCategory() {
 						});
 					}}
 				>
-					<DialogPanel>
+					<DialogPanel className="flex flex-col gap-4">
 						<form.Field name="name">
 							{(field) => {
 								const invalid =
@@ -100,8 +108,47 @@ export default function AddInclusionCategory() {
 											name={field.name}
 											nativeInput
 											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
+											onChange={(e) => {
+												const next = e.target.value;
+												field.handleChange(next);
+												if (!codeManuallyEditedRef.current) {
+													form.setFieldValue(
+														'code',
+														defaultInclusionCategoryCodeFromName(next)
+													);
+												}
+											}}
 											placeholder="Category name"
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{inclusionCategoryFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="code">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Code</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											autoCapitalize="characters"
+											id={field.name}
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) => {
+												codeManuallyEditedRef.current = true;
+												field.handleChange(e.target.value);
+											}}
+											placeholder="e.g. KIT"
 											value={field.state.value}
 										/>
 										{invalid ? (
