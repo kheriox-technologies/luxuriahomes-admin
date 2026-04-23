@@ -24,6 +24,7 @@ import {
 	inclusionCategoryFieldError,
 	inclusionCategoryNameSchema,
 } from '@/components/inclusions/inclusion-category-form-shared';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'edit-inclusion-category-form';
 
@@ -56,13 +57,16 @@ export default function EditInclusionCategory({
 				});
 				setOpen(false);
 			} catch (error) {
-				const message =
-					error instanceof Error ? error.message : 'Could not update category';
 				toastManager.add({
-					description: message,
+					description: getConvexErrorMessage(
+						error,
+						'Could not update category. Please try again in a moment.'
+					),
 					title: 'Could not update category',
 					type: 'error',
 				});
+				form.reset();
+				setOpen(false);
 			}
 		},
 	});

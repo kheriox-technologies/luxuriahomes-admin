@@ -16,6 +16,7 @@ import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { type ReactElement, useState } from 'react';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 export default function DeleteInclusionCategory({
 	categoryId,
@@ -40,10 +41,11 @@ export default function DeleteInclusionCategory({
 			});
 			setOpen(false);
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : 'Could not delete category';
 			toastManager.add({
-				description: message,
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete category. Please try again in a moment.'
+				),
 				title: 'Could not delete category',
 				type: 'error',
 			});

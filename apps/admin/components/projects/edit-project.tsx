@@ -50,6 +50,7 @@ import {
 	projectClientFromDraft,
 	toConvexUpdatePayload,
 } from '@/components/projects/project-form-shared';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'edit-project-form';
 
@@ -135,11 +136,12 @@ export default function EditProjectForm({
 					type: 'success',
 				});
 				setOpen(false);
-			} catch (e) {
-				const message =
-					e instanceof Error ? e.message : 'Could not update project';
+			} catch (error) {
 				toastManager.add({
-					description: message,
+					description: getConvexErrorMessage(
+						error,
+						'Could not update project. Please try again in a moment.'
+					),
 					title: 'Could not update project',
 					type: 'error',
 				});

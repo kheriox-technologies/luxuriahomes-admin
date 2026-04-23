@@ -23,6 +23,7 @@ import {
 	inclusionCategoryFieldError,
 	inclusionCategoryNameSchema,
 } from '@/components/inclusions/inclusion-category-form-shared';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'add-inclusion-category-form';
 
@@ -46,13 +47,16 @@ export default function AddInclusionCategory() {
 				form.reset();
 				setOpen(false);
 			} catch (error) {
-				const message =
-					error instanceof Error ? error.message : 'Could not add category';
 				toastManager.add({
-					description: message,
+					description: getConvexErrorMessage(
+						error,
+						'Could not add category. Please try again in a moment.'
+					),
 					title: 'Could not add category',
 					type: 'error',
 				});
+				form.reset();
+				setOpen(false);
 			}
 		},
 	});
@@ -91,6 +95,7 @@ export default function AddInclusionCategory() {
 										<FieldLabel htmlFor={field.name}>Name</FieldLabel>
 										<Input
 											aria-invalid={invalid}
+											autoFocus
 											id={field.name}
 											name={field.name}
 											nativeInput

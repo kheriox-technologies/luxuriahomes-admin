@@ -46,6 +46,7 @@ import {
 	projectCoreFormSchema,
 	toConvexCreatePayload,
 } from '@/components/projects/project-form-shared';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'add-project-form';
 
@@ -89,11 +90,12 @@ export default function AddProjectForm() {
 				setEditingIndex(null);
 				setSameAsFirstClient(true);
 				setOpen(false);
-			} catch (e) {
-				const message =
-					e instanceof Error ? e.message : 'Could not create project';
+			} catch (error) {
 				toastManager.add({
-					description: message,
+					description: getConvexErrorMessage(
+						error,
+						'Could not create project. Please try again in a moment.'
+					),
 					title: 'Could not create project',
 					type: 'error',
 				});

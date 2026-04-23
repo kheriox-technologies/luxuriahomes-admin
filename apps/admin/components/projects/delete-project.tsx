@@ -17,6 +17,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { useRouter } from 'next/navigation';
 import { type ReactElement, useState } from 'react';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 export default function DeleteProject({
 	projectId,
@@ -43,10 +44,11 @@ export default function DeleteProject({
 			setOpen(false);
 			router.push('/projects');
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : 'Could not delete project';
 			toastManager.add({
-				description: message,
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete project. Please try again in a moment.'
+				),
 				title: 'Could not delete project',
 				type: 'error',
 			});
