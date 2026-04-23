@@ -20,6 +20,10 @@ export default defineSchema({
 		'by_role_name',
 		['roleName']
 	),
+	inclusionCategories: defineTable({
+		name: v.string(),
+		count: v.number(),
+	}).index('by_name', ['name']),
 	projects: defineTable({
 		name: v.string(),
 		address: australianAddressValidator,

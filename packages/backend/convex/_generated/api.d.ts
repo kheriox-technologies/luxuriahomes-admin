@@ -8,6 +8,11 @@
  * @module
  */
 
+import type * as inclusionCategories_add from "../inclusionCategories/add.js";
+import type * as inclusionCategories_list from "../inclusionCategories/list.js";
+import type * as inclusionCategories_remove from "../inclusionCategories/remove.js";
+import type * as inclusionCategories_shared from "../inclusionCategories/shared.js";
+import type * as inclusionCategories_update from "../inclusionCategories/update.js";
 import type * as lib_buildSearchText from "../lib/buildSearchText.js";
 import type * as lib_checkIdentity from "../lib/checkIdentity.js";
 import type * as lib_clerk from "../lib/clerk.js";
@@ -33,6 +38,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "inclusionCategories/add": typeof inclusionCategories_add;
+  "inclusionCategories/list": typeof inclusionCategories_list;
+  "inclusionCategories/remove": typeof inclusionCategories_remove;
+  "inclusionCategories/shared": typeof inclusionCategories_shared;
+  "inclusionCategories/update": typeof inclusionCategories_update;
   "lib/buildSearchText": typeof lib_buildSearchText;
   "lib/checkIdentity": typeof lib_checkIdentity;
   "lib/clerk": typeof lib_clerk;

@@ -1,5 +1,5 @@
-import PageHeading from '@/components/page-heading';
+import InclusionCategoriesPageContent from '@/components/inclusions/inclusion-categories-page-content';
 
 export default function InclusionCategoriesPage() {
-	return <PageHeading heading="Inclusion Categories" />;
+	return <InclusionCategoriesPageContent />;
 }

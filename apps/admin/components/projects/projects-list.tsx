@@ -74,7 +74,7 @@ function ProjectCard({ project }: { project: Project }) {
 			>
 				<div className="flex flex-col gap-3 p-6">
 					<div className="flex items-center justify-between gap-3">
-						<CardTitle className="min-w-0 truncate text-lg leading-snug">
+						<CardTitle className="min-w-0 truncate leading-snug">
 							{project.name}
 						</CardTitle>
 						<Badge className="shrink-0" size="lg" variant={badge.variant}>
