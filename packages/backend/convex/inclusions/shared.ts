@@ -55,7 +55,8 @@ export async function syncSearchTextsForInclusion(
 		inclusion.title,
 		fieldsList
 	);
-	await ctx.db.patch(inclusionId, { searchText: parentSearch });
+	const variantCount = variants.length;
+	await ctx.db.patch(inclusionId, { searchText: parentSearch, variantCount });
 
 	for (const variant of variants) {
 		const searchText = buildInclusionVariantSearchText(inclusion.title, {

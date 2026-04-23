@@ -24,6 +24,7 @@ export const add = mutation({
 			title,
 			categoryId: args.categoryId,
 			searchText,
+			variantCount: 0,
 		});
 		await ctx.db.patch(args.categoryId, {
 			count: category.count + 1,

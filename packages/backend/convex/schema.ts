@@ -39,6 +39,7 @@ export default defineSchema({
 		title: v.string(),
 		categoryId: v.id('inclusionCategories'),
 		searchText: v.string(),
+		variantCount: v.number(),
 	})
 		.index('by_category', ['categoryId'])
 		.searchIndex('search_inclusions', { searchField: 'searchText' }),
