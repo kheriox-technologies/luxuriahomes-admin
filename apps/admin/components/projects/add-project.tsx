@@ -3,10 +3,15 @@
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import { Button } from '@workspace/ui/components/button';
-import { Card, CardPanel } from '@workspace/ui/components/card';
+import {
+	Card,
+	CardFrame,
+	CardFrameHeader,
+	CardFrameTitle,
+	CardPanel,
+} from '@workspace/ui/components/card';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
-import { Separator } from '@workspace/ui/components/separator';
 import {
 	Sheet,
 	SheetClose,
@@ -199,157 +204,169 @@ export default function AddProjectForm() {
 					}}
 				>
 					<SheetPanel className="flex flex-col gap-6">
-						<div className="flex flex-col gap-4">
-							<form.Field name="name">
-								{(field) => {
-									const invalid =
-										field.state.meta.isTouched && !field.state.meta.isValid;
-									return (
-										<Field data-invalid={invalid}>
-											<FieldLabel htmlFor={field.name}>Name</FieldLabel>
-											<Input
-												aria-invalid={invalid}
-												id={field.name}
-												name={field.name}
-												nativeInput
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Project name"
-												value={field.state.value}
-											/>
-											{invalid ? (
-												<FieldError>
-													{formatFieldErrors(field.state.meta.errors)}
-												</FieldError>
-											) : null}
-										</Field>
-									);
-								}}
-							</form.Field>
-
-							<p className="font-medium text-muted-foreground text-sm">
-								Address
-							</p>
-							<form.Field name="address.street">
-								{(field) => {
-									const invalid =
-										field.state.meta.isTouched && !field.state.meta.isValid;
-									return (
-										<Field data-invalid={invalid}>
-											<FieldLabel htmlFor={field.name}>Street</FieldLabel>
-											<Input
-												aria-invalid={invalid}
-												id={field.name}
-												name={field.name}
-												nativeInput
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Street"
-												value={field.state.value}
-											/>
-											{invalid ? (
-												<FieldError>
-													{formatFieldErrors(field.state.meta.errors)}
-												</FieldError>
-											) : null}
-										</Field>
-									);
-								}}
-							</form.Field>
-							<form.Field name="address.suburb">
-								{(field) => {
-									const invalid =
-										field.state.meta.isTouched && !field.state.meta.isValid;
-									return (
-										<Field data-invalid={invalid}>
-											<FieldLabel htmlFor={field.name}>Suburb</FieldLabel>
-											<Input
-												aria-invalid={invalid}
-												id={field.name}
-												name={field.name}
-												nativeInput
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Suburb"
-												value={field.state.value}
-											/>
-											{invalid ? (
-												<FieldError>
-													{formatFieldErrors(field.state.meta.errors)}
-												</FieldError>
-											) : null}
-										</Field>
-									);
-								}}
-							</form.Field>
-							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-								<form.Field name="address.state">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>State</FieldLabel>
-												<AustralianStateCombobox
-													id={field.name}
-													invalid={invalid}
-													onBlur={field.handleBlur}
-													onChange={(next) =>
-														field.handleChange(next as AustralianState)
-													}
-													placeholder="Select state"
-													value={field.state.value}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
-								<form.Field name="address.postcode">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Postcode</FieldLabel>
-												<Input
-													aria-invalid={invalid}
-													id={field.name}
-													inputMode="numeric"
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="0000"
-													value={field.state.value}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
-							</div>
-						</div>
-
-						<Separator />
-
-						<div className="flex flex-col gap-4">
-							<p className="font-medium text-muted-foreground text-sm">
-								Client
-							</p>
+						<CardFrame>
+							<CardFrameHeader className="grid-rows-1 items-center">
+								<CardFrameTitle className="min-w-0 truncate leading-none">
+									Project details
+								</CardFrameTitle>
+							</CardFrameHeader>
 							<Card>
 								<CardPanel className="space-y-4">
+									<form.Field name="name">
+										{(field) => {
+											const invalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={invalid}>
+													<FieldLabel htmlFor={field.name}>Name</FieldLabel>
+													<Input
+														aria-invalid={invalid}
+														id={field.name}
+														name={field.name}
+														nativeInput
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="Project name"
+														value={field.state.value}
+													/>
+													{invalid ? (
+														<FieldError>
+															{formatFieldErrors(field.state.meta.errors)}
+														</FieldError>
+													) : null}
+												</Field>
+											);
+										}}
+									</form.Field>
+
 									<p className="font-medium text-muted-foreground text-sm">
-										Client details
+										Address
 									</p>
+									<form.Field name="address.street">
+										{(field) => {
+											const invalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={invalid}>
+													<FieldLabel htmlFor={field.name}>Street</FieldLabel>
+													<Input
+														aria-invalid={invalid}
+														id={field.name}
+														name={field.name}
+														nativeInput
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="Street"
+														value={field.state.value}
+													/>
+													{invalid ? (
+														<FieldError>
+															{formatFieldErrors(field.state.meta.errors)}
+														</FieldError>
+													) : null}
+												</Field>
+											);
+										}}
+									</form.Field>
+									<form.Field name="address.suburb">
+										{(field) => {
+											const invalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={invalid}>
+													<FieldLabel htmlFor={field.name}>Suburb</FieldLabel>
+													<Input
+														aria-invalid={invalid}
+														id={field.name}
+														name={field.name}
+														nativeInput
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="Suburb"
+														value={field.state.value}
+													/>
+													{invalid ? (
+														<FieldError>
+															{formatFieldErrors(field.state.meta.errors)}
+														</FieldError>
+													) : null}
+												</Field>
+											);
+										}}
+									</form.Field>
+									<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+										<form.Field name="address.state">
+											{(field) => {
+												const invalid =
+													field.state.meta.isTouched &&
+													!field.state.meta.isValid;
+												return (
+													<Field data-invalid={invalid}>
+														<FieldLabel htmlFor={field.name}>State</FieldLabel>
+														<AustralianStateCombobox
+															id={field.name}
+															invalid={invalid}
+															onBlur={field.handleBlur}
+															onChange={(next) =>
+																field.handleChange(next as AustralianState)
+															}
+															placeholder="Select state"
+															value={field.state.value}
+														/>
+														{invalid ? (
+															<FieldError>
+																{formatFieldErrors(field.state.meta.errors)}
+															</FieldError>
+														) : null}
+													</Field>
+												);
+											}}
+										</form.Field>
+										<form.Field name="address.postcode">
+											{(field) => {
+												const invalid =
+													field.state.meta.isTouched &&
+													!field.state.meta.isValid;
+												return (
+													<Field data-invalid={invalid}>
+														<FieldLabel htmlFor={field.name}>
+															Postcode
+														</FieldLabel>
+														<Input
+															aria-invalid={invalid}
+															id={field.name}
+															inputMode="numeric"
+															name={field.name}
+															nativeInput
+															onBlur={field.handleBlur}
+															onChange={(e) =>
+																field.handleChange(e.target.value)
+															}
+															placeholder="0000"
+															value={field.state.value}
+														/>
+														{invalid ? (
+															<FieldError>
+																{formatFieldErrors(field.state.meta.errors)}
+															</FieldError>
+														) : null}
+													</Field>
+												);
+											}}
+										</form.Field>
+									</div>
+								</CardPanel>
+							</Card>
+						</CardFrame>
+
+						<CardFrame>
+							<CardFrameHeader className="grid-rows-1 items-center">
+								<CardFrameTitle className="min-w-0 truncate leading-none">
+									Client details
+								</CardFrameTitle>
+							</CardFrameHeader>
+							<Card>
+								<CardPanel className="space-y-4">
 									<ProjectClientDraftFields
 										addressTitleSlot={
 											<ClientAddressTitleRow
@@ -372,22 +389,21 @@ export default function AddProjectForm() {
 											{editingIndex === null ? 'Add Client' : 'Save Client'}
 										</Button>
 									</div>
+									{clients.length > 0 ? (
+										<div className="flex flex-col gap-3">
+											{clients.map((c, index) => (
+												<ProjectClientCard
+													client={c}
+													key={`${c.email}-${index}`}
+													onDelete={() => handleDeleteClient(index)}
+													onEdit={() => handleEditClient(index)}
+												/>
+											))}
+										</div>
+									) : null}
 								</CardPanel>
 							</Card>
-
-							{clients.length > 0 ? (
-								<div className="flex flex-col gap-3">
-									{clients.map((c, index) => (
-										<ProjectClientCard
-											client={c}
-											key={`${c.email}-${index}`}
-											onDelete={() => handleDeleteClient(index)}
-											onEdit={() => handleEditClient(index)}
-										/>
-									))}
-								</div>
-							) : null}
-						</div>
+						</CardFrame>
 					</SheetPanel>
 				</form>
 				<SheetFooter>

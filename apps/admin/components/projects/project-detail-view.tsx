@@ -1,7 +1,8 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
-import type { Id } from '@workspace/backend/dataModel';
+import type { Doc, Id } from '@workspace/backend/dataModel';
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
@@ -18,6 +19,24 @@ function formatAddressLine(address: {
 	postcode: string;
 }): string {
 	return `${address.street}, ${address.suburb}, ${address.state} ${address.postcode}`;
+}
+
+function statusBadgeProps(status: Doc<'projects'>['status']): {
+	label: string;
+	variant: 'info' | 'warning' | 'success';
+} {
+	switch (status) {
+		case 'not_started':
+			return { label: 'Not started', variant: 'info' };
+		case 'in_progress':
+			return { label: 'In progress', variant: 'warning' };
+		case 'completed':
+			return { label: 'Completed', variant: 'success' };
+		default: {
+			const _exhaustive: never = status;
+			return _exhaustive;
+		}
+	}
 }
 
 export default function ProjectDetailView({
@@ -45,6 +64,8 @@ export default function ProjectDetailView({
 		);
 	}
 
+	const statusBadge = statusBadgeProps(project.status);
+
 	return (
 		<div className={cn('flex h-full w-full flex-col')}>
 			<PageHeading
@@ -54,6 +75,9 @@ export default function ProjectDetailView({
 				heading={project.name}
 				rightSlot={
 					<div className="flex items-center gap-2">
+						<Badge size="lg" variant={statusBadge.variant}>
+							{statusBadge.label}
+						</Badge>
 						<EditProjectForm
 							projectId={projectId}
 							trigger={
