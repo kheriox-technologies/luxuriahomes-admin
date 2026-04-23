@@ -1,5 +1,15 @@
 'use client';
 
+import {
+	AlertDialog,
+	AlertDialogClose,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardPanel } from '@workspace/ui/components/card';
 import { Checkbox } from '@workspace/ui/components/checkbox';
@@ -7,6 +17,7 @@ import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import { useState } from 'react';
 import type { z } from 'zod';
 import {
 	type AustralianState,
@@ -33,10 +44,11 @@ export function ProjectClientCard({
 	onEdit: () => void;
 	onDelete: () => void;
 }) {
+	const [confirmOpen, setConfirmOpen] = useState(false);
 	const addressLine = projectClientAddressLine(client);
 	return (
 		<Card>
-			<CardPanel className="space-y-2 text-muted-foreground text-sm">
+			<CardPanel className="space-y-2 text-muted-foreground">
 				<div className="flex items-center justify-between gap-3">
 					<p className="font-semibold text-foreground leading-none">
 						{projectClientDisplayName(client)}
@@ -51,19 +63,51 @@ export function ProjectClientCard({
 						>
 							<Pencil />
 						</Button>
-						<Button
-							aria-label="Delete client"
-							onClick={onDelete}
-							size="icon-sm"
-							type="button"
-							variant="destructive-outline"
-						>
-							<Trash2 />
-						</Button>
+						<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
+							<AlertDialogTrigger
+								render={
+									<Button
+										aria-label="Delete client"
+										size="icon-sm"
+										type="button"
+										variant="destructive-outline"
+									/>
+								}
+							>
+								<Trash2 />
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete client?</AlertDialogTitle>
+									<AlertDialogDescription>
+										{`Remove ${projectClientDisplayName(client)} from this project?`}
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogClose
+										render={<Button type="button" variant="outline" />}
+									>
+										Cancel
+									</AlertDialogClose>
+									<Button
+										onClick={() => {
+											onDelete();
+											setConfirmOpen(false);
+										}}
+										type="button"
+										variant="destructive"
+									>
+										Delete client
+									</Button>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
 					</div>
 				</div>
-				<p className="leading-snug">{projectClientEmailPhoneLine(client)}</p>
-				<p className="leading-snug">
+				<p className="text-sm leading-snug">
+					{projectClientEmailPhoneLine(client)}
+				</p>
+				<p className="text-sm leading-snug">
 					{addressLine || (
 						<span className="text-muted-foreground/72">No address</span>
 					)}

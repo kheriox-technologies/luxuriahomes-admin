@@ -7,6 +7,7 @@ import { useQuery } from 'convex/react';
 import DeleteProject from '@/components/forms/delete-project';
 import EditProjectForm from '@/components/forms/edit-project';
 import PageHeading from '@/components/page-heading';
+import ProjectDetailsTabs from '@/components/projects/project-details-tabs';
 
 function formatAddressLine(address: {
 	street: string;
@@ -56,6 +57,7 @@ export default function ProjectDetailView({
 					</div>
 				}
 			/>
+			<ProjectDetailsTabs clients={project.clients} />
 		</div>
 	);
 }
