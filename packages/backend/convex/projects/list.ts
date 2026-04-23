@@ -5,6 +5,9 @@ export const list = query({
 	args: {},
 	handler: async (ctx) => {
 		await requireAdmin(ctx);
-		return await ctx.db.query('projects').order('desc').collect();
+		const projects = await ctx.db.query('projects').order('desc').collect();
+		return projects.sort((a, b) =>
+			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+		);
 	},
 });
