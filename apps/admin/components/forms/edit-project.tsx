@@ -2,6 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
+import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
@@ -17,67 +18,104 @@ import {
 	SheetTrigger,
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
-import { useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
+import { useEffect, useState } from 'react';
 import {
 	type AustralianState,
 	AustralianStateCombobox,
-	emptyProjectCoreFormValues,
+	editProjectFormSchema,
+	emptyEditProjectFormValues,
 	formatFieldErrors,
-	projectCoreFormSchema,
-	toConvexCreatePayload,
+	type ProjectStatus,
+	ProjectStatusCombobox,
+	toConvexUpdatePayload,
 } from '@/components/forms/project-form-shared';
 
-const FORM_ID = 'add-project-form';
+const FORM_ID = 'edit-project-form';
 
-export default function AddProjectForm() {
+function projectDocToEditDefaults(project: Doc<'projects'>) {
+	return {
+		status: project.status,
+		name: project.name,
+		address: { ...project.address },
+		client: {
+			firstName: project.client.firstName,
+			lastName: project.client.lastName,
+			email: project.client.email,
+			phone: project.client.phone,
+			company: project.client.company ?? '',
+			address: {
+				street: project.client.address?.street ?? '',
+				suburb: project.client.address?.suburb ?? '',
+				state: project.client.address?.state ?? '',
+				postcode: project.client.address?.postcode ?? '',
+			},
+		},
+	};
+}
+
+export default function EditProjectForm({
+	projectId,
+}: {
+	projectId: Id<'projects'>;
+}) {
+	const project = useQuery(api.projects.get.get, { projectId });
 	const [open, setOpen] = useState(false);
-	const addProject = useMutation(api.projects.add.add);
+	const updateProject = useMutation(api.projects.update.update);
 
 	const form = useForm({
-		defaultValues: emptyProjectCoreFormValues,
+		defaultValues: emptyEditProjectFormValues,
 		validators: {
-			onChange: projectCoreFormSchema as never,
+			onChange: editProjectFormSchema as never,
 		},
 		onSubmit: async ({ value }) => {
-			const parsed = projectCoreFormSchema.parse(value);
+			const parsed = editProjectFormSchema.parse(value);
 			try {
-				await addProject(toConvexCreatePayload(parsed));
+				await updateProject({
+					projectId,
+					...toConvexUpdatePayload(parsed),
+				});
 				toastManager.add({
-					title: 'Project created',
+					title: 'Project updated',
 					type: 'success',
 				});
-				form.reset();
 				setOpen(false);
 			} catch (e) {
 				const message =
-					e instanceof Error ? e.message : 'Could not create project';
+					e instanceof Error ? e.message : 'Could not update project';
 				toastManager.add({
 					description: message,
-					title: 'Could not create project',
+					title: 'Could not update project',
 					type: 'error',
 				});
 			}
 		},
 	});
 
+	useEffect(() => {
+		if (!(open && project)) {
+			return;
+		}
+		form.reset(projectDocToEditDefaults(project));
+	}, [form, open, project]);
+
 	return (
 		<Sheet
 			onOpenChange={(next) => {
 				setOpen(next);
 				if (!next) {
-					form.reset();
+					form.reset(emptyEditProjectFormValues);
 				}
 			}}
 			open={open}
 		>
-			<SheetTrigger render={<Button variant="default">Add project</Button>} />
+			<SheetTrigger render={<Button variant="outline">Edit project</Button>} />
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
 			>
 				<SheetHeader>
-					<SheetTitle>Add project</SheetTitle>
+					<SheetTitle>Edit project</SheetTitle>
 				</SheetHeader>
 				<form
 					className="flex min-h-0 min-w-0 flex-1 flex-col"
@@ -106,6 +144,33 @@ export default function AddProjectForm() {
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
 												placeholder="Project name"
+												value={field.state.value}
+											/>
+											{invalid ? (
+												<FieldError>
+													{formatFieldErrors(field.state.meta.errors)}
+												</FieldError>
+											) : null}
+										</Field>
+									);
+								}}
+							</form.Field>
+
+							<form.Field name="status">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>Status</FieldLabel>
+											<ProjectStatusCombobox
+												id={field.name}
+												invalid={invalid}
+												onBlur={field.handleBlur}
+												onChange={(next) =>
+													field.handleChange(next as ProjectStatus)
+												}
+												placeholder="Select status"
 												value={field.state.value}
 											/>
 											{invalid ? (

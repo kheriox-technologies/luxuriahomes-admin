@@ -4,7 +4,7 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-
+import EditProjectForm from '@/components/forms/edit-project';
 import PageHeading from '@/components/page-heading';
 
 function formatAddressLine(address: {
@@ -45,8 +45,10 @@ export default function ProjectDetailView({
 		<div className={cn('flex h-full w-full flex-col')}>
 			<PageHeading
 				backLink="/projects"
+				className="mb-0"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
+				rightSlot={<EditProjectForm projectId={projectId} />}
 			/>
 		</div>
 	);
