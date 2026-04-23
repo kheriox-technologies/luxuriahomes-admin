@@ -20,7 +20,12 @@ import {
 	SidebarMenuSubItem,
 } from '@workspace/ui/components/sidebar';
 import { useQuery } from 'convex/react';
-import { ChevronDown, Folder, type LucideIcon } from 'lucide-react';
+import {
+	Building2,
+	ChevronDown,
+	type LucideIcon,
+	SquaresIntersect,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -48,13 +53,13 @@ const items: SidebarItem[] = [
 		title: 'Projects',
 		url: '/projects',
 		path: '/projects',
-		icon: Folder,
+		icon: Building2,
 	},
 	{
 		title: 'Inclusions',
 		url: '/inclusions',
 		path: '/inclusions',
-		icon: Folder,
+		icon: SquaresIntersect,
 	},
 ];
 

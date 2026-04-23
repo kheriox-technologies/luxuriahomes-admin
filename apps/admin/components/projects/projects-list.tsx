@@ -4,11 +4,41 @@ import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Card, CardTitle } from '@workspace/ui/components/card';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@workspace/ui/components/empty';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
+import { Building2, SearchIcon } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 
+/** Set to `false` before commit — forces the “no projects yet” empty UI. */
+const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
+
 type Project = Doc<'projects'>;
+
+function NoProjectsYetEmpty() {
+	return (
+		<div className="flex min-h-0 flex-1 flex-col">
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<Building2 aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No projects yet</EmptyTitle>
+					<EmptyDescription>
+						Create a project to track builds, clients, and site details in one
+						place. Use the Add project button above to get started.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		</div>
+	);
+}
 
 function statusBadgeProps(status: Project['status']): {
 	label: string;
@@ -80,6 +110,10 @@ export default function ProjectsList({
 	);
 	const projects = trimmedSearch === '' ? listResults : searchResults;
 
+	if (FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING) {
+		return <NoProjectsYetEmpty />;
+	}
+
 	if (projects === undefined) {
 		return (
 			<div className="text-muted-foreground text-sm">Loading projects…</div>
@@ -87,11 +121,22 @@ export default function ProjectsList({
 	}
 
 	if (projects.length === 0) {
+		if (trimmedSearch === '') {
+			return <NoProjectsYetEmpty />;
+		}
 		return (
-			<div className="text-muted-foreground text-sm">
-				{trimmedSearch === ''
-					? 'No projects yet.'
-					: 'No projects match your search.'}
+			<div className="flex min-h-0 flex-1 flex-col">
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<SearchIcon aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No matching projects</EmptyTitle>
+						<EmptyDescription>
+							Try another name, address, suburb, postcode, or client detail.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
 			</div>
 		);
 	}

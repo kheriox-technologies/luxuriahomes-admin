@@ -7,7 +7,7 @@ import {
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
 import { cn } from '@workspace/ui/lib/utils';
-import { SearchIcon } from 'lucide-react';
+import { Building2, SearchIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AddProjectForm from '@/components/forms/add-project';
 import PageHeading from '@/components/page-heading';
@@ -23,9 +23,9 @@ export default function ProjectsPageContent() {
 	}, [search]);
 
 	return (
-		<div className={cn('flex h-full w-full flex-col')}>
+		<div className={cn('flex h-full min-h-0 w-full flex-col')}>
 			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
-				<PageHeading className="mb-0" heading="Projects" />
+				<PageHeading className="mb-0" heading="Projects" icon={Building2} />
 				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
 					<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
 						<InputGroupAddon align="inline-start">
@@ -44,7 +44,9 @@ export default function ProjectsPageContent() {
 					<AddProjectForm />
 				</div>
 			</div>
-			<ProjectsList searchQuery={debouncedSearch} />
+			<div className="flex min-h-0 flex-1 flex-col">
+				<ProjectsList searchQuery={debouncedSearch} />
+			</div>
 		</div>
 	);
 }
