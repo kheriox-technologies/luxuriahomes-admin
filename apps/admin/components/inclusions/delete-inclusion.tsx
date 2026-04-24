@@ -15,21 +15,25 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { useRouter } from 'next/navigation';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 export default function DeleteInclusion({
 	inclusionId,
 	inclusionTitle,
+	redirectToCatalogueAfterDelete,
 	trigger,
 }: {
 	inclusionId: Id<'inclusions'>;
 	inclusionTitle: string;
+	redirectToCatalogueAfterDelete?: boolean;
 	trigger: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeInclusion = useMutation(api.inclusions.remove.remove);
+	const router = useRouter();
 
 	const onDelete = async () => {
 		setIsDeleting(true);
@@ -40,6 +44,9 @@ export default function DeleteInclusion({
 				type: 'success',
 			});
 			setOpen(false);
+			if (redirectToCatalogueAfterDelete) {
+				router.push('/inclusions/catalogue' as never);
+			}
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(

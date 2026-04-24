@@ -217,7 +217,7 @@ function CardPanel({
 }: useRender.ComponentProps<"div">) {
   const defaultProps = {
     className: cn(
-      "flex-1 px-5 py-3 in-[[data-slot=card]:has(>[data-slot=card-header]:not(.border-b))]:pt-0 in-[[data-slot=card]:has(>[data-slot=card-footer]:not(.border-t))]:pb-0",
+      "flex-1 px-3 py-3 in-[[data-slot=card]:has(>[data-slot=card-header]:not(.border-b))]:pt-0 in-[[data-slot=card]:has(>[data-slot=card-footer]:not(.border-t))]:pb-0",
       className,
     ),
     "data-slot": "card-panel",
@@ -225,7 +225,7 @@ function CardPanel({
 
   return useRender({
     defaultTagName: "div",
-    props: mergeProps<"div">(defaultProps, props),
+    props: mergeProps<"div">(defaultProps, props), 
     render,
   });
 }

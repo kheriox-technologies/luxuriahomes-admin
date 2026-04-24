@@ -38,6 +38,7 @@ import {
 	SquaresIntersect,
 	Trash2,
 } from 'lucide-react';
+import Link, { type LinkProps } from 'next/link';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import AddInclusion from '@/components/inclusions/add-inclusion';
@@ -65,7 +66,12 @@ function InclusionCatalogueCard({
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-start justify-between gap-3">
-				<div className="flex min-w-0 flex-1 flex-col gap-1">
+				<Link
+					className="-m-2 flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-foreground no-underline outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+					href={
+						`/inclusions/catalogue/${inclusion._id}` as LinkProps<string>['href']
+					}
+				>
 					<CardTitle className="truncate leading-tight">
 						{inclusion.title}
 					</CardTitle>
@@ -77,7 +83,7 @@ function InclusionCatalogueCard({
 					<Badge className="mt-1 w-fit" size="lg" variant="info">
 						{formatVariantBadgeLabel(inclusion.variantCount)}
 					</Badge>
-				</div>
+				</Link>
 				<CardAction>
 					<Group>
 						<EditInclusion
