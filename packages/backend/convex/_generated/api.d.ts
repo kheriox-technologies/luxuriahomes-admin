@@ -23,6 +23,7 @@ import type * as inclusionVariants_search from "../inclusionVariants/search.js";
 import type * as inclusionVariants_shared from "../inclusionVariants/shared.js";
 import type * as inclusionVariants_update from "../inclusionVariants/update.js";
 import type * as inclusions_add from "../inclusions/add.js";
+import type * as inclusions_backfillSearchText from "../inclusions/backfillSearchText.js";
 import type * as inclusions_get from "../inclusions/get.js";
 import type * as inclusions_list from "../inclusions/list.js";
 import type * as inclusions_remove from "../inclusions/remove.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "inclusionVariants/shared": typeof inclusionVariants_shared;
   "inclusionVariants/update": typeof inclusionVariants_update;
   "inclusions/add": typeof inclusions_add;
+  "inclusions/backfillSearchText": typeof inclusions_backfillSearchText;
   "inclusions/get": typeof inclusions_get;
   "inclusions/list": typeof inclusions_list;
   "inclusions/remove": typeof inclusions_remove;

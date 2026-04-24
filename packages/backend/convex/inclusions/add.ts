@@ -19,7 +19,10 @@ export const add = mutation({
 				message: 'Category not found',
 			});
 		}
-		const searchText = buildInclusionAggregateSearchText(title, []);
+		const searchText = buildInclusionAggregateSearchText(title, [], {
+			code: category.code,
+			name: category.name,
+		});
 		const inclusionId = await ctx.db.insert('inclusions', {
 			title,
 			categoryId: args.categoryId,

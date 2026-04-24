@@ -95,9 +95,14 @@ export function buildInclusionVariantSearchText(
 
 export function buildInclusionAggregateSearchText(
 	title: string,
-	variants: InclusionVariantSearchFields[]
+	variants: InclusionVariantSearchFields[],
+	category?: { code: string; name: string }
 ): string {
-	const parts: Array<string | undefined> = [title];
+	const parts: Array<string | undefined> = [
+		title,
+		category?.name,
+		category?.code,
+	];
 	for (const variant of variants) {
 		parts.push(variant.code, variant.vendor, ...variant.models);
 	}

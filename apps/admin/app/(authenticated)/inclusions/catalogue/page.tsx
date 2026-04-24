@@ -1,5 +1,5 @@
-import PageHeading from '@/components/page-heading';
+import InclusionCataloguePageContent from '@/components/inclusions/inclusion-catalogue-page-content';
 
 export default function InclusionsCataloguePage() {
-	return <PageHeading heading="Inclusions Catalogue" />;
+	return <InclusionCataloguePageContent />;
 }

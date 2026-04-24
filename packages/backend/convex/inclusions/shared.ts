@@ -51,9 +51,16 @@ export async function syncSearchTextsForInclusion(
 		models: v.models,
 	}));
 
+	const category = await ctx.db.get(inclusion.categoryId);
 	const parentSearch = buildInclusionAggregateSearchText(
 		inclusion.title,
-		fieldsList
+		fieldsList,
+		category
+			? {
+					code: category.code,
+					name: category.name,
+				}
+			: undefined
 	);
 	const variantCount = variants.length;
 	await ctx.db.patch(inclusionId, { searchText: parentSearch, variantCount });
