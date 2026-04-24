@@ -82,6 +82,7 @@ export function buildInclusionCategorySearchText(
 
 export interface InclusionVariantSearchFields {
 	code: string;
+	color?: string | undefined;
 	models: string[];
 	vendor: string;
 }
@@ -90,7 +91,13 @@ export function buildInclusionVariantSearchText(
 	title: string,
 	fields: InclusionVariantSearchFields
 ): string {
-	return buildSearchText([title, fields.code, fields.vendor, ...fields.models]);
+	return buildSearchText([
+		title,
+		fields.code,
+		fields.vendor,
+		fields.color,
+		...fields.models,
+	]);
 }
 
 export function buildInclusionAggregateSearchText(
@@ -104,7 +111,7 @@ export function buildInclusionAggregateSearchText(
 		category?.code,
 	];
 	for (const variant of variants) {
-		parts.push(variant.code, variant.vendor, ...variant.models);
+		parts.push(variant.code, variant.vendor, variant.color, ...variant.models);
 	}
 	return buildSearchText(parts);
 }

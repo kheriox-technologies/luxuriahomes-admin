@@ -49,6 +49,7 @@ export default defineSchema({
 		code: v.string(),
 		vendor: v.string(),
 		models: v.array(v.string()),
+		color: v.optional(v.string()),
 		details: v.optional(v.string()),
 		image: v.optional(v.string()),
 		storageId: v.optional(v.id('_storage')),

@@ -10,6 +10,7 @@ interface Props {
 	className?: string;
 	description?: string;
 	heading: string;
+	headingActions?: ReactNode;
 	icon?: LucideIcon;
 	metaSlot?: ReactNode;
 	rightSlot?: ReactNode;
@@ -17,6 +18,7 @@ interface Props {
 
 const PageHeading = ({
 	heading,
+	headingActions,
 	icon: Icon,
 	description,
 	backLink,
@@ -34,9 +36,16 @@ const PageHeading = ({
 				)}
 				{Icon && <Icon className="h-6 w-6" />}
 				<div className="flex min-w-0 flex-col gap-1">
-					<h3 className="font-semibold sm:truncate sm:tracking-tight">
-						{heading}
-					</h3>
+					<div className="flex min-w-0 items-center gap-2">
+						<h3 className="min-w-0 flex-1 font-semibold sm:truncate sm:tracking-tight">
+							{heading}
+						</h3>
+						{headingActions ? (
+							<div className="flex shrink-0 items-center gap-2">
+								{headingActions}
+							</div>
+						) : null}
+					</div>
 					{metaSlot ? (
 						<div className="flex min-w-0 flex-wrap items-center gap-2">
 							{metaSlot}

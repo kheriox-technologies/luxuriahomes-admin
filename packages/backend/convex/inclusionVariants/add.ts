@@ -21,6 +21,7 @@ export const add = mutation({
 		class: inclusionVariantClassValidator,
 		vendor: v.string(),
 		models: v.array(v.string()),
+		color: v.optional(v.string()),
 		details: v.optional(v.string()),
 		image: v.optional(v.string()),
 		storageId: v.optional(v.id('_storage')),
@@ -41,6 +42,8 @@ export const add = mutation({
 
 		const vendor = parseVendor(args.vendor);
 		const models = parseModels(args.models);
+		const color =
+			args.color !== undefined ? parseOptionalDetail(args.color) : undefined;
 		const details = parseOptionalDetail(args.details);
 		const image =
 			args.image !== undefined ? parseOptionalDetail(args.image) : undefined;
@@ -54,6 +57,7 @@ export const add = mutation({
 			code,
 			vendor,
 			models,
+			color,
 		});
 
 		const variantId = await ctx.db.insert('inclusionVariants', {
@@ -62,6 +66,7 @@ export const add = mutation({
 			code,
 			vendor,
 			models,
+			color,
 			details,
 			image,
 			storageId: args.storageId,

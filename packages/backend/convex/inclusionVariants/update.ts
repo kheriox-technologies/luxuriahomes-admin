@@ -18,6 +18,7 @@ import {
 
 interface VariantPatchArgs {
 	class?: InclusionVariantClass | undefined;
+	color?: string | null | undefined;
 	costPrice?: number | undefined;
 	details?: string | null | undefined;
 	image?: string | null | undefined;
@@ -67,6 +68,10 @@ function buildScalarVariantPatch(
 	if (args.models !== undefined) {
 		patch.models = parseModels(args.models);
 	}
+	if (args.color !== undefined) {
+		patch.color =
+			args.color === null ? undefined : parseOptionalDetail(args.color);
+	}
 	if (args.details !== undefined) {
 		patch.details =
 			args.details === null ? undefined : parseOptionalDetail(args.details);
@@ -90,6 +95,7 @@ export const update = mutation({
 		class: v.optional(inclusionVariantClassValidator),
 		vendor: v.optional(v.string()),
 		models: v.optional(v.array(v.string())),
+		color: v.optional(v.union(v.string(), v.null())),
 		details: v.optional(v.union(v.string(), v.null())),
 		image: v.optional(v.union(v.string(), v.null())),
 		storageId: v.optional(v.union(v.id('_storage'), v.null())),

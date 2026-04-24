@@ -49,6 +49,7 @@ export async function syncSearchTextsForInclusion(
 		code: v.code,
 		vendor: v.vendor,
 		models: v.models,
+		color: v.color,
 	}));
 
 	const category = await ctx.db.get(inclusion.categoryId);
@@ -70,6 +71,7 @@ export async function syncSearchTextsForInclusion(
 			code: variant.code,
 			vendor: variant.vendor,
 			models: variant.models,
+			color: variant.color,
 		});
 		await ctx.db.patch(variant._id, { searchText });
 	}

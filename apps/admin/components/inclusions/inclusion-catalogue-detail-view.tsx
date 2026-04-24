@@ -7,6 +7,7 @@ import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
+import AddInclusionVariant from '@/components/inclusions/add-inclusion-variant';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
 import EditInclusion from '@/components/inclusions/edit-inclusion';
 import { formatVariantBadgeLabel } from '@/components/inclusions/inclusion-form-shared';
@@ -45,6 +46,40 @@ export default function InclusionCatalogueDetailView({
 				backLink="/inclusions/catalogue"
 				className="mb-0"
 				heading={inclusion.title}
+				headingActions={
+					<>
+						<EditInclusion
+							inclusionId={inclusionId}
+							initialCategoryId={inclusion.categoryId}
+							initialTitle={inclusion.title}
+							trigger={
+								<Button
+									aria-label="Edit inclusion"
+									size="icon"
+									type="button"
+									variant="outline"
+								>
+									<Pencil />
+								</Button>
+							}
+						/>
+						<DeleteInclusion
+							inclusionId={inclusionId}
+							inclusionTitle={inclusion.title}
+							redirectToCatalogueAfterDelete
+							trigger={
+								<Button
+									aria-label="Delete inclusion"
+									size="icon"
+									type="button"
+									variant="destructive-outline"
+								>
+									<Trash2 />
+								</Button>
+							}
+						/>
+					</>
+				}
 				metaSlot={
 					<>
 						<Badge size="lg" variant="outline">
@@ -56,42 +91,10 @@ export default function InclusionCatalogueDetailView({
 					</>
 				}
 				rightSlot={
-					<div className="flex items-center gap-2">
-						<EditInclusion
-							inclusionId={inclusionId}
-							initialCategoryId={inclusion.categoryId}
-							initialTitle={inclusion.title}
-							trigger={
-								<Button
-									aria-label="Edit"
-									className="size-9 sm:h-8 sm:w-auto sm:px-[calc(--spacing(3)-1px)]"
-									size="icon"
-									variant="outline"
-								>
-									<Pencil className="sm:hidden" />
-									<span className="hidden sm:inline">Edit</span>
-									<span className="sr-only sm:hidden">Edit</span>
-								</Button>
-							}
-						/>
-						<DeleteInclusion
-							inclusionId={inclusionId}
-							inclusionTitle={inclusion.title}
-							redirectToCatalogueAfterDelete
-							trigger={
-								<Button
-									aria-label="Delete"
-									className="size-9 sm:h-8 sm:w-auto sm:px-[calc(--spacing(3)-1px)]"
-									size="icon"
-									variant="destructive-outline"
-								>
-									<Trash2 className="sm:hidden" />
-									<span className="hidden sm:inline">Delete</span>
-									<span className="sr-only sm:hidden">Delete</span>
-								</Button>
-							}
-						/>
-					</div>
+					<AddInclusionVariant
+						inclusionId={inclusionId}
+						trigger={<Button variant="default">Add Variant</Button>}
+					/>
 				}
 			/>
 		</div>

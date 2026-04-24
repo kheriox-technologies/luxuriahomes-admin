@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as fileStorage_deleteStorage from "../fileStorage/deleteStorage.js";
 import type * as fileStorage_generateUploadUrl from "../fileStorage/generateUploadUrl.js";
 import type * as fileStorage_resolvePublicUrl from "../fileStorage/resolvePublicUrl.js";
 import type * as inclusionCategories_add from "../inclusionCategories/add.js";
@@ -55,6 +56,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "fileStorage/deleteStorage": typeof fileStorage_deleteStorage;
   "fileStorage/generateUploadUrl": typeof fileStorage_generateUploadUrl;
   "fileStorage/resolvePublicUrl": typeof fileStorage_resolvePublicUrl;
   "inclusionCategories/add": typeof inclusionCategories_add;

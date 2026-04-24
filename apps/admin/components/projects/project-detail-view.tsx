@@ -73,23 +73,18 @@ export default function ProjectDetailView({
 				className="mb-0"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
-				rightSlot={
-					<div className="flex items-center gap-2">
-						<Badge size="lg" variant={statusBadge.variant}>
-							{statusBadge.label}
-						</Badge>
+				headingActions={
+					<>
 						<EditProjectForm
 							projectId={projectId}
 							trigger={
 								<Button
 									aria-label="Edit project"
-									className="size-9 sm:h-8 sm:w-auto sm:px-[calc(--spacing(3)-1px)]"
 									size="icon"
+									type="button"
 									variant="outline"
 								>
-									<Pencil className="sm:hidden" />
-									<span className="hidden sm:inline">Edit project</span>
-									<span className="sr-only sm:hidden">Edit project</span>
+									<Pencil />
 								</Button>
 							}
 						/>
@@ -99,17 +94,20 @@ export default function ProjectDetailView({
 							trigger={
 								<Button
 									aria-label="Delete project"
-									className="size-9 sm:h-8 sm:w-auto sm:px-[calc(--spacing(3)-1px)]"
 									size="icon"
+									type="button"
 									variant="destructive-outline"
 								>
-									<Trash2 className="sm:hidden" />
-									<span className="hidden sm:inline">Delete project</span>
-									<span className="sr-only sm:hidden">Delete project</span>
+									<Trash2 />
 								</Button>
 							}
 						/>
-					</div>
+					</>
+				}
+				rightSlot={
+					<Badge size="lg" variant={statusBadge.variant}>
+						{statusBadge.label}
+					</Badge>
 				}
 			/>
 			<ProjectDetailsTabs clients={project.clients} />
