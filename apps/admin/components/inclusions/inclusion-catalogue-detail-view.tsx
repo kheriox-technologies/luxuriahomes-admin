@@ -12,13 +12,23 @@ import {
 	CardFrameTitle,
 	CardPanel,
 } from '@workspace/ui/components/card';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from '@workspace/ui/components/dialog';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import AddInclusionVariant from '@/components/inclusions/add-inclusion-variant';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
+import DeleteInclusionVariant from '@/components/inclusions/delete-inclusion-variant';
 import EditInclusion from '@/components/inclusions/edit-inclusion';
+import EditInclusionVariant from '@/components/inclusions/edit-inclusion-variant';
 import {
 	formatVariantBadgeLabel,
 	type InclusionVariantClass,
@@ -36,12 +46,15 @@ function formatAud(amount: number): string {
 
 function variantClassBadgeVariant(
 	className: InclusionVariantClass
-): 'outline' | 'warning' | 'secondary' {
+): 'outline' | 'teal' | 'yellow' | 'purple' {
+	if (className === 'Standard') {
+		return 'teal';
+	}
 	if (className === 'Gold') {
-		return 'warning';
+		return 'yellow';
 	}
 	if (className === 'Platinum') {
-		return 'secondary';
+		return 'purple';
 	}
 	return 'outline';
 }
@@ -55,7 +68,7 @@ function InclusionVariantCard({
 	const linkUrl = variant.link?.trim() ?? '';
 
 	return (
-		<CardFrame>
+		<CardFrame className="h-full">
 			<CardFrameHeader className="flex flex-row items-start justify-between gap-3">
 				<div className="min-w-0 flex-1">
 					<CardFrameTitle className="min-w-0 truncate leading-snug">
@@ -71,18 +84,44 @@ function InclusionVariantCard({
 					</div>
 				</div>
 				<CardFrameAction>
-					<div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-						<Badge className="shrink-0" size="lg" variant="outline">
-							Cost {formatAud(variant.costPrice)}
-						</Badge>
-						<Badge className="shrink-0" size="lg" variant="info">
-							Sale {formatAud(variant.salePrice)}
-						</Badge>
-					</div>
+					<Group>
+						<Button type="button" variant="outline">
+							Add To Project
+						</Button>
+						<GroupSeparator />
+						<EditInclusionVariant
+							trigger={
+								<Button
+									aria-label="Edit variant"
+									size="icon"
+									type="button"
+									variant="outline"
+								>
+									<Pencil />
+								</Button>
+							}
+							variant={variant}
+						/>
+						<GroupSeparator />
+						<DeleteInclusionVariant
+							trigger={
+								<Button
+									aria-label="Delete variant"
+									size="icon"
+									type="button"
+									variant="destructive-outline"
+								>
+									<Trash2 />
+								</Button>
+							}
+							variantId={variant._id}
+							variantLabel={`${variant.vendor} ${variant.code}`}
+						/>
+					</Group>
 				</CardFrameAction>
 			</CardFrameHeader>
-			<Card className="flex flex-row items-start overflow-hidden">
-				<CardPanel className="min-w-0 flex-1 space-y-2 text-sm">
+			<Card className="flex h-full flex-row items-stretch overflow-hidden">
+				<CardPanel className="flex h-full min-w-0 flex-1 flex-col space-y-2 text-sm">
 					<dl className="space-y-2">
 						<div>
 							<dt className="text-muted-foreground text-xs tracking-wide">
@@ -126,19 +165,52 @@ function InclusionVariantCard({
 							</div>
 						) : null}
 					</dl>
+					<div className="flex flex-wrap items-center gap-2 pt-1">
+						<Badge className="shrink-0" size="lg" variant="outline">
+							Cost {formatAud(variant.costPrice)}
+						</Badge>
+						<Badge className="shrink-0" size="lg" variant="info">
+							Sale {formatAud(variant.salePrice)}
+						</Badge>
+					</div>
 				</CardPanel>
 				{imageUrl ? (
 					<div className="flex shrink-0 items-center py-5 pr-5 pl-3">
-						<div className="relative h-[150px] w-[150px] bg-muted">
-							<NextImage
-								alt=""
-								className="object-cover"
-								fill
-								sizes="150px"
-								src={imageUrl}
-								unoptimized
-							/>
-						</div>
+						<Dialog>
+							<DialogTrigger
+								render={
+									<button
+										aria-label={`Open image preview for ${variant.vendor} ${variant.code}`}
+										className="flex h-[150px] w-[150px] cursor-zoom-in items-center justify-center bg-card"
+										type="button"
+									/>
+								}
+							>
+								<NextImage
+									alt={`${variant.vendor} ${variant.code}`}
+									className="h-[150px] max-h-[150px] w-auto max-w-[150px] object-contain"
+									height={150}
+									src={imageUrl}
+									unoptimized
+									width={150}
+								/>
+							</DialogTrigger>
+							<DialogContent className="sm:max-w-3xl">
+								<DialogHeader>
+									<DialogTitle>{`${variant.vendor} ${variant.code}`}</DialogTitle>
+								</DialogHeader>
+								<div className="flex max-h-[75vh] items-center justify-center overflow-hidden rounded-md bg-card p-2">
+									<NextImage
+										alt={`${variant.vendor} ${variant.code}`}
+										className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
+										height={1200}
+										src={imageUrl}
+										unoptimized
+										width={1200}
+									/>
+								</div>
+							</DialogContent>
+						</Dialog>
 					</div>
 				) : null}
 			</Card>

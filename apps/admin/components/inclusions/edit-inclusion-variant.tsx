@@ -2,7 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
-import type { Id } from '@workspace/backend/dataModel';
+import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -45,7 +45,7 @@ import { Plus, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import {
 	addInclusionVariantFormSchema,
-	emptyAddInclusionVariantFormValues,
+	type InclusionVariantClass,
 	inclusionFormFieldError,
 	inclusionVariantClasses,
 	normalizeOptionalText,
@@ -53,7 +53,20 @@ import {
 } from '@/components/inclusions/inclusion-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
-const FORM_ID = 'add-inclusion-variant-form';
+function toDefaultValues(variant: Doc<'inclusionVariants'>) {
+	return {
+		class: variant.class as InclusionVariantClass,
+		vendor: variant.vendor,
+		models: variant.models,
+		color: variant.color ?? '',
+		costPrice: String(variant.costPrice),
+		salePrice: String(variant.salePrice),
+		details: variant.details ?? '',
+		link: variant.link ?? '',
+		image: variant.image ?? '',
+		storageId: variant.storageId ?? '',
+	};
+}
 
 function variantClassBorderClass(
 	variantClass: (typeof inclusionVariantClasses)[number]
@@ -70,19 +83,23 @@ function variantClassBorderClass(
 	return 'border-input';
 }
 
-export default function AddInclusionVariant({
-	inclusionId,
+export default function EditInclusionVariant({
+	variant,
 	trigger,
 }: {
-	inclusionId: Id<'inclusions'>;
-	trigger?: ReactElement;
+	variant: Doc<'inclusionVariants'>;
+	trigger: ReactElement;
 }) {
+	const formId = `edit-inclusion-variant-form-${variant._id}`;
 	const [open, setOpen] = useState(false);
 	const [uploadFieldKey, setUploadFieldKey] = useState(0);
 	const [modelDraft, setModelDraft] = useState('');
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const [originalStorageId, setOriginalStorageId] = useState(
+		variant.storageId ?? ''
+	);
 
-	const addVariant = useMutation(api.inclusionVariants.add.add);
+	const updateVariant = useMutation(api.inclusionVariants.update.update);
 	const generateUploadUrl = useMutation(
 		api.fileStorage.generateUploadUrl.generateUploadUrl
 	);
@@ -94,7 +111,7 @@ export default function AddInclusionVariant({
 	);
 
 	const form = useForm({
-		defaultValues: emptyAddInclusionVariantFormValues,
+		defaultValues: toDefaultValues(variant),
 		validators: {
 			onMount: addInclusionVariantFormSchema as never,
 			onChange: addInclusionVariantFormSchema as never,
@@ -102,35 +119,34 @@ export default function AddInclusionVariant({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = addInclusionVariantFormSchema.parse(value);
-				await addVariant({
-					inclusionId,
+				const normalizedStorageId = parsed.storageId?.trim();
+				await updateVariant({
+					variantId: variant._id,
 					class: parsed.class,
 					costPrice: parseMoneyString(parsed.costPrice),
 					salePrice: parseMoneyString(parsed.salePrice),
 					vendor: parsed.vendor.trim(),
 					models: parsed.models,
-					color: normalizeOptionalText(parsed.color),
-					details: normalizeOptionalText(parsed.details),
-					link: normalizeOptionalText(parsed.link),
-					image: normalizeOptionalText(parsed.image),
-					storageId: parsed.storageId
-						? (parsed.storageId as Id<'_storage'>)
-						: undefined,
+					color: normalizeOptionalText(parsed.color) ?? null,
+					details: normalizeOptionalText(parsed.details) ?? null,
+					link: normalizeOptionalText(parsed.link) ?? null,
+					image: normalizeOptionalText(parsed.image) ?? null,
+					storageId: normalizedStorageId
+						? (normalizedStorageId as Id<'_storage'>)
+						: null,
 				});
 				toastManager.add({
-					title: 'Variant added',
+					title: 'Variant updated',
 					type: 'success',
 				});
-				form.reset();
-				setModelDraft('');
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
 					description: getConvexErrorMessage(
 						error,
-						'Could not add variant. Please try again in a moment.'
+						'Could not update variant. Please try again in a moment.'
 					),
-					title: 'Could not add variant',
+					title: 'Could not update variant',
 					type: 'error',
 				});
 			}
@@ -178,9 +194,15 @@ export default function AddInclusionVariant({
 			if (!payload.storageId) {
 				throw new Error('Upload response missing storageId');
 			}
+			if (originalStorageId && originalStorageId !== payload.storageId) {
+				await deleteStoredFile({
+					storageId: originalStorageId as Id<'_storage'>,
+				});
+			}
 			const resolved = await resolvePublicUrl({
 				storageId: payload.storageId as Id<'_storage'>,
 			});
+			setOriginalStorageId(resolved.storageId);
 			form.setFieldValue('storageId', resolved.storageId);
 			form.setFieldValue('image', resolved.url);
 			toastManager.add({
@@ -206,32 +228,32 @@ export default function AddInclusionVariant({
 			onOpenChange={(nextOpen) => {
 				setOpen(nextOpen);
 				if (nextOpen) {
+					const defaults = toDefaultValues(variant);
+					form.reset(defaults);
+					setOriginalStorageId(variant.storageId ?? '');
 					setUploadFieldKey((key) => key + 1);
+					setModelDraft('');
 					Promise.resolve(form.validate('change')).catch(() => {
 						/* validation errors are reflected in form state */
 					});
 				}
 				if (!nextOpen) {
-					form.reset();
-					setModelDraft('');
 					setIsUploadingImage(false);
 				}
 			}}
 			open={open}
 		>
-			<SheetTrigger
-				render={trigger ?? <Button variant="default">Add variant</Button>}
-			/>
+			<SheetTrigger render={trigger} />
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
 			>
 				<SheetHeader>
-					<SheetTitle>Add variant</SheetTitle>
+					<SheetTitle>Edit variant</SheetTitle>
 				</SheetHeader>
 				<form
 					className="flex min-h-0 min-w-0 flex-1 flex-col"
-					id={FORM_ID}
+					id={formId}
 					onSubmit={(event) => {
 						event.preventDefault();
 						form.handleSubmit().catch(() => {
@@ -244,7 +266,7 @@ export default function AddInclusionVariant({
 							<CardFrameHeader>
 								<CardFrameTitle>Class and pricing</CardFrameTitle>
 								<CardFrameDescription>
-									Select class and enter the prices in AUD.
+									Select class and update the prices in AUD.
 								</CardFrameDescription>
 							</CardFrameHeader>
 							<Card>
@@ -654,12 +676,12 @@ export default function AddInclusionVariant({
 										!isUploadingImage
 									)
 								}
-								form={FORM_ID}
+								form={formId}
 								loading={isSubmitting}
 								type="submit"
 								variant="default"
 							>
-								Add variant
+								Save changes
 							</Button>
 						)}
 					</form.Subscribe>
