@@ -166,10 +166,10 @@ function InclusionVariantCard({
 						) : null}
 					</dl>
 					<div className="flex flex-wrap items-center gap-2 pt-1">
-						<Badge className="shrink-0" size="lg" variant="outline">
+						<Badge className="shrink-0" size="lg" variant="warning">
 							Cost {formatAud(variant.costPrice)}
 						</Badge>
-						<Badge className="shrink-0" size="lg" variant="info">
+						<Badge className="shrink-0" size="lg" variant="success">
 							Sale {formatAud(variant.salePrice)}
 						</Badge>
 					</div>
