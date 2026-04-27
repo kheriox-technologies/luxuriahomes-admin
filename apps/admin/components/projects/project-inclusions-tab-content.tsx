@@ -16,6 +16,7 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
+	CardAction,
 	CardFrame,
 	CardFrameAction,
 	CardFrameDescription,
@@ -23,6 +24,7 @@ import {
 	CardFrameTitle,
 	CardHeader,
 	CardPanel,
+	CardTitle,
 } from '@workspace/ui/components/card';
 import {
 	Dialog,
@@ -165,30 +167,30 @@ function ProjectInclusionCard({
 	const imageUrl = inclusion.image?.trim() ?? '';
 
 	return (
-		<Card className="flex h-full flex-row items-stretch overflow-hidden">
-			<div className="flex min-w-0 flex-1 flex-col">
-				<CardHeader className="space-y-2 pb-2">
-					<div className="flex flex-wrap items-center gap-2">
-						<p className="font-semibold leading-snug">{inclusion.title}</p>
+		<Card className="flex flex-row items-stretch overflow-hidden">
+			<div className="min-w-0 flex-1">
+				<CardHeader className="gap-y-2">
+					<CardTitle className="flex min-w-0 flex-wrap items-center gap-2 leading-snug">
+						<span className="min-w-0">{inclusion.title}</span>
 						<Badge
 							size="lg"
 							variant={variantClassBadgeVariant(inclusion.class)}
 						>
 							{inclusion.class}
 						</Badge>
-						<div className="flex items-center gap-1">
-							<span className="font-mono text-muted-foreground text-xs">
-								{inclusion.code}
-							</span>
-							<DeleteProjectInclusionButton
-								code={inclusion.code}
-								projectInclusionId={inclusion._id}
-								title={inclusion.title}
-							/>
-						</div>
-					</div>
+						<span className="font-mono text-muted-foreground text-xs">
+							{inclusion.code}
+						</span>
+					</CardTitle>
+					<CardAction className="absolute top-3 right-3">
+						<DeleteProjectInclusionButton
+							code={inclusion.code}
+							projectInclusionId={inclusion._id}
+							title={inclusion.title}
+						/>
+					</CardAction>
 				</CardHeader>
-				<CardPanel className="space-y-2 pt-0 text-sm">
+				<CardPanel className="space-y-2 text-sm">
 					<p className="text-muted-foreground">{`${inclusion.vendor} - ${inclusion.models.join(', ')}`}</p>
 					{inclusion.details ? (
 						<p className="whitespace-pre-wrap text-pretty">
@@ -216,7 +218,7 @@ function ProjectInclusionCard({
 				</CardPanel>
 			</div>
 			{imageUrl ? (
-				<div className="flex shrink-0 items-center py-5 pr-5 pl-3">
+				<div className="flex shrink-0 items-center py-5 pr-14 pl-3">
 					<Dialog>
 						<DialogTrigger
 							render={

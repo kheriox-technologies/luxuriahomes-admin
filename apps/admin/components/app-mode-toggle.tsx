@@ -69,13 +69,13 @@ export default function AppModeToggle() {
 				variant="outline"
 			>
 				<ToggleGroupItem
-					className="data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground hover:data-pressed:bg-primary/90"
+					className="data-pressed:cursor-default data-pressed:hover:bg-input"
 					value="builder"
 				>
 					Builder
 				</ToggleGroupItem>
 				<ToggleGroupItem
-					className="data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground hover:data-pressed:bg-primary/90"
+					className="data-pressed:cursor-default data-pressed:hover:bg-input"
 					value="client"
 				>
 					Client

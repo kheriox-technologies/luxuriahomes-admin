@@ -4,6 +4,7 @@ import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -73,8 +74,8 @@ export default function ProjectDetailView({
 				className="mb-0"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
-				headingActions={
-					<>
+				rightSlot={
+					<Group>
 						<EditProjectForm
 							projectId={projectId}
 							trigger={
@@ -88,6 +89,7 @@ export default function ProjectDetailView({
 								</Button>
 							}
 						/>
+						<GroupSeparator />
 						<DeleteProject
 							projectId={projectId}
 							projectName={project.name}
@@ -102,10 +104,10 @@ export default function ProjectDetailView({
 								</Button>
 							}
 						/>
-					</>
+					</Group>
 				}
-				rightSlot={
-					<Badge size="lg" variant={statusBadge.variant}>
+				titleTrailing={
+					<Badge className="shrink-0" size="lg" variant={statusBadge.variant}>
 						{statusBadge.label}
 					</Badge>
 				}
