@@ -20,6 +20,17 @@ export const inclusionVariantClassValidator = v.union(
 	v.literal('Platinum')
 );
 
+export const projectInclusionStatusValidator = v.union(
+	v.literal('Under Review'),
+	v.literal('Approved')
+);
+
+export const projectInclusionNoteValidator = v.object({
+	timestamp: v.number(),
+	addedBy: v.string(),
+	note: v.string(),
+});
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -79,6 +90,8 @@ export default defineSchema({
 		variationCostPrice: v.optional(v.number()),
 		variationSalePrice: v.optional(v.number()),
 		searchText: v.string(),
+		status: v.optional(projectInclusionStatusValidator),
+		notes: v.optional(v.array(projectInclusionNoteValidator)),
 	})
 		.index('by_project', ['projectId'])
 		.searchIndex('search_project_inclusions', {

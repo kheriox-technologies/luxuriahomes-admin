@@ -126,6 +126,7 @@ export const add = mutation({
 			variationCostPrice,
 			variationSalePrice,
 			searchText,
+			status: 'Under Review' as const,
 		};
 		if (existingForInclusion) {
 			await deleteProjectInclusionStorageIfPresent(

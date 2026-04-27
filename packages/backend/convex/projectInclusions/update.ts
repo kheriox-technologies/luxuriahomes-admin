@@ -9,7 +9,10 @@ import {
 	parseVendor,
 } from '../inclusionVariants/shared';
 import { requireAdmin } from '../lib/checkIdentity';
-import { inclusionVariantClassValidator } from '../schema';
+import {
+	inclusionVariantClassValidator,
+	projectInclusionStatusValidator,
+} from '../schema';
 import {
 	buildProjectInclusionSearchText,
 	deleteProjectInclusionStorageIfPresent,
@@ -29,6 +32,7 @@ interface UpdateArgs {
 	models?: string[] | undefined;
 	projectInclusionId: Doc<'projectInclusions'>['_id'];
 	salePrice?: number | undefined;
+	status?: Doc<'projectInclusions'>['status'] | undefined;
 	storageId?: Doc<'projectInclusions'>['storageId'] | null | undefined;
 	title?: string | undefined;
 	variationCostPrice?: number | null | undefined;
@@ -85,6 +89,12 @@ function applyPriceFields(args: UpdateArgs, patch: Record<string, unknown>) {
 	}
 }
 
+function applyStatus(args: UpdateArgs, patch: Record<string, unknown>) {
+	if (args.status !== undefined) {
+		patch.status = args.status;
+	}
+}
+
 function applyVariationFields(
 	args: UpdateArgs,
 	patch: Record<string, unknown>
@@ -109,6 +119,7 @@ function buildScalarPatch(args: UpdateArgs): Record<string, unknown> {
 	applyVendorFields(args, patch);
 	applyPriceFields(args, patch);
 	applyVariationFields(args, patch);
+	applyStatus(args, patch);
 	return patch;
 }
 
@@ -187,6 +198,7 @@ export const update = mutation({
 		salePrice: v.optional(v.number()),
 		variationCostPrice: v.optional(v.union(v.number(), v.null())),
 		variationSalePrice: v.optional(v.union(v.number(), v.null())),
+		status: v.optional(projectInclusionStatusValidator),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);

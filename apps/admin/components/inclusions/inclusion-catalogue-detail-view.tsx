@@ -48,9 +48,9 @@ function formatAud(amount: number): string {
 
 function variantClassBadgeVariant(
 	className: InclusionVariantClass
-): 'outline' | 'teal' | 'yellow' | 'purple' {
+): 'outline' | 'info' | 'yellow' | 'purple' {
 	if (className === 'Standard') {
-		return 'teal';
+		return 'info';
 	}
 	if (className === 'Gold') {
 		return 'yellow';

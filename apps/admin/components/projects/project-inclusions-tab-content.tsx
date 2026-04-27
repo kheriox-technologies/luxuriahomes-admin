@@ -16,7 +16,6 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
-	CardAction,
 	CardFrame,
 	CardFrameAction,
 	CardFrameDescription,
@@ -28,11 +27,16 @@ import {
 } from '@workspace/ui/components/card';
 import {
 	Dialog,
+	DialogClose,
 	DialogContent,
+	DialogDescription,
+	DialogFooter,
 	DialogHeader,
+	DialogPanel,
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	Empty,
 	EmptyDescription,
@@ -46,10 +50,24 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
+import {
+	Tooltip,
+	TooltipPopup,
+	TooltipTrigger,
+} from '@workspace/ui/components/tooltip';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { Download, SearchIcon, SquaresIntersect, Trash2 } from 'lucide-react';
+import {
+	Check,
+	Download,
+	SearchIcon,
+	SquaresIntersect,
+	StickyNote,
+	Trash2,
+	X,
+} from 'lucide-react';
 import NextImage from 'next/image';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -95,9 +113,9 @@ function EmptyProjectInclusionsState() {
 
 function variantClassBadgeVariant(
 	className: ProjectInclusion['class']
-): 'outline' | 'teal' | 'yellow' | 'purple' {
+): 'outline' | 'info' | 'yellow' | 'purple' {
 	if (className === 'Standard') {
-		return 'teal';
+		return 'info';
 	}
 	if (className === 'Gold') {
 		return 'yellow';
@@ -106,6 +124,12 @@ function variantClassBadgeVariant(
 		return 'purple';
 	}
 	return 'outline';
+}
+
+function inclusionStatusBadgeVariant(
+	status: NonNullable<ProjectInclusion['status']>
+): 'success' | 'warning' {
+	return status === 'Approved' ? 'success' : 'warning';
 }
 
 function DeleteProjectInclusionButton({
@@ -189,6 +213,234 @@ function DeleteProjectInclusionButton({
 	);
 }
 
+function ProjectInclusionStatusToggleButton({
+	projectInclusionId,
+	status,
+}: {
+	projectInclusionId: Id<'projectInclusions'>;
+	status: ProjectInclusion['status'];
+}) {
+	const [loading, setLoading] = useState(false);
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+	const isApproved = status === 'Approved';
+	const tooltip = isApproved ? 'Unapprove inclusion' : 'Approve inclusion';
+
+	const onToggle = async () => {
+		setLoading(true);
+		try {
+			await updateProjectInclusion({
+				projectInclusionId,
+				status: isApproved ? 'Under Review' : 'Approved',
+			});
+			toastManager.add({
+				title: isApproved
+					? 'Inclusion moved to under review'
+					: 'Inclusion approved',
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update status. Please try again in a moment.'
+				),
+				title: 'Could not update status',
+				type: 'error',
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<Button
+						aria-label={tooltip}
+						loading={loading}
+						onClick={() => {
+							onToggle().catch(() => {
+								/* Error is handled in onToggle */
+							});
+						}}
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						{isApproved ? (
+							<X aria-hidden="true" />
+						) : (
+							<Check aria-hidden="true" />
+						)}
+					</Button>
+				}
+			/>
+			<TooltipPopup>{tooltip}</TooltipPopup>
+		</Tooltip>
+	);
+}
+
+const projectInclusionNoteDateFormatter = new Intl.DateTimeFormat('en-AU', {
+	dateStyle: 'medium',
+	timeStyle: 'short',
+});
+
+function formatProjectInclusionNoteTimestamp(timestamp: number): string {
+	return projectInclusionNoteDateFormatter.format(new Date(timestamp));
+}
+
+function ProjectInclusionAddNoteButton({
+	projectInclusionId,
+	title,
+	code,
+	existingNotes,
+}: {
+	projectInclusionId: Id<'projectInclusions'>;
+	title: string;
+	code: string;
+	existingNotes: ProjectInclusion['notes'];
+}) {
+	const [open, setOpen] = useState(false);
+	const [noteText, setNoteText] = useState('');
+	const [submitting, setSubmitting] = useState(false);
+	const appendNoteMutation = useMutation(
+		api.projectInclusions.appendNote.appendNote
+	);
+	const noteCount = existingNotes?.length ?? 0;
+
+	const onSubmit = async () => {
+		const trimmed = noteText.trim();
+		if (trimmed === '') {
+			toastManager.add({
+				title: 'Write a note before saving',
+				type: 'error',
+			});
+			return;
+		}
+		setSubmitting(true);
+		try {
+			await appendNoteMutation({ projectInclusionId, note: noteText });
+			toastManager.add({
+				title: 'Note added',
+				type: 'success',
+			});
+			setNoteText('');
+			setOpen(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not add note. Please try again in a moment.'
+				),
+				title: 'Could not add note',
+				type: 'error',
+			});
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	return (
+		<>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Button
+							aria-label={`Add note for ${title} (${code})`}
+							onClick={() => setOpen(true)}
+							size="icon"
+							type="button"
+							variant="outline"
+						/>
+					}
+				>
+					<span className="relative inline-flex size-4 items-center justify-center">
+						<StickyNote aria-hidden className="size-4" />
+						{noteCount > 0 ? (
+							<span className="absolute -end-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground">
+								{noteCount > 99 ? '99+' : noteCount}
+							</span>
+						) : null}
+					</span>
+				</TooltipTrigger>
+				<TooltipPopup>Add note</TooltipPopup>
+			</Tooltip>
+			<Dialog
+				onOpenChange={(next) => {
+					setOpen(next);
+					if (!next) {
+						setNoteText('');
+					}
+				}}
+				open={open}
+			>
+				<DialogContent className="sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Add note</DialogTitle>
+						<DialogDescription>
+							{`${title} (${code}) — your name and the time are recorded automatically.`}
+						</DialogDescription>
+					</DialogHeader>
+					<DialogPanel className="flex max-h-[min(60vh,28rem)] flex-col gap-4">
+						{existingNotes && existingNotes.length > 0 ? (
+							<div className="space-y-2 border-b pb-3">
+								<p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+									Previous notes
+								</p>
+								<ul className="space-y-2">
+									{existingNotes.map((entry, index) => (
+										<li className="text-sm" key={`${entry.timestamp}-${index}`}>
+											<p className="text-muted-foreground text-xs">
+												{formatProjectInclusionNoteTimestamp(entry.timestamp)} ·{' '}
+												{entry.addedBy}
+											</p>
+											<p className="whitespace-pre-wrap text-pretty">{entry.note}</p>
+										</li>
+									))}
+								</ul>
+							</div>
+						) : null}
+						<div className="flex flex-col gap-2">
+							<label
+								className="font-medium text-sm"
+								htmlFor={`note-${projectInclusionId}`}
+							>
+								New note
+							</label>
+							<Textarea
+								className="min-h-[100px] resize-y"
+								id={`note-${projectInclusionId}`}
+								onChange={(e) => setNoteText(e.target.value)}
+								placeholder="Type your note…"
+								value={noteText}
+							/>
+						</div>
+					</DialogPanel>
+					<DialogFooter>
+						<DialogClose render={<Button type="button" variant="outline" />}>
+							Cancel
+						</DialogClose>
+						<Button
+							loading={submitting}
+							onClick={() => {
+								onSubmit().catch(() => {
+									/* Error is handled in onSubmit */
+								});
+							}}
+							type="button"
+						>
+							Save note
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</>
+	);
+}
+
 function ProjectInclusionCard({
 	inclusion,
 	mode,
@@ -197,6 +449,7 @@ function ProjectInclusionCard({
 	mode: 'builder' | 'client';
 }) {
 	const imageUrl = inclusion.image?.trim() ?? '';
+	const displayStatus = inclusion.status ?? 'Under Review';
 
 	return (
 		<Card className="flex flex-row items-stretch overflow-hidden">
@@ -204,6 +457,60 @@ function ProjectInclusionCard({
 				<CardHeader className="gap-y-2">
 					<CardTitle className="flex min-w-0 flex-wrap items-center gap-2 leading-snug">
 						<span className="min-w-0">{inclusion.title}</span>
+						<Badge
+							className="shrink-0"
+							size="lg"
+							variant={inclusionStatusBadgeVariant(displayStatus)}
+						>
+							{displayStatus}
+						</Badge>
+						<Group>
+							<ProjectInclusionStatusToggleButton
+								projectInclusionId={inclusion._id}
+								status={inclusion.status}
+							/>
+							<GroupSeparator />
+							<ProjectInclusionAddNoteButton
+								code={inclusion.code}
+								existingNotes={inclusion.notes}
+								projectInclusionId={inclusion._id}
+								title={inclusion.title}
+							/>
+							<GroupSeparator />
+							<DeleteProjectInclusionButton
+								code={inclusion.code}
+								projectInclusionId={inclusion._id}
+								title={inclusion.title}
+							/>
+						</Group>
+					</CardTitle>
+				</CardHeader>
+				<CardPanel className="space-y-2 text-sm">
+					<p className="text-muted-foreground">{`${inclusion.vendor} - ${inclusion.models.join(', ')}`}</p>
+					{inclusion.details ? (
+						<p className="whitespace-pre-wrap text-pretty">
+							{inclusion.details}
+						</p>
+					) : null}
+					{inclusion.notes && inclusion.notes.length > 0 ? (
+						<div className="rounded-md border bg-muted/30 p-3">
+							<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+								Notes
+							</p>
+							<ul className="space-y-2">
+								{inclusion.notes.map((entry, index) => (
+									<li className="text-sm" key={`${entry.timestamp}-${index}`}>
+										<p className="text-muted-foreground text-xs">
+											{formatProjectInclusionNoteTimestamp(entry.timestamp)} ·{' '}
+											{entry.addedBy}
+										</p>
+										<p className="whitespace-pre-wrap text-pretty">{entry.note}</p>
+									</li>
+								))}
+							</ul>
+						</div>
+					) : null}
+					<div className="flex flex-wrap items-center gap-2">
 						<Badge
 							size="lg"
 							variant={variantClassBadgeVariant(inclusion.class)}
@@ -213,22 +520,7 @@ function ProjectInclusionCard({
 						<span className="font-mono text-muted-foreground text-xs">
 							{inclusion.code}
 						</span>
-					</CardTitle>
-					<CardAction className="absolute top-3 right-3">
-						<DeleteProjectInclusionButton
-							code={inclusion.code}
-							projectInclusionId={inclusion._id}
-							title={inclusion.title}
-						/>
-					</CardAction>
-				</CardHeader>
-				<CardPanel className="space-y-2 text-sm">
-					<p className="text-muted-foreground">{`${inclusion.vendor} - ${inclusion.models.join(', ')}`}</p>
-					{inclusion.details ? (
-						<p className="whitespace-pre-wrap text-pretty">
-							{inclusion.details}
-						</p>
-					) : null}
+					</div>
 					<div className="flex flex-wrap items-center gap-2 pt-1">
 						{mode === 'builder' ? (
 							<>
@@ -250,7 +542,7 @@ function ProjectInclusionCard({
 				</CardPanel>
 			</div>
 			{imageUrl ? (
-				<div className="flex shrink-0 items-center py-5 pr-14 pl-3">
+				<div className="flex shrink-0 items-center py-5 pr-3 pl-3">
 					<Dialog>
 						<DialogTrigger
 							render={

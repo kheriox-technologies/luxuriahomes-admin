@@ -42,6 +42,7 @@ import type * as permissions_listRoleNames from "../permissions/listRoleNames.js
 import type * as permissions_removeRole from "../permissions/removeRole.js";
 import type * as permissions_upsertRole from "../permissions/upsertRole.js";
 import type * as projectInclusions_add from "../projectInclusions/add.js";
+import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
 import type * as projectInclusions_list from "../projectInclusions/list.js";
 import type * as projectInclusions_remove from "../projectInclusions/remove.js";
 import type * as projectInclusions_search from "../projectInclusions/search.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "permissions/removeRole": typeof permissions_removeRole;
   "permissions/upsertRole": typeof permissions_upsertRole;
   "projectInclusions/add": typeof projectInclusions_add;
+  "projectInclusions/appendNote": typeof projectInclusions_appendNote;
   "projectInclusions/list": typeof projectInclusions_list;
   "projectInclusions/remove": typeof projectInclusions_remove;
   "projectInclusions/search": typeof projectInclusions_search;

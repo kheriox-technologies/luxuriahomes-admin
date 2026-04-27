@@ -59,7 +59,7 @@ function variantClassBorderClass(
 	variantClass: (typeof inclusionVariantClasses)[number]
 ) {
 	if (variantClass === 'Standard') {
-		return 'border-teal-300 bg-teal-50 dark:border-teal-700 dark:bg-teal-950/30';
+		return 'border-info/40 bg-info/8 dark:border-info/50 dark:bg-info/16';
 	}
 	if (variantClass === 'Gold') {
 		return 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950/30';
