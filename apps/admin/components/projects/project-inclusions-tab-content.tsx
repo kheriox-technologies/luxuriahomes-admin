@@ -33,12 +33,25 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@workspace/ui/components/empty';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { Trash2 } from 'lucide-react';
+import { Download, SearchIcon, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
-import { useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
@@ -260,6 +273,13 @@ function ProjectInclusionCard({
 	);
 }
 
+interface InclusionSection {
+	categoryId: InclusionCategory['_id'];
+	categoryName: string;
+	inclusions: ProjectInclusion[];
+	totalVariationSalePrice: number;
+}
+
 export default function ProjectInclusionsTabContent({
 	projectId,
 }: {
@@ -269,81 +289,203 @@ export default function ProjectInclusionsTabContent({
 	const categories = useQuery(api.inclusionCategories.list.list, {});
 	const mode = useAppModeStore((state) => state.mode);
 
+	const [search, setSearch] = useState('');
+	const [debouncedSearch, setDebouncedSearch] = useState('');
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
+		return () => window.clearTimeout(id);
+	}, [search]);
+
+	const trimmedSearch = debouncedSearch.trim();
+	const variantSearchResults = useQuery(
+		api.inclusionVariants.search.search,
+		trimmedSearch !== '' ? { query: trimmedSearch } : 'skip'
+	);
+
+	const categoryById = useMemo(() => {
+		const map = new Map<InclusionCategory['_id'], string>();
+		if (!categories) {
+			return map;
+		}
+		for (const category of categories) {
+			map.set(category._id, category.name);
+		}
+		return map;
+	}, [categories]);
+
+	const sections = useMemo((): InclusionSection[] => {
+		if (!inclusions) {
+			return [];
+		}
+		const grouped = new Map<InclusionCategory['_id'], ProjectInclusion[]>();
+		for (const inclusion of inclusions) {
+			const existing = grouped.get(inclusion.categoryId) ?? [];
+			existing.push(inclusion);
+			grouped.set(inclusion.categoryId, existing);
+		}
+		return [...grouped.entries()]
+			.map(([categoryId, groupedInclusions]) => ({
+				categoryId,
+				categoryName: categoryById.get(categoryId) ?? 'Unknown category',
+				inclusions: [...groupedInclusions].sort((a, b) =>
+					a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+				),
+				totalVariationSalePrice: groupedInclusions.reduce(
+					(total, inclusion) =>
+						total +
+						(inclusion.class === 'Standard'
+							? 0
+							: (inclusion.variationSalePrice ?? 0)),
+					0
+				),
+			}))
+			.sort((a, b) =>
+				a.categoryName.localeCompare(b.categoryName, undefined, {
+					sensitivity: 'base',
+				})
+			);
+	}, [inclusions, categoryById]);
+
+	const visibleSections = useMemo(() => {
+		if (trimmedSearch === '') {
+			return { loading: false as const, list: sections };
+		}
+		if (variantSearchResults === undefined) {
+			return { loading: true as const, list: null };
+		}
+		const codes = new Set(variantSearchResults.map((v) => v.code));
+		const list = sections
+			.map((section) => {
+				const filteredInclusions = section.inclusions.filter((inclusion) =>
+					codes.has(inclusion.code)
+				);
+				const totalVariationSalePrice = filteredInclusions.reduce(
+					(total, inclusion) =>
+						total +
+						(inclusion.class === 'Standard'
+							? 0
+							: (inclusion.variationSalePrice ?? 0)),
+					0
+				);
+				return {
+					...section,
+					inclusions: filteredInclusions,
+					totalVariationSalePrice,
+				};
+			})
+			.filter((section) => section.inclusions.length > 0);
+		return { loading: false as const, list };
+	}, [trimmedSearch, variantSearchResults, sections]);
+
 	if (inclusions === undefined || categories === undefined) {
 		return <p className="text-muted-foreground text-sm">Loading inclusions…</p>;
 	}
 
+	const toolbar = (
+		<div className="flex min-w-0 flex-row items-center gap-2">
+			<InputGroup className="min-w-0 flex-1">
+				<InputGroupAddon align="inline-start">
+					<InputGroupText>
+						<SearchIcon aria-hidden />
+					</InputGroupText>
+				</InputGroupAddon>
+				<InputGroupInput
+					aria-label="Search inclusions by product variant"
+					onChange={(e) => setSearch(e.target.value)}
+					placeholder="Search product variants (vendor, models, code…)"
+					type="search"
+					value={search}
+				/>
+			</InputGroup>
+			<Button
+				aria-label="Download project inclusions"
+				className="shrink-0"
+				type="button"
+				variant="outline"
+			>
+				<Download aria-hidden />
+				Download
+			</Button>
+		</div>
+	);
+
 	if (inclusions.length === 0) {
 		return (
+			<div className={cn('flex flex-col gap-4')}>
+				{toolbar}
+				<p className="text-muted-foreground text-sm">
+					No inclusions added to this project yet.
+				</p>
+			</div>
+		);
+	}
+
+	let listBody: ReactNode;
+	if (visibleSections.loading) {
+		listBody = (
 			<p className="text-muted-foreground text-sm">
-				No inclusions added to this project yet.
+				Searching product variants…
 			</p>
 		);
-	}
-
-	const categoryById = new Map<InclusionCategory['_id'], string>();
-	for (const category of categories) {
-		categoryById.set(category._id, category.name);
-	}
-
-	const grouped = new Map<InclusionCategory['_id'], ProjectInclusion[]>();
-	for (const inclusion of inclusions) {
-		const existing = grouped.get(inclusion.categoryId) ?? [];
-		existing.push(inclusion);
-		grouped.set(inclusion.categoryId, existing);
-	}
-
-	const sections = [...grouped.entries()]
-		.map(([categoryId, groupedInclusions]) => ({
-			categoryId,
-			categoryName: categoryById.get(categoryId) ?? 'Unknown category',
-			inclusions: groupedInclusions.sort((a, b) =>
-				a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
-			),
-			totalVariationSalePrice: groupedInclusions.reduce(
-				(total, inclusion) =>
-					total +
-					(inclusion.class === 'Standard'
-						? 0
-						: (inclusion.variationSalePrice ?? 0)),
-				0
-			),
-		}))
-		.sort((a, b) =>
-			a.categoryName.localeCompare(b.categoryName, undefined, {
-				sensitivity: 'base',
-			})
+	} else if (
+		trimmedSearch !== '' &&
+		visibleSections.list !== null &&
+		visibleSections.list.length === 0
+	) {
+		listBody = (
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<SearchIcon aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No matching inclusions</EmptyTitle>
+					<EmptyDescription>
+						No project inclusions match the catalogue variants for this search.
+						Try another code, vendor, or model.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
 		);
+	} else {
+		const frames = visibleSections.list ?? sections;
+		listBody = (
+			<div className={cn('flex flex-col gap-4')}>
+				{frames.map((section) => (
+					<CardFrame key={section.categoryId}>
+						<CardFrameHeader>
+							<CardFrameTitle>{section.categoryName}</CardFrameTitle>
+							<CardFrameAction>
+								<Badge
+									className="shrink-0 self-center"
+									size="lg"
+									variant="purple"
+								>
+									{formatSignedAud(section.totalVariationSalePrice)}
+								</Badge>
+							</CardFrameAction>
+							<CardFrameDescription>
+								{section.inclusions.length}{' '}
+								{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
+							</CardFrameDescription>
+						</CardFrameHeader>
+						{section.inclusions.map((inclusion) => (
+							<ProjectInclusionCard
+								inclusion={inclusion}
+								key={inclusion._id}
+								mode={mode}
+							/>
+						))}
+					</CardFrame>
+				))}
+			</div>
+		);
+	}
 
 	return (
 		<div className={cn('flex flex-col gap-4')}>
-			{sections.map((section) => (
-				<CardFrame key={section.categoryId}>
-					<CardFrameHeader>
-						<CardFrameTitle>{section.categoryName}</CardFrameTitle>
-						<CardFrameAction>
-							<Badge
-								className="shrink-0 self-center"
-								size="lg"
-								variant="purple"
-							>
-								{formatSignedAud(section.totalVariationSalePrice)}
-							</Badge>
-						</CardFrameAction>
-						<CardFrameDescription>
-							{section.inclusions.length}{' '}
-							{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
-						</CardFrameDescription>
-					</CardFrameHeader>
-					{section.inclusions.map((inclusion) => (
-						<ProjectInclusionCard
-							inclusion={inclusion}
-							key={inclusion._id}
-							mode={mode}
-						/>
-					))}
-				</CardFrame>
-			))}
+			{toolbar}
+			{listBody}
 		</div>
 	);
 }
