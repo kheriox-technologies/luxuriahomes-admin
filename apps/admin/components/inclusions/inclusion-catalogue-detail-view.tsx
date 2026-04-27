@@ -35,6 +35,7 @@ import {
 	type InclusionVariantClass,
 } from '@/components/inclusions/inclusion-form-shared';
 import PageHeading from '@/components/page-heading';
+import { useAppModeStore } from '@/stores/app-mode-store';
 
 const audFormatter = new Intl.NumberFormat('en-AU', {
 	style: 'currency',
@@ -62,11 +63,25 @@ function variantClassBadgeVariant(
 
 function InclusionVariantCard({
 	variant,
+	standardSalePrice,
+	mode,
 }: {
 	variant: Doc<'inclusionVariants'>;
+	standardSalePrice: number | null;
+	mode: 'builder' | 'client';
 }) {
 	const imageUrl = variant.image?.trim() ?? '';
 	const linkUrl = variant.link?.trim() ?? '';
+	const variationAmount =
+		standardSalePrice === null ? null : variant.salePrice - standardSalePrice;
+	let variationLabel = 'N/A';
+	if (variationAmount === 0) {
+		variationLabel = '$0.00';
+	} else if (variationAmount !== null) {
+		variationLabel = `${variationAmount > 0 ? '+' : '-'} ${formatAud(
+			Math.abs(variationAmount)
+		)}`;
+	}
 
 	return (
 		<CardFrame className="h-full">
@@ -173,12 +188,21 @@ function InclusionVariantCard({
 						) : null}
 					</dl>
 					<div className="flex flex-wrap items-center gap-2 pt-1">
-						<Badge className="shrink-0" size="lg" variant="warning">
-							Cost {formatAud(variant.costPrice)}
-						</Badge>
-						<Badge className="shrink-0" size="lg" variant="success">
-							Sale {formatAud(variant.salePrice)}
-						</Badge>
+						{mode === 'builder' ? (
+							<>
+								<Badge className="shrink-0" size="lg" variant="warning">
+									Cost {formatAud(variant.costPrice)}
+								</Badge>
+								<Badge className="shrink-0" size="lg" variant="success">
+									Sale {formatAud(variant.salePrice)}
+								</Badge>
+							</>
+						) : null}
+						{variant.class !== 'Standard' ? (
+							<Badge className="shrink-0" size="lg" variant="purple">
+								{variationLabel}
+							</Badge>
+						) : null}
 					</div>
 				</CardPanel>
 				{imageUrl ? (
@@ -231,6 +255,7 @@ export default function InclusionCatalogueDetailView({
 	inclusionId: Id<'inclusions'>;
 }) {
 	const data = useQuery(api.inclusions.get.get, { inclusionId });
+	const mode = useAppModeStore((state) => state.mode);
 
 	if (data === undefined) {
 		return (
@@ -251,6 +276,8 @@ export default function InclusionCatalogueDetailView({
 	}
 
 	const { categoryName, inclusion, variants } = data;
+	const standardSalePrice =
+		variants.find((variant) => variant.class === 'Standard')?.salePrice ?? null;
 
 	return (
 		<div className={cn('flex h-full w-full flex-col gap-6')}>
@@ -316,7 +343,12 @@ export default function InclusionCatalogueDetailView({
 			) : (
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 					{variants.map((variant) => (
-						<InclusionVariantCard key={variant._id} variant={variant} />
+						<InclusionVariantCard
+							key={variant._id}
+							mode={mode}
+							standardSalePrice={standardSalePrice}
+							variant={variant}
+						/>
 					))}
 				</div>
 			)}

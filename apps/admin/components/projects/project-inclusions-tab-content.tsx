@@ -17,6 +17,7 @@ import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
 	CardFrame,
+	CardFrameAction,
 	CardFrameDescription,
 	CardFrameHeader,
 	CardFrameTitle,
@@ -37,6 +38,7 @@ import { Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import { useAppModeStore } from '@/stores/app-mode-store';
 
 type ProjectInclusion = Doc<'projectInclusions'>;
 type InclusionCategory = Doc<'inclusionCategories'>;
@@ -48,6 +50,13 @@ const audFormatter = new Intl.NumberFormat('en-AU', {
 
 function formatAud(amount: number): string {
 	return audFormatter.format(amount);
+}
+
+function formatSignedAud(amount: number): string {
+	if (amount === 0) {
+		return '$0.00';
+	}
+	return `${amount > 0 ? '+' : '-'} ${formatAud(Math.abs(amount))}`;
 }
 
 function variantClassBadgeVariant(
@@ -146,7 +155,13 @@ function DeleteProjectInclusionButton({
 	);
 }
 
-function ProjectInclusionCard({ inclusion }: { inclusion: ProjectInclusion }) {
+function ProjectInclusionCard({
+	inclusion,
+	mode,
+}: {
+	inclusion: ProjectInclusion;
+	mode: 'builder' | 'client';
+}) {
 	const imageUrl = inclusion.image?.trim() ?? '';
 
 	return (
@@ -181,20 +196,20 @@ function ProjectInclusionCard({ inclusion }: { inclusion: ProjectInclusion }) {
 						</p>
 					) : null}
 					<div className="flex flex-wrap items-center gap-2 pt-1">
-						<Badge className="shrink-0" size="lg" variant="warning">
-							Cost {formatAud(inclusion.costPrice)}
-						</Badge>
-						<Badge className="shrink-0" size="lg" variant="success">
-							Sale {formatAud(inclusion.salePrice)}
-						</Badge>
-						{inclusion.variationCostPrice !== undefined ? (
-							<Badge className="shrink-0" size="lg" variant="info">
-								Var Cost {formatAud(inclusion.variationCostPrice)}
-							</Badge>
+						{mode === 'builder' ? (
+							<>
+								<Badge className="shrink-0" size="lg" variant="warning">
+									Cost {formatAud(inclusion.costPrice)}
+								</Badge>
+								<Badge className="shrink-0" size="lg" variant="success">
+									Sale {formatAud(inclusion.salePrice)}
+								</Badge>
+							</>
 						) : null}
-						{inclusion.variationSalePrice !== undefined ? (
+						{inclusion.class !== 'Standard' &&
+						inclusion.variationSalePrice !== undefined ? (
 							<Badge className="shrink-0" size="lg" variant="purple">
-								Var Sale {formatAud(inclusion.variationSalePrice)}
+								{formatSignedAud(inclusion.variationSalePrice)}
 							</Badge>
 						) : null}
 					</div>
@@ -250,6 +265,7 @@ export default function ProjectInclusionsTabContent({
 }) {
 	const inclusions = useQuery(api.projectInclusions.list.list, { projectId });
 	const categories = useQuery(api.inclusionCategories.list.list, {});
+	const mode = useAppModeStore((state) => state.mode);
 
 	if (inclusions === undefined || categories === undefined) {
 		return <p className="text-muted-foreground text-sm">Loading inclusions…</p>;
@@ -282,6 +298,14 @@ export default function ProjectInclusionsTabContent({
 			inclusions: groupedInclusions.sort((a, b) =>
 				a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
 			),
+			totalVariationSalePrice: groupedInclusions.reduce(
+				(total, inclusion) =>
+					total +
+					(inclusion.class === 'Standard'
+						? 0
+						: (inclusion.variationSalePrice ?? 0)),
+				0
+			),
 		}))
 		.sort((a, b) =>
 			a.categoryName.localeCompare(b.categoryName, undefined, {
@@ -295,13 +319,26 @@ export default function ProjectInclusionsTabContent({
 				<CardFrame key={section.categoryId}>
 					<CardFrameHeader>
 						<CardFrameTitle>{section.categoryName}</CardFrameTitle>
+						<CardFrameAction>
+							<Badge
+								className="shrink-0 self-center"
+								size="lg"
+								variant="purple"
+							>
+								{formatSignedAud(section.totalVariationSalePrice)}
+							</Badge>
+						</CardFrameAction>
 						<CardFrameDescription>
 							{section.inclusions.length}{' '}
 							{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
 						</CardFrameDescription>
 					</CardFrameHeader>
 					{section.inclusions.map((inclusion) => (
-						<ProjectInclusionCard inclusion={inclusion} key={inclusion._id} />
+						<ProjectInclusionCard
+							inclusion={inclusion}
+							key={inclusion._id}
+							mode={mode}
+						/>
 					))}
 				</CardFrame>
 			))}

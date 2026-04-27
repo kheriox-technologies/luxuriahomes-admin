@@ -68,8 +68,18 @@ export default function AppModeToggle() {
 				value={[mode]}
 				variant="outline"
 			>
-				<ToggleGroupItem value="builder">Builder</ToggleGroupItem>
-				<ToggleGroupItem value="client">Client</ToggleGroupItem>
+				<ToggleGroupItem
+					className="data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground hover:data-pressed:bg-primary/90"
+					value="builder"
+				>
+					Builder
+				</ToggleGroupItem>
+				<ToggleGroupItem
+					className="data-pressed:border-primary data-pressed:bg-primary data-pressed:text-primary-foreground hover:data-pressed:bg-primary/90"
+					value="client"
+				>
+					Client
+				</ToggleGroupItem>
 			</ToggleGroup>
 
 			<AlertDialog onOpenChange={setOpen} open={open}>
