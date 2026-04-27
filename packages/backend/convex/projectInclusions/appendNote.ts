@@ -31,7 +31,10 @@ export const appendNote = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
-		const existing = await getProjectInclusionOrThrow(ctx, args.projectInclusionId);
+		const existing = await getProjectInclusionOrThrow(
+			ctx,
+			args.projectInclusionId
+		);
 		const trimmed = args.note.trim();
 		if (trimmed === '') {
 			throw new ConvexError({

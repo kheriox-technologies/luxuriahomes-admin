@@ -36,7 +36,6 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	Empty,
 	EmptyDescription,
@@ -44,6 +43,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -397,7 +397,9 @@ function ProjectInclusionAddNoteButton({
 												{formatProjectInclusionNoteTimestamp(entry.timestamp)} ·{' '}
 												{entry.addedBy}
 											</p>
-											<p className="whitespace-pre-wrap text-pretty">{entry.note}</p>
+											<p className="whitespace-pre-wrap text-pretty">
+												{entry.note}
+											</p>
 										</li>
 									))}
 								</ul>
@@ -504,7 +506,9 @@ function ProjectInclusionCard({
 											{formatProjectInclusionNoteTimestamp(entry.timestamp)} ·{' '}
 											{entry.addedBy}
 										</p>
-										<p className="whitespace-pre-wrap text-pretty">{entry.note}</p>
+										<p className="whitespace-pre-wrap text-pretty">
+											{entry.note}
+										</p>
 									</li>
 								))}
 							</ul>
