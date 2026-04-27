@@ -2,7 +2,18 @@
 
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
+import {
+	AlertDialog,
+	AlertDialogClose,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from '@workspace/ui/components/alert-dialog';
 import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
 	CardFrame,
@@ -19,9 +30,13 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
+import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
+import { Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
+import { useState } from 'react';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 type ProjectInclusion = Doc<'projectInclusions'>;
 type InclusionCategory = Doc<'inclusionCategories'>;
@@ -50,6 +65,87 @@ function variantClassBadgeVariant(
 	return 'outline';
 }
 
+function DeleteProjectInclusionButton({
+	projectInclusionId,
+	title,
+	code,
+}: {
+	projectInclusionId: Id<'projectInclusions'>;
+	title: string;
+	code: string;
+}) {
+	const [open, setOpen] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+	const removeProjectInclusion = useMutation(
+		api.projectInclusions.remove.remove
+	);
+
+	const onDelete = async () => {
+		setIsDeleting(true);
+		try {
+			await removeProjectInclusion({ projectInclusionId });
+			toastManager.add({
+				title: 'Inclusion deleted',
+				type: 'success',
+			});
+			setOpen(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete inclusion. Please try again in a moment.'
+				),
+				title: 'Could not delete inclusion',
+				type: 'error',
+			});
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
+	return (
+		<AlertDialog onOpenChange={setOpen} open={open}>
+			<AlertDialogTrigger
+				render={
+					<Button
+						aria-label={`Delete inclusion ${title} ${code}`}
+						size="icon"
+						type="button"
+						variant="destructive-outline"
+					/>
+				}
+			>
+				<Trash2 />
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete inclusion?</AlertDialogTitle>
+					<AlertDialogDescription>
+						{`This will permanently delete ${title} (${code}) from this project.`}
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</AlertDialogClose>
+					<Button
+						loading={isDeleting}
+						onClick={() => {
+							onDelete().catch(() => {
+								/* Error is handled in onDelete */
+							});
+						}}
+						type="button"
+						variant="destructive"
+					>
+						Delete inclusion
+					</Button>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
 function ProjectInclusionCard({ inclusion }: { inclusion: ProjectInclusion }) {
 	const imageUrl = inclusion.image?.trim() ?? '';
 
@@ -57,22 +153,28 @@ function ProjectInclusionCard({ inclusion }: { inclusion: ProjectInclusion }) {
 		<Card className="flex h-full flex-row items-stretch overflow-hidden">
 			<div className="flex min-w-0 flex-1 flex-col">
 				<CardHeader className="space-y-2 pb-2">
-					<p className="font-semibold leading-snug">{inclusion.title}</p>
 					<div className="flex flex-wrap items-center gap-2">
+						<p className="font-semibold leading-snug">{inclusion.title}</p>
 						<Badge
 							size="lg"
 							variant={variantClassBadgeVariant(inclusion.class)}
 						>
 							{inclusion.class}
 						</Badge>
-						<span className="font-mono text-muted-foreground text-xs">
-							{inclusion.code}
-						</span>
+						<div className="flex items-center gap-1">
+							<span className="font-mono text-muted-foreground text-xs">
+								{inclusion.code}
+							</span>
+							<DeleteProjectInclusionButton
+								code={inclusion.code}
+								projectInclusionId={inclusion._id}
+								title={inclusion.title}
+							/>
+						</div>
 					</div>
 				</CardHeader>
 				<CardPanel className="space-y-2 pt-0 text-sm">
-					<p className="text-muted-foreground">{inclusion.vendor}</p>
-					<p className="text-muted-foreground">{inclusion.models.join(', ')}</p>
+					<p className="text-muted-foreground">{`${inclusion.vendor} - ${inclusion.models.join(', ')}`}</p>
 					{inclusion.details ? (
 						<p className="whitespace-pre-wrap text-pretty">
 							{inclusion.details}
