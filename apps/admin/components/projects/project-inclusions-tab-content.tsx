@@ -50,11 +50,7 @@ function variantClassBadgeVariant(
 	return 'outline';
 }
 
-function ProjectInclusionCard({
-	inclusion,
-}: {
-	inclusion: ProjectInclusion;
-}) {
+function ProjectInclusionCard({ inclusion }: { inclusion: ProjectInclusion }) {
 	const imageUrl = inclusion.image?.trim() ?? '';
 
 	return (
@@ -63,7 +59,10 @@ function ProjectInclusionCard({
 				<CardHeader className="space-y-2 pb-2">
 					<p className="font-semibold leading-snug">{inclusion.title}</p>
 					<div className="flex flex-wrap items-center gap-2">
-						<Badge size="lg" variant={variantClassBadgeVariant(inclusion.class)}>
+						<Badge
+							size="lg"
+							variant={variantClassBadgeVariant(inclusion.class)}
+						>
 							{inclusion.class}
 						</Badge>
 						<span className="font-mono text-muted-foreground text-xs">
@@ -75,7 +74,9 @@ function ProjectInclusionCard({
 					<p className="text-muted-foreground">{inclusion.vendor}</p>
 					<p className="text-muted-foreground">{inclusion.models.join(', ')}</p>
 					{inclusion.details ? (
-						<p className="whitespace-pre-wrap text-pretty">{inclusion.details}</p>
+						<p className="whitespace-pre-wrap text-pretty">
+							{inclusion.details}
+						</p>
 					) : null}
 					<div className="flex flex-wrap items-center gap-2 pt-1">
 						<Badge className="shrink-0" size="lg" variant="warning">
