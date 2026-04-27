@@ -61,6 +61,30 @@ export default defineSchema({
 		.index('by_inclusion', ['inclusionId'])
 		.index('by_code', ['code'])
 		.searchIndex('search_inclusion_variants', { searchField: 'searchText' }),
+	projectInclusions: defineTable({
+		projectId: v.id('projects'),
+		title: v.string(),
+		categoryId: v.id('inclusionCategories'),
+		class: inclusionVariantClassValidator,
+		code: v.string(),
+		vendor: v.string(),
+		models: v.array(v.string()),
+		color: v.optional(v.string()),
+		details: v.optional(v.string()),
+		image: v.optional(v.string()),
+		storageId: v.optional(v.id('_storage')),
+		link: v.optional(v.string()),
+		costPrice: v.number(),
+		salePrice: v.number(),
+		variationCostPrice: v.optional(v.number()),
+		variationSalePrice: v.optional(v.number()),
+		searchText: v.string(),
+	})
+		.index('by_project', ['projectId'])
+		.searchIndex('search_project_inclusions', {
+			searchField: 'searchText',
+			filterFields: ['projectId'],
+		}),
 	projects: defineTable({
 		name: v.string(),
 		address: australianAddressValidator,

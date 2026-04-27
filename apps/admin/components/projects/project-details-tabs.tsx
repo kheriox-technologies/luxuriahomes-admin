@@ -1,6 +1,6 @@
 'use client';
 
-import type { Doc } from '@workspace/backend/dataModel';
+import type { Doc, Id } from '@workspace/backend/dataModel';
 import {
 	Tabs,
 	TabsList,
@@ -15,8 +15,10 @@ type ProjectClient = Doc<'projects'>['clients'][number];
 
 export default function ProjectDetailsTabs({
 	clients,
+	projectId,
 }: {
 	clients: ProjectClient[];
+	projectId: Id<'projects'>;
 }) {
 	return (
 		<Tabs className="mt-6 gap-4" defaultValue="clients">
@@ -40,7 +42,7 @@ export default function ProjectDetailsTabs({
 				<ProjectClientsTabContent clients={clients} />
 			</TabsPanel>
 			<TabsPanel value="inclusions">
-				<ProjectInclusionsTabContent />
+				<ProjectInclusionsTabContent projectId={projectId} />
 			</TabsPanel>
 		</Tabs>
 	);

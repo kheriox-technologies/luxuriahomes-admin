@@ -25,6 +25,7 @@ import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import AddInclusionVariant from '@/components/inclusions/add-inclusion-variant';
+import AddVariantToProjectDialog from '@/components/inclusions/add-variant-to-project-dialog';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
 import DeleteInclusionVariant from '@/components/inclusions/delete-inclusion-variant';
 import EditInclusion from '@/components/inclusions/edit-inclusion';
@@ -85,9 +86,15 @@ function InclusionVariantCard({
 				</div>
 				<CardFrameAction>
 					<Group>
-						<Button type="button" variant="outline">
-							Add To Project
-						</Button>
+						<AddVariantToProjectDialog
+							inclusionVariantId={variant._id}
+							trigger={
+								<Button type="button" variant="outline">
+									Add To Project
+								</Button>
+							}
+							variantLabel={`${variant.vendor} ${variant.code}`}
+						/>
 						<GroupSeparator />
 						<EditInclusionVariant
 							trigger={

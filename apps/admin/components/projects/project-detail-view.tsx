@@ -110,7 +110,7 @@ export default function ProjectDetailView({
 					</Badge>
 				}
 			/>
-			<ProjectDetailsTabs clients={project.clients} />
+			<ProjectDetailsTabs clients={project.clients} projectId={projectId} />
 		</div>
 	);
 }

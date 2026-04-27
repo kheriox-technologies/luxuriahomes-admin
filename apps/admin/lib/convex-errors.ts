@@ -17,6 +17,16 @@ function messageFromParsedConvexError(value: unknown): string | null {
 	return null;
 }
 
+function codeFromParsedConvexError(value: unknown): string | null {
+	if (!value || typeof value !== 'object') {
+		return null;
+	}
+	const parsed = value as { code?: unknown };
+	return typeof parsed.code === 'string' && parsed.code.trim()
+		? parsed.code
+		: null;
+}
+
 function parseEmbeddedConvexErrorMessage(text: string): string | null {
 	const jsonMatch = text.match(EMBEDDED_JSON_PATTERN);
 	if (!jsonMatch) {
@@ -25,6 +35,19 @@ function parseEmbeddedConvexErrorMessage(text: string): string | null {
 	try {
 		const parsed = JSON.parse(jsonMatch[0]);
 		return messageFromParsedConvexError(parsed);
+	} catch {
+		return null;
+	}
+}
+
+function parseEmbeddedConvexErrorCode(text: string): string | null {
+	const jsonMatch = text.match(EMBEDDED_JSON_PATTERN);
+	if (!jsonMatch) {
+		return null;
+	}
+	try {
+		const parsed = JSON.parse(jsonMatch[0]);
+		return codeFromParsedConvexError(parsed);
 	} catch {
 		return null;
 	}
@@ -57,6 +80,16 @@ function extractConvexErrorMessage(error: unknown): string | null {
 				return objectMessage.trim();
 			}
 		}
+	}
+	return null;
+}
+
+export function getConvexErrorCode(error: unknown): string | null {
+	if (error instanceof Error && error.message) {
+		return parseEmbeddedConvexErrorCode(error.message.trim());
+	}
+	if (error && typeof error === 'object') {
+		return codeFromParsedConvexError(error);
 	}
 	return null;
 }
