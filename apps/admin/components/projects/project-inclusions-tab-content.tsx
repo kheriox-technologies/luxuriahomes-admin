@@ -49,7 +49,7 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { Download, SearchIcon, Trash2 } from 'lucide-react';
+import { Download, SearchIcon, SquaresIntersect, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -72,6 +72,25 @@ function formatSignedAud(amount: number): string {
 		return '$0.00';
 	}
 	return `${amount > 0 ? '+' : '-'} ${formatAud(Math.abs(amount))}`;
+}
+
+function EmptyProjectInclusionsState() {
+	return (
+		<div className="flex min-h-0 flex-1 flex-col">
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<SquaresIntersect aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No inclusions on this project yet</EmptyTitle>
+					<EmptyDescription>
+						Open the Inclusions Catalogue and use Add to project on a product
+						variant to attach it here.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		</div>
+	);
 }
 
 function variantClassBadgeVariant(
@@ -412,11 +431,9 @@ export default function ProjectInclusionsTabContent({
 
 	if (inclusions.length === 0) {
 		return (
-			<div className={cn('flex flex-col gap-4')}>
+			<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
 				{toolbar}
-				<p className="text-muted-foreground text-sm">
-					No inclusions added to this project yet.
-				</p>
+				<EmptyProjectInclusionsState />
 			</div>
 		);
 	}
@@ -434,18 +451,19 @@ export default function ProjectInclusionsTabContent({
 		visibleSections.list.length === 0
 	) {
 		listBody = (
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<SearchIcon aria-hidden />
-					</EmptyMedia>
-					<EmptyTitle>No matching inclusions</EmptyTitle>
-					<EmptyDescription>
-						No project inclusions match the catalogue variants for this search.
-						Try another code, vendor, or model.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
+			<div className="flex min-h-0 flex-1 flex-col">
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<SearchIcon aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No matching inclusions</EmptyTitle>
+						<EmptyDescription>
+							Try another code, vendor, or model.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			</div>
 		);
 	} else {
 		const frames = visibleSections.list ?? sections;
@@ -483,7 +501,7 @@ export default function ProjectInclusionsTabContent({
 	}
 
 	return (
-		<div className={cn('flex flex-col gap-4')}>
+		<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
 			{toolbar}
 			{listBody}
 		</div>
