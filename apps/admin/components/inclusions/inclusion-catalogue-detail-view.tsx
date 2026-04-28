@@ -11,17 +11,21 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
-import {
-	Frame,
-	FrameHeader,
-	FramePanel,
-	FrameTitle,
-} from '@workspace/ui/components/frame';
+import { Frame, FramePanel } from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@workspace/ui/components/table';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
+import type { ReactNode } from 'react';
 import AddInclusionVariant from '@/components/inclusions/add-inclusion-variant';
 import AddVariantToProjectDialog from '@/components/inclusions/add-variant-to-project-dialog';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
@@ -44,6 +48,13 @@ function formatAud(amount: number): string {
 	return audFormatter.format(amount);
 }
 
+function formatSignedAud(amount: number): string {
+	if (amount === 0) {
+		return '$0.00';
+	}
+	return `${amount > 0 ? '+' : '-'} ${formatAud(Math.abs(amount))}`;
+}
+
 function variantClassBadgeVariant(
 	className: InclusionVariantClass
 ): 'outline' | 'info' | 'yellow' | 'purple' {
@@ -59,187 +70,258 @@ function variantClassBadgeVariant(
 	return 'outline';
 }
 
-function InclusionVariantCard({
+function CatalogueVariantImageThumbnail({
+	productTitle,
 	variant,
-	standardSalePrice,
-	mode,
 }: {
+	productTitle: string;
 	variant: Doc<'inclusionVariants'>;
-	standardSalePrice: number | null;
-	mode: 'builder' | 'client';
 }) {
 	const imageUrl = variant.image?.trim() ?? '';
-	const linkUrl = variant.link?.trim() ?? '';
-	const variationAmount =
-		standardSalePrice === null ? null : variant.salePrice - standardSalePrice;
-	let variationLabel = 'N/A';
-	if (variationAmount === 0) {
-		variationLabel = '$0.00';
-	} else if (variationAmount !== null) {
-		variationLabel = `${variationAmount > 0 ? '+' : '-'} ${formatAud(
-			Math.abs(variationAmount)
-		)}`;
+	if (!imageUrl) {
+		return <span className="text-muted-foreground text-xs">No image</span>;
 	}
-
+	const label = `${productTitle} ${variant.code}`;
 	return (
-		<Frame className="h-full">
-			<FrameHeader className="flex flex-row items-start justify-between gap-3 py-3">
-				<div className="min-w-0 flex-1">
-					<FrameTitle className="min-w-0 truncate leading-snug">
-						{variant.vendor}
-					</FrameTitle>
-					<div className="mt-1.5 flex flex-wrap items-center gap-2">
-						<Badge size="lg" variant={variantClassBadgeVariant(variant.class)}>
-							{variant.class}
-						</Badge>
-						<span className="font-mono text-muted-foreground text-xs">
-							{variant.code}
-						</span>
-					</div>
+		<Dialog>
+			<DialogTrigger
+				render={
+					<button
+						aria-label={`Open image preview for ${label}`}
+						className="flex size-[75px] cursor-zoom-in items-center justify-center rounded-md border bg-card"
+						type="button"
+					/>
+				}
+			>
+				<NextImage
+					alt={label}
+					className="size-[75px] object-contain"
+					height={75}
+					src={imageUrl}
+					unoptimized
+					width={75}
+				/>
+			</DialogTrigger>
+			<DialogContent className="sm:max-w-3xl">
+				<DialogHeader>
+					<DialogTitle>{label}</DialogTitle>
+				</DialogHeader>
+				<div className="flex max-h-[75vh] items-center justify-center overflow-hidden rounded-md bg-card p-2">
+					<NextImage
+						alt={label}
+						className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
+						height={1200}
+						src={imageUrl}
+						unoptimized
+						width={1200}
+					/>
 				</div>
-				<Group className="shrink-0">
-					<AddVariantToProjectDialog
-						inclusionVariantId={variant._id}
-						trigger={
-							<Button type="button" variant="outline">
-								Add To Project
-							</Button>
-						}
-						variantLabel={`${variant.vendor} ${variant.code}`}
-					/>
-					<GroupSeparator />
-					<EditInclusionVariant
-						trigger={
-							<Button
-								aria-label="Edit variant"
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<Pencil />
-							</Button>
-						}
-						variant={variant}
-					/>
-					<GroupSeparator />
-					<DeleteInclusionVariant
-						trigger={
-							<Button
-								aria-label="Delete variant"
-								size="icon"
-								type="button"
-								variant="destructive-outline"
-							>
-								<Trash2 />
-							</Button>
-						}
-						variantId={variant._id}
-						variantLabel={`${variant.vendor} ${variant.code}`}
-					/>
-				</Group>
-			</FrameHeader>
-			<FramePanel className="flex h-full min-h-0 flex-row items-stretch overflow-hidden p-0">
-				<div className="flex h-full min-w-0 flex-1 flex-col space-y-2 px-5 py-5 text-sm">
-					<dl className="space-y-2">
-						<div>
-							<dt className="text-muted-foreground text-xs tracking-wide">
-								Models
-							</dt>
-							<dd>{variant.models.join(', ')}</dd>
-						</div>
-						{variant.color ? (
-							<div>
-								<dt className="text-muted-foreground text-xs tracking-wide">
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function CatalogueVariantActionsCell({
+	variant,
+}: {
+	variant: Doc<'inclusionVariants'>;
+}) {
+	return (
+		<Group className="justify-end">
+			<AddVariantToProjectDialog
+				inclusionVariantId={variant._id}
+				trigger={
+					<Button type="button" variant="outline">
+						Add To Project
+					</Button>
+				}
+				variantLabel={`${variant.vendor} ${variant.code}`}
+			/>
+			<GroupSeparator />
+			<EditInclusionVariant
+				trigger={
+					<Button
+						aria-label="Edit variant"
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						<Pencil />
+					</Button>
+				}
+				variant={variant}
+			/>
+			<GroupSeparator />
+			<DeleteInclusionVariant
+				trigger={
+					<Button
+						aria-label="Delete variant"
+						size="icon"
+						type="button"
+						variant="destructive-outline"
+					>
+						<Trash2 />
+					</Button>
+				}
+				variantId={variant._id}
+				variantLabel={`${variant.vendor} ${variant.code}`}
+			/>
+		</Group>
+	);
+}
+
+const catalogueVariantsTableMinClass = (showPricing: boolean) =>
+	showPricing ? 'min-w-[58rem]' : 'min-w-[46rem]';
+
+function InclusionCatalogueVariantsTableInFrame({
+	inclusion,
+	mode,
+	standardSalePrice,
+	variants,
+}: {
+	inclusion: Doc<'inclusions'>;
+	mode: 'builder' | 'client';
+	standardSalePrice: number | null;
+	variants: Doc<'inclusionVariants'>[];
+}) {
+	const showPricing = mode === 'builder';
+	const minClass = catalogueVariantsTableMinClass(showPricing);
+	return (
+		<Frame className="w-full">
+			<FramePanel className="p-0">
+				<div className="w-full min-w-0 overflow-x-auto">
+					<Table className={cn('w-full', minClass)}>
+						<TableHeader>
+							<TableRow>
+								<TableHead className="min-w-[11rem]">Title</TableHead>
+								<TableHead className="min-w-[14rem]">
+									Vendor & details
+								</TableHead>
+								<TableHead className="min-w-[7rem] whitespace-nowrap">
 									Colour
-								</dt>
-								<dd>{variant.color}</dd>
-							</div>
-						) : null}
-						{variant.details ? (
-							<div>
-								<dt className="text-muted-foreground text-xs tracking-wide">
-									Details
-								</dt>
-								<dd className="whitespace-pre-wrap text-pretty">
-									{variant.details}
-								</dd>
-							</div>
-						) : null}
-						{linkUrl ? (
-							<div>
-								<dt className="text-muted-foreground text-xs tracking-wide">
-									Link
-								</dt>
-								<dd>
-									<a
-										className="text-primary underline-offset-4 hover:underline"
-										href={linkUrl}
-										rel="noopener noreferrer"
-										target="_blank"
-									>
-										{linkUrl}
-									</a>
-								</dd>
-							</div>
-						) : null}
-					</dl>
-					<div className="flex flex-wrap items-center gap-2 pt-1">
-						{mode === 'builder' ? (
-							<>
-								<Badge className="shrink-0" size="lg" variant="warning">
-									Cost {formatAud(variant.costPrice)}
-								</Badge>
-								<Badge className="shrink-0" size="lg" variant="success">
-									Sale {formatAud(variant.salePrice)}
-								</Badge>
-							</>
-						) : null}
-						{variant.class !== 'Standard' ? (
-							<Badge className="shrink-0" size="lg" variant="purple">
-								{variationLabel}
-							</Badge>
-						) : null}
-					</div>
-				</div>
-				{imageUrl ? (
-					<div className="flex shrink-0 items-center py-5 pr-5 pl-3">
-						<Dialog>
-							<DialogTrigger
-								render={
-									<button
-										aria-label={`Open image preview for ${variant.vendor} ${variant.code}`}
-										className="flex h-[150px] w-[150px] cursor-zoom-in items-center justify-center bg-card"
-										type="button"
-									/>
+								</TableHead>
+								{showPricing ? (
+									<TableHead className="whitespace-nowrap text-end">
+										Cost
+									</TableHead>
+								) : null}
+								{showPricing ? (
+									<TableHead className="whitespace-nowrap text-end">
+										Sale
+									</TableHead>
+								) : null}
+								<TableHead className="min-w-[6rem] whitespace-nowrap text-end">
+									Variation
+								</TableHead>
+								<TableHead className="w-[150px] min-w-[150px] max-w-[150px] text-end">
+									Image
+								</TableHead>
+								<TableHead className="w-[200px] min-w-[200px] max-w-[200px] whitespace-nowrap text-end">
+									Actions
+								</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{variants.map((variant) => {
+								const linkUrl = variant.link?.trim() ?? '';
+								let variationDisplay: ReactNode;
+								if (variant.class === 'Standard') {
+									variationDisplay = (
+										<span className="text-muted-foreground">—</span>
+									);
+								} else if (standardSalePrice === null) {
+									variationDisplay = (
+										<span className="text-muted-foreground">N/A</span>
+									);
+								} else {
+									variationDisplay = formatSignedAud(
+										variant.salePrice - standardSalePrice
+									);
 								}
-							>
-								<NextImage
-									alt={`${variant.vendor} ${variant.code}`}
-									className="h-[150px] max-h-[150px] w-auto max-w-[150px] object-contain"
-									height={150}
-									src={imageUrl}
-									unoptimized
-									width={150}
-								/>
-							</DialogTrigger>
-							<DialogContent className="sm:max-w-3xl">
-								<DialogHeader>
-									<DialogTitle>{`${variant.vendor} ${variant.code}`}</DialogTitle>
-								</DialogHeader>
-								<div className="flex max-h-[75vh] items-center justify-center overflow-hidden rounded-md bg-card p-2">
-									<NextImage
-										alt={`${variant.vendor} ${variant.code}`}
-										className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
-										height={1200}
-										src={imageUrl}
-										unoptimized
-										width={1200}
-									/>
-								</div>
-							</DialogContent>
-						</Dialog>
-					</div>
-				) : null}
+								return (
+									<TableRow key={variant._id}>
+										<TableCell className="whitespace-normal align-top leading-snug">
+											<div className="flex min-w-0 flex-col gap-1.5">
+												<span className="font-medium">{inclusion.title}</span>
+												<div className="flex flex-wrap items-center gap-2">
+													<Badge
+														size="lg"
+														variant={variantClassBadgeVariant(variant.class)}
+													>
+														{variant.class}
+													</Badge>
+													<span className="font-mono text-muted-foreground text-xs">
+														{variant.code}
+													</span>
+												</div>
+											</div>
+										</TableCell>
+										<TableCell className="whitespace-normal align-top leading-snug">
+											<div className="flex min-w-0 flex-col gap-2 text-sm">
+												<p className="text-muted-foreground">
+													{variant.vendor}
+												</p>
+												<p className="text-muted-foreground">
+													{variant.models.join(', ')}
+												</p>
+												{variant.details ? (
+													<p className="whitespace-pre-wrap text-pretty">
+														{variant.details}
+													</p>
+												) : null}
+												{linkUrl ? (
+													<a
+														className="text-primary text-sm underline-offset-4 hover:underline"
+														href={linkUrl}
+														rel="noopener noreferrer"
+														target="_blank"
+													>
+														{linkUrl}
+													</a>
+												) : null}
+											</div>
+										</TableCell>
+										<TableCell className="whitespace-normal align-top text-sm">
+											{variant.color ? (
+												<span className="text-muted-foreground">
+													{variant.color}
+												</span>
+											) : (
+												<span className="text-muted-foreground">—</span>
+											)}
+										</TableCell>
+										{showPricing ? (
+											<TableCell className="whitespace-normal text-end align-top tabular-nums">
+												{formatAud(variant.costPrice)}
+											</TableCell>
+										) : null}
+										{showPricing ? (
+											<TableCell className="whitespace-normal text-end align-top tabular-nums">
+												{formatAud(variant.salePrice)}
+											</TableCell>
+										) : null}
+										<TableCell className="whitespace-normal text-end align-top tabular-nums">
+											{variationDisplay}
+										</TableCell>
+										<TableCell className="w-[150px] min-w-[150px] max-w-[150px] text-end align-middle">
+											<div className="flex justify-end">
+												<CatalogueVariantImageThumbnail
+													productTitle={inclusion.title}
+													variant={variant}
+												/>
+											</div>
+										</TableCell>
+										<TableCell className="w-[200px] min-w-[200px] max-w-[200px] whitespace-nowrap align-middle">
+											<div className="flex justify-end">
+												<CatalogueVariantActionsCell variant={variant} />
+											</div>
+										</TableCell>
+									</TableRow>
+								);
+							})}
+						</TableBody>
+					</Table>
+				</div>
 			</FramePanel>
 		</Frame>
 	);
@@ -337,16 +419,12 @@ export default function InclusionCatalogueDetailView({
 					No variants yet. Use Add Variant to create one.
 				</p>
 			) : (
-				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-					{variants.map((variant) => (
-						<InclusionVariantCard
-							key={variant._id}
-							mode={mode}
-							standardSalePrice={standardSalePrice}
-							variant={variant}
-						/>
-					))}
-				</div>
+				<InclusionCatalogueVariantsTableInFrame
+					inclusion={inclusion}
+					mode={mode}
+					standardSalePrice={standardSalePrice}
+					variants={variants}
+				/>
 			)}
 		</div>
 	);
