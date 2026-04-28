@@ -83,6 +83,7 @@ import {
 import NextImage from 'next/image';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
 type ProjectInclusion = Doc<'projectInclusions'>;
@@ -820,6 +821,7 @@ export default function ProjectInclusionsTabContent({
 }) {
 	const inclusions = useQuery(api.projectInclusions.list.list, { projectId });
 	const categories = useQuery(api.inclusionCategories.list.list, {});
+	const project = useQuery(api.projects.get.get, { projectId });
 	const mode = useAppModeStore((state) => state.mode);
 
 	const [search, setSearch] = useState('');
@@ -911,6 +913,55 @@ export default function ProjectInclusionsTabContent({
 		return { loading: false as const, list };
 	}, [trimmedSearch, variantSearchResults, sections]);
 
+	const onDownloadPdf = async () => {
+		if (!project) {
+			toastManager.add({
+				title: 'Could not download PDF',
+				description: 'Project details are still loading. Please try again.',
+				type: 'error',
+			});
+			return;
+		}
+		try {
+			await openProjectInclusionsPdfInNewTab({
+				projectName: project.name,
+				projectAddress: project.address,
+				clients: project.clients.map((client) => ({
+					firstName: client.firstName,
+					lastName: client.lastName,
+					email: client.email,
+					phone: client.phone,
+				})),
+				sections: sections.map((section) => ({
+					categoryId: String(section.categoryId),
+					categoryName: section.categoryName,
+					inclusions: section.inclusions.map((inclusion) => ({
+						_id: String(inclusion._id),
+						title: inclusion.title,
+						code: inclusion.code,
+						vendor: inclusion.vendor,
+						models: inclusion.models,
+						details: inclusion.details,
+						status: inclusion.status,
+						class: inclusion.class,
+						variationSalePrice: inclusion.variationSalePrice,
+						image: inclusion.image,
+					})),
+					totalVariationSalePrice: section.totalVariationSalePrice,
+				})),
+			});
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not generate PDF',
+				description:
+					error instanceof Error
+						? error.message
+						: 'Please try again in a moment.',
+				type: 'error',
+			});
+		}
+	};
+
 	if (inclusions === undefined || categories === undefined) {
 		return <p className="text-muted-foreground text-sm">Loading inclusions…</p>;
 	}
@@ -934,6 +985,11 @@ export default function ProjectInclusionsTabContent({
 			<Button
 				aria-label="Download project inclusions"
 				className="shrink-0"
+				onClick={() => {
+					onDownloadPdf().catch(() => {
+						/* Error handled in onDownloadPdf */
+					});
+				}}
 				type="button"
 				variant="outline"
 			>
