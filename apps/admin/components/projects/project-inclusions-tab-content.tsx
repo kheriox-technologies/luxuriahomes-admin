@@ -584,6 +584,52 @@ function ProjectInclusionsTableInFrame({
 	mode: 'builder' | 'client';
 }) {
 	const showPricing = mode === 'builder';
+	const [bulkLoading, setBulkLoading] = useState(false);
+	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+	const allApproved = section.inclusions.every(
+		(inclusion) => inclusion.status === 'Approved'
+	);
+	const bulkActionLabel = allApproved ? 'Unapprove All' : 'Approve All';
+
+	const onBulkToggle = async () => {
+		setBulkLoading(true);
+		const targetStatus = allApproved ? 'Under Review' : 'Approved';
+		try {
+			await Promise.all(
+				section.inclusions
+					.filter(
+						(inclusion) => (inclusion.status ?? 'Under Review') !== targetStatus
+					)
+					.map((inclusion) =>
+						updateProjectInclusion({
+							projectInclusionId: inclusion._id,
+							status: targetStatus,
+						})
+					)
+			);
+			toastManager.add({
+				title: allApproved
+					? `${section.categoryName} inclusions moved to under review`
+					: `${section.categoryName} inclusions approved`,
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					`Could not update ${section.categoryName} inclusions. Please try again in a moment.`
+				),
+				title: `Could not update ${section.categoryName} inclusions`,
+				type: 'error',
+			});
+		} finally {
+			setBulkLoading(false);
+		}
+	};
+
 	return (
 		<Frame className="w-full">
 			<FrameHeader className="flex flex-row items-center justify-between gap-3">
@@ -594,9 +640,50 @@ function ProjectInclusionsTableInFrame({
 						{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
 					</FrameDescription>
 				</div>
-				<Badge className="shrink-0" size="lg" variant="purple">
-					{formatSignedAud(section.totalVariationSalePrice)}
-				</Badge>
+				<div className="flex shrink-0 items-center gap-2">
+					<Badge className="shrink-0" size="lg" variant="purple">
+						{formatSignedAud(section.totalVariationSalePrice)}
+					</Badge>
+					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
+						<AlertDialogTrigger
+							render={
+								<Button loading={bulkLoading} type="button" variant="outline" />
+							}
+						>
+							{bulkActionLabel}
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>{`${bulkActionLabel} in ${section.categoryName}?`}</AlertDialogTitle>
+								<AlertDialogDescription>
+									{allApproved
+										? `This will set all inclusions in ${section.categoryName} to Under Review.`
+										: `This will set all inclusions in ${section.categoryName} to Approved.`}
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogClose
+									render={<Button type="button" variant="outline" />}
+								>
+									Cancel
+								</AlertDialogClose>
+								<Button
+									loading={bulkLoading}
+									onClick={() => {
+										onBulkToggle()
+											.then(() => setBulkConfirmOpen(false))
+											.catch(() => {
+												/* Error is handled in onBulkToggle */
+											});
+									}}
+									type="button"
+								>
+									Confirm
+								</Button>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				</div>
 			</FrameHeader>
 			<FramePanel className="p-0">
 				<div className="w-full min-w-0 overflow-x-auto">
