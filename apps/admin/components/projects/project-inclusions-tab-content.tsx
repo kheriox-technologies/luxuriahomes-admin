@@ -15,17 +15,6 @@ import {
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
-	Card,
-	CardFrame,
-	CardFrameAction,
-	CardFrameDescription,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardHeader,
-	CardPanel,
-	CardTitle,
-} from '@workspace/ui/components/card';
-import {
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -43,6 +32,13 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import {
+	Frame,
+	FrameDescription,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
@@ -50,6 +46,14 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@workspace/ui/components/table';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import {
@@ -443,148 +447,247 @@ function ProjectInclusionAddNoteButton({
 	);
 }
 
-function ProjectInclusionCard({
+function ProjectInclusionImageThumbnail({
 	inclusion,
-	mode,
 }: {
 	inclusion: ProjectInclusion;
-	mode: 'builder' | 'client';
 }) {
 	const imageUrl = inclusion.image?.trim() ?? '';
-	const displayStatus = inclusion.status ?? 'Under Review';
-
+	if (!imageUrl) {
+		return <span className="text-muted-foreground text-xs">No image</span>;
+	}
 	return (
-		<Card className="flex flex-row items-stretch overflow-hidden">
-			<div className="min-w-0 flex-1">
-				<CardHeader className="gap-y-2">
-					<CardTitle className="flex min-w-0 flex-wrap items-center gap-2 leading-snug">
-						<span className="min-w-0">{inclusion.title}</span>
-						<Badge
-							className="shrink-0"
-							size="lg"
-							variant={inclusionStatusBadgeVariant(displayStatus)}
-						>
-							{displayStatus}
-						</Badge>
-						<Group>
-							<ProjectInclusionStatusToggleButton
-								projectInclusionId={inclusion._id}
-								status={inclusion.status}
-							/>
-							<GroupSeparator />
-							<ProjectInclusionAddNoteButton
-								code={inclusion.code}
-								existingNotes={inclusion.notes}
-								projectInclusionId={inclusion._id}
-								title={inclusion.title}
-							/>
-							<GroupSeparator />
-							<DeleteProjectInclusionButton
-								code={inclusion.code}
-								projectInclusionId={inclusion._id}
-								title={inclusion.title}
-							/>
-						</Group>
-					</CardTitle>
-				</CardHeader>
-				<CardPanel className="space-y-2 text-sm">
-					<p className="text-muted-foreground">{`${inclusion.vendor} - ${inclusion.models.join(', ')}`}</p>
-					{inclusion.details ? (
-						<p className="whitespace-pre-wrap text-pretty">
-							{inclusion.details}
-						</p>
-					) : null}
-					{inclusion.notes && inclusion.notes.length > 0 ? (
-						<div className="rounded-md border bg-muted/30 p-3">
-							<p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-								Notes
-							</p>
-							<ul className="space-y-2">
-								{inclusion.notes.map((entry, index) => (
-									<li className="text-sm" key={`${entry.timestamp}-${index}`}>
-										<p className="text-muted-foreground text-xs">
-											{formatProjectInclusionNoteTimestamp(entry.timestamp)} ·{' '}
-											{entry.addedBy}
-										</p>
-										<p className="whitespace-pre-wrap text-pretty">
-											{entry.note}
-										</p>
-									</li>
-								))}
-							</ul>
-						</div>
-					) : null}
-					<div className="flex flex-wrap items-center gap-2">
-						<Badge
-							size="lg"
-							variant={variantClassBadgeVariant(inclusion.class)}
-						>
-							{inclusion.class}
-						</Badge>
-						<span className="font-mono text-muted-foreground text-xs">
-							{inclusion.code}
-						</span>
-					</div>
-					<div className="flex flex-wrap items-center gap-2 pt-1">
-						{mode === 'builder' ? (
-							<>
-								<Badge className="shrink-0" size="lg" variant="warning">
-									Cost {formatAud(inclusion.costPrice)}
-								</Badge>
-								<Badge className="shrink-0" size="lg" variant="success">
-									Sale {formatAud(inclusion.salePrice)}
-								</Badge>
-							</>
-						) : null}
-						{inclusion.class !== 'Standard' &&
-						inclusion.variationSalePrice !== undefined ? (
-							<Badge className="shrink-0" size="lg" variant="purple">
-								{formatSignedAud(inclusion.variationSalePrice)}
-							</Badge>
-						) : null}
-					</div>
-				</CardPanel>
-			</div>
-			{imageUrl ? (
-				<div className="flex shrink-0 items-center py-5 pr-3 pl-3">
-					<Dialog>
-						<DialogTrigger
-							render={
-								<button
-									aria-label={`Open image preview for ${inclusion.title} ${inclusion.code}`}
-									className="flex h-[150px] w-[150px] cursor-zoom-in items-center justify-center bg-card"
-									type="button"
-								/>
-							}
-						>
-							<NextImage
-								alt={`${inclusion.title} ${inclusion.code}`}
-								className="h-[150px] max-h-[150px] w-auto max-w-[150px] object-contain"
-								height={150}
-								src={imageUrl}
-								unoptimized
-								width={150}
-							/>
-						</DialogTrigger>
-						<DialogContent className="sm:max-w-3xl">
-							<DialogHeader>
-								<DialogTitle>{`${inclusion.title} ${inclusion.code}`}</DialogTitle>
-							</DialogHeader>
-							<div className="flex max-h-[75vh] items-center justify-center overflow-hidden rounded-md bg-card p-2">
-								<NextImage
-									alt={`${inclusion.title} ${inclusion.code}`}
-									className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
-									height={1200}
-									src={imageUrl}
-									unoptimized
-									width={1200}
-								/>
-							</div>
-						</DialogContent>
-					</Dialog>
+		<Dialog>
+			<DialogTrigger
+				render={
+					<button
+						aria-label={`Open image preview for ${inclusion.title} ${inclusion.code}`}
+						className="flex size-[75px] cursor-zoom-in items-center justify-center rounded-md border bg-card"
+						type="button"
+					/>
+				}
+			>
+				<NextImage
+					alt={`${inclusion.title} ${inclusion.code}`}
+					className="size-[75px] object-contain"
+					height={75}
+					src={imageUrl}
+					unoptimized
+					width={75}
+				/>
+			</DialogTrigger>
+			<DialogContent className="sm:max-w-3xl">
+				<DialogHeader>
+					<DialogTitle>{`${inclusion.title} ${inclusion.code}`}</DialogTitle>
+				</DialogHeader>
+				<div className="flex max-h-[75vh] items-center justify-center overflow-hidden rounded-md bg-card p-2">
+					<NextImage
+						alt={`${inclusion.title} ${inclusion.code}`}
+						className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
+						height={1200}
+						src={imageUrl}
+						unoptimized
+						width={1200}
+					/>
 				</div>
-			) : null}
-		</Card>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ProjectInclusionActionsCell({
+	inclusion,
+}: {
+	inclusion: ProjectInclusion;
+}) {
+	return (
+		<Group className="justify-end">
+			<ProjectInclusionStatusToggleButton
+				projectInclusionId={inclusion._id}
+				status={inclusion.status}
+			/>
+			<GroupSeparator />
+			<ProjectInclusionAddNoteButton
+				code={inclusion.code}
+				existingNotes={inclusion.notes}
+				projectInclusionId={inclusion._id}
+				title={inclusion.title}
+			/>
+			<GroupSeparator />
+			<DeleteProjectInclusionButton
+				code={inclusion.code}
+				projectInclusionId={inclusion._id}
+				title={inclusion.title}
+			/>
+		</Group>
+	);
+}
+
+function ProjectInclusionsTableInFrame({
+	section,
+	mode,
+}: {
+	section: InclusionSection;
+	mode: 'builder' | 'client';
+}) {
+	const showPricing = mode === 'builder';
+	return (
+		<Frame className="w-full">
+			<FrameHeader className="flex flex-row items-center justify-between gap-3">
+				<div className="min-w-0">
+					<FrameTitle>{section.categoryName}</FrameTitle>
+					<FrameDescription>
+						{section.inclusions.length}{' '}
+						{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
+					</FrameDescription>
+				</div>
+				<Badge className="shrink-0" size="lg" variant="purple">
+					{formatSignedAud(section.totalVariationSalePrice)}
+				</Badge>
+			</FrameHeader>
+			<FramePanel className="p-0">
+				<div className="w-full min-w-0 overflow-x-auto">
+					<Table
+						className={cn(
+							'w-full',
+							showPricing ? 'min-w-[56rem]' : 'min-w-[44rem]'
+						)}
+					>
+						<TableHeader>
+							<TableRow>
+								<TableHead className="min-w-[11rem]">Title</TableHead>
+								<TableHead className="min-w-[14rem]">
+									Vendor & details
+								</TableHead>
+								<TableHead className="whitespace-nowrap">Status</TableHead>
+								{showPricing ? (
+									<TableHead className="whitespace-nowrap text-end">
+										Cost
+									</TableHead>
+								) : null}
+								{showPricing ? (
+									<TableHead className="whitespace-nowrap text-end">
+										Sale
+									</TableHead>
+								) : null}
+								<TableHead className="min-w-[6rem] whitespace-nowrap text-end">
+									Variation
+								</TableHead>
+								<TableHead className="w-[6rem] min-w-[6rem] max-w-[6rem] text-end">
+									Image
+								</TableHead>
+								<TableHead className="w-[150px] min-w-[150px] max-w-[150px] whitespace-nowrap text-end">
+									Actions
+								</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{section.inclusions.map((inclusion) => {
+								const displayStatus = inclusion.status ?? 'Under Review';
+								const variation =
+									inclusion.class !== 'Standard' &&
+									inclusion.variationSalePrice !== undefined
+										? formatSignedAud(inclusion.variationSalePrice)
+										: null;
+								return (
+									<TableRow key={inclusion._id}>
+										<TableCell className="whitespace-normal align-top leading-snug">
+											<div className="flex min-w-0 flex-col gap-1.5">
+												<span className="font-medium">{inclusion.title}</span>
+												<div className="flex flex-wrap items-center gap-2">
+													<Badge
+														size="lg"
+														variant={variantClassBadgeVariant(inclusion.class)}
+													>
+														{inclusion.class}
+													</Badge>
+													<span className="font-mono text-muted-foreground text-xs">
+														{inclusion.code}
+													</span>
+												</div>
+											</div>
+										</TableCell>
+										<TableCell className="whitespace-normal align-top leading-snug">
+											<div className="flex min-w-0 flex-col gap-2 text-sm">
+												<p className="text-muted-foreground">
+													{inclusion.vendor}
+												</p>
+												<p className="text-muted-foreground">
+													{inclusion.models.join(', ')}
+												</p>
+												{inclusion.details ? (
+													<p className="whitespace-pre-wrap text-pretty">
+														{inclusion.details}
+													</p>
+												) : null}
+												{inclusion.notes && inclusion.notes.length > 0 ? (
+													<div className="max-h-40 overflow-y-auto rounded-md border bg-muted/30 p-2">
+														<p className="mb-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+															Notes
+														</p>
+														<ul className="space-y-2">
+															{inclusion.notes.map((entry, index) => (
+																<li
+																	className="text-sm"
+																	key={`${entry.timestamp}-${index}`}
+																>
+																	<p className="text-muted-foreground text-xs">
+																		{formatProjectInclusionNoteTimestamp(
+																			entry.timestamp
+																		)}{' '}
+																		· {entry.addedBy}
+																	</p>
+																	<p className="whitespace-pre-wrap text-pretty">
+																		{entry.note}
+																	</p>
+																</li>
+															))}
+														</ul>
+													</div>
+												) : null}
+											</div>
+										</TableCell>
+										<TableCell className="whitespace-normal align-top">
+											<Badge
+												size="lg"
+												variant={inclusionStatusBadgeVariant(displayStatus)}
+											>
+												{displayStatus}
+											</Badge>
+										</TableCell>
+										{showPricing ? (
+											<TableCell className="whitespace-normal text-end align-top tabular-nums">
+												{formatAud(inclusion.costPrice)}
+											</TableCell>
+										) : null}
+										{showPricing ? (
+											<TableCell className="whitespace-normal text-end align-top tabular-nums">
+												{formatAud(inclusion.salePrice)}
+											</TableCell>
+										) : null}
+										<TableCell className="whitespace-normal text-end align-top tabular-nums">
+											{variation ?? (
+												<span className="text-muted-foreground">—</span>
+											)}
+										</TableCell>
+										<TableCell className="w-[6rem] min-w-[6rem] max-w-[6rem] text-end align-middle">
+											<div className="flex justify-end">
+												<ProjectInclusionImageThumbnail inclusion={inclusion} />
+											</div>
+										</TableCell>
+										<TableCell className="w-[150px] min-w-[150px] max-w-[150px] whitespace-nowrap align-middle">
+											<div className="flex justify-end">
+												<ProjectInclusionActionsCell inclusion={inclusion} />
+											</div>
+										</TableCell>
+									</TableRow>
+								);
+							})}
+						</TableBody>
+					</Table>
+				</div>
+			</FramePanel>
+		</Frame>
 	);
 }
 
@@ -766,31 +869,11 @@ export default function ProjectInclusionsTabContent({
 		listBody = (
 			<div className={cn('flex flex-col gap-4')}>
 				{frames.map((section) => (
-					<CardFrame key={section.categoryId}>
-						<CardFrameHeader>
-							<CardFrameTitle>{section.categoryName}</CardFrameTitle>
-							<CardFrameAction>
-								<Badge
-									className="shrink-0 self-center"
-									size="lg"
-									variant="purple"
-								>
-									{formatSignedAud(section.totalVariationSalePrice)}
-								</Badge>
-							</CardFrameAction>
-							<CardFrameDescription>
-								{section.inclusions.length}{' '}
-								{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
-							</CardFrameDescription>
-						</CardFrameHeader>
-						{section.inclusions.map((inclusion) => (
-							<ProjectInclusionCard
-								inclusion={inclusion}
-								key={inclusion._id}
-								mode={mode}
-							/>
-						))}
-					</CardFrame>
+					<ProjectInclusionsTableInFrame
+						key={section.categoryId}
+						mode={mode}
+						section={section}
+					/>
 				))}
 			</div>
 		);
