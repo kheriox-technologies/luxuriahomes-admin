@@ -7,12 +7,7 @@ import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
 	CardAction,
-	CardFrame,
-	CardFrameAction,
-	CardFrameHeader,
-	CardFrameTitle,
 	CardHeader,
-	CardPanel,
 	CardTitle,
 } from '@workspace/ui/components/card';
 import {
@@ -22,6 +17,12 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import {
+	Frame,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
@@ -153,47 +154,43 @@ function CategoryInclusionsFrame({
 	const count = categoryInclusions.length;
 
 	return (
-		<CardFrame>
-			<CardFrameHeader className="flex flex-row items-center justify-between gap-3">
-				<CardFrameTitle className="min-w-0 truncate text-base">
+		<Frame>
+			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
+				<FrameTitle className="min-w-0 truncate text-base">
 					{categoryName}
-				</CardFrameTitle>
-				<CardFrameAction>
-					<div className="flex flex-wrap items-center justify-end gap-2">
-						<Badge className="shrink-0" size="lg" variant="secondary">
-							{inclusionCountBadgeLabel(count)}
-						</Badge>
-						<AddInclusion
-							initialCategoryId={categoryId}
-							trigger={
-								<Button
-									aria-label={`Add inclusion to ${categoryName}`}
-									size="icon"
-									type="button"
-									variant="outline"
-								>
-									<Plus />
-								</Button>
-							}
-						/>
-					</div>
-				</CardFrameAction>
-			</CardFrameHeader>
-			<Card>
-				<CardPanel className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-					{categoryInclusions.map((inclusion) => (
-						<InclusionCatalogueCard
-							categoryName={
-								categoryNameById.get(inclusion.categoryId) ?? 'Unknown category'
-							}
-							inclusion={inclusion}
-							key={inclusion._id}
-							showCategorySubtitle={false}
-						/>
-					))}
-				</CardPanel>
-			</Card>
-		</CardFrame>
+				</FrameTitle>
+				<div className="flex flex-wrap items-center justify-end gap-2">
+					<Badge className="shrink-0" size="lg" variant="secondary">
+						{inclusionCountBadgeLabel(count)}
+					</Badge>
+					<AddInclusion
+						initialCategoryId={categoryId}
+						trigger={
+							<Button
+								aria-label={`Add inclusion to ${categoryName}`}
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<Plus />
+							</Button>
+						}
+					/>
+				</div>
+			</FrameHeader>
+			<FramePanel className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+				{categoryInclusions.map((inclusion) => (
+					<InclusionCatalogueCard
+						categoryName={
+							categoryNameById.get(inclusion.categoryId) ?? 'Unknown category'
+						}
+						inclusion={inclusion}
+						key={inclusion._id}
+						showCategorySubtitle={false}
+					/>
+				))}
+			</FramePanel>
+		</Frame>
 	);
 }
 

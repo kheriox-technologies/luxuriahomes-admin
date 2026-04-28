@@ -5,20 +5,18 @@ import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
-	Card,
-	CardFrame,
-	CardFrameAction,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardPanel,
-} from '@workspace/ui/components/card';
-import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
+import {
+	Frame,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
@@ -84,12 +82,12 @@ function InclusionVariantCard({
 	}
 
 	return (
-		<CardFrame className="h-full">
-			<CardFrameHeader className="flex flex-row items-start justify-between gap-3">
+		<Frame className="h-full">
+			<FrameHeader className="flex flex-row items-start justify-between gap-3 py-3">
 				<div className="min-w-0 flex-1">
-					<CardFrameTitle className="min-w-0 truncate leading-snug">
+					<FrameTitle className="min-w-0 truncate leading-snug">
 						{variant.vendor}
-					</CardFrameTitle>
+					</FrameTitle>
 					<div className="mt-1.5 flex flex-wrap items-center gap-2">
 						<Badge size="lg" variant={variantClassBadgeVariant(variant.class)}>
 							{variant.class}
@@ -99,51 +97,49 @@ function InclusionVariantCard({
 						</span>
 					</div>
 				</div>
-				<CardFrameAction>
-					<Group>
-						<AddVariantToProjectDialog
-							inclusionVariantId={variant._id}
-							trigger={
-								<Button type="button" variant="outline">
-									Add To Project
-								</Button>
-							}
-							variantLabel={`${variant.vendor} ${variant.code}`}
-						/>
-						<GroupSeparator />
-						<EditInclusionVariant
-							trigger={
-								<Button
-									aria-label="Edit variant"
-									size="icon"
-									type="button"
-									variant="outline"
-								>
-									<Pencil />
-								</Button>
-							}
-							variant={variant}
-						/>
-						<GroupSeparator />
-						<DeleteInclusionVariant
-							trigger={
-								<Button
-									aria-label="Delete variant"
-									size="icon"
-									type="button"
-									variant="destructive-outline"
-								>
-									<Trash2 />
-								</Button>
-							}
-							variantId={variant._id}
-							variantLabel={`${variant.vendor} ${variant.code}`}
-						/>
-					</Group>
-				</CardFrameAction>
-			</CardFrameHeader>
-			<Card className="flex h-full flex-row items-stretch overflow-hidden">
-				<CardPanel className="flex h-full min-w-0 flex-1 flex-col space-y-2 text-sm">
+				<Group className="shrink-0">
+					<AddVariantToProjectDialog
+						inclusionVariantId={variant._id}
+						trigger={
+							<Button type="button" variant="outline">
+								Add To Project
+							</Button>
+						}
+						variantLabel={`${variant.vendor} ${variant.code}`}
+					/>
+					<GroupSeparator />
+					<EditInclusionVariant
+						trigger={
+							<Button
+								aria-label="Edit variant"
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<Pencil />
+							</Button>
+						}
+						variant={variant}
+					/>
+					<GroupSeparator />
+					<DeleteInclusionVariant
+						trigger={
+							<Button
+								aria-label="Delete variant"
+								size="icon"
+								type="button"
+								variant="destructive-outline"
+							>
+								<Trash2 />
+							</Button>
+						}
+						variantId={variant._id}
+						variantLabel={`${variant.vendor} ${variant.code}`}
+					/>
+				</Group>
+			</FrameHeader>
+			<FramePanel className="flex h-full min-h-0 flex-row items-stretch overflow-hidden p-0">
+				<div className="flex h-full min-w-0 flex-1 flex-col space-y-2 px-5 py-5 text-sm">
 					<dl className="space-y-2">
 						<div>
 							<dt className="text-muted-foreground text-xs tracking-wide">
@@ -204,7 +200,7 @@ function InclusionVariantCard({
 							</Badge>
 						) : null}
 					</div>
-				</CardPanel>
+				</div>
 				{imageUrl ? (
 					<div className="flex shrink-0 items-center py-5 pr-5 pl-3">
 						<Dialog>
@@ -244,8 +240,8 @@ function InclusionVariantCard({
 						</Dialog>
 					</div>
 				) : null}
-			</Card>
-		</CardFrame>
+			</FramePanel>
+		</Frame>
 	);
 }
 

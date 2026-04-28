@@ -11,16 +11,14 @@ import {
 	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardFrame,
-	CardFrameAction,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardPanel,
-} from '@workspace/ui/components/card';
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
+import {
+	Frame,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -54,78 +52,74 @@ export function ProjectClientCard({
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const addressLine = projectClientAddressLine(client);
 	return (
-		<CardFrame>
-			<CardFrameHeader className="grid-rows-1 items-center">
-				<CardFrameTitle className="min-w-0 truncate leading-none">
+		<Frame>
+			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
+				<FrameTitle className="min-w-0 truncate leading-none">
 					{projectClientDisplayName(client)}
-				</CardFrameTitle>
-				<CardFrameAction className="row-span-1 row-start-1 self-center">
-					<Group>
-						<Button
-							aria-label="Edit client"
-							onClick={onEdit}
-							size="icon"
-							type="button"
-							variant="outline"
+				</FrameTitle>
+				<Group className="shrink-0">
+					<Button
+						aria-label="Edit client"
+						onClick={onEdit}
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						<Pencil />
+					</Button>
+					<GroupSeparator />
+					<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
+						<AlertDialogTrigger
+							render={
+								<Button
+									aria-label="Delete client"
+									size="icon"
+									type="button"
+									variant="destructive-outline"
+								/>
+							}
 						>
-							<Pencil />
-						</Button>
-						<GroupSeparator />
-						<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
-							<AlertDialogTrigger
-								render={
-									<Button
-										aria-label="Delete client"
-										size="icon"
-										type="button"
-										variant="destructive-outline"
-									/>
-								}
-							>
-								<Trash2 />
-							</AlertDialogTrigger>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>Delete client?</AlertDialogTitle>
-									<AlertDialogDescription>
-										{`Remove ${projectClientDisplayName(client)} from this project?`}
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogClose
-										render={<Button type="button" variant="outline" />}
-									>
-										Cancel
-									</AlertDialogClose>
-									<Button
-										onClick={() => {
-											onDelete();
-											setConfirmOpen(false);
-										}}
-										type="button"
-										variant="destructive"
-									>
-										Delete client
-									</Button>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-					</Group>
-				</CardFrameAction>
-			</CardFrameHeader>
-			<Card>
-				<CardPanel className="space-y-2 text-muted-foreground">
-					<p className="text-sm leading-snug">
-						{projectClientEmailPhoneLine(client)}
-					</p>
-					<p className="text-sm leading-snug">
-						{addressLine || (
-							<span className="text-muted-foreground/72">No address</span>
-						)}
-					</p>
-				</CardPanel>
-			</Card>
-		</CardFrame>
+							<Trash2 />
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Delete client?</AlertDialogTitle>
+								<AlertDialogDescription>
+									{`Remove ${projectClientDisplayName(client)} from this project?`}
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogClose
+									render={<Button type="button" variant="outline" />}
+								>
+									Cancel
+								</AlertDialogClose>
+								<Button
+									onClick={() => {
+										onDelete();
+										setConfirmOpen(false);
+									}}
+									type="button"
+									variant="destructive"
+								>
+									Delete client
+								</Button>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				</Group>
+			</FrameHeader>
+			<FramePanel className="space-y-2 text-muted-foreground">
+				<p className="text-sm leading-snug">
+					{projectClientEmailPhoneLine(client)}
+				</p>
+				<p className="text-sm leading-snug">
+					{addressLine || (
+						<span className="text-muted-foreground/72">No address</span>
+					)}
+				</p>
+			</FramePanel>
+		</Frame>
 	);
 }
 

@@ -5,20 +5,20 @@ import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardFrame,
-	CardFrameDescription,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardPanel,
-} from '@workspace/ui/components/card';
+import { Card, CardPanel } from '@workspace/ui/components/card';
 import {
 	Field,
 	FieldDescription,
 	FieldError,
 	FieldLabel,
 } from '@workspace/ui/components/field';
+import {
+	Frame,
+	FrameDescription,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
@@ -262,397 +262,393 @@ export default function EditInclusionVariant({
 					}}
 				>
 					<SheetPanel className="flex flex-col gap-6">
-						<CardFrame>
-							<CardFrameHeader>
-								<CardFrameTitle>Class and pricing</CardFrameTitle>
-								<CardFrameDescription>
+						<Frame>
+							<FrameHeader>
+								<FrameTitle>Class and pricing</FrameTitle>
+								<FrameDescription>
 									Select class and update the prices in AUD.
-								</CardFrameDescription>
-							</CardFrameHeader>
-							<Card>
-								<CardPanel className="space-y-3">
-									<form.Field name="class">
-										{(classField) => {
-											const classInvalid =
-												classField.state.meta.isTouched &&
-												!classField.state.meta.isValid;
-											return (
-												<Field data-invalid={classInvalid}>
-													<FieldLabel htmlFor={classField.name}>
-														Variant class
-													</FieldLabel>
-													<RadioGroup
-														className="grid grid-cols-1 gap-3"
-														name={classField.name}
-														onValueChange={(next) =>
-															classField.handleChange(
-																next as (typeof inclusionVariantClasses)[number]
-															)
-														}
-														value={classField.state.value}
-													>
-														{inclusionVariantClasses.map((variantClass) => {
-															const selected =
-																classField.state.value === variantClass;
-															return (
-																/* biome-ignore lint(a11y/noNoninteractiveElementInteractions, a11y/useKeyWithClickEvents, a11y/useSemanticElements): Base UI Radio is not a labelable control; whole row selects class; outer <button> cannot wrap nested price inputs. */
-																<div
-																	className="block cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-																	key={variantClass}
-																	onClick={() => {
+								</FrameDescription>
+							</FrameHeader>
+							<FramePanel className="space-y-3">
+								<form.Field name="class">
+									{(classField) => {
+										const classInvalid =
+											classField.state.meta.isTouched &&
+											!classField.state.meta.isValid;
+										return (
+											<Field data-invalid={classInvalid}>
+												<FieldLabel htmlFor={classField.name}>
+													Variant class
+												</FieldLabel>
+												<RadioGroup
+													className="grid grid-cols-1 gap-3"
+													name={classField.name}
+													onValueChange={(next) =>
+														classField.handleChange(
+															next as (typeof inclusionVariantClasses)[number]
+														)
+													}
+													value={classField.state.value}
+												>
+													{inclusionVariantClasses.map((variantClass) => {
+														const selected =
+															classField.state.value === variantClass;
+														return (
+															/* biome-ignore lint(a11y/noNoninteractiveElementInteractions, a11y/useKeyWithClickEvents, a11y/useSemanticElements): Base UI Radio is not a labelable control; whole row selects class; outer <button> cannot wrap nested price inputs. */
+															<div
+																className="block cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+																key={variantClass}
+																onClick={() => {
+																	classField.handleChange(variantClass);
+																}}
+																onKeyDown={(event) => {
+																	if (
+																		event.key === 'Enter' ||
+																		event.key === ' '
+																	) {
+																		event.preventDefault();
 																		classField.handleChange(variantClass);
-																	}}
-																	onKeyDown={(event) => {
-																		if (
-																			event.key === 'Enter' ||
-																			event.key === ' '
-																		) {
-																			event.preventDefault();
-																			classField.handleChange(variantClass);
-																		}
-																	}}
-																	role="group"
-																>
-																	<Card
-																		className={
-																			selected
-																				? variantClassBorderClass(variantClass)
-																				: 'border-input'
-																		}
-																	>
-																		<CardPanel className="space-y-3">
-																			<div className="flex items-center gap-2">
-																				<Radio
-																					id={`variant-class-${variantClass}`}
-																					value={variantClass}
-																				/>
-																				<span className="font-medium text-sm">
-																					{variantClass}
-																				</span>
-																			</div>
-																			{selected ? (
-																				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-																					<form.Field name="costPrice">
-																						{(field) => {
-																							const invalid =
-																								field.state.meta.isTouched &&
-																								!field.state.meta.isValid;
-																							return (
-																								<Field data-invalid={invalid}>
-																									<FieldLabel
-																										htmlFor={field.name}
-																									>
-																										Cost price
-																									</FieldLabel>
-																									<InputGroup>
-																										<InputGroupAddon align="inline-start">
-																											<InputGroupText>
-																												$
-																											</InputGroupText>
-																										</InputGroupAddon>
-																										<InputGroupInput
-																											aria-invalid={
-																												invalid || undefined
-																											}
-																											id={field.name}
-																											inputMode="decimal"
-																											nativeInput
-																											onBlur={field.handleBlur}
-																											onChange={(e) =>
-																												field.handleChange(
-																													e.target.value
-																												)
-																											}
-																											placeholder="0.00"
-																											type="text"
-																											value={field.state.value}
-																										/>
-																										<InputGroupAddon align="inline-end">
-																											<InputGroupText>
-																												AUD
-																											</InputGroupText>
-																										</InputGroupAddon>
-																									</InputGroup>
-																									{invalid ? (
-																										<FieldError>
-																											{inclusionFormFieldError(
-																												field.state.meta.errors
-																											)}
-																										</FieldError>
-																									) : null}
-																								</Field>
-																							);
-																						}}
-																					</form.Field>
-																					<form.Field name="salePrice">
-																						{(field) => {
-																							const invalid =
-																								field.state.meta.isTouched &&
-																								!field.state.meta.isValid;
-																							return (
-																								<Field data-invalid={invalid}>
-																									<FieldLabel
-																										htmlFor={field.name}
-																									>
-																										Sale price
-																									</FieldLabel>
-																									<InputGroup>
-																										<InputGroupAddon align="inline-start">
-																											<InputGroupText>
-																												$
-																											</InputGroupText>
-																										</InputGroupAddon>
-																										<InputGroupInput
-																											aria-invalid={
-																												invalid || undefined
-																											}
-																											id={field.name}
-																											inputMode="decimal"
-																											nativeInput
-																											onBlur={field.handleBlur}
-																											onChange={(e) =>
-																												field.handleChange(
-																													e.target.value
-																												)
-																											}
-																											placeholder="0.00"
-																											type="text"
-																											value={field.state.value}
-																										/>
-																										<InputGroupAddon align="inline-end">
-																											<InputGroupText>
-																												AUD
-																											</InputGroupText>
-																										</InputGroupAddon>
-																									</InputGroup>
-																									{invalid ? (
-																										<FieldError>
-																											{inclusionFormFieldError(
-																												field.state.meta.errors
-																											)}
-																										</FieldError>
-																									) : null}
-																								</Field>
-																							);
-																						}}
-																					</form.Field>
-																				</div>
-																			) : null}
-																		</CardPanel>
-																	</Card>
-																</div>
-															);
-														})}
-													</RadioGroup>
-													{classInvalid ? (
-														<FieldError>
-															{inclusionFormFieldError(
-																classField.state.meta.errors
-															)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
-								</CardPanel>
-							</Card>
-						</CardFrame>
-
-						<CardFrame>
-							<CardFrameHeader>
-								<CardFrameTitle>Variant details</CardFrameTitle>
-							</CardFrameHeader>
-							<Card>
-								<CardPanel className="space-y-4">
-									<form.Field name="vendor">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-													<Input
-														aria-invalid={invalid || undefined}
-														id={field.name}
-														nativeInput
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Vendor name"
-														value={field.state.value}
-													/>
-													{invalid ? (
-														<FieldError>
-															{inclusionFormFieldError(field.state.meta.errors)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
-
-									<form.Field name="models">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											const addModel = () => {
-												const normalized = modelDraft.trim();
-												if (!normalized) {
-													return;
-												}
-												if (field.state.value.includes(normalized)) {
-													setModelDraft('');
-													return;
-												}
-												field.handleChange([...field.state.value, normalized]);
-												setModelDraft('');
-											};
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor="variant-models-input">
-														Models
-													</FieldLabel>
-													<div className="flex w-full min-w-0 items-stretch gap-2">
-														<Input
-															className="min-w-0 flex-1"
-															id="variant-models-input"
-															nativeInput
-															onChange={(e) => setModelDraft(e.target.value)}
-															onKeyDown={(event) => {
-																if (event.key !== 'Enter') {
-																	return;
-																}
-																event.preventDefault();
-																addModel();
-															}}
-															placeholder="Type a model, then Enter or tap add"
-															value={modelDraft}
-														/>
-														<Button
-															aria-label="Add model"
-															onClick={addModel}
-															size="icon"
-															type="button"
-															variant="outline"
-														>
-															<Plus />
-														</Button>
-													</div>
-													{field.state.value.length > 0 ? (
-														<div className="flex flex-wrap gap-2">
-															{field.state.value.map((model) => (
-																<Badge
-																	key={model}
-																	render={
-																		<div className="flex items-center gap-1.5" />
 																	}
-																	variant="outline"
+																}}
+																role="group"
+															>
+																<Card
+																	className={
+																		selected
+																			? variantClassBorderClass(variantClass)
+																			: 'border-input'
+																	}
 																>
-																	{model}
-																	<button
-																		aria-label={`Remove ${model}`}
-																		className="inline-flex"
-																		onClick={(event) => {
-																			event.preventDefault();
-																			field.handleChange(
-																				field.state.value.filter(
-																					(current) => current !== model
-																				)
-																			);
-																		}}
-																		type="button"
-																	>
-																		<X className="size-3.5" />
-																	</button>
-																</Badge>
-															))}
-														</div>
-													) : null}
-													{invalid ? (
-														<FieldError>
-															{inclusionFormFieldError(field.state.meta.errors)}
-														</FieldError>
-													) : (
-														<FieldDescription>
-															Add one or more models for this variant.
-														</FieldDescription>
-													)}
-												</Field>
-											);
-										}}
-									</form.Field>
+																	<CardPanel className="space-y-3">
+																		<div className="flex items-center gap-2">
+																			<Radio
+																				id={`variant-class-${variantClass}`}
+																				value={variantClass}
+																			/>
+																			<span className="font-medium text-sm">
+																				{variantClass}
+																			</span>
+																		</div>
+																		{selected ? (
+																			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+																				<form.Field name="costPrice">
+																					{(field) => {
+																						const invalid =
+																							field.state.meta.isTouched &&
+																							!field.state.meta.isValid;
+																						return (
+																							<Field data-invalid={invalid}>
+																								<FieldLabel
+																									htmlFor={field.name}
+																								>
+																									Cost price
+																								</FieldLabel>
+																								<InputGroup>
+																									<InputGroupAddon align="inline-start">
+																										<InputGroupText>
+																											$
+																										</InputGroupText>
+																									</InputGroupAddon>
+																									<InputGroupInput
+																										aria-invalid={
+																											invalid || undefined
+																										}
+																										id={field.name}
+																										inputMode="decimal"
+																										nativeInput
+																										onBlur={field.handleBlur}
+																										onChange={(e) =>
+																											field.handleChange(
+																												e.target.value
+																											)
+																										}
+																										placeholder="0.00"
+																										type="text"
+																										value={field.state.value}
+																									/>
+																									<InputGroupAddon align="inline-end">
+																										<InputGroupText>
+																											AUD
+																										</InputGroupText>
+																									</InputGroupAddon>
+																								</InputGroup>
+																								{invalid ? (
+																									<FieldError>
+																										{inclusionFormFieldError(
+																											field.state.meta.errors
+																										)}
+																									</FieldError>
+																								) : null}
+																							</Field>
+																						);
+																					}}
+																				</form.Field>
+																				<form.Field name="salePrice">
+																					{(field) => {
+																						const invalid =
+																							field.state.meta.isTouched &&
+																							!field.state.meta.isValid;
+																						return (
+																							<Field data-invalid={invalid}>
+																								<FieldLabel
+																									htmlFor={field.name}
+																								>
+																									Sale price
+																								</FieldLabel>
+																								<InputGroup>
+																									<InputGroupAddon align="inline-start">
+																										<InputGroupText>
+																											$
+																										</InputGroupText>
+																									</InputGroupAddon>
+																									<InputGroupInput
+																										aria-invalid={
+																											invalid || undefined
+																										}
+																										id={field.name}
+																										inputMode="decimal"
+																										nativeInput
+																										onBlur={field.handleBlur}
+																										onChange={(e) =>
+																											field.handleChange(
+																												e.target.value
+																											)
+																										}
+																										placeholder="0.00"
+																										type="text"
+																										value={field.state.value}
+																									/>
+																									<InputGroupAddon align="inline-end">
+																										<InputGroupText>
+																											AUD
+																										</InputGroupText>
+																									</InputGroupAddon>
+																								</InputGroup>
+																								{invalid ? (
+																									<FieldError>
+																										{inclusionFormFieldError(
+																											field.state.meta.errors
+																										)}
+																									</FieldError>
+																								) : null}
+																							</Field>
+																						);
+																					}}
+																				</form.Field>
+																			</div>
+																		) : null}
+																	</CardPanel>
+																</Card>
+															</div>
+														);
+													})}
+												</RadioGroup>
+												{classInvalid ? (
+													<FieldError>
+														{inclusionFormFieldError(
+															classField.state.meta.errors
+														)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+							</FramePanel>
+						</Frame>
 
-									<form.Field name="color">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor={field.name}>Color</FieldLabel>
+						<Frame>
+							<FrameHeader>
+								<FrameTitle>Variant details</FrameTitle>
+							</FrameHeader>
+							<FramePanel className="space-y-4">
+								<form.Field name="vendor">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
 												<Input
+													aria-invalid={invalid || undefined}
 													id={field.name}
 													nativeInput
+													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Color or finish"
-													value={field.state.value ?? ''}
+													placeholder="Vendor name"
+													value={field.state.value}
 												/>
+												{invalid ? (
+													<FieldError>
+														{inclusionFormFieldError(field.state.meta.errors)}
+													</FieldError>
+												) : null}
 											</Field>
-										)}
-									</form.Field>
+										);
+									}}
+								</form.Field>
 
-									<form.Field name="details">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor={field.name}>Details</FieldLabel>
-												<Textarea
-													id={field.name}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Additional details"
-													value={field.state.value ?? ''}
-												/>
+								<form.Field name="models">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										const addModel = () => {
+											const normalized = modelDraft.trim();
+											if (!normalized) {
+												return;
+											}
+											if (field.state.value.includes(normalized)) {
+												setModelDraft('');
+												return;
+											}
+											field.handleChange([...field.state.value, normalized]);
+											setModelDraft('');
+										};
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor="variant-models-input">
+													Models
+												</FieldLabel>
+												<div className="flex w-full min-w-0 items-stretch gap-2">
+													<Input
+														className="min-w-0 flex-1"
+														id="variant-models-input"
+														nativeInput
+														onChange={(e) => setModelDraft(e.target.value)}
+														onKeyDown={(event) => {
+															if (event.key !== 'Enter') {
+																return;
+															}
+															event.preventDefault();
+															addModel();
+														}}
+														placeholder="Type a model, then Enter or tap add"
+														value={modelDraft}
+													/>
+													<Button
+														aria-label="Add model"
+														onClick={addModel}
+														size="icon"
+														type="button"
+														variant="outline"
+													>
+														<Plus />
+													</Button>
+												</div>
+												{field.state.value.length > 0 ? (
+													<div className="flex flex-wrap gap-2">
+														{field.state.value.map((model) => (
+															<Badge
+																key={model}
+																render={
+																	<div className="flex items-center gap-1.5" />
+																}
+																variant="outline"
+															>
+																{model}
+																<button
+																	aria-label={`Remove ${model}`}
+																	className="inline-flex"
+																	onClick={(event) => {
+																		event.preventDefault();
+																		field.handleChange(
+																			field.state.value.filter(
+																				(current) => current !== model
+																			)
+																		);
+																	}}
+																	type="button"
+																>
+																	<X className="size-3.5" />
+																</button>
+															</Badge>
+														))}
+													</div>
+												) : null}
+												{invalid ? (
+													<FieldError>
+														{inclusionFormFieldError(field.state.meta.errors)}
+													</FieldError>
+												) : (
+													<FieldDescription>
+														Add one or more models for this variant.
+													</FieldDescription>
+												)}
 											</Field>
-										)}
-									</form.Field>
+										);
+									}}
+								</form.Field>
 
-									<form.Field name="link">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor={field.name}>Link</FieldLabel>
-												<Input
-													id={field.name}
-													nativeInput
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="https://"
-													type="url"
-													value={field.state.value ?? ''}
-												/>
-											</Field>
-										)}
-									</form.Field>
-
-									<form.Subscribe
-										selector={(state) => ({
-											imageUrl: state.values.image,
-										})}
-									>
-										{({ imageUrl }) => (
-											<SingleImageUpload
-												description="Upload 1 image for this variant."
-												disabled={form.state.isSubmitting}
-												id="variant-image"
-												imageUrl={imageUrl}
-												key={uploadFieldKey}
-												label="Image"
-												onClear={() => removeVariantImage()}
-												onFileSelected={(file) => {
-													uploadImage(file).catch(() => {
-														/* Error handled in uploadImage */
-													});
-												}}
-												uploading={isUploadingImage}
+								<form.Field name="color">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Color</FieldLabel>
+											<Input
+												id={field.name}
+												nativeInput
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Color or finish"
+												value={field.state.value ?? ''}
 											/>
-										)}
-									</form.Subscribe>
-								</CardPanel>
-							</Card>
-						</CardFrame>
+										</Field>
+									)}
+								</form.Field>
+
+								<form.Field name="details">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Details</FieldLabel>
+											<Textarea
+												id={field.name}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Additional details"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+
+								<form.Field name="link">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Link</FieldLabel>
+											<Input
+												id={field.name}
+												nativeInput
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="https://"
+												type="url"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+
+								<form.Subscribe
+									selector={(state) => ({
+										imageUrl: state.values.image,
+									})}
+								>
+									{({ imageUrl }) => (
+										<SingleImageUpload
+											description="Upload 1 image for this variant."
+											disabled={form.state.isSubmitting}
+											id="variant-image"
+											imageUrl={imageUrl}
+											key={uploadFieldKey}
+											label="Image"
+											onClear={() => removeVariantImage()}
+											onFileSelected={(file) => {
+												uploadImage(file).catch(() => {
+													/* Error handled in uploadImage */
+												});
+											}}
+											uploading={isUploadingImage}
+										/>
+									)}
+								</form.Subscribe>
+							</FramePanel>
+						</Frame>
 					</SheetPanel>
 				</form>
 				<SheetFooter>

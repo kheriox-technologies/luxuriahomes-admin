@@ -4,15 +4,13 @@ import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardFrame,
-	CardFrameAction,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardPanel,
-} from '@workspace/ui/components/card';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
+import {
+	Frame,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { Input } from '@workspace/ui/components/input';
 import {
 	Sheet,
@@ -301,56 +299,138 @@ export default function EditProjectForm({
 					}}
 				>
 					<SheetPanel className="flex flex-col gap-6">
-						<CardFrame>
-							<CardFrameHeader className="grid-rows-1 items-center">
-								<CardFrameTitle className="min-w-0 truncate leading-none">
+						<Frame>
+							<FrameHeader className="flex flex-row items-center py-3">
+								<FrameTitle className="min-w-0 truncate leading-none">
 									Project details
-								</CardFrameTitle>
-							</CardFrameHeader>
-							<Card>
-								<CardPanel className="space-y-4">
-									<form.Field name="name">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Name</FieldLabel>
-													<Input
-														aria-invalid={invalid}
-														id={field.name}
-														name={field.name}
-														nativeInput
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Project name"
-														value={field.state.value}
-													/>
-													{invalid ? (
-														<FieldError>
-															{formatFieldErrors(field.state.meta.errors)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
+								</FrameTitle>
+							</FrameHeader>
+							<FramePanel className="space-y-4">
+								<form.Field name="name">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Name</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="Project name"
+													value={field.state.value}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
 
-									<form.Field name="status">
+								<form.Field name="status">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Status</FieldLabel>
+												<ProjectStatusCombobox
+													id={field.name}
+													invalid={invalid}
+													onBlur={field.handleBlur}
+													onChange={(next) =>
+														field.handleChange(next as ProjectStatus)
+													}
+													placeholder="Select status"
+													value={field.state.value}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+
+								<p className="font-medium text-muted-foreground text-sm">
+									Address
+								</p>
+								<form.Field name="address.street">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Street</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="Street"
+													value={field.state.value}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+								<form.Field name="address.suburb">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Suburb</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="Suburb"
+													value={field.state.value}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<form.Field name="address.state">
 										{(field) => {
 											const invalid =
 												field.state.meta.isTouched && !field.state.meta.isValid;
 											return (
 												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Status</FieldLabel>
-													<ProjectStatusCombobox
+													<FieldLabel htmlFor={field.name}>State</FieldLabel>
+													<AustralianStateCombobox
 														id={field.name}
 														invalid={invalid}
 														onBlur={field.handleBlur}
 														onChange={(next) =>
-															field.handleChange(next as ProjectStatus)
+															field.handleChange(next as AustralianState)
 														}
-														placeholder="Select status"
+														placeholder="Select state"
 														value={field.state.value}
 													/>
 													{invalid ? (
@@ -362,25 +442,22 @@ export default function EditProjectForm({
 											);
 										}}
 									</form.Field>
-
-									<p className="font-medium text-muted-foreground text-sm">
-										Address
-									</p>
-									<form.Field name="address.street">
+									<form.Field name="address.postcode">
 										{(field) => {
 											const invalid =
 												field.state.meta.isTouched && !field.state.meta.isValid;
 											return (
 												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Street</FieldLabel>
+													<FieldLabel htmlFor={field.name}>Postcode</FieldLabel>
 													<Input
 														aria-invalid={invalid}
 														id={field.name}
+														inputMode="numeric"
 														name={field.name}
 														nativeInput
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Street"
+														placeholder="0000"
 														value={field.state.value}
 													/>
 													{invalid ? (
@@ -392,170 +469,79 @@ export default function EditProjectForm({
 											);
 										}}
 									</form.Field>
-									<form.Field name="address.suburb">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Suburb</FieldLabel>
-													<Input
-														aria-invalid={invalid}
-														id={field.name}
-														name={field.name}
-														nativeInput
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Suburb"
-														value={field.state.value}
-													/>
-													{invalid ? (
-														<FieldError>
-															{formatFieldErrors(field.state.meta.errors)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
-									<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-										<form.Field name="address.state">
-											{(field) => {
-												const invalid =
-													field.state.meta.isTouched &&
-													!field.state.meta.isValid;
-												return (
-													<Field data-invalid={invalid}>
-														<FieldLabel htmlFor={field.name}>State</FieldLabel>
-														<AustralianStateCombobox
-															id={field.name}
-															invalid={invalid}
-															onBlur={field.handleBlur}
-															onChange={(next) =>
-																field.handleChange(next as AustralianState)
-															}
-															placeholder="Select state"
-															value={field.state.value}
-														/>
-														{invalid ? (
-															<FieldError>
-																{formatFieldErrors(field.state.meta.errors)}
-															</FieldError>
-														) : null}
-													</Field>
-												);
-											}}
-										</form.Field>
-										<form.Field name="address.postcode">
-											{(field) => {
-												const invalid =
-													field.state.meta.isTouched &&
-													!field.state.meta.isValid;
-												return (
-													<Field data-invalid={invalid}>
-														<FieldLabel htmlFor={field.name}>
-															Postcode
-														</FieldLabel>
-														<Input
-															aria-invalid={invalid}
-															id={field.name}
-															inputMode="numeric"
-															name={field.name}
-															nativeInput
-															onBlur={field.handleBlur}
-															onChange={(e) =>
-																field.handleChange(e.target.value)
-															}
-															placeholder="0000"
-															value={field.state.value}
-														/>
-														{invalid ? (
-															<FieldError>
-																{formatFieldErrors(field.state.meta.errors)}
-															</FieldError>
-														) : null}
-													</Field>
-												);
-											}}
-										</form.Field>
-									</div>
-								</CardPanel>
-							</Card>
-						</CardFrame>
+								</div>
+							</FramePanel>
+						</Frame>
 
-						<CardFrame>
-							<CardFrameHeader className="grid-rows-1 items-center">
-								<CardFrameTitle className="min-w-0 truncate leading-none">
+						<Frame>
+							<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
+								<FrameTitle className="min-w-0 truncate leading-none">
 									Client details
-								</CardFrameTitle>
-								<CardFrameAction className="row-span-1 row-start-1 self-center">
-									{clientFormMode.kind === 'hidden' ? (
-										<Button
-											onClick={startAddClient}
-											type="button"
-											variant="outline"
-										>
-											Add client
-										</Button>
-									) : null}
-								</CardFrameAction>
-							</CardFrameHeader>
+								</FrameTitle>
+								{clientFormMode.kind === 'hidden' ? (
+									<Button
+										onClick={startAddClient}
+										type="button"
+										variant="outline"
+									>
+										Add client
+									</Button>
+								) : null}
+							</FrameHeader>
 
-							<Card>
-								<CardPanel className="space-y-4">
-									{clientFormVisible ? (
-										<div className="space-y-4">
-											<ProjectClientDraftFields
-												addressTitleSlot={
-													<ClientAddressTitleRow
-														onSameAsFirstChange={setSameAsFirstClient}
-														sameAsFirstClient={sameAsFirstClient}
-														showSameAsFirst={showSameAsFirstCheckbox}
-														title="Client address"
-													/>
-												}
-												draft={draft}
-												setDraft={setDraft}
-												showAddressInputs={showAddressInputs}
-											/>
-											<div className="flex justify-end gap-2">
-												<Button
-													onClick={() => {
-														setDraft(emptyClientDraft);
-														setSameAsFirstClient(true);
-														setClientFormMode({ kind: 'hidden' });
-													}}
-													type="button"
-													variant="ghost"
-												>
-													Cancel
-												</Button>
-												<Button
-													onClick={handleAddOrSaveClient}
-													type="button"
-													variant="outline"
-												>
-													{clientFormMode.kind === 'new'
-														? 'Add Client'
-														: 'Save Client'}
-												</Button>
-											</div>
+							<FramePanel className="space-y-4">
+								{clientFormVisible ? (
+									<div className="space-y-4">
+										<ProjectClientDraftFields
+											addressTitleSlot={
+												<ClientAddressTitleRow
+													onSameAsFirstChange={setSameAsFirstClient}
+													sameAsFirstClient={sameAsFirstClient}
+													showSameAsFirst={showSameAsFirstCheckbox}
+													title="Client address"
+												/>
+											}
+											draft={draft}
+											setDraft={setDraft}
+											showAddressInputs={showAddressInputs}
+										/>
+										<div className="flex justify-end gap-2">
+											<Button
+												onClick={() => {
+													setDraft(emptyClientDraft);
+													setSameAsFirstClient(true);
+													setClientFormMode({ kind: 'hidden' });
+												}}
+												type="button"
+												variant="ghost"
+											>
+												Cancel
+											</Button>
+											<Button
+												onClick={handleAddOrSaveClient}
+												type="button"
+												variant="outline"
+											>
+												{clientFormMode.kind === 'new'
+													? 'Add Client'
+													: 'Save Client'}
+											</Button>
 										</div>
-									) : null}
-
-									<div className="flex flex-col gap-3">
-										{clients.map((c, index) => (
-											<ProjectClientCard
-												client={c}
-												key={`${c.email}-${index}`}
-												onDelete={() => handleDeleteClient(index)}
-												onEdit={() => handleEditClient(index)}
-											/>
-										))}
 									</div>
-								</CardPanel>
-							</Card>
-						</CardFrame>
+								) : null}
+
+								<div className="flex flex-col gap-3">
+									{clients.map((c, index) => (
+										<ProjectClientCard
+											client={c}
+											key={`${c.email}-${index}`}
+											onDelete={() => handleDeleteClient(index)}
+											onEdit={() => handleEditClient(index)}
+										/>
+									))}
+								</div>
+							</FramePanel>
+						</Frame>
 					</SheetPanel>
 				</form>
 				<SheetFooter>

@@ -2,12 +2,11 @@
 
 import type { Doc } from '@workspace/backend/dataModel';
 import {
-	Card,
-	CardFrame,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardPanel,
-} from '@workspace/ui/components/card';
+	Frame,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import {
 	projectClientAddressLine,
 	projectClientDisplayName,
@@ -20,25 +19,23 @@ function ProjectClientReadOnlyCard({ client }: { client: ProjectClient }) {
 	const addressLine = projectClientAddressLine(client);
 
 	return (
-		<CardFrame>
-			<CardFrameHeader className="flex flex-row items-center justify-between gap-3">
-				<CardFrameTitle className="min-w-0 truncate leading-snug">
+		<Frame>
+			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
+				<FrameTitle className="min-w-0 truncate leading-snug">
 					{projectClientDisplayName(client)}
-				</CardFrameTitle>
-			</CardFrameHeader>
-			<Card>
-				<CardPanel className="space-y-2 text-muted-foreground">
-					<p className="text-sm leading-snug">
-						{projectClientEmailPhoneLine(client)}
-					</p>
-					<p className="text-sm leading-snug">
-						{addressLine || (
-							<span className="text-muted-foreground/72">No address</span>
-						)}
-					</p>
-				</CardPanel>
-			</Card>
-		</CardFrame>
+				</FrameTitle>
+			</FrameHeader>
+			<FramePanel className="space-y-2 text-muted-foreground">
+				<p className="text-sm leading-snug">
+					{projectClientEmailPhoneLine(client)}
+				</p>
+				<p className="text-sm leading-snug">
+					{addressLine || (
+						<span className="text-muted-foreground/72">No address</span>
+					)}
+				</p>
+			</FramePanel>
+		</Frame>
 	);
 }
 

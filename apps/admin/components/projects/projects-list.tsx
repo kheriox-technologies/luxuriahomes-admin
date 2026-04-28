@@ -4,20 +4,18 @@ import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import {
-	Card,
-	CardFrame,
-	CardFrameAction,
-	CardFrameHeader,
-	CardFrameTitle,
-	CardPanel,
-} from '@workspace/ui/components/card';
-import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import {
+	Frame,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Building2, SearchIcon } from 'lucide-react';
@@ -65,7 +63,7 @@ function statusBadgeProps(status: Project['status']): {
 	}
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectListItem({ project }: { project: Project }) {
 	const badge = statusBadgeProps(project.status);
 	return (
 		<Link
@@ -73,32 +71,28 @@ function ProjectCard({ project }: { project: Project }) {
 			href={`/projects/${project._id}` as LinkProps<string>['href']}
 			prefetch
 		>
-			<CardFrame
+			<Frame
 				className={cn(
 					'h-full transition-colors',
-					'group-hover:border-ring/32 group-hover:bg-accent/24'
+					'group-hover:ring-1 group-hover:ring-ring/32'
 				)}
 			>
-				<CardFrameHeader className="flex flex-row items-center justify-between gap-3">
-					<CardFrameTitle className="min-w-0 truncate leading-snug">
+				<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
+					<FrameTitle className="min-w-0 truncate leading-snug">
 						{project.name}
-					</CardFrameTitle>
-					<CardFrameAction>
-						<Badge className="shrink-0" size="lg" variant={badge.variant}>
-							{badge.label}
-						</Badge>
-					</CardFrameAction>
-				</CardFrameHeader>
-				<Card>
-					<CardPanel className="space-y-1 text-muted-foreground text-sm">
-						<p className="leading-snug">{project.address.street}</p>
-						<p className="leading-snug">
-							{project.address.suburb}, {project.address.state}{' '}
-							{project.address.postcode}
-						</p>
-					</CardPanel>
-				</Card>
-			</CardFrame>
+					</FrameTitle>
+					<Badge className="shrink-0" size="lg" variant={badge.variant}>
+						{badge.label}
+					</Badge>
+				</FrameHeader>
+				<FramePanel className="space-y-1 text-muted-foreground text-sm">
+					<p className="leading-snug">{project.address.street}</p>
+					<p className="leading-snug">
+						{project.address.suburb}, {project.address.state}{' '}
+						{project.address.postcode}
+					</p>
+				</FramePanel>
+			</Frame>
 		</Link>
 	);
 }
@@ -153,7 +147,7 @@ export default function ProjectsList({
 	return (
 		<div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
 			{projects.map((project) => (
-				<ProjectCard key={project._id} project={project} />
+				<ProjectListItem key={project._id} project={project} />
 			))}
 		</div>
 	);
