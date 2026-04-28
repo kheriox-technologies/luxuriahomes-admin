@@ -2,6 +2,7 @@
 
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
+import { Alert, AlertDescription } from '@workspace/ui/components/alert';
 import {
 	AlertDialog,
 	AlertDialogClose,
@@ -15,13 +16,19 @@ import {
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
+	Card,
+	CardDescription,
+	CardHeader,
+	CardPanel,
+	CardTitle,
+} from '@workspace/ui/components/card';
+import {
 	Dialog,
 	DialogClose,
 	DialogContent,
 	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogPanel,
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
@@ -66,6 +73,7 @@ import { useMutation, useQuery } from 'convex/react';
 import {
 	Check,
 	Download,
+	Info,
 	SearchIcon,
 	SquaresIntersect,
 	StickyNote,
@@ -78,6 +86,7 @@ import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
 type ProjectInclusion = Doc<'projectInclusions'>;
+type ProjectInclusionNote = Doc<'projectInclusionNotes'>;
 type InclusionCategory = Doc<'inclusionCategories'>;
 
 const audFormatter = new Intl.NumberFormat('en-AU', {
@@ -287,25 +296,68 @@ function ProjectInclusionStatusToggleButton({
 	);
 }
 
-const projectInclusionNoteDateFormatter = new Intl.DateTimeFormat('en-AU', {
-	dateStyle: 'medium',
-	timeStyle: 'short',
-});
-
-function formatProjectInclusionNoteTimestamp(timestamp: number): string {
-	return projectInclusionNoteDateFormatter.format(new Date(timestamp));
+function ordinalSuffix(day: number): string {
+	const mod100 = day % 100;
+	if (mod100 >= 11 && mod100 <= 13) {
+		return 'th';
+	}
+	switch (day % 10) {
+		case 1:
+			return 'st';
+		case 2:
+			return 'nd';
+		case 3:
+			return 'rd';
+		default:
+			return 'th';
+	}
 }
 
-function ProjectInclusionAddNoteButton({
+function formatProjectInclusionNoteDate(timestamp: number): string {
+	const d = new Date(timestamp);
+	const weekday = new Intl.DateTimeFormat('en-AU', { weekday: 'short' }).format(
+		d
+	);
+	const day = d.getDate();
+	const month = new Intl.DateTimeFormat('en-AU', { month: 'short' }).format(d);
+	const year = d.getFullYear();
+	return `${weekday}, ${day}${ordinalSuffix(day)} ${month} ${year}`;
+}
+
+function ProjectInclusionNotesCardList({
+	notes,
+}: {
+	notes: ProjectInclusionNote[];
+}) {
+	return (
+		<div className="flex flex-col gap-3">
+			{notes.map((entry) => (
+				<Card key={entry._id}>
+					<CardHeader>
+						<CardTitle>
+							{formatProjectInclusionNoteDate(entry.timestamp)}
+						</CardTitle>
+						<CardDescription>{entry.addedBy}</CardDescription>
+					</CardHeader>
+					<CardPanel>
+						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
+							{entry.note}
+						</p>
+					</CardPanel>
+				</Card>
+			))}
+		</div>
+	);
+}
+
+function ProjectInclusionNotesButton({
 	projectInclusionId,
 	title,
 	code,
-	existingNotes,
 }: {
 	projectInclusionId: Id<'projectInclusions'>;
 	title: string;
 	code: string;
-	existingNotes: ProjectInclusion['notes'];
 }) {
 	const [open, setOpen] = useState(false);
 	const [noteText, setNoteText] = useState('');
@@ -313,7 +365,10 @@ function ProjectInclusionAddNoteButton({
 	const appendNoteMutation = useMutation(
 		api.projectInclusions.appendNote.appendNote
 	);
-	const noteCount = existingNotes?.length ?? 0;
+	const notes = useQuery(
+		api.projectInclusions.listNotes.listNotes,
+		open ? { projectInclusionId } : 'skip'
+	);
 
 	const onSubmit = async () => {
 		const trimmed = noteText.trim();
@@ -332,7 +387,6 @@ function ProjectInclusionAddNoteButton({
 				type: 'success',
 			});
 			setNoteText('');
-			setOpen(false);
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -347,13 +401,30 @@ function ProjectInclusionAddNoteButton({
 		}
 	};
 
+	let notesBody: ReactNode;
+	if (notes === undefined) {
+		notesBody = <p className="text-muted-foreground text-sm">Loading notes…</p>;
+	} else if (notes.length === 0) {
+		notesBody = (
+			<Alert variant="info">
+				<Info aria-hidden className="size-4 shrink-0" />
+				<AlertDescription>
+					No notes have been added for this inclusion yet. Use the field above
+					to add the first one.
+				</AlertDescription>
+			</Alert>
+		);
+	} else {
+		notesBody = <ProjectInclusionNotesCardList notes={notes} />;
+	}
+
 	return (
 		<>
 			<Tooltip>
 				<TooltipTrigger
 					render={
 						<Button
-							aria-label={`Add note for ${title} (${code})`}
+							aria-label={`Notes for ${title} (${code})`}
 							onClick={() => setOpen(true)}
 							size="icon"
 							type="button"
@@ -361,16 +432,11 @@ function ProjectInclusionAddNoteButton({
 						/>
 					}
 				>
-					<span className="relative inline-flex size-4 items-center justify-center">
+					<span className="inline-flex size-4 items-center justify-center">
 						<StickyNote aria-hidden className="size-4" />
-						{noteCount > 0 ? (
-							<span className="absolute -end-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground">
-								{noteCount > 99 ? '99+' : noteCount}
-							</span>
-						) : null}
 					</span>
 				</TooltipTrigger>
-				<TooltipPopup>Add note</TooltipPopup>
+				<TooltipPopup>Notes</TooltipPopup>
 			</Tooltip>
 			<Dialog
 				onOpenChange={(next) => {
@@ -381,53 +447,41 @@ function ProjectInclusionAddNoteButton({
 				}}
 				open={open}
 			>
-				<DialogContent className="sm:max-w-lg">
-					<DialogHeader>
-						<DialogTitle>Add note</DialogTitle>
+				<DialogContent className="flex h-[min(88vh,44rem)] w-[min(92vw,40rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+					<DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6">
+						<DialogTitle>Notes</DialogTitle>
 						<DialogDescription>
-							{`${title} (${code}) — your name and the time are recorded automatically.`}
+							<span className="font-medium text-foreground">{title}</span>
+							<span className="text-muted-foreground">{` · ${code}`}</span>
 						</DialogDescription>
 					</DialogHeader>
-					<DialogPanel className="flex max-h-[min(60vh,28rem)] flex-col gap-4">
-						{existingNotes && existingNotes.length > 0 ? (
-							<div className="space-y-2 border-b pb-3">
-								<p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-									Previous notes
-								</p>
-								<ul className="space-y-2">
-									{existingNotes.map((entry, index) => (
-										<li className="text-sm" key={`${entry.timestamp}-${index}`}>
-											<p className="text-muted-foreground text-xs">
-												{formatProjectInclusionNoteTimestamp(entry.timestamp)} ·{' '}
-												{entry.addedBy}
-											</p>
-											<p className="whitespace-pre-wrap text-pretty">
-												{entry.note}
-											</p>
-										</li>
-									))}
-								</ul>
+					<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+						<div className="shrink-0 px-6 py-4">
+							<div className="flex flex-col gap-2">
+								<label
+									className="font-medium text-sm"
+									htmlFor={`note-${projectInclusionId}`}
+								>
+									New note
+								</label>
+								<Textarea
+									className="min-h-[100px] resize-y"
+									id={`note-${projectInclusionId}`}
+									onChange={(e) => setNoteText(e.target.value)}
+									placeholder="Type your note…"
+									value={noteText}
+								/>
 							</div>
-						) : null}
-						<div className="flex flex-col gap-2">
-							<label
-								className="font-medium text-sm"
-								htmlFor={`note-${projectInclusionId}`}
-							>
-								New note
-							</label>
-							<Textarea
-								className="min-h-[100px] resize-y"
-								id={`note-${projectInclusionId}`}
-								onChange={(e) => setNoteText(e.target.value)}
-								placeholder="Type your note…"
-								value={noteText}
-							/>
 						</div>
-					</DialogPanel>
-					<DialogFooter>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
+							<div className="min-h-0 flex-1 overflow-y-auto pe-1">
+								{notesBody}
+							</div>
+						</div>
+					</div>
+					<DialogFooter className="shrink-0 border-t px-6 py-4">
 						<DialogClose render={<Button type="button" variant="outline" />}>
-							Cancel
+							Close
 						</DialogClose>
 						<Button
 							loading={submitting}
@@ -507,9 +561,8 @@ function ProjectInclusionActionsCell({
 				status={inclusion.status}
 			/>
 			<GroupSeparator />
-			<ProjectInclusionAddNoteButton
+			<ProjectInclusionNotesButton
 				code={inclusion.code}
-				existingNotes={inclusion.notes}
 				projectInclusionId={inclusion._id}
 				title={inclusion.title}
 			/>
@@ -619,31 +672,6 @@ function ProjectInclusionsTableInFrame({
 													<p className="whitespace-pre-wrap text-pretty">
 														{inclusion.details}
 													</p>
-												) : null}
-												{inclusion.notes && inclusion.notes.length > 0 ? (
-													<div className="max-h-40 overflow-y-auto rounded-md border bg-muted/30 p-2">
-														<p className="mb-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-															Notes
-														</p>
-														<ul className="space-y-2">
-															{inclusion.notes.map((entry, index) => (
-																<li
-																	className="text-sm"
-																	key={`${entry.timestamp}-${index}`}
-																>
-																	<p className="text-muted-foreground text-xs">
-																		{formatProjectInclusionNoteTimestamp(
-																			entry.timestamp
-																		)}{' '}
-																		· {entry.addedBy}
-																	</p>
-																	<p className="whitespace-pre-wrap text-pretty">
-																		{entry.note}
-																	</p>
-																</li>
-															))}
-														</ul>
-													</div>
 												) : null}
 											</div>
 										</TableCell>

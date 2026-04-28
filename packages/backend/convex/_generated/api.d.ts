@@ -44,6 +44,7 @@ import type * as permissions_upsertRole from "../permissions/upsertRole.js";
 import type * as projectInclusions_add from "../projectInclusions/add.js";
 import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
 import type * as projectInclusions_list from "../projectInclusions/list.js";
+import type * as projectInclusions_listNotes from "../projectInclusions/listNotes.js";
 import type * as projectInclusions_remove from "../projectInclusions/remove.js";
 import type * as projectInclusions_search from "../projectInclusions/search.js";
 import type * as projectInclusions_shared from "../projectInclusions/shared.js";
@@ -99,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   "projectInclusions/add": typeof projectInclusions_add;
   "projectInclusions/appendNote": typeof projectInclusions_appendNote;
   "projectInclusions/list": typeof projectInclusions_list;
+  "projectInclusions/listNotes": typeof projectInclusions_listNotes;
   "projectInclusions/remove": typeof projectInclusions_remove;
   "projectInclusions/search": typeof projectInclusions_search;
   "projectInclusions/shared": typeof projectInclusions_shared;

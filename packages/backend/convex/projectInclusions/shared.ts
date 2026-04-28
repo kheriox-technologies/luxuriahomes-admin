@@ -44,6 +44,21 @@ export async function getProjectInclusionOrThrow(
 	return row;
 }
 
+export async function deleteNotesForProjectInclusion(
+	ctx: MutationCtx,
+	projectInclusionId: Id<'projectInclusions'>
+) {
+	const rows = await ctx.db
+		.query('projectInclusionNotes')
+		.withIndex('by_project_inclusion', (q) =>
+			q.eq('projectInclusionId', projectInclusionId)
+		)
+		.collect();
+	for (const row of rows) {
+		await ctx.db.delete(row._id);
+	}
+}
+
 export async function getStandardVariantOrThrow(
 	ctx: ReadCtx,
 	inclusionId: Id<'inclusions'>

@@ -1,12 +1,7 @@
 import { ConvexError, v } from 'convex/values';
-import type { Doc } from '../_generated/dataModel';
 import { mutation } from '../_generated/server';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { getProjectInclusionOrThrow } from './shared';
-
-type ProjectInclusionNoteEntry = NonNullable<
-	Doc<'projectInclusions'>['notes']
->[number];
 
 function addedByFromIdentity(identity: {
 	email?: string;
@@ -31,10 +26,7 @@ export const appendNote = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
-		const existing = await getProjectInclusionOrThrow(
-			ctx,
-			args.projectInclusionId
-		);
+		await getProjectInclusionOrThrow(ctx, args.projectInclusionId);
 		const trimmed = args.note.trim();
 		if (trimmed === '') {
 			throw new ConvexError({
@@ -42,14 +34,13 @@ export const appendNote = mutation({
 				message: 'Note cannot be empty',
 			});
 		}
-		const entry: ProjectInclusionNoteEntry = {
-			timestamp: Date.now(),
-			addedBy: addedByFromIdentity(identity),
+		const timestamp = Date.now();
+		const addedBy = addedByFromIdentity(identity);
+		await ctx.db.insert('projectInclusionNotes', {
+			projectInclusionId: args.projectInclusionId,
+			timestamp,
+			addedBy,
 			note: trimmed,
-		};
-		const prior = existing.notes ?? [];
-		await ctx.db.patch(args.projectInclusionId, {
-			notes: [...prior, entry],
 		});
 		return args.projectInclusionId;
 	},
