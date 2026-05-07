@@ -517,14 +517,14 @@ function ProjectInclusionImageThumbnail({
 				render={
 					<button
 						aria-label={`Open image preview for ${inclusion.title} ${inclusion.code}`}
-						className="flex size-[75px] cursor-zoom-in items-center justify-center rounded-md border bg-card"
+						className="flex size-[75px] cursor-zoom-in items-center justify-center rounded-md border bg-card p-1"
 						type="button"
 					/>
 				}
 			>
 				<NextImage
 					alt={`${inclusion.title} ${inclusion.code}`}
-					className="size-[75px] object-contain"
+					className="size-full object-contain"
 					height={75}
 					src={imageUrl}
 					unoptimized
