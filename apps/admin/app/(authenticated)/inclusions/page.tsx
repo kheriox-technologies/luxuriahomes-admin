@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import InclusionCataloguePageContent from '@/components/inclusions/inclusion-catalogue-page-content';
 
-export default function InclusionsIndexPage() {
-	redirect('/inclusions/catalogue' as never);
+export default function InclusionsPage() {
+	return <InclusionCataloguePageContent />;
 }

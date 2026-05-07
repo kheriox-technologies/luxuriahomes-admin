@@ -45,7 +45,7 @@ export default function DeleteInclusion({
 			});
 			setOpen(false);
 			if (redirectToCatalogueAfterDelete) {
-				router.push('/inclusions/catalogue' as never);
+				router.push('/inclusions' as never);
 			}
 		} catch (error) {
 			toastManager.add({

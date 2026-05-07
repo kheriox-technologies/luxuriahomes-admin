@@ -2,7 +2,7 @@ import type { Id } from '@workspace/backend/dataModel';
 
 import InclusionCatalogueDetailView from '@/components/inclusions/inclusion-catalogue-detail-view';
 
-export default async function InclusionCatalogueDetailPage({
+export default async function InclusionDetailPage({
 	params,
 }: {
 	params: Promise<{ inclusionId: string }>;

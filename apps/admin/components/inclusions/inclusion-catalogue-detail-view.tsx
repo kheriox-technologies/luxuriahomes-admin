@@ -338,7 +338,7 @@ export default function InclusionCatalogueDetailView({
 	if (data === undefined) {
 		return (
 			<div className={cn('flex h-full w-full flex-col')}>
-				<PageHeading backLink="/inclusions/catalogue" heading="Inclusion" />
+				<PageHeading backLink="/inclusions" heading="Inclusion" />
 				<p className="text-muted-foreground text-sm">Loading…</p>
 			</div>
 		);
@@ -347,7 +347,7 @@ export default function InclusionCatalogueDetailView({
 	if (data === null) {
 		return (
 			<div className={cn('flex h-full w-full flex-col')}>
-				<PageHeading backLink="/inclusions/catalogue" heading="Inclusion" />
+				<PageHeading backLink="/inclusions" heading="Inclusion" />
 				<p className="text-muted-foreground text-sm">Inclusion not found.</p>
 			</div>
 		);
@@ -360,7 +360,7 @@ export default function InclusionCatalogueDetailView({
 	return (
 		<div className={cn('flex h-full w-full flex-col gap-6')}>
 			<PageHeading
-				backLink="/inclusions/catalogue"
+				backLink="/inclusions"
 				className="mb-0"
 				heading={inclusion.title}
 				headingActions={

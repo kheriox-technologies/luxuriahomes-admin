@@ -20,6 +20,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useEffect, useState } from 'react';
 import InclusionCategoryCombobox from '@/components/inclusions/inclusion-category-combobox';
+import { defaultInclusionCategoryCodeFromName } from '@/components/inclusions/inclusion-category-form-shared';
 import {
 	emptyInclusionFormValues,
 	inclusionFormFieldError,
@@ -43,6 +44,7 @@ export default function EditInclusion({
 	const [open, setOpen] = useState(false);
 	const categories = useQuery(api.inclusionCategories.list.list, {});
 	const updateInclusion = useMutation(api.inclusions.update.update);
+	const addCategory = useMutation(api.inclusionCategories.add.add);
 
 	const form = useForm({
 		defaultValues: emptyInclusionFormValues,
@@ -52,8 +54,18 @@ export default function EditInclusion({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = inclusionFormSchema.parse(value);
+				let resolvedCategoryId: Id<'inclusionCategories'>;
+
+				const newName = parsed.newCategoryName?.trim();
+				if (newName) {
+					const code = defaultInclusionCategoryCodeFromName(newName);
+					resolvedCategoryId = await addCategory({ name: newName, code });
+				} else {
+					resolvedCategoryId = parsed.categoryId as Id<'inclusionCategories'>;
+				}
+
 				await updateInclusion({
-					categoryId: parsed.categoryId as Id<'inclusionCategories'>,
+					categoryId: resolvedCategoryId,
 					inclusionId,
 					title: parsed.title,
 				});
@@ -82,6 +94,7 @@ export default function EditInclusion({
 			form.reset({
 				categoryId: initialCategoryId,
 				title: initialTitle,
+				newCategoryName: '',
 			});
 			return;
 		}
@@ -161,6 +174,24 @@ export default function EditInclusion({
 									</Field>
 								);
 							}}
+						</form.Field>
+						<form.Field name="newCategoryName">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Or create new category
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="New category name"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
 						</form.Field>
 					</DialogPanel>
 				</form>

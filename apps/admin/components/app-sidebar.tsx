@@ -57,21 +57,9 @@ const items: SidebarItem[] = [
 	},
 	{
 		title: 'Inclusions',
-		url: '#',
+		url: '/inclusions',
 		path: '/inclusions',
 		icon: SquaresIntersect,
-		items: [
-			{
-				title: 'Categories',
-				url: '/inclusions/categories',
-				path: '/inclusions/categories',
-			},
-			{
-				title: 'Catalogue',
-				url: '/inclusions/catalogue',
-				path: '/inclusions/catalogue',
-			},
-		],
 	},
 ];
 

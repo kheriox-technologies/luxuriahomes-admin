@@ -1,9 +1,20 @@
 import { z } from 'zod';
 
-export const inclusionFormSchema = z.object({
-	title: z.string().trim().min(1, 'Title is required'),
-	categoryId: z.string().min(1, 'Category is required'),
-});
+export const inclusionFormSchema = z
+	.object({
+		title: z.string().trim().min(1, 'Title is required'),
+		categoryId: z.string(),
+		newCategoryName: z.string().optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (!(data.newCategoryName?.trim() || data.categoryId)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'Category is required',
+				path: ['categoryId'],
+			});
+		}
+	});
 
 export type InclusionFormValues = z.infer<typeof inclusionFormSchema>;
 
@@ -45,9 +56,11 @@ export type AddInclusionVariantFormValues = z.infer<
 export const emptyInclusionFormValues: {
 	title: string;
 	categoryId: string;
+	newCategoryName: string;
 } = {
 	title: '',
 	categoryId: '',
+	newCategoryName: '',
 };
 
 export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =

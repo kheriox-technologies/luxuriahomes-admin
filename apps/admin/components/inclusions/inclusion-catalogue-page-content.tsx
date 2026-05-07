@@ -69,9 +69,7 @@ function InclusionCatalogueCard({
 			<CardHeader className="flex flex-row items-start justify-between gap-3">
 				<Link
 					className="-m-2 flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-foreground no-underline outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-					href={
-						`/inclusions/catalogue/${inclusion._id}` as LinkProps<string>['href']
-					}
+					href={`/inclusions/${inclusion._id}` as LinkProps<string>['href']}
 				>
 					<CardTitle className="truncate leading-tight">
 						{inclusion.title}
@@ -329,7 +327,7 @@ export default function InclusionCataloguePageContent() {
 			<div className="mb-0 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
 				<PageHeading
 					className="mb-0"
-					heading="Inclusions Catalogue"
+					heading="Inclusions"
 					icon={SquaresIntersect}
 				/>
 				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
