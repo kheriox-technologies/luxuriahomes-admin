@@ -12,6 +12,7 @@ applications:
             - pnpm install --frozen-lockfile
         build:
           commands:
+            - pnpm --filter @workspace/backend exec convex deploy
             - pnpm turbo build --filter=admin
       artifacts:
         baseDirectory: apps/admin/.next
