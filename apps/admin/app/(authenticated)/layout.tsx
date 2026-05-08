@@ -1,6 +1,5 @@
 import { UserButton } from '@clerk/nextjs';
 import { env } from '@workspace/env/admin';
-import { Separator } from '@workspace/ui/components/separator';
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -8,9 +7,9 @@ import {
 } from '@workspace/ui/components/sidebar';
 import { redirect } from 'next/navigation';
 import { hasAppAccess } from '@/actions/auth';
+import AppModeToggle from '@/components/app-mode-toggle';
 import AppSidebar from '@/components/app-sidebar';
 import Footer from '@/components/footer';
-import { ModeToggle } from '@/components/mode-toggle';
 import AuthGuard from '@/guards/auth-guard';
 
 type AuthenticatedLayoutProps = Readonly<{
@@ -36,8 +35,7 @@ const AuthenticatedLayout = async ({ children }: AuthenticatedLayoutProps) => {
 									</h1>
 								</div>
 								<div className="flex items-center gap-4">
-									<ModeToggle />
-									<Separator orientation="vertical" />
+									<AppModeToggle />
 									<UserButton />
 								</div>
 							</div>

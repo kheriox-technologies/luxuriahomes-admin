@@ -3,6 +3,7 @@ import { appConfig, defaultTags, envName } from '../config';
 
 interface S3Buckets {
 	configBucket: s3.Bucket;
+	staticBucket: s3.Bucket;
 }
 
 export const createS3Buckets = (): S3Buckets => {
@@ -24,6 +25,14 @@ export const createS3Buckets = (): S3Buckets => {
 		},
 	];
 
+	const staticBucket = new s3.Bucket('static-bucket', {
+		...commonBucketArgs,
+		bucket: `${bucketNamePrefix}-static`,
+	});
+	new s3.BucketCorsConfigurationV2('static-bucket-cors', {
+		bucket: staticBucket.id,
+		corsRules,
+	});
 	const configBucket = new s3.Bucket('config-bucket', {
 		...commonBucketArgs,
 		bucket: `${bucketNamePrefix}-config`,
@@ -35,5 +44,6 @@ export const createS3Buckets = (): S3Buckets => {
 
 	return {
 		configBucket,
+		staticBucket,
 	};
 };

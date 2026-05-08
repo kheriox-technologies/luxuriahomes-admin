@@ -45,7 +45,7 @@ let permissionsCache: {
 const CACHE_TTL_MS = 60_000;
 
 function hasPathMatch(pathname: string, allowedPath: string): boolean {
-	const normalizedPathname = pathname === '/' ? '/dashboard' : pathname;
+	const normalizedPathname = pathname === '/' ? '/projects' : pathname;
 	return (
 		normalizedPathname === allowedPath ||
 		normalizedPathname.startsWith(`${allowedPath}/`)

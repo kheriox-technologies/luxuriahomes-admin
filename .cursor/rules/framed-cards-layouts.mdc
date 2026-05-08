@@ -1,0 +1,34 @@
+---
+description: Use framed card primitives for card layouts
+alwaysApply: true
+---
+
+# Framed Card Layouts
+
+When building or updating any card-based layout, prefer framed card primitives from `@workspace/ui/components/card`.
+
+- Use `CardFrame` as the parent container for grouped cards.
+- Use `Card` children inside `CardFrame` instead of custom bordered wrappers.
+- Use frame-specific slots (`CardFrameHeader`, `CardFrameTitle`, `CardFrameDescription`, `CardFrameAction`, `CardFrameFooter`) for shared frame-level content.
+- Keep card internals on standard slots (`CardHeader`, `CardPanel`, `CardFooter`, `CardAction`), not custom div structures.
+- Do not recreate framed visuals with ad-hoc classes (`border`, `rounded`, `shadow`, `divide-*`) when `CardFrame` primitives already cover the design.
+
+## Preferred pattern
+
+```tsx
+<CardFrame>
+  <Card>
+    <CardHeader>
+      <CardTitle>Overview</CardTitle>
+    </CardHeader>
+    <CardPanel>{/* content */}</CardPanel>
+  </Card>
+
+  <Card>
+    <CardHeader>
+      <CardTitle>Details</CardTitle>
+    </CardHeader>
+    <CardPanel>{/* content */}</CardPanel>
+  </Card>
+</CardFrame>
+```

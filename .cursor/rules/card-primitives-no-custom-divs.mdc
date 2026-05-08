@@ -1,0 +1,26 @@
+---
+description: Use existing card primitives instead of custom div card shells
+alwaysApply: true
+---
+
+# Card Primitives Only
+
+When implementing card UI in this repo, use primitives from `@workspace/ui/components/card` and avoid custom `div`-based card shells.
+
+- Prefer `CardFrame` for grouped/stacked card sections.
+- Use `Card`, `CardHeader`, `CardTitle`, `CardAction`, `CardPanel`, and `CardFooter` for card structure.
+- Reuse existing card composition patterns from nearby components before creating new layout wrappers.
+- Do not build card shells with ad-hoc `div` containers plus utility classes to imitate card borders, shadows, or padding.
+- Keep custom `div` usage inside card content only (for layout of fields/media), not for the card container itself.
+
+## Preferred pattern
+
+```tsx
+<Card>
+  <CardHeader>
+    <CardTitle>Title</CardTitle>
+    <CardAction>{/* actions */}</CardAction>
+  </CardHeader>
+  <CardPanel>{/* content */}</CardPanel>
+</Card>
+```

@@ -25,7 +25,7 @@ export default function Providers({ children }: { children: ReactNode }) {
 	return (
 		<ThemeProvider
 			attribute="class"
-			defaultTheme="system"
+			defaultTheme="light"
 			disableTransitionOnChange
 			enableSystem
 		>
@@ -34,7 +34,11 @@ export default function Providers({ children }: { children: ReactNode }) {
 					<ClerkProvider
 						appearance={{
 							theme: dark,
-							variables: { colorPrimary: env.NEXT_PUBLIC_APP_PRIMARY_COLOR },
+							variables: {
+								colorPrimary: env.NEXT_PUBLIC_APP_PRIMARY_COLOR,
+								colorPrimaryForeground:
+									env.NEXT_PUBLIC_APP_PRIMARY_FOREGROUND_COLOR,
+							},
 						}}
 					>
 						<ConvexProviderWithClerk client={convex} useAuth={useAuth}>

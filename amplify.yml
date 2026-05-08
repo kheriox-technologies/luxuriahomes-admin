@@ -12,6 +12,7 @@ applications:
             - pnpm install --frozen-lockfile
         build:
           commands:
+            - pnpm --filter @workspace/backend exec convex deploy
             - pnpm turbo build --filter=admin
       artifacts:
         baseDirectory: apps/admin/.next
@@ -22,25 +23,3 @@ applications:
           - node_modules/**/*
           - apps/admin/node_modules/**/*
           - apps/admin/.next/cache/**/*
-  - appRoot: apps/web
-    frontend:
-      buildPath: /
-      phases:
-        preBuild:
-          commands:
-            - aws s3 cp $ENV_FILE apps/web/.env
-            - nvm install 22 && nvm use 22
-            - npm install -g pnpm
-            - pnpm install --frozen-lockfile
-        build:
-          commands:
-            - pnpm turbo build --filter=web
-      artifacts:
-        baseDirectory: apps/web/.next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-          - apps/web/node_modules/**/*
-          - apps/web/.next/cache/**/*

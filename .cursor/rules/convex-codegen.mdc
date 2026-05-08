@@ -1,0 +1,10 @@
+---
+description: Do not run Convex codegen manually; dev server deploys and generates types
+alwaysApply: true
+---
+
+# Convex codegen
+
+- **Do not** run `npx convex codegen`, `pnpm convex codegen`, or similar Convex CLI codegen commands from the agent or ad-hoc scripts in this repo while the developer’s Convex dev server is expected to be running.
+- Deploying functions and regenerating `_generated` API and data model types is handled **automatically** by that dev workflow.
+- If TypeScript complains about missing exports from `@workspace/backend/api` or Convex `_generated` files right after editing Convex code, assume codegen will catch up once the dev server processes the change; do not start a duplicate codegen process unless the user explicitly asks (for example on a machine with no dev server running).

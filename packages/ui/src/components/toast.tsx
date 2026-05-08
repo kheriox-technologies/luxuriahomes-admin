@@ -140,11 +140,11 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
 
                   <div className="flex flex-col gap-0.5">
                     <Toast.Title
-                      className="font-medium"
+                      className="text-sm font-medium leading-snug tracking-normal"
                       data-slot="toast-title"
                     />
                     <Toast.Description
-                      className="text-muted-foreground"
+                      className="text-sm leading-snug text-muted-foreground"
                       data-slot="toast-description"
                     />
                   </div>
@@ -206,7 +206,7 @@ function AnchoredToasts() {
             >
               <Toast.Root
                 className={cn(
-                  "relative text-balance border bg-popover not-dark:bg-clip-padding text-popover-foreground text-xs transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+                  "relative text-balance border bg-popover not-dark:bg-clip-padding text-popover-foreground text-sm transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
                   tooltipStyle
                     ? "rounded-md shadow-md/5 before:rounded-[calc(var(--radius-md)-1px)]"
                     : "rounded-lg shadow-lg/5 before:rounded-[calc(var(--radius-lg)-1px)]",
@@ -215,8 +215,11 @@ function AnchoredToasts() {
                 toast={toast}
               >
                 {tooltipStyle ? (
-                  <Toast.Content className="pointer-events-auto px-2 py-1">
-                    <Toast.Title data-slot="toast-title" />
+                  <Toast.Content className="pointer-events-auto px-2 py-1 text-sm">
+                    <Toast.Title
+                      className="text-sm font-medium leading-snug tracking-normal"
+                      data-slot="toast-title"
+                    />
                   </Toast.Content>
                 ) : (
                   <Toast.Content className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm">
@@ -232,11 +235,11 @@ function AnchoredToasts() {
 
                       <div className="flex flex-col gap-0.5">
                         <Toast.Title
-                          className="font-medium"
+                          className="text-sm font-medium leading-snug tracking-normal"
                           data-slot="toast-title"
                         />
                         <Toast.Description
-                          className="text-muted-foreground"
+                          className="text-sm leading-snug text-muted-foreground"
                           data-slot="toast-description"
                         />
                       </div>

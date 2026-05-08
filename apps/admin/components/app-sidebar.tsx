@@ -20,7 +20,12 @@ import {
 	SidebarMenuSubItem,
 } from '@workspace/ui/components/sidebar';
 import { useQuery } from 'convex/react';
-import { ChevronDown, LayoutDashboard, type LucideIcon } from 'lucide-react';
+import {
+	Building2,
+	ChevronDown,
+	type LucideIcon,
+	SquaresIntersect,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -45,10 +50,16 @@ function isItemWithSub(item: SidebarItem): item is SidebarItemWithSub {
 // Menu items with path for role-based filtering.
 const items: SidebarItem[] = [
 	{
-		title: 'Dashboard',
-		url: '/dashboard',
-		path: '/dashboard',
-		icon: LayoutDashboard,
+		title: 'Projects',
+		url: '/projects',
+		path: '/projects',
+		icon: Building2,
+	},
+	{
+		title: 'Inclusions',
+		url: '/inclusions',
+		path: '/inclusions',
+		icon: SquaresIntersect,
 	},
 ];
 
@@ -119,7 +130,7 @@ const AppSidebar = () => {
 							alt="Logo"
 							height={32}
 							priority
-							src="/logo.png"
+							src="/lh-admin-logo-no-bg.png"
 							width={150}
 						/>
 					</Link>
@@ -128,7 +139,7 @@ const AppSidebar = () => {
 			<SidebarContent>
 				<SidebarGroup>
 					<SidebarGroupContent>
-						<SidebarMenu>
+						<SidebarMenu className="gap-2">
 							{filteredItems.map((item) => {
 								if (isItemWithSub(item)) {
 									const visibleSubItems = item.items.filter((sub) =>
@@ -139,7 +150,10 @@ const AppSidebar = () => {
 									return (
 										<Collapsible defaultOpen={isOpen} key={item.title}>
 											<SidebarMenuItem>
-												<CollapsibleTrigger render={<div />}>
+												<CollapsibleTrigger
+													nativeButton={false}
+													render={<div />}
+												>
 													<SidebarMenuButton
 														isActive={isOpen}
 														tooltip={item.title}

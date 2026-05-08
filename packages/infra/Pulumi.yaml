@@ -1,3 +1,3 @@
-name: monorepo-template
+name: luxuria-homes-admin
 runtime: nodejs
-description: Infra for Monorepo Template
+description: Infra for Luxuria Homes Admin
