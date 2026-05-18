@@ -41,6 +41,7 @@ import {
 	emptyClientDraft,
 	emptyEditProjectFormValues,
 	formatFieldErrors,
+	ProjectStartDatePicker,
 	type ProjectStatus,
 	ProjectStatusCombobox,
 	type ProjectStoredClient,
@@ -57,6 +58,7 @@ function projectDocToEditDefaults(project: Doc<'projects'>) {
 		status: project.status,
 		name: project.name,
 		address: { ...project.address },
+		startDate: project.startDate ? new Date(project.startDate) : undefined,
 	};
 }
 
@@ -157,6 +159,7 @@ export default function EditProjectForm({
 			form.setFieldValue('address.suburb', defaults.address.suburb);
 			form.setFieldValue('address.state', defaults.address.state);
 			form.setFieldValue('address.postcode', defaults.address.postcode);
+			form.setFieldValue('startDate', defaults.startDate as never);
 			setClients(cloneClientsFromProject(nextProject));
 			setDraft(emptyClientDraft);
 			setSameAsFirstClient(true);
@@ -358,6 +361,19 @@ export default function EditProjectForm({
 											</Field>
 										);
 									}}
+								</form.Field>
+
+								<form.Field name="startDate">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Start Date</FieldLabel>
+											<ProjectStartDatePicker
+												onBlur={field.handleBlur}
+												onChange={(date) => field.handleChange(date as never)}
+												value={field.state.value as Date | undefined}
+											/>
+										</Field>
+									)}
 								</form.Field>
 
 								<p className="font-medium text-muted-foreground text-sm">

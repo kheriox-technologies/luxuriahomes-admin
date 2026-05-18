@@ -20,6 +20,7 @@ import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Building2, SearchIcon } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
+import { formatStartDateRelative } from '@/components/projects/project-form-shared';
 
 /** Set to `false` before commit — forces the “no projects yet” empty UI. */
 const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
@@ -91,6 +92,17 @@ function ProjectListItem({ project }: { project: Project }) {
 						{project.address.suburb}, {project.address.state}{' '}
 						{project.address.postcode}
 					</p>
+					<div>
+						{project.startDate ? (
+							<Badge size="lg" variant="outline">
+								{formatStartDateRelative(project.startDate)}
+							</Badge>
+						) : (
+							<Badge size="lg" variant="warning">
+								No start date available
+							</Badge>
+						)}
+					</div>
 				</FramePanel>
 			</Frame>
 		</Link>

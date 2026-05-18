@@ -39,6 +39,7 @@ import {
 	emptyClientDraft,
 	emptyProjectCoreFormValues,
 	formatFieldErrors,
+	ProjectStartDatePicker,
 	type ProjectStoredClient,
 	projectClientAddressesEqual,
 	projectClientFromDraft,
@@ -237,6 +238,19 @@ export default function AddProjectForm() {
 											</Field>
 										);
 									}}
+								</form.Field>
+
+								<form.Field name="startDate">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Start Date</FieldLabel>
+											<ProjectStartDatePicker
+												onBlur={field.handleBlur}
+												onChange={(date) => field.handleChange(date as never)}
+												value={field.state.value as Date | undefined}
+											/>
+										</Field>
+									)}
 								</form.Field>
 
 								<p className="font-medium text-muted-foreground text-sm">

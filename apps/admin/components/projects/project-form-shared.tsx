@@ -1,6 +1,8 @@
 'use client';
 
 import type { Doc } from '@workspace/backend/dataModel';
+import { Button } from '@workspace/ui/components/button';
+import { Calendar } from '@workspace/ui/components/calendar';
 import {
 	Combobox,
 	ComboboxEmpty,
@@ -9,6 +11,12 @@ import {
 	ComboboxList,
 	ComboboxPopup,
 } from '@workspace/ui/components/combobox';
+import {
+	Popover,
+	PopoverPopup,
+	PopoverTrigger,
+} from '@workspace/ui/components/popover';
+import { CalendarIcon, XIcon } from 'lucide-react';
 import { z } from 'zod';
 
 export const AUSTRALIAN_STATES = [
@@ -143,6 +151,7 @@ export const projectCoreFormSchema = z.object({
 			.string()
 			.regex(postcodeRegex, 'Postcode must be exactly 4 digits'),
 	}),
+	startDate: z.date().optional(),
 });
 
 export const PROJECT_STATUSES = [
@@ -174,6 +183,7 @@ export const emptyProjectCoreFormValues = {
 		state: '',
 		postcode: '',
 	},
+	startDate: undefined,
 } as unknown as ProjectCoreFormValues;
 
 export const emptyEditProjectFormValues = {
@@ -325,6 +335,7 @@ export function toConvexCreatePayload(
 		},
 		status: 'not_started' as const,
 		clients: clients.map(sanitizeProjectClient),
+		startDate: value.startDate ? value.startDate.getTime() : undefined,
 	};
 }
 
@@ -342,7 +353,125 @@ export function toConvexUpdatePayload(
 		},
 		status: value.status,
 		clients: clients.map(sanitizeProjectClient),
+		startDate: value.startDate ? value.startDate.getTime() : null,
 	};
+}
+
+export function formatStartDateRelative(startDate: number): string {
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
+	const target = new Date(startDate);
+	target.setHours(0, 0, 0, 0);
+
+	const diffMs = target.getTime() - today.getTime();
+	const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+	if (diffDays === 0) {
+		return 'Starts today';
+	}
+
+	const isFuture = diffDays > 0;
+	const absDays = Math.abs(diffDays);
+
+	const futureBase = new Date(today);
+	const pastBase = new Date(today);
+
+	let months: number;
+	let remainingDays: number;
+
+	if (isFuture) {
+		months =
+			(target.getFullYear() - futureBase.getFullYear()) * 12 +
+			(target.getMonth() - futureBase.getMonth());
+		const afterMonths = new Date(futureBase);
+		afterMonths.setMonth(afterMonths.getMonth() + months);
+		remainingDays = Math.round(
+			(target.getTime() - afterMonths.getTime()) / (1000 * 60 * 60 * 24)
+		);
+	} else {
+		months =
+			(pastBase.getFullYear() - target.getFullYear()) * 12 +
+			(pastBase.getMonth() - target.getMonth());
+		const afterMonths = new Date(target);
+		afterMonths.setMonth(afterMonths.getMonth() + months);
+		remainingDays = Math.round(
+			(pastBase.getTime() - afterMonths.getTime()) / (1000 * 60 * 60 * 24)
+		);
+	}
+
+	if (months === 0) {
+		const label = absDays === 1 ? 'day' : 'days';
+		return isFuture
+			? `Starts in ${absDays} ${label}`
+			: `Started ${absDays} Days ago`;
+	}
+
+	const monthLabel = months === 1 ? 'Month' : 'Months';
+	const dayPart =
+		remainingDays > 0
+			? ` ${remainingDays} ${remainingDays === 1 ? 'Day' : 'Days'}`
+			: '';
+	return isFuture
+		? `Starts in ${months} ${monthLabel}${dayPart}`
+		: `Started ${months} ${monthLabel}${dayPart} ago`;
+}
+
+export function ProjectStartDatePicker({
+	value,
+	onChange,
+	onBlur,
+}: {
+	value: Date | undefined;
+	onChange: (date: Date | undefined) => void;
+	onBlur?: () => void;
+}) {
+	const label = value
+		? value.toLocaleDateString('en-AU', {
+				day: 'numeric',
+				month: 'long',
+				year: 'numeric',
+			})
+		: 'Select start date';
+
+	return (
+		<Popover>
+			<PopoverTrigger
+				render={
+					<Button
+						className="w-full justify-start font-normal"
+						onBlur={onBlur}
+						type="button"
+						variant="outline"
+					/>
+				}
+			>
+				<CalendarIcon aria-hidden className="mr-2 size-4 opacity-60" />
+				<span className={value ? '' : 'text-muted-foreground'}>{label}</span>
+				{value ? (
+					<span className="ml-auto">
+						<XIcon
+							aria-label="Clear date"
+							className="size-4 opacity-60 hover:opacity-100"
+							onClick={(e) => {
+								e.stopPropagation();
+								onChange(undefined);
+							}}
+						/>
+					</span>
+				) : null}
+			</PopoverTrigger>
+			<PopoverPopup align="start" side="bottom">
+				<Calendar
+					captionLayout="dropdown"
+					mode="single"
+					onSelect={(date) => {
+						onChange(date ?? undefined);
+					}}
+					selected={value}
+				/>
+			</PopoverPopup>
+		</Popover>
+	);
 }
 
 export function AustralianStateCombobox({

@@ -112,6 +112,7 @@ export default defineSchema({
 		address: australianAddressValidator,
 		status: projectStatusValidator,
 		clients: v.array(projectClientValidator),
+		startDate: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
 	stages: defineTable({

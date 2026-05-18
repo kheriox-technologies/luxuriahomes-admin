@@ -15,6 +15,7 @@ export const add = mutation({
 		address: australianAddressValidator,
 		status: projectStatusValidator,
 		clients: v.array(projectClientValidator),
+		startDate: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -41,6 +42,7 @@ export const add = mutation({
 			address: args.address,
 			status: args.status,
 			clients: args.clients,
+			startDate: args.startDate,
 			searchText,
 		});
 	},
