@@ -4,7 +4,6 @@ import { buildOrderSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
 import {
 	parseDescription,
-	parseDuration,
 	parseOrderName,
 	validateTaskBelongsToStage,
 } from './shared';
@@ -13,16 +12,17 @@ export const add = mutation({
 	args: {
 		name: v.string(),
 		description: v.optional(v.string()),
-		duration: v.number(),
 		stageId: v.optional(v.id('stages')),
 		taskId: v.optional(v.id('tasks')),
+		materials: v.optional(
+			v.array(v.object({ name: v.string(), units: v.string() }))
+		),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 
 		const name = parseOrderName(args.name);
 		const description = parseDescription(args.description);
-		const duration = parseDuration(args.duration);
 
 		if (args.taskId && !args.stageId) {
 			throw new ConvexError({
@@ -50,9 +50,9 @@ export const add = mutation({
 		return await ctx.db.insert('orders', {
 			name,
 			description,
-			duration,
 			stageId: args.stageId,
 			taskId: args.taskId,
+			materials: args.materials,
 			searchText,
 		});
 	},

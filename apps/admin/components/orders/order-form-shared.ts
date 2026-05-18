@@ -3,7 +3,9 @@ import { z } from 'zod';
 export const orderFormSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required'),
 	description: z.string().optional(),
-	duration: z.coerce.number().min(0, 'Duration must be 0 or greater'),
+	materials: z
+		.array(z.object({ name: z.string(), units: z.string() }))
+		.default([]),
 });
 
 export type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -11,7 +13,7 @@ export type OrderFormValues = z.infer<typeof orderFormSchema>;
 export const emptyOrderFormValues: OrderFormValues = {
 	name: '',
 	description: '',
-	duration: 0,
+	materials: [],
 };
 
 export function orderFormFieldError(

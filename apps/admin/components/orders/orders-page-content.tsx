@@ -41,7 +41,7 @@ function OrderActionsCell({ order }: { order: Order }) {
 		<Group className="justify-end">
 			<EditOrder
 				initialDescription={order.description}
-				initialDuration={order.duration}
+				initialMaterials={order.materials}
 				initialName={order.name}
 				orderId={order._id}
 				trigger={
@@ -172,11 +172,9 @@ export default function OrdersPageContent() {
 											<TableHead className="min-w-[16rem]">
 												Description
 											</TableHead>
-											<TableHead className="min-w-[8rem] whitespace-nowrap">
-												Duration (Days)
-											</TableHead>
 											<TableHead className="min-w-[10rem]">Stage</TableHead>
 											<TableHead className="min-w-[10rem]">Task</TableHead>
+											<TableHead className="min-w-[14rem]">Materials</TableHead>
 											<TableHead className="w-[120px] min-w-[120px] max-w-[120px] whitespace-nowrap text-end">
 												Actions
 											</TableHead>
@@ -198,9 +196,6 @@ export default function OrdersPageContent() {
 													)}
 												</TableCell>
 												<TableCell className="align-middle">
-													{order.duration}
-												</TableCell>
-												<TableCell className="align-middle">
 													{order.stageId ? (
 														(stageNameById.get(order.stageId) ?? (
 															<span className="text-muted-foreground">—</span>
@@ -219,7 +214,18 @@ export default function OrdersPageContent() {
 													)}
 												</TableCell>
 												<TableCell className="align-middle">
-													<OrderActionsCell order={order} />
+													{order.materials && order.materials.length > 0
+														? order.materials.map((m) => (
+																<div key={m.name}>
+																	{m.name} ({m.units})
+																</div>
+															))
+														: null}
+												</TableCell>
+												<TableCell className="align-middle">
+													<div className="flex justify-end">
+														<OrderActionsCell order={order} />
+													</div>
 												</TableCell>
 											</TableRow>
 										))}

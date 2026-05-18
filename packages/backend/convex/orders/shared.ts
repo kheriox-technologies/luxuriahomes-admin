@@ -23,16 +23,6 @@ export function parseDescription(
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export function parseDuration(duration: number): number {
-	if (!Number.isFinite(duration) || duration < 0) {
-		throw new ConvexError({
-			code: 'INVALID_DURATION',
-			message: 'Duration must be a non-negative number',
-		});
-	}
-	return Math.floor(duration);
-}
-
 export async function getOrderOrThrow(
 	ctx: MutationCtx | QueryCtx,
 	orderId: Id<'orders'>

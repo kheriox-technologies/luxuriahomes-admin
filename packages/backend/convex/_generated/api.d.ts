@@ -80,6 +80,8 @@ import type * as tasks_reorder from "../tasks/reorder.js";
 import type * as tasks_search from "../tasks/search.js";
 import type * as tasks_shared from "../tasks/shared.js";
 import type * as tasks_update from "../tasks/update.js";
+import type * as units_list from "../units/list.js";
+import type * as units_seed from "../units/seed.js";
 
 import type {
   ApiFromModules,
@@ -160,6 +162,8 @@ declare const fullApi: ApiFromModules<{
   "tasks/search": typeof tasks_search;
   "tasks/shared": typeof tasks_shared;
   "tasks/update": typeof tasks_update;
+  "units/list": typeof units_list;
+  "units/seed": typeof units_seed;
 }>;
 
 /**

@@ -5,7 +5,6 @@ import { requireAdmin } from '../lib/checkIdentity';
 import {
 	getOrderOrThrow,
 	parseDescription,
-	parseDuration,
 	parseOrderName,
 	validateTaskBelongsToStage,
 } from './shared';
@@ -15,9 +14,11 @@ export const update = mutation({
 		orderId: v.id('orders'),
 		name: v.string(),
 		description: v.optional(v.string()),
-		duration: v.number(),
 		stageId: v.optional(v.id('stages')),
 		taskId: v.optional(v.id('tasks')),
+		materials: v.optional(
+			v.array(v.object({ name: v.string(), units: v.string() }))
+		),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -25,7 +26,6 @@ export const update = mutation({
 
 		const name = parseOrderName(args.name);
 		const description = parseDescription(args.description);
-		const duration = parseDuration(args.duration);
 
 		if (args.taskId && !args.stageId) {
 			throw new ConvexError({
@@ -53,9 +53,9 @@ export const update = mutation({
 		await ctx.db.patch(args.orderId, {
 			name,
 			description,
-			duration,
 			stageId: args.stageId,
 			taskId: args.taskId,
+			materials: args.materials,
 			searchText,
 		});
 	},

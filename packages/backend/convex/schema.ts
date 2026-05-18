@@ -152,12 +152,19 @@ export default defineSchema({
 	orders: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),
-		duration: v.number(),
 		stageId: v.optional(v.id('stages')),
 		taskId: v.optional(v.id('tasks')),
+		materials: v.optional(
+			v.array(v.object({ name: v.string(), units: v.string() }))
+		),
 		searchText: v.string(),
 	})
 		.index('by_stage', ['stageId'])
 		.index('by_task', ['taskId'])
 		.searchIndex('search_orders', { searchField: 'searchText' }),
+	units: defineTable({
+		category: v.string(),
+		abbr: v.string(),
+		label: v.string(),
+	}).index('by_category', ['category']),
 });
