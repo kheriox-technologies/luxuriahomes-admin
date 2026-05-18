@@ -36,6 +36,13 @@ import type * as lib_checkIdentity from "../lib/checkIdentity.js";
 import type * as lib_clerk from "../lib/clerk.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as orders_add from "../orders/add.js";
+import type * as orders_get from "../orders/get.js";
+import type * as orders_list from "../orders/list.js";
+import type * as orders_remove from "../orders/remove.js";
+import type * as orders_search from "../orders/search.js";
+import type * as orders_shared from "../orders/shared.js";
+import type * as orders_update from "../orders/update.js";
 import type * as permissions_getEffectiveForRoles from "../permissions/getEffectiveForRoles.js";
 import type * as permissions_list from "../permissions/list.js";
 import type * as permissions_listRoleNames from "../permissions/listRoleNames.js";
@@ -56,6 +63,22 @@ import type * as projects_remove from "../projects/remove.js";
 import type * as projects_search from "../projects/search.js";
 import type * as projects_shared from "../projects/shared.js";
 import type * as projects_update from "../projects/update.js";
+import type * as stages_add from "../stages/add.js";
+import type * as stages_get from "../stages/get.js";
+import type * as stages_list from "../stages/list.js";
+import type * as stages_remove from "../stages/remove.js";
+import type * as stages_reorder from "../stages/reorder.js";
+import type * as stages_search from "../stages/search.js";
+import type * as stages_shared from "../stages/shared.js";
+import type * as stages_update from "../stages/update.js";
+import type * as tasks_add from "../tasks/add.js";
+import type * as tasks_get from "../tasks/get.js";
+import type * as tasks_list from "../tasks/list.js";
+import type * as tasks_remove from "../tasks/remove.js";
+import type * as tasks_reorder from "../tasks/reorder.js";
+import type * as tasks_search from "../tasks/search.js";
+import type * as tasks_shared from "../tasks/shared.js";
+import type * as tasks_update from "../tasks/update.js";
 
 import type {
   ApiFromModules,
@@ -92,6 +115,13 @@ declare const fullApi: ApiFromModules<{
   "lib/clerk": typeof lib_clerk;
   "lib/logger": typeof lib_logger;
   "lib/permissions": typeof lib_permissions;
+  "orders/add": typeof orders_add;
+  "orders/get": typeof orders_get;
+  "orders/list": typeof orders_list;
+  "orders/remove": typeof orders_remove;
+  "orders/search": typeof orders_search;
+  "orders/shared": typeof orders_shared;
+  "orders/update": typeof orders_update;
   "permissions/getEffectiveForRoles": typeof permissions_getEffectiveForRoles;
   "permissions/list": typeof permissions_list;
   "permissions/listRoleNames": typeof permissions_listRoleNames;
@@ -112,6 +142,22 @@ declare const fullApi: ApiFromModules<{
   "projects/search": typeof projects_search;
   "projects/shared": typeof projects_shared;
   "projects/update": typeof projects_update;
+  "stages/add": typeof stages_add;
+  "stages/get": typeof stages_get;
+  "stages/list": typeof stages_list;
+  "stages/remove": typeof stages_remove;
+  "stages/reorder": typeof stages_reorder;
+  "stages/search": typeof stages_search;
+  "stages/shared": typeof stages_shared;
+  "stages/update": typeof stages_update;
+  "tasks/add": typeof tasks_add;
+  "tasks/get": typeof tasks_get;
+  "tasks/list": typeof tasks_list;
+  "tasks/remove": typeof tasks_remove;
+  "tasks/reorder": typeof tasks_reorder;
+  "tasks/search": typeof tasks_search;
+  "tasks/shared": typeof tasks_shared;
+  "tasks/update": typeof tasks_update;
 }>;
 
 /**

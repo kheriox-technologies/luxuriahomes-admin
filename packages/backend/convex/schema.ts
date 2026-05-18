@@ -25,6 +25,16 @@ export const projectInclusionStatusValidator = v.union(
 	v.literal('Approved')
 );
 
+export const stageDependencyTypeValidator = v.union(
+	v.literal('after'),
+	v.literal('alongWith')
+);
+
+export const taskDependencyTypeValidator = v.union(
+	v.literal('after'),
+	v.literal('alongWith')
+);
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -104,4 +114,49 @@ export default defineSchema({
 		clients: v.array(projectClientValidator),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
+	stages: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		taskCount: v.number(),
+		totalDuration: v.number(),
+		displayOrder: v.number(),
+		dependsOn: v.array(
+			v.object({
+				stageId: v.id('stages'),
+				type: stageDependencyTypeValidator,
+			})
+		),
+		searchText: v.string(),
+	})
+		.index('by_name', ['name'])
+		.index('by_display_order', ['displayOrder'])
+		.searchIndex('search_stages', { searchField: 'searchText' }),
+	tasks: defineTable({
+		stageId: v.id('stages'),
+		name: v.string(),
+		description: v.optional(v.string()),
+		duration: v.number(),
+		displayOrder: v.number(),
+		dependsOn: v.array(
+			v.object({
+				taskId: v.id('tasks'),
+				type: taskDependencyTypeValidator,
+			})
+		),
+		searchText: v.string(),
+	})
+		.index('by_stage', ['stageId'])
+		.index('by_stage_display_order', ['stageId', 'displayOrder'])
+		.searchIndex('search_tasks', { searchField: 'searchText' }),
+	orders: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		duration: v.number(),
+		stageId: v.optional(v.id('stages')),
+		taskId: v.optional(v.id('tasks')),
+		searchText: v.string(),
+	})
+		.index('by_stage', ['stageId'])
+		.index('by_task', ['taskId'])
+		.searchIndex('search_orders', { searchField: 'searchText' }),
 });
