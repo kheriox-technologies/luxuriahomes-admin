@@ -23,6 +23,7 @@ import { useQuery } from 'convex/react';
 import {
 	Building2,
 	ChevronDown,
+	ClipboardList,
 	type LucideIcon,
 	SquaresIntersect,
 } from 'lucide-react';
@@ -60,6 +61,12 @@ const items: SidebarItem[] = [
 		url: '/inclusions',
 		path: '/inclusions',
 		icon: SquaresIntersect,
+	},
+	{
+		title: 'Orders',
+		url: '/orders',
+		path: '/orders',
+		icon: ClipboardList,
 	},
 ];
 

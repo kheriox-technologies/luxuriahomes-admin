@@ -74,6 +74,7 @@ import type * as stages_update from "../stages/update.js";
 import type * as tasks_add from "../tasks/add.js";
 import type * as tasks_get from "../tasks/get.js";
 import type * as tasks_list from "../tasks/list.js";
+import type * as tasks_listAll from "../tasks/listAll.js";
 import type * as tasks_remove from "../tasks/remove.js";
 import type * as tasks_reorder from "../tasks/reorder.js";
 import type * as tasks_search from "../tasks/search.js";
@@ -153,6 +154,7 @@ declare const fullApi: ApiFromModules<{
   "tasks/add": typeof tasks_add;
   "tasks/get": typeof tasks_get;
   "tasks/list": typeof tasks_list;
+  "tasks/listAll": typeof tasks_listAll;
   "tasks/remove": typeof tasks_remove;
   "tasks/reorder": typeof tasks_reorder;
   "tasks/search": typeof tasks_search;
