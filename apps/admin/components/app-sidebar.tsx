@@ -24,6 +24,7 @@ import {
 	Building2,
 	ChevronDown,
 	ClipboardList,
+	Layers,
 	type LucideIcon,
 	SquaresIntersect,
 } from 'lucide-react';
@@ -67,6 +68,12 @@ const items: SidebarItem[] = [
 		url: '/orders',
 		path: '/orders',
 		icon: ClipboardList,
+	},
+	{
+		title: 'Stages',
+		url: '/stages',
+		path: '/stages',
+		icon: Layers,
 	},
 ];
 
