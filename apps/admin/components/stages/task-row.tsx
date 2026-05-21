@@ -14,7 +14,6 @@ import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import DeleteTask from '@/components/stages/delete-task';
 import EditTask from '@/components/stages/edit-task';
-import { STAGE_COLORS } from '@/components/stages/gantt-utils';
 
 type Task = Doc<'tasks'>;
 
@@ -22,26 +21,19 @@ const ROW_HEIGHT = 40;
 
 export default function TaskRow({
 	task,
-	colorIndex,
 	allOrders,
 }: {
 	task: Task;
-	colorIndex: number;
 	allOrders: Doc<'orders'>[];
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
-	const color = STAGE_COLORS[colorIndex % STAGE_COLORS.length];
-
 	return (
 		<>
 			<div
 				className="flex items-center gap-2 border-b pr-3 pl-7"
-				style={{
-					height: ROW_HEIGHT,
-					background: color.taskRow,
-				}}
+				style={{ height: ROW_HEIGHT }}
 			>
 				<span className="min-w-0 flex-1 truncate text-sm">{task.name}</span>
 				{task.duration > 0 ? (

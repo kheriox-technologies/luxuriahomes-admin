@@ -43,7 +43,7 @@ import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Info, Plus, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
 	emptyTaskFormValues,
 	taskFormFieldError,
@@ -74,9 +74,7 @@ export default function EditTask({
 	const updateOrder = useMutation(api.orders.update.update);
 	const stageTasks = useQuery(api.tasks.list.list, { stageId: task.stageId });
 
-	const originalLinkedOrderIds = allOrders
-		.filter((o) => o.taskId === task._id)
-		.map((o) => o._id as string);
+	const originalLinkedOrderIdsRef = useRef<string[]>([]);
 
 	async function syncLinkedOrders(
 		nextOrderIds: string[],
@@ -134,7 +132,10 @@ export default function EditTask({
 						type: d.type,
 					})),
 				});
-				await syncLinkedOrders(parsed.linkedOrderIds, originalLinkedOrderIds);
+				await syncLinkedOrders(
+					parsed.linkedOrderIds,
+					originalLinkedOrderIdsRef.current
+				);
 				toastManager.add({ title: 'Task updated', type: 'success' });
 				onOpenChange(false);
 			} catch (error) {
@@ -150,26 +151,6 @@ export default function EditTask({
 			}
 		},
 	});
-
-	useEffect(() => {
-		if (open) {
-			form.reset({
-				name: task.name,
-				description: task.description ?? '',
-				duration: task.duration,
-				dependsOn: task.dependsOn.map((d) => ({
-					taskId: d.taskId,
-					type: d.type,
-				})),
-				linkedOrderIds: originalLinkedOrderIds,
-			});
-			setNewDepTaskId(null);
-			setNewDepType('after');
-			setNewOrderId(null);
-			return;
-		}
-		form.reset();
-	}, [open, task, form.reset, originalLinkedOrderIds]);
 
 	function handleAddDependency() {
 		if (!newDepTaskId) {
@@ -234,7 +215,36 @@ export default function EditTask({
 	const taskNameById = new Map((stageTasks ?? []).map((t) => [t._id, t.name]));
 
 	return (
-		<Sheet onOpenChange={onOpenChange} open={open}>
+		<Sheet
+			onOpenChange={(nextOpen) => {
+				if (nextOpen) {
+					const ids = allOrders
+						.filter((o) => o.taskId === task._id)
+						.map((o) => o._id as string);
+					originalLinkedOrderIdsRef.current = ids;
+					form.reset(
+						{
+							name: task.name,
+							description: task.description ?? '',
+							duration: task.duration,
+							dependsOn: task.dependsOn.map((d) => ({
+								taskId: d.taskId,
+								type: d.type,
+							})),
+							linkedOrderIds: ids,
+						},
+						{ keepDefaultValues: true }
+					);
+					setNewDepTaskId(null);
+					setNewDepType('after');
+					setNewOrderId(null);
+				} else {
+					form.reset();
+				}
+				onOpenChange(nextOpen);
+			}}
+			open={open}
+		>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
@@ -348,6 +358,9 @@ export default function EditTask({
 							<FramePanel>
 								<div className="flex w-full flex-col gap-2">
 									<Combobox
+										getItemLabel={(val) =>
+											taskNameById.get(val as never) ?? String(val ?? '')
+										}
 										onValueChange={(val) => setNewDepTaskId(val ?? null)}
 										value={newDepTaskId}
 									>

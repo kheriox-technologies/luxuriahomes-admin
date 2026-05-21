@@ -36,7 +36,7 @@ import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Info, Plus, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
 	emptyStageFormValues,
 	stageFormFieldError,
@@ -67,9 +67,7 @@ export default function EditStage({
 	const updateOrder = useMutation(api.orders.update.update);
 	const stages = useQuery(api.stages.list.list, {});
 
-	const originalLinkedOrderIds = allOrders
-		.filter((o) => o.stageId === stage._id && !o.taskId)
-		.map((o) => o._id as string);
+	const originalLinkedOrderIdsRef = useRef<string[]>([]);
 
 	async function syncLinkedOrders(
 		nextOrderIds: string[],
@@ -126,7 +124,10 @@ export default function EditStage({
 						type: d.type,
 					})),
 				});
-				await syncLinkedOrders(parsed.linkedOrderIds, originalLinkedOrderIds);
+				await syncLinkedOrders(
+					parsed.linkedOrderIds,
+					originalLinkedOrderIdsRef.current
+				);
 				toastManager.add({ title: 'Stage updated', type: 'success' });
 				onOpenChange(false);
 			} catch (error) {
@@ -142,25 +143,6 @@ export default function EditStage({
 			}
 		},
 	});
-
-	useEffect(() => {
-		if (open) {
-			form.reset({
-				name: stage.name,
-				description: stage.description ?? '',
-				dependsOn: stage.dependsOn.map((d) => ({
-					stageId: d.stageId,
-					type: d.type,
-				})),
-				linkedOrderIds: originalLinkedOrderIds,
-			});
-			setNewDepStageId(null);
-			setNewDepType('after');
-			setNewOrderId(null);
-			return;
-		}
-		form.reset();
-	}, [open, stage, form.reset, originalLinkedOrderIds]);
 
 	function handleAddDependency() {
 		if (!newDepStageId) {
@@ -225,7 +207,35 @@ export default function EditStage({
 	const stageNameById = new Map((stages ?? []).map((s) => [s._id, s.name]));
 
 	return (
-		<Sheet onOpenChange={onOpenChange} open={open}>
+		<Sheet
+			onOpenChange={(nextOpen) => {
+				if (nextOpen) {
+					const ids = allOrders
+						.filter((o) => o.stageId === stage._id && !o.taskId)
+						.map((o) => o._id as string);
+					originalLinkedOrderIdsRef.current = ids;
+					form.reset(
+						{
+							name: stage.name,
+							description: stage.description ?? '',
+							dependsOn: stage.dependsOn.map((d) => ({
+								stageId: d.stageId,
+								type: d.type,
+							})),
+							linkedOrderIds: ids,
+						},
+						{ keepDefaultValues: true }
+					);
+					setNewDepStageId(null);
+					setNewDepType('after');
+					setNewOrderId(null);
+				} else {
+					form.reset();
+				}
+				onOpenChange(nextOpen);
+			}}
+			open={open}
+		>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"

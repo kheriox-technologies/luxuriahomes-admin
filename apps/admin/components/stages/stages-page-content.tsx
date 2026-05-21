@@ -17,20 +17,16 @@ import {
 } from '@workspace/ui/components/input-group';
 import { useQuery } from 'convex/react';
 import { Layers, SearchIcon } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from '@/components/stages/add-stage';
-import type { StageWithTasks } from '@/components/stages/gantt-chart';
+import GanttTable from '@/components/stages/gantt-table';
 import {
 	computeStagePositions,
 	computeTaskPositions,
+	type StageWithTasks,
 	type TaskPosition,
 } from '@/components/stages/gantt-utils';
-
-const GanttChart = dynamic(() => import('@/components/stages/gantt-chart'), {
-	ssr: false,
-});
 
 export default function StagesPageContent() {
 	const [search, setSearch] = useState('');
@@ -148,7 +144,7 @@ export default function StagesPageContent() {
 						</EmptyHeader>
 					</Empty>
 				) : (
-					<GanttChart
+					<GanttTable
 						allOrders={orders}
 						stagePositions={stagePositions}
 						stagesWithTasks={stagesWithTasks}

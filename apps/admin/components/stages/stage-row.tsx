@@ -15,7 +15,6 @@ import { useState } from 'react';
 import AddTask from '@/components/stages/add-task';
 import DeleteStage from '@/components/stages/delete-stage';
 import EditStage from '@/components/stages/edit-stage';
-import { STAGE_COLORS } from '@/components/stages/gantt-utils';
 
 type Stage = Doc<'stages'>;
 
@@ -23,27 +22,20 @@ const ROW_HEIGHT = 40;
 
 export default function StageRow({
 	stage,
-	colorIndex,
 	allOrders,
 }: {
 	stage: Stage;
-	colorIndex: number;
 	allOrders: Doc<'orders'>[];
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [addTaskOpen, setAddTaskOpen] = useState(false);
 
-	const color = STAGE_COLORS[colorIndex % STAGE_COLORS.length];
-
 	return (
 		<>
 			<div
 				className="flex items-center gap-2 border-b px-3"
-				style={{
-					height: ROW_HEIGHT,
-					background: color.row,
-				}}
+				style={{ height: ROW_HEIGHT }}
 			>
 				<span className="min-w-0 flex-1 truncate font-semibold text-sm">
 					{stage.name}
