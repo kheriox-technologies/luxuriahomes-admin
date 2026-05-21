@@ -223,7 +223,7 @@ function GanttRow({ row }: { row: FlatRow }) {
 	return (
 		<div className="relative border-b" style={{ height: ROW_HEIGHT }}>
 			<div
-				className="absolute top-0 bottom-0"
+				className="absolute top-1.5 bottom-1.5 rounded"
 				style={{ background: bgColor, left, width }}
 			/>
 		</div>
