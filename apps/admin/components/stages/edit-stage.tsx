@@ -36,7 +36,7 @@ import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Info, Plus, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	emptyStageFormValues,
 	stageFormFieldError,
@@ -144,6 +144,32 @@ export default function EditStage({
 		},
 	});
 
+	useEffect(() => {
+		if (!open) {
+			form.reset();
+			return;
+		}
+		const ids = allOrders
+			.filter((o) => o.stageId === stage._id && !o.taskId)
+			.map((o) => o._id as string);
+		originalLinkedOrderIdsRef.current = ids;
+		form.reset(
+			{
+				name: stage.name,
+				description: stage.description ?? '',
+				dependsOn: stage.dependsOn.map((d) => ({
+					stageId: d.stageId,
+					type: d.type,
+				})),
+				linkedOrderIds: ids,
+			},
+			{ keepDefaultValues: true }
+		);
+		setNewDepStageId(null);
+		setNewDepType('after');
+		setNewOrderId(null);
+	}, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
 	function handleAddDependency() {
 		if (!newDepStageId) {
 			return;
@@ -207,35 +233,7 @@ export default function EditStage({
 	const stageNameById = new Map((stages ?? []).map((s) => [s._id, s.name]));
 
 	return (
-		<Sheet
-			onOpenChange={(nextOpen) => {
-				if (nextOpen) {
-					const ids = allOrders
-						.filter((o) => o.stageId === stage._id && !o.taskId)
-						.map((o) => o._id as string);
-					originalLinkedOrderIdsRef.current = ids;
-					form.reset(
-						{
-							name: stage.name,
-							description: stage.description ?? '',
-							dependsOn: stage.dependsOn.map((d) => ({
-								stageId: d.stageId,
-								type: d.type,
-							})),
-							linkedOrderIds: ids,
-						},
-						{ keepDefaultValues: true }
-					);
-					setNewDepStageId(null);
-					setNewDepType('after');
-					setNewOrderId(null);
-				} else {
-					form.reset();
-				}
-				onOpenChange(nextOpen);
-			}}
-			open={open}
-		>
+		<Sheet onOpenChange={onOpenChange} open={open}>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
@@ -319,6 +317,9 @@ export default function EditStage({
 							<FramePanel>
 								<div className="flex w-full flex-col gap-2">
 									<Combobox
+										itemToStringLabel={(val) =>
+											stageNameById.get(val as never) ?? String(val ?? '')
+										}
 										onValueChange={(val) => setNewDepStageId(val ?? null)}
 										value={newDepStageId}
 									>
@@ -429,6 +430,10 @@ export default function EditStage({
 								<div className="flex w-full gap-2">
 									<div className="flex-1">
 										<Combobox
+											itemToStringLabel={(val) =>
+												allOrders.find((o) => (o._id as string) === val)
+													?.name ?? String(val ?? '')
+											}
 											onValueChange={(val) => setNewOrderId(val ?? null)}
 											value={newOrderId}
 										>

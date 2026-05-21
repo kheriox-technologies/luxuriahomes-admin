@@ -277,6 +277,9 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 							<FramePanel>
 								<div className="flex w-full flex-col gap-2">
 									<Combobox
+										itemToStringLabel={(val) =>
+											stageNameById.get(val as never) ?? String(val ?? '')
+										}
 										onValueChange={(val) => setNewDepStageId(val ?? null)}
 										value={newDepStageId}
 									>
@@ -387,6 +390,10 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 								<div className="flex w-full gap-2">
 									<div className="flex-1">
 										<Combobox
+											itemToStringLabel={(val) =>
+												(orders ?? []).find((o) => (o._id as string) === val)
+													?.name ?? String(val ?? '')
+											}
 											onValueChange={(val) => setNewOrderId(val ?? null)}
 											value={newOrderId}
 										>

@@ -43,7 +43,7 @@ import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Info, Plus, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	emptyTaskFormValues,
 	taskFormFieldError,
@@ -152,6 +152,33 @@ export default function EditTask({
 		},
 	});
 
+	useEffect(() => {
+		if (!open) {
+			form.reset();
+			return;
+		}
+		const ids = allOrders
+			.filter((o) => o.taskId === task._id)
+			.map((o) => o._id as string);
+		originalLinkedOrderIdsRef.current = ids;
+		form.reset(
+			{
+				name: task.name,
+				description: task.description ?? '',
+				duration: task.duration,
+				dependsOn: task.dependsOn.map((d) => ({
+					taskId: d.taskId,
+					type: d.type,
+				})),
+				linkedOrderIds: ids,
+			},
+			{ keepDefaultValues: true }
+		);
+		setNewDepTaskId(null);
+		setNewDepType('after');
+		setNewOrderId(null);
+	}, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
 	function handleAddDependency() {
 		if (!newDepTaskId) {
 			return;
@@ -215,36 +242,7 @@ export default function EditTask({
 	const taskNameById = new Map((stageTasks ?? []).map((t) => [t._id, t.name]));
 
 	return (
-		<Sheet
-			onOpenChange={(nextOpen) => {
-				if (nextOpen) {
-					const ids = allOrders
-						.filter((o) => o.taskId === task._id)
-						.map((o) => o._id as string);
-					originalLinkedOrderIdsRef.current = ids;
-					form.reset(
-						{
-							name: task.name,
-							description: task.description ?? '',
-							duration: task.duration,
-							dependsOn: task.dependsOn.map((d) => ({
-								taskId: d.taskId,
-								type: d.type,
-							})),
-							linkedOrderIds: ids,
-						},
-						{ keepDefaultValues: true }
-					);
-					setNewDepTaskId(null);
-					setNewDepType('after');
-					setNewOrderId(null);
-				} else {
-					form.reset();
-				}
-				onOpenChange(nextOpen);
-			}}
-			open={open}
-		>
+		<Sheet onOpenChange={onOpenChange} open={open}>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
@@ -358,7 +356,7 @@ export default function EditTask({
 							<FramePanel>
 								<div className="flex w-full flex-col gap-2">
 									<Combobox
-										getItemLabel={(val) =>
+										itemToStringLabel={(val) =>
 											taskNameById.get(val as never) ?? String(val ?? '')
 										}
 										onValueChange={(val) => setNewDepTaskId(val ?? null)}
@@ -470,6 +468,10 @@ export default function EditTask({
 								<div className="flex w-full gap-2">
 									<div className="flex-1">
 										<Combobox
+											itemToStringLabel={(val) =>
+												allOrders.find((o) => (o._id as string) === val)
+													?.name ?? String(val ?? '')
+											}
 											onValueChange={(val) => setNewOrderId(val ?? null)}
 											value={newOrderId}
 										>

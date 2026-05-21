@@ -327,6 +327,9 @@ export default function AddTask({
 							<FramePanel>
 								<div className="flex w-full flex-col gap-2">
 									<Combobox
+										itemToStringLabel={(val) =>
+											taskNameById.get(val as never) ?? String(val ?? '')
+										}
 										onValueChange={(val) => setNewDepTaskId(val ?? null)}
 										value={newDepTaskId}
 									>
@@ -436,6 +439,10 @@ export default function AddTask({
 								<div className="flex w-full gap-2">
 									<div className="flex-1">
 										<Combobox
+											itemToStringLabel={(val) =>
+												allOrders.find((o) => (o._id as string) === val)
+													?.name ?? String(val ?? '')
+											}
 											onValueChange={(val) => setNewOrderId(val ?? null)}
 											value={newOrderId}
 										>
