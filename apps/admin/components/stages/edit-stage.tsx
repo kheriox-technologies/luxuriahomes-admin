@@ -144,6 +144,7 @@ export default function EditStage({
 		},
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reinitializes only when open changes
 	useEffect(() => {
 		if (!open) {
 			form.reset();
@@ -168,7 +169,7 @@ export default function EditStage({
 		setNewDepStageId(null);
 		setNewDepType('after');
 		setNewOrderId(null);
-	}, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [open]);
 
 	function handleAddDependency() {
 		if (!newDepStageId) {
