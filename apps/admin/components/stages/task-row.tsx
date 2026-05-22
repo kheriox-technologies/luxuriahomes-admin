@@ -17,7 +17,7 @@ import EditTask from '@/components/stages/edit-task';
 
 type Task = Doc<'tasks'>;
 
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 42;
 
 export default function TaskRow({
 	task,

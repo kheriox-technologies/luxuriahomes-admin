@@ -1,7 +1,6 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
-import type { Id } from '@workspace/backend/dataModel';
 import {
 	Empty,
 	EmptyDescription,
@@ -15,28 +14,112 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import { Tabs, TabsList, TabsTab } from '@workspace/ui/components/tabs';
 import { useQuery } from 'convex/react';
 import { Layers, SearchIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from '@/components/stages/add-stage';
-import GanttTable from '@/components/stages/gantt-table';
 import {
-	computeStagePositions,
-	computeTaskPositions,
+	computeAllPositions,
 	type StageWithTasks,
-	type TaskPosition,
 } from '@/components/stages/gantt-utils';
+import StageRow from '@/components/stages/stage-row';
+import TaskRow from '@/components/stages/task-row';
+
+const GanttChart = dynamic(() => import('@/components/stages/gantt-chart'), {
+	ssr: false,
+	loading: () => null,
+});
+
+type ViewMode = 'Day' | 'Week' | 'Month';
+const VIEW_MODES: ViewMode[] = ['Day', 'Week', 'Month'];
+
+// Must match frappe-gantt defaults: lower_header_height(30) + upper_header_height(45) + 10
+const GANTT_HEADER_HEIGHT = 85;
 
 export default function StagesPageContent() {
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const [viewMode, setViewMode] = useState<ViewMode>('Day');
 	const trimmedSearch = debouncedSearch.trim();
+
+	const leftPanelRef = useRef<HTMLDivElement>(null);
+	const ganttWrapperRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
 		return () => window.clearTimeout(id);
 	}, [search]);
+
+	// Sync vertical scroll between left panel and frappe-gantt's container.
+	// Uses MutationObserver so it re-attaches when the gantt is recreated.
+	useEffect(() => {
+		const leftPanel = leftPanelRef.current;
+		const ganttWrapper = ganttWrapperRef.current;
+		if (!(leftPanel && ganttWrapper)) {
+			return;
+		}
+
+		const isSyncing = { v: false };
+		let activeContainer: HTMLElement | null = null;
+		let detachFn: (() => void) | null = null;
+
+		const detach = () => {
+			detachFn?.();
+			detachFn = null;
+			activeContainer = null;
+		};
+
+		const reattach = () => {
+			const found = ganttWrapper.querySelector<HTMLElement>('.gantt-container');
+			if (!found || found === activeContainer) {
+				return;
+			}
+
+			detach();
+			activeContainer = found;
+
+			const onLeft = () => {
+				if (isSyncing.v || !activeContainer) {
+					return;
+				}
+				isSyncing.v = true;
+				activeContainer.scrollTop = leftPanel.scrollTop;
+				requestAnimationFrame(() => {
+					isSyncing.v = false;
+				});
+			};
+			const onRight = () => {
+				if (isSyncing.v) {
+					return;
+				}
+				isSyncing.v = true;
+				leftPanel.scrollTop = activeContainer?.scrollTop ?? 0;
+				requestAnimationFrame(() => {
+					isSyncing.v = false;
+				});
+			};
+
+			leftPanel.addEventListener('scroll', onLeft, { passive: true });
+			activeContainer.addEventListener('scroll', onRight, { passive: true });
+
+			detachFn = () => {
+				leftPanel.removeEventListener('scroll', onLeft);
+				activeContainer?.removeEventListener('scroll', onRight);
+			};
+		};
+
+		reattach();
+		const observer = new MutationObserver(reattach);
+		observer.observe(ganttWrapper, { childList: true, subtree: true });
+
+		return () => {
+			observer.disconnect();
+			detach();
+		};
+	}, []);
 
 	const stages = useQuery(api.stages.list.list, {});
 	const tasks = useQuery(api.tasks.listAll.listAll, {});
@@ -74,25 +157,10 @@ export default function StagesPageContent() {
 		}));
 	}, [filteredStages, tasksByStage]);
 
-	const stagePositions = useMemo(() => {
-		if (!filteredStages) {
-			return new Map();
-		}
-		return computeStagePositions(filteredStages);
-	}, [filteredStages]);
-
-	const taskPositions = useMemo(() => {
-		const allPositions = new Map<Id<'tasks'>, TaskPosition>();
-		for (const { stage, tasks: stageTasks } of stagesWithTasks) {
-			const stagePos = stagePositions.get(stage._id);
-			const startDay = stagePos?.startDay ?? 0;
-			const positions = computeTaskPositions(stageTasks, startDay);
-			for (const [taskId, pos] of positions) {
-				allPositions.set(taskId, pos);
-			}
-		}
-		return allPositions;
-	}, [stagesWithTasks, stagePositions]);
+	const { stagePositions, taskPositions } = useMemo(
+		() => computeAllPositions(stagesWithTasks),
+		[stagesWithTasks]
+	);
 
 	if (stages === undefined || tasks === undefined || orders === undefined) {
 		return (
@@ -109,7 +177,7 @@ export default function StagesPageContent() {
 		<div className="flex h-full min-h-0 w-full flex-col">
 			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<PageHeading heading="Stages" icon={Layers} />
-				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
 					<InputGroup className="w-full sm:w-64">
 						<InputGroupAddon>
 							<InputGroupText>
@@ -122,11 +190,24 @@ export default function StagesPageContent() {
 							value={search}
 						/>
 					</InputGroup>
+					<Tabs
+						className="flex-row"
+						onValueChange={(v) => setViewMode(v as ViewMode)}
+						value={viewMode}
+					>
+						<TabsList>
+							{VIEW_MODES.map((mode) => (
+								<TabsTab key={mode} value={mode}>
+									{mode}
+								</TabsTab>
+							))}
+						</TabsList>
+					</Tabs>
 					<AddStage />
 				</div>
 			</div>
 
-			<div className="flex min-h-0 flex-1 flex-col">
+			<div className="flex min-h-0 flex-1">
 				{stagesWithTasks.length === 0 ? (
 					<Empty>
 						<EmptyHeader>
@@ -144,12 +225,33 @@ export default function StagesPageContent() {
 						</EmptyHeader>
 					</Empty>
 				) : (
-					<GanttTable
-						allOrders={orders}
-						stagePositions={stagePositions}
-						stagesWithTasks={stagesWithTasks}
-						taskPositions={taskPositions}
-					/>
+					<div className="flex min-h-0 w-full overflow-hidden rounded-lg border">
+						<div
+							className="w-64 shrink-0 overflow-y-auto border-r"
+							ref={leftPanelRef}
+						>
+							<div
+								className="sticky top-0 z-10 shrink-0 border-b bg-background"
+								style={{ height: GANTT_HEADER_HEIGHT }}
+							/>
+							{stagesWithTasks.map(({ stage, tasks: stageTasks }) => (
+								<div key={stage._id}>
+									<StageRow allOrders={orders} stage={stage} />
+									{stageTasks.map((task) => (
+										<TaskRow allOrders={orders} key={task._id} task={task} />
+									))}
+								</div>
+							))}
+						</div>
+						<div className="min-w-0 flex-1" ref={ganttWrapperRef}>
+							<GanttChart
+								stagePositions={stagePositions}
+								stagesWithTasks={stagesWithTasks}
+								taskPositions={taskPositions}
+								viewMode={viewMode}
+							/>
+						</div>
+					</div>
 				)}
 			</div>
 		</div>

@@ -18,7 +18,7 @@ import EditStage from '@/components/stages/edit-stage';
 
 type Stage = Doc<'stages'>;
 
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 42;
 
 export default function StageRow({
 	stage,
