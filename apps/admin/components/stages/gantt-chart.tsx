@@ -112,6 +112,7 @@ export default function GanttChart({
 }: GanttChartProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const ganttRef = useRef<Gantt | null>(null);
+	const tooltipRef = useRef<HTMLDivElement>(null);
 
 	const anchor = useMemo(() => new Date(), []);
 
@@ -147,7 +148,43 @@ export default function GanttChart({
 			infinite_padding: false,
 		});
 
+		const taskNameMap = new Map(tasks.map((t) => [t.id, t.name]));
+		const tooltip = tooltipRef.current;
+
+		if (tooltip) {
+			const barWrappers =
+				containerRef.current.querySelectorAll<SVGGElement>('[data-id]');
+			for (const wrapper of barWrappers) {
+				const taskId = wrapper.getAttribute('data-id');
+				const fullName = taskId ? taskNameMap.get(taskId) : undefined;
+				if (!fullName) {
+					continue;
+				}
+
+				const handleMouseEnter = (e: MouseEvent) => {
+					tooltip.textContent = fullName;
+					tooltip.style.display = 'block';
+					tooltip.style.left = `${e.clientX + 12}px`;
+					tooltip.style.top = `${e.clientY - 40}px`;
+				};
+				const handleMouseMove = (e: MouseEvent) => {
+					tooltip.style.left = `${e.clientX + 12}px`;
+					tooltip.style.top = `${e.clientY - 40}px`;
+				};
+				const handleMouseLeave = () => {
+					tooltip.style.display = 'none';
+				};
+
+				wrapper.addEventListener('mouseenter', handleMouseEnter);
+				wrapper.addEventListener('mousemove', handleMouseMove);
+				wrapper.addEventListener('mouseleave', handleMouseLeave);
+			}
+		}
+
 		return () => {
+			if (tooltip) {
+				tooltip.style.display = 'none';
+			}
 			ganttRef.current?.clear();
 			ganttRef.current = null;
 			if (containerRef.current) {
@@ -160,5 +197,14 @@ export default function GanttChart({
 		return null;
 	}
 
-	return <div className="h-full w-full" ref={containerRef} />;
+	return (
+		<div className="relative h-full w-full">
+			<div className="h-full w-full" ref={containerRef} />
+			<div
+				className="pointer-events-none fixed z-50 max-w-xs rounded bg-popover px-2 py-1 text-popover-foreground text-xs shadow-md"
+				ref={tooltipRef}
+				style={{ display: 'none' }}
+			/>
+		</div>
+	);
 }
