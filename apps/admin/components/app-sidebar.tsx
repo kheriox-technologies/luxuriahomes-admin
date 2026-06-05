@@ -26,7 +26,9 @@ import {
 	ClipboardList,
 	Layers,
 	type LucideIcon,
+	MapPin,
 	SquaresIntersect,
+	Wrench,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
@@ -62,6 +64,18 @@ const items: SidebarItem[] = [
 		url: '/inclusions',
 		path: '/inclusions',
 		icon: SquaresIntersect,
+	},
+	{
+		title: 'Locations',
+		url: '/locations',
+		path: '/locations',
+		icon: MapPin,
+	},
+	{
+		title: 'Trades',
+		url: '/trades',
+		path: '/trades',
+		icon: Wrench,
 	},
 	{
 		title: 'Orders',

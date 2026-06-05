@@ -167,4 +167,14 @@ export default defineSchema({
 		abbr: v.string(),
 		label: v.string(),
 	}).index('by_category', ['category']),
+	locations: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_locations', { searchField: 'searchText' }),
+	trades: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_trades', { searchField: 'searchText' }),
 });

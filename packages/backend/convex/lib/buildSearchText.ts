@@ -121,6 +121,20 @@ export function buildOrderSearchText(
 	return buildSearchText([name, description]);
 }
 
+export function buildLocationSearchText(
+	name: string,
+	description?: string
+): string {
+	return buildSearchText([name, description]);
+}
+
+export function buildTradeSearchText(
+	name: string,
+	description?: string
+): string {
+	return buildSearchText([name, description]);
+}
+
 export function buildInclusionAggregateSearchText(
 	title: string,
 	variants: InclusionVariantSearchFields[],

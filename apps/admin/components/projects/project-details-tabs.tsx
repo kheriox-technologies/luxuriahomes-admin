@@ -7,7 +7,7 @@ import {
 	TabsPanel,
 	TabsTab,
 } from '@workspace/ui/components/tabs';
-import { SquaresIntersect, Users } from 'lucide-react';
+import { Contact, FileText, Quote, SquaresIntersect, Users } from 'lucide-react';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
 
@@ -37,6 +37,27 @@ export default function ProjectDetailsTabs({
 					<SquaresIntersect />
 					Inclusions
 				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="documents"
+				>
+					<FileText />
+					Documents
+				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="quotations"
+				>
+					<Quote />
+					Quotations
+				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="contacts"
+				>
+					<Contact />
+					Contacts
+				</TabsTab>
 			</TabsList>
 			<TabsPanel value="clients">
 				<ProjectClientsTabContent clients={clients} />
@@ -44,6 +65,9 @@ export default function ProjectDetailsTabs({
 			<TabsPanel value="inclusions">
 				<ProjectInclusionsTabContent projectId={projectId} />
 			</TabsPanel>
+			<TabsPanel value="documents" />
+			<TabsPanel value="quotations" />
+			<TabsPanel value="contacts" />
 		</Tabs>
 	);
 }
