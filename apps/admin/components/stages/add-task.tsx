@@ -43,7 +43,7 @@ import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Info, Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	emptyTaskFormValues,
 	taskFormFieldError,
@@ -67,6 +67,7 @@ export default function AddTask({
 	const [newDepTaskId, setNewDepTaskId] = useState<string | null>(null);
 	const [newDepType, setNewDepType] = useState<'after' | 'alongWith'>('after');
 	const [newOrderId, setNewOrderId] = useState<string | null>(null);
+	const [, forceRender] = useState(0);
 
 	const addTask = useMutation(api.tasks.add.add);
 	const updateTask = useMutation(api.tasks.update.update);
@@ -180,6 +181,26 @@ export default function AddTask({
 		);
 	}
 
+	const stageTasksRef = useRef(stageTasks);
+	stageTasksRef.current = stageTasks;
+
+	useEffect(() => {
+		if (open) {
+			const tasks = stageTasksRef.current;
+			const lastTask = tasks && tasks.length > 0 ? tasks.at(-1) : null;
+			const initialDeps = lastTask
+				? [{ taskId: lastTask._id as string, type: 'after' as const }]
+				: [];
+			form.reset({ ...emptyTaskFormValues, dependsOn: initialDeps });
+			setNewDepTaskId(null);
+			setNewDepType('after');
+			setNewOrderId(null);
+			forceRender((n) => n + 1);
+		} else {
+			form.reset();
+		}
+	}, [open, form.reset]);
+
 	const currentDepIds =
 		form.getFieldValue('dependsOn')?.map((d) => d.taskId) ?? [];
 	const availableTasks = (stageTasks ?? []).filter(
@@ -199,20 +220,7 @@ export default function AddTask({
 	const taskNameById = new Map((stageTasks ?? []).map((t) => [t._id, t.name]));
 
 	return (
-		<Sheet
-			onOpenChange={(nextOpen) => {
-				if (nextOpen) {
-					form.reset(emptyTaskFormValues, { keepDefaultValues: true });
-					setNewDepTaskId(null);
-					setNewDepType('after');
-					setNewOrderId(null);
-				} else {
-					form.reset();
-				}
-				onOpenChange(nextOpen);
-			}}
-			open={open}
-		>
+		<Sheet onOpenChange={onOpenChange} open={open}>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"

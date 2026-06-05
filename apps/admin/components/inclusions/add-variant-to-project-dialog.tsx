@@ -2,15 +2,6 @@
 
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
-import {
-	AlertDialog,
-	AlertDialogClose,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
@@ -34,7 +25,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useMemo, useState } from 'react';
-import { getConvexErrorCode, getConvexErrorMessage } from '@/lib/convex-errors';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 type Project = Doc<'projects'>;
 
@@ -66,8 +57,6 @@ export default function AddVariantToProjectDialog({
 	const [selectedProjectId, setSelectedProjectId] = useState('');
 	const [showProjectError, setShowProjectError] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
-	const [replaceConfirmMessage, setReplaceConfirmMessage] = useState('');
 
 	const projects = useQuery(api.projects.list.list, {});
 	const addProjectInclusion = useMutation(api.projectInclusions.add.add);
@@ -100,7 +89,7 @@ export default function AddVariantToProjectDialog({
 	const canSubmit = selectedProject !== null && !isSubmitting;
 	const isLoadingProjects = projects === undefined;
 
-	const addToProject = async (forceReplace: boolean) => {
+	const addToProject = async () => {
 		if (!selectedProject) {
 			setShowProjectError(true);
 			return;
@@ -112,29 +101,14 @@ export default function AddVariantToProjectDialog({
 			await addProjectInclusion({
 				projectId: selectedProject,
 				inclusionVariantId,
-				forceReplace,
 			});
 			toastManager.add({
 				description: `${variantLabel} was added to ${projectNameById.get(selectedProject) ?? 'the selected project'}.`,
-				title: forceReplace ? 'Variant replaced' : 'Added to project',
+				title: 'Added to project',
 				type: 'success',
 			});
-			setReplaceConfirmOpen(false);
-			setReplaceConfirmMessage('');
 			setOpen(false);
 		} catch (error) {
-			const code = getConvexErrorCode(error);
-			if (code === 'REPLACE_REQUIRED') {
-				setReplaceConfirmMessage(
-					getConvexErrorMessage(
-						error,
-						'A variant for this inclusion is already added. Do you want to replace it with the current variant?'
-					)
-				);
-				setReplaceConfirmOpen(true);
-				return;
-			}
-			setReplaceConfirmOpen(false);
 			setOpen(false);
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -157,8 +131,6 @@ export default function AddVariantToProjectDialog({
 					setSelectedProjectId('');
 					setShowProjectError(false);
 					setIsSubmitting(false);
-					setReplaceConfirmOpen(false);
-					setReplaceConfirmMessage('');
 				}
 			}}
 			open={open}
@@ -230,7 +202,7 @@ export default function AddVariantToProjectDialog({
 						disabled={!canSubmit}
 						loading={isSubmitting}
 						onClick={() => {
-							addToProject(false).catch(() => {
+							addToProject().catch(() => {
 								/* Error handled in addToProject */
 							});
 						}}
@@ -241,38 +213,6 @@ export default function AddVariantToProjectDialog({
 					</Button>
 				</DialogFooter>
 			</DialogContent>
-			<AlertDialog
-				onOpenChange={setReplaceConfirmOpen}
-				open={replaceConfirmOpen}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Replace existing variant?</AlertDialogTitle>
-						<AlertDialogDescription>
-							{replaceConfirmMessage}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogClose
-							render={<Button type="button" variant="outline" />}
-						>
-							Cancel
-						</AlertDialogClose>
-						<Button
-							loading={isSubmitting}
-							onClick={() => {
-								addToProject(true).catch(() => {
-									/* Error handled in addToProject */
-								});
-							}}
-							type="button"
-							variant="default"
-						>
-							Replace variant
-						</Button>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
 		</Dialog>
 	);
 }

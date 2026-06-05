@@ -34,7 +34,8 @@
       "!**/.source",
       "!**/convex/_generated",
       "!**/temp",
-      "!**/frappe-gantt.css"
+      "!**/frappe-gantt.css",
+      "!**/frappe-gantt-vendor.css"
     ]
   },
   "overrides": [

@@ -19,7 +19,7 @@ export type TaskDependency = z.infer<typeof taskDependencySchema>;
 export const emptyTaskFormValues: TaskFormValues = {
 	name: '',
 	description: '',
-	duration: 0,
+	duration: 1,
 	dependsOn: [],
 	linkedOrderIds: [],
 };
