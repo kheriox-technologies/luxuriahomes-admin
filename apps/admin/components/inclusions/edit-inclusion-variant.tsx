@@ -95,9 +95,6 @@ export default function EditInclusionVariant({
 	const [uploadFieldKey, setUploadFieldKey] = useState(0);
 	const [modelDraft, setModelDraft] = useState('');
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
-	const [originalStorageId, setOriginalStorageId] = useState(
-		variant.storageId ?? ''
-	);
 
 	const updateVariant = useMutation(api.inclusionVariants.update.update);
 	const generateUploadUrl = useMutation(
@@ -105,9 +102,6 @@ export default function EditInclusionVariant({
 	);
 	const resolvePublicUrl = useMutation(
 		api.fileStorage.resolvePublicUrl.resolvePublicUrl
-	);
-	const deleteStoredFile = useMutation(
-		api.fileStorage.deleteStorage.deleteStorage
 	);
 
 	const form = useForm({
@@ -153,25 +147,7 @@ export default function EditInclusionVariant({
 		},
 	});
 
-	const removeVariantImage = async () => {
-		const storageId = form.getFieldValue('storageId')?.trim();
-		if (storageId) {
-			try {
-				await deleteStoredFile({
-					storageId: storageId as Id<'_storage'>,
-				});
-			} catch (error) {
-				toastManager.add({
-					description: getConvexErrorMessage(
-						error,
-						'Could not delete the file from storage. Please try again.'
-					),
-					title: 'Could not delete image',
-					type: 'error',
-				});
-				throw error;
-			}
-		}
+	const removeVariantImage = () => {
 		form.setFieldValue('image', '');
 		form.setFieldValue('storageId', '');
 	};
@@ -194,15 +170,9 @@ export default function EditInclusionVariant({
 			if (!payload.storageId) {
 				throw new Error('Upload response missing storageId');
 			}
-			if (originalStorageId && originalStorageId !== payload.storageId) {
-				await deleteStoredFile({
-					storageId: originalStorageId as Id<'_storage'>,
-				});
-			}
 			const resolved = await resolvePublicUrl({
 				storageId: payload.storageId as Id<'_storage'>,
 			});
-			setOriginalStorageId(resolved.storageId);
 			form.setFieldValue('storageId', resolved.storageId);
 			form.setFieldValue('image', resolved.url);
 			toastManager.add({
@@ -230,7 +200,6 @@ export default function EditInclusionVariant({
 				if (nextOpen) {
 					const defaults = toDefaultValues(variant);
 					form.reset(defaults);
-					setOriginalStorageId(variant.storageId ?? '');
 					setUploadFieldKey((key) => key + 1);
 					setModelDraft('');
 					Promise.resolve(form.validate('change')).catch(() => {
