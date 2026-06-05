@@ -7,7 +7,13 @@ import {
 	TabsPanel,
 	TabsTab,
 } from '@workspace/ui/components/tabs';
-import { Contact, FileText, Quote, SquaresIntersect, Users } from 'lucide-react';
+import {
+	Contact,
+	FileText,
+	Quote,
+	SquaresIntersect,
+	Users,
+} from 'lucide-react';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
 
