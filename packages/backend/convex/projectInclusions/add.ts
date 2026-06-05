@@ -12,7 +12,6 @@ import {
 	buildProjectInclusionSearchText,
 	buildVariationFromStandard,
 	copyStorageIdIfPresent,
-	deleteProjectInclusionStorageIfPresent,
 	getProjectOrThrow,
 	getStandardVariantOrThrow,
 	validateVariationFields,
@@ -22,7 +21,6 @@ export const add = mutation({
 	args: {
 		projectId: v.id('projects'),
 		inclusionVariantId: v.id('inclusionVariants'),
-		forceReplace: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -81,32 +79,6 @@ export const add = mutation({
 			models,
 			color,
 		});
-		const existingInclusions = await ctx.db
-			.query('projectInclusions')
-			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-			.collect();
-		const existingForInclusion = existingInclusions.find(
-			(entry) =>
-				entry.title === title &&
-				entry.categoryId === inclusion.categoryId &&
-				entry.vendor === vendor
-		);
-		if (
-			existingForInclusion &&
-			existingForInclusion.class === variant.class &&
-			existingForInclusion.code === code
-		) {
-			throw new ConvexError({
-				code: 'ALREADY_EXISTS',
-				message: 'This inclusion variant has already been added to the project',
-			});
-		}
-		if (existingForInclusion && !args.forceReplace) {
-			throw new ConvexError({
-				code: 'REPLACE_REQUIRED',
-				message: `${existingForInclusion.class} variant for this inclusion is already added. Do you want to replace it with the current variant?`,
-			});
-		}
 
 		const nextValues = {
 			projectId: args.projectId,
@@ -128,14 +100,6 @@ export const add = mutation({
 			searchText,
 			status: 'Under Review' as const,
 		};
-		if (existingForInclusion) {
-			await deleteProjectInclusionStorageIfPresent(
-				ctx,
-				existingForInclusion.storageId
-			);
-			await ctx.db.patch(existingForInclusion._id, nextValues);
-			return existingForInclusion._id;
-		}
 
 		return await ctx.db.insert('projectInclusions', nextValues);
 	},
