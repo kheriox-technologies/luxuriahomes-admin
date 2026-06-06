@@ -1,11 +1,12 @@
 'use client';
+// React Compiler can't track mutations on the TanStack Table instance (setOptions during render).
+'use no memo';
 
 import {
 	type ColumnDef,
 	flexRender,
 	getCoreRowModel,
-	type OnChangeFn,
-	type PaginationState,
+	getPaginationRowModel,
 	useReactTable,
 } from '@tanstack/react-table';
 import { DataTablePagination } from '@workspace/ui/components/data-table-pagination';
@@ -34,56 +35,40 @@ interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
 	emptyMessage?: string;
-	manualPagination?: boolean;
-	onPaginationChange?: OnChangeFn<PaginationState>;
+	initialPageSize?: number;
 	onRowClick?: (row: TData) => void;
-	pagination?: {
-		pageIndex: number;
-		pageSize: number;
-		pageCount: number;
-	};
-	totalCount?: number;
 }
 
 export function DataTable<TData, TValue>({
 	columns,
 	data,
-	pagination,
-	onPaginationChange,
+	initialPageSize = 20,
 	onRowClick,
-	manualPagination = false,
 	emptyMessage = 'No results.',
-	totalCount,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
 		columns,
 		getCoreRowModel: getCoreRowModel(),
-		manualPagination,
-		pageCount: pagination?.pageCount ?? -1,
-		state: pagination
-			? {
-					pagination,
-				}
-			: undefined,
-		onPaginationChange,
+		getPaginationRowModel: getPaginationRowModel(),
+		autoResetPageIndex: false,
+		initialState: {
+			pagination: {
+				pageIndex: 0,
+				pageSize: initialPageSize,
+			},
+		},
 	});
 
+	const { pageIndex, pageSize } = table.getState().pagination;
+	const rowCount = data.length;
 	const rangeLabel =
-		pagination && totalCount !== undefined
-			? (() => {
-					const start = pagination.pageIndex * pagination.pageSize + 1;
-					const end = Math.min(
-						(pagination.pageIndex + 1) * pagination.pageSize,
-						totalCount
-					);
-					return (
-						<span className="text-muted-foreground text-sm">
-							{start}–{end} / {totalCount}
-						</span>
-					);
-				})()
-			: undefined;
+		rowCount > 0 ? (
+			<span className="text-muted-foreground text-sm">
+				{pageIndex * pageSize + 1}–
+				{Math.min((pageIndex + 1) * pageSize, rowCount)} / {rowCount}
+			</span>
+		) : undefined;
 
 	return (
 		<Frame className="min-w-0 overflow-hidden">
@@ -132,7 +117,7 @@ export function DataTable<TData, TValue>({
 									const width = getColumnWidth(columnSize, size);
 									return (
 										<TableCell
-											className="min-w-0 whitespace-normal align-top"
+											className="min-w-0 whitespace-normal"
 											key={cell.id}
 											style={
 												width
@@ -161,7 +146,7 @@ export function DataTable<TData, TValue>({
 					)}
 				</TableBody>
 			</Table>
-			{pagination && (
+			{rowCount > 0 && (
 				<FrameFooter>
 					<DataTablePagination label={rangeLabel} table={table} />
 				</FrameFooter>

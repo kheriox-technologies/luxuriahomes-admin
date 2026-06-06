@@ -1,14 +1,10 @@
 'use client';
 
+import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardAction,
-	CardHeader,
-	CardTitle,
-} from '@workspace/ui/components/card';
+import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	Empty,
 	EmptyDescription,
@@ -34,56 +30,64 @@ import EditTrade from './edit-trade';
 
 type Trade = Doc<'trades'>;
 
-function TradeCard({ trade }: { trade: Trade }) {
-	return (
-		<Card>
-			<CardHeader className="flex flex-row items-start justify-between gap-3">
-				<div className="flex min-w-0 flex-1 flex-col gap-1">
-					<CardTitle className="truncate leading-tight">{trade.name}</CardTitle>
-					{trade.description ? (
-						<p className="line-clamp-2 text-muted-foreground text-sm">
-							{trade.description}
-						</p>
-					) : null}
-				</div>
-				<CardAction>
-					<Group>
-						<EditTrade
-							initialDescription={trade.description}
-							initialName={trade.name}
-							tradeId={trade._id}
-							trigger={
-								<Button
-									aria-label="Edit trade"
-									size="icon"
-									type="button"
-									variant="outline"
-								>
-									<Pencil />
-								</Button>
-							}
-						/>
-						<GroupSeparator />
-						<DeleteTrade
-							tradeId={trade._id}
-							tradeName={trade.name}
-							trigger={
-								<Button
-									aria-label="Delete trade"
-									size="icon"
-									type="button"
-									variant="destructive-outline"
-								>
-									<Trash2 />
-								</Button>
-							}
-						/>
-					</Group>
-				</CardAction>
-			</CardHeader>
-		</Card>
-	);
-}
+const columns: ColumnDef<Trade>[] = [
+	{
+		accessorKey: 'name',
+		header: 'Name',
+		cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+	},
+	{
+		accessorKey: 'description',
+		header: 'Description',
+		cell: ({ row }) =>
+			row.original.description ? (
+				<span className="text-muted-foreground text-sm">
+					{row.original.description}
+				</span>
+			) : null,
+	},
+	{
+		id: 'actions',
+		header: '',
+		size: 100,
+		cell: ({ row }) => (
+			<div className="flex justify-end">
+				<Group>
+					<EditTrade
+						initialDescription={row.original.description}
+						initialName={row.original.name}
+						tradeId={row.original._id}
+						trigger={
+							<Button
+								aria-label="Edit trade"
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<Pencil />
+							</Button>
+						}
+					/>
+					<GroupSeparator />
+					<DeleteTrade
+						tradeId={row.original._id}
+						tradeName={row.original.name}
+						trigger={
+							<Button
+								aria-label="Delete trade"
+								size="icon"
+								type="button"
+								variant="destructive-outline"
+							>
+								<Trash2 />
+							</Button>
+						}
+					/>
+				</Group>
+			</div>
+		),
+	},
+];
 
 function EmptyTradesState() {
 	return (
@@ -145,11 +149,12 @@ export default function TradesPageContent() {
 		content = <EmptyTradesState />;
 	} else {
 		content = (
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				{trades.map((trade) => (
-					<TradeCard key={trade._id} trade={trade} />
-				))}
-			</div>
+			<DataTable
+				columns={columns}
+				data={trades}
+				emptyMessage="No matching trades."
+				key={trimmedSearch}
+			/>
 		);
 	}
 

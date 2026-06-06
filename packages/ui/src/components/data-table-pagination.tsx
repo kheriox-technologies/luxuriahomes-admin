@@ -1,4 +1,6 @@
 'use client';
+// React Compiler can't track mutations on the TanStack Table instance.
+'use no memo';
 
 import type { Table } from '@tanstack/react-table';
 import { Button } from '@workspace/ui/components/button';

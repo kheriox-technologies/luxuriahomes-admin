@@ -16,7 +16,6 @@ import { useQuery } from 'convex/react';
 import { Building2, SearchIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 
 /** Set to `false` before commit — forces the "no projects yet" empty UI. */
 const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
@@ -162,16 +161,6 @@ export default function ProjectsList({
 	const router = useRouter();
 	const trimmedSearch = searchQuery.trim();
 
-	const [{ pageIndex, pageSize }, setPagination] = useState({
-		pageIndex: 0,
-		pageSize: 20,
-	});
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: trimmedSearch is the trigger to reset pagination, not a value consumed inside the callback
-	useEffect(() => {
-		setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-	}, [trimmedSearch]);
-
 	const listResults = useQuery(
 		api.projects.list.list,
 		trimmedSearch === '' ? {} : 'skip'
@@ -213,22 +202,13 @@ export default function ProjectsList({
 		);
 	}
 
-	const pageCount = Math.ceil(projects.length / pageSize);
-	const pageData = projects.slice(
-		pageIndex * pageSize,
-		(pageIndex + 1) * pageSize
-	);
-
 	return (
 		<DataTable
 			columns={columns}
-			data={pageData}
+			data={projects}
 			emptyMessage="No matching projects."
-			manualPagination
-			onPaginationChange={setPagination}
+			key={trimmedSearch}
 			onRowClick={(project) => router.push(`/projects/${project._id}` as Route)}
-			pagination={{ pageIndex, pageSize, pageCount }}
-			totalCount={projects.length}
 		/>
 	);
 }
