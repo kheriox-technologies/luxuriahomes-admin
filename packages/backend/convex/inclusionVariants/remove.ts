@@ -2,7 +2,6 @@ import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { syncSearchTextsForInclusion } from '../inclusions/shared';
 import { requireAdmin } from '../lib/checkIdentity';
-import { deleteVariantStorageIfPresent } from './shared';
 
 export const remove = mutation({
 	args: {
@@ -18,7 +17,6 @@ export const remove = mutation({
 			});
 		}
 		const inclusionId = existing.inclusionId;
-		await deleteVariantStorageIfPresent(ctx, existing.storageId);
 		await ctx.db.delete(args.variantId);
 		await syncSearchTextsForInclusion(ctx, inclusionId);
 		return args.variantId;

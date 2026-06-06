@@ -1,6 +1,5 @@
 import { v } from 'convex/values';
 import type { Doc } from '../_generated/dataModel';
-import type { MutationCtx } from '../_generated/server';
 import { mutation } from '../_generated/server';
 import {
 	parseModels,
@@ -15,7 +14,6 @@ import {
 } from '../schema';
 import {
 	buildProjectInclusionSearchText,
-	deleteProjectInclusionStorageIfPresent,
 	getProjectInclusionOrThrow,
 	validateVariationFields,
 } from './shared';
@@ -33,7 +31,6 @@ interface UpdateArgs {
 	projectInclusionId: Doc<'projectInclusions'>['_id'];
 	salePrice?: number | undefined;
 	status?: Doc<'projectInclusions'>['status'] | undefined;
-	storageId?: Doc<'projectInclusions'>['storageId'] | null | undefined;
 	title?: string | undefined;
 	variationCostPrice?: number | null | undefined;
 	variationSalePrice?: number | null | undefined;
@@ -123,25 +120,6 @@ function buildScalarPatch(args: UpdateArgs): Record<string, unknown> {
 	return patch;
 }
 
-async function applyStoragePatch(
-	ctx: MutationCtx,
-	args: UpdateArgs,
-	existing: Doc<'projectInclusions'>,
-	patch: Record<string, unknown>
-) {
-	if (args.storageId === undefined) {
-		return;
-	}
-	const nextStorageId = args.storageId === null ? undefined : args.storageId;
-	if (existing.storageId && existing.storageId !== nextStorageId) {
-		await deleteProjectInclusionStorageIfPresent(ctx, existing.storageId);
-	}
-	patch.storageId = nextStorageId;
-	if (args.storageId === null && args.image === undefined) {
-		patch.image = undefined;
-	}
-}
-
 function applyVariationPatchRules(
 	existing: Doc<'projectInclusions'>,
 	patch: Record<string, unknown>
@@ -192,7 +170,6 @@ export const update = mutation({
 		color: v.optional(v.union(v.string(), v.null())),
 		details: v.optional(v.union(v.string(), v.null())),
 		image: v.optional(v.union(v.string(), v.null())),
-		storageId: v.optional(v.union(v.id('_storage'), v.null())),
 		link: v.optional(v.union(v.string(), v.null())),
 		costPrice: v.optional(v.number()),
 		salePrice: v.optional(v.number()),
@@ -207,7 +184,6 @@ export const update = mutation({
 			args.projectInclusionId
 		);
 		const patch = buildScalarPatch(args);
-		await applyStoragePatch(ctx, args, existing, patch);
 		applyVariationPatchRules(existing, patch);
 		applySearchTextPatch(existing, patch);
 

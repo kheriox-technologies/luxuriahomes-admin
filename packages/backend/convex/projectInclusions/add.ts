@@ -11,7 +11,6 @@ import { requireAdmin } from '../lib/checkIdentity';
 import {
 	buildProjectInclusionSearchText,
 	buildVariationFromStandard,
-	copyStorageIdIfPresent,
 	getProjectOrThrow,
 	getStandardVariantOrThrow,
 	validateVariationFields,
@@ -55,7 +54,6 @@ export const add = mutation({
 			variationSalePrice
 		);
 
-		const storageId = await copyStorageIdIfPresent(ctx, variant.storageId);
 		const title = inclusion.title.trim();
 		const code = variant.code.trim();
 		const vendor = parseVendor(variant.vendor);
@@ -91,7 +89,6 @@ export const add = mutation({
 			color,
 			details,
 			image,
-			storageId,
 			link,
 			costPrice,
 			salePrice,

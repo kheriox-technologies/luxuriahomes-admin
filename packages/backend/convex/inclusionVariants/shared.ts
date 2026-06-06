@@ -1,5 +1,4 @@
 import { ConvexError } from 'convex/values';
-import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 
 const CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -88,13 +87,4 @@ export function parseMoney2(value: number, label: string): number {
 		});
 	}
 	return Math.round(value * 100) / 100;
-}
-
-export async function deleteVariantStorageIfPresent(
-	ctx: MutationCtx,
-	storageId: Id<'_storage'> | undefined
-) {
-	if (storageId) {
-		await ctx.storage.delete(storageId);
-	}
 }

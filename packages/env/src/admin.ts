@@ -6,6 +6,8 @@ export const env = createEnv({
 		APP_NAME: z.string().min(1),
 		CONVEX_DEPLOYMENT: z.string().min(1),
 		CLERK_SECRET_KEY: z.string().min(1),
+		CDN_KEY_PAIR_ID: z.string().min(1),
+		CDN_PRIVATE_KEY: z.string().min(1),
 	},
 	client: {
 		NEXT_PUBLIC_APP_NAME: z.string().min(1),

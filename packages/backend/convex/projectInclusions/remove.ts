@@ -3,7 +3,6 @@ import { mutation } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
 import {
 	deleteNotesForProjectInclusion,
-	deleteProjectInclusionStorageIfPresent,
 	getProjectInclusionOrThrow,
 } from './shared';
 
@@ -13,11 +12,7 @@ export const remove = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		const existing = await getProjectInclusionOrThrow(
-			ctx,
-			args.projectInclusionId
-		);
-		await deleteProjectInclusionStorageIfPresent(ctx, existing.storageId);
+		await getProjectInclusionOrThrow(ctx, args.projectInclusionId);
 		await deleteNotesForProjectInclusion(ctx, args.projectInclusionId);
 		await ctx.db.delete(args.projectInclusionId);
 		return args.projectInclusionId;

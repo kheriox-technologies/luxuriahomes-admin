@@ -46,7 +46,6 @@ export const addInclusionVariantFormSchema = z.object({
 	details: z.string().optional(),
 	link: z.string().optional(),
 	image: z.string().optional(),
-	storageId: z.string().optional(),
 });
 
 export type AddInclusionVariantFormValues = z.infer<
@@ -74,7 +73,6 @@ export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =
 		details: '',
 		link: '',
 		image: '',
-		storageId: '',
 	};
 
 export function inclusionFormFieldError(

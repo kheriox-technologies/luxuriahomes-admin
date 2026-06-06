@@ -2,7 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
-import type { Doc, Id } from '@workspace/backend/dataModel';
+import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardPanel } from '@workspace/ui/components/card';
@@ -40,9 +40,10 @@ import {
 import { SingleImageUpload } from '@workspace/ui/components/single-image-upload';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
+import { useAction, useMutation } from 'convex/react';
 import { Plus, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
+import { signCdnUrl } from '@/actions/cdn';
 import {
 	addInclusionVariantFormSchema,
 	type InclusionVariantClass,
@@ -64,7 +65,6 @@ function toDefaultValues(variant: Doc<'inclusionVariants'>) {
 		details: variant.details ?? '',
 		link: variant.link ?? '',
 		image: variant.image ?? '',
-		storageId: variant.storageId ?? '',
 	};
 }
 
@@ -95,13 +95,11 @@ export default function EditInclusionVariant({
 	const [uploadFieldKey, setUploadFieldKey] = useState(0);
 	const [modelDraft, setModelDraft] = useState('');
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const [previewUrl, setPreviewUrl] = useState('');
 
 	const updateVariant = useMutation(api.inclusionVariants.update.update);
-	const generateUploadUrl = useMutation(
-		api.fileStorage.generateUploadUrl.generateUploadUrl
-	);
-	const resolvePublicUrl = useMutation(
-		api.fileStorage.resolvePublicUrl.resolvePublicUrl
+	const generateS3UploadUrl = useAction(
+		api.fileStorage.generateS3UploadUrl.generateS3UploadUrl
 	);
 
 	const form = useForm({
@@ -113,7 +111,6 @@ export default function EditInclusionVariant({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = addInclusionVariantFormSchema.parse(value);
-				const normalizedStorageId = parsed.storageId?.trim();
 				await updateVariant({
 					variantId: variant._id,
 					class: parsed.class,
@@ -125,14 +122,12 @@ export default function EditInclusionVariant({
 					details: normalizeOptionalText(parsed.details) ?? null,
 					link: normalizeOptionalText(parsed.link) ?? null,
 					image: normalizeOptionalText(parsed.image) ?? null,
-					storageId: normalizedStorageId
-						? (normalizedStorageId as Id<'_storage'>)
-						: null,
 				});
 				toastManager.add({
 					title: 'Variant updated',
 					type: 'success',
 				});
+				setPreviewUrl('');
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
@@ -148,38 +143,36 @@ export default function EditInclusionVariant({
 	});
 
 	const removeVariantImage = () => {
+		if (previewUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(previewUrl);
+		}
 		form.setFieldValue('image', '');
-		form.setFieldValue('storageId', '');
+		setPreviewUrl('');
 	};
 
 	const uploadImage = async (file: File) => {
 		setIsUploadingImage(true);
+		const localPreview = URL.createObjectURL(file);
+		setPreviewUrl(localPreview);
 		try {
-			const uploadUrl = await generateUploadUrl({});
+			const ext = file.name.split('.').pop() ?? 'jpg';
+			const { uploadUrl, s3Key } = await generateS3UploadUrl({
+				contentType: file.type || 'application/octet-stream',
+				ext,
+			});
 			const response = await fetch(uploadUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': file.type || 'application/octet-stream',
-				},
+				method: 'PUT',
+				headers: { 'Content-Type': file.type || 'application/octet-stream' },
 				body: file,
 			});
 			if (!response.ok) {
 				throw new Error('Upload failed');
 			}
-			const payload = (await response.json()) as { storageId?: string };
-			if (!payload.storageId) {
-				throw new Error('Upload response missing storageId');
-			}
-			const resolved = await resolvePublicUrl({
-				storageId: payload.storageId as Id<'_storage'>,
-			});
-			form.setFieldValue('storageId', resolved.storageId);
-			form.setFieldValue('image', resolved.url);
-			toastManager.add({
-				title: 'Image uploaded',
-				type: 'success',
-			});
+			form.setFieldValue('image', s3Key);
+			toastManager.add({ title: 'Image uploaded', type: 'success' });
 		} catch (error) {
+			URL.revokeObjectURL(localPreview);
+			setPreviewUrl('');
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
@@ -202,11 +195,23 @@ export default function EditInclusionVariant({
 					form.reset(defaults);
 					setUploadFieldKey((key) => key + 1);
 					setModelDraft('');
+					setPreviewUrl('');
+					if (variant.image) {
+						signCdnUrl(variant.image)
+							.then((url) => setPreviewUrl(url))
+							.catch(() => {
+								/* preview unavailable — image key still saved in form */
+							});
+					}
 					Promise.resolve(form.validate('change')).catch(() => {
 						/* validation errors are reflected in form state */
 					});
 				}
 				if (!nextOpen) {
+					if (previewUrl.startsWith('blob:')) {
+						URL.revokeObjectURL(previewUrl);
+					}
+					setPreviewUrl('');
 					setIsUploadingImage(false);
 				}
 			}}
@@ -593,29 +598,21 @@ export default function EditInclusionVariant({
 									)}
 								</form.Field>
 
-								<form.Subscribe
-									selector={(state) => ({
-										imageUrl: state.values.image,
-									})}
-								>
-									{({ imageUrl }) => (
-										<SingleImageUpload
-											description="Upload 1 image for this variant."
-											disabled={form.state.isSubmitting}
-											id="variant-image"
-											imageUrl={imageUrl}
-											key={uploadFieldKey}
-											label="Image"
-											onClear={() => removeVariantImage()}
-											onFileSelected={(file) => {
-												uploadImage(file).catch(() => {
-													/* Error handled in uploadImage */
-												});
-											}}
-											uploading={isUploadingImage}
-										/>
-									)}
-								</form.Subscribe>
+								<SingleImageUpload
+									description="Upload 1 image for this variant."
+									disabled={form.state.isSubmitting}
+									id="variant-image"
+									imageUrl={previewUrl}
+									key={uploadFieldKey}
+									label="Image"
+									onClear={() => removeVariantImage()}
+									onFileSelected={(file) => {
+										uploadImage(file).catch(() => {
+											/* Error handled in uploadImage */
+										});
+									}}
+									uploading={isUploadingImage}
+								/>
 							</FramePanel>
 						</Frame>
 					</SheetPanel>

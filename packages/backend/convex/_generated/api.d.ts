@@ -9,6 +9,7 @@
  */
 
 import type * as fileStorage_deleteStorage from "../fileStorage/deleteStorage.js";
+import type * as fileStorage_generateS3UploadUrl from "../fileStorage/generateS3UploadUrl.js";
 import type * as fileStorage_generateUploadUrl from "../fileStorage/generateUploadUrl.js";
 import type * as fileStorage_resolvePublicUrl from "../fileStorage/resolvePublicUrl.js";
 import type * as inclusionCategories_add from "../inclusionCategories/add.js";
@@ -19,6 +20,9 @@ import type * as inclusionCategories_shared from "../inclusionCategories/shared.
 import type * as inclusionCategories_update from "../inclusionCategories/update.js";
 import type * as inclusionVariants_add from "../inclusionVariants/add.js";
 import type * as inclusionVariants_listByInclusion from "../inclusionVariants/listByInclusion.js";
+import type * as inclusionVariants_migrateImageBinariesToS3 from "../inclusionVariants/migrateImageBinariesToS3.js";
+import type * as inclusionVariants_migrateImageHelpers from "../inclusionVariants/migrateImageHelpers.js";
+import type * as inclusionVariants_migrateImagesToS3 from "../inclusionVariants/migrateImagesToS3.js";
 import type * as inclusionVariants_remove from "../inclusionVariants/remove.js";
 import type * as inclusionVariants_search from "../inclusionVariants/search.js";
 import type * as inclusionVariants_shared from "../inclusionVariants/shared.js";
@@ -60,6 +64,9 @@ import type * as projectInclusions_add from "../projectInclusions/add.js";
 import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
 import type * as projectInclusions_list from "../projectInclusions/list.js";
 import type * as projectInclusions_listNotes from "../projectInclusions/listNotes.js";
+import type * as projectInclusions_migrateImageBinariesToS3 from "../projectInclusions/migrateImageBinariesToS3.js";
+import type * as projectInclusions_migrateImageHelpers from "../projectInclusions/migrateImageHelpers.js";
+import type * as projectInclusions_migrateImagesToS3 from "../projectInclusions/migrateImagesToS3.js";
 import type * as projectInclusions_remove from "../projectInclusions/remove.js";
 import type * as projectInclusions_search from "../projectInclusions/search.js";
 import type * as projectInclusions_shared from "../projectInclusions/shared.js";
@@ -115,6 +122,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "fileStorage/deleteStorage": typeof fileStorage_deleteStorage;
+  "fileStorage/generateS3UploadUrl": typeof fileStorage_generateS3UploadUrl;
   "fileStorage/generateUploadUrl": typeof fileStorage_generateUploadUrl;
   "fileStorage/resolvePublicUrl": typeof fileStorage_resolvePublicUrl;
   "inclusionCategories/add": typeof inclusionCategories_add;
@@ -125,6 +133,9 @@ declare const fullApi: ApiFromModules<{
   "inclusionCategories/update": typeof inclusionCategories_update;
   "inclusionVariants/add": typeof inclusionVariants_add;
   "inclusionVariants/listByInclusion": typeof inclusionVariants_listByInclusion;
+  "inclusionVariants/migrateImageBinariesToS3": typeof inclusionVariants_migrateImageBinariesToS3;
+  "inclusionVariants/migrateImageHelpers": typeof inclusionVariants_migrateImageHelpers;
+  "inclusionVariants/migrateImagesToS3": typeof inclusionVariants_migrateImagesToS3;
   "inclusionVariants/remove": typeof inclusionVariants_remove;
   "inclusionVariants/search": typeof inclusionVariants_search;
   "inclusionVariants/shared": typeof inclusionVariants_shared;
@@ -166,6 +177,9 @@ declare const fullApi: ApiFromModules<{
   "projectInclusions/appendNote": typeof projectInclusions_appendNote;
   "projectInclusions/list": typeof projectInclusions_list;
   "projectInclusions/listNotes": typeof projectInclusions_listNotes;
+  "projectInclusions/migrateImageBinariesToS3": typeof projectInclusions_migrateImageBinariesToS3;
+  "projectInclusions/migrateImageHelpers": typeof projectInclusions_migrateImageHelpers;
+  "projectInclusions/migrateImagesToS3": typeof projectInclusions_migrateImagesToS3;
   "projectInclusions/remove": typeof projectInclusions_remove;
   "projectInclusions/search": typeof projectInclusions_search;
   "projectInclusions/shared": typeof projectInclusions_shared;

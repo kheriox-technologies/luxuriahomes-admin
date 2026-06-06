@@ -77,23 +77,6 @@ export async function getStandardVariantOrThrow(
 	return standard;
 }
 
-export function copyStorageIdIfPresent(
-	_ctx: MutationCtx,
-	storageId: Id<'_storage'> | undefined
-) {
-	if (!storageId) {
-		return undefined;
-	}
-	return storageId;
-}
-
-export function deleteProjectInclusionStorageIfPresent(
-	_ctx: MutationCtx,
-	_storageId: Id<'_storage'> | undefined
-) {
-	return undefined;
-}
-
 export function buildVariationFromStandard(
 	className: Doc<'projectInclusions'>['class'],
 	costPrice: number,
