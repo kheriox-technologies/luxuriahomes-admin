@@ -28,6 +28,7 @@ import {
 	type LucideIcon,
 	MapPin,
 	SquaresIntersect,
+	Store,
 	Wrench,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -76,6 +77,12 @@ const items: SidebarItem[] = [
 		url: '/trades',
 		path: '/trades',
 		icon: Wrench,
+	},
+	{
+		title: 'Vendors',
+		url: '/vendors',
+		path: '/vendors',
+		icon: Store,
 	},
 	{
 		title: 'Orders',

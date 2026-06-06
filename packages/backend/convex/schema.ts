@@ -177,4 +177,10 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_trades', { searchField: 'searchText' }),
+	vendors: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		link: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_vendors', { searchField: 'searchText' }),
 });

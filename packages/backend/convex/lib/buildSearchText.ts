@@ -135,6 +135,14 @@ export function buildTradeSearchText(
 	return buildSearchText([name, description]);
 }
 
+export function buildVendorSearchText(
+	name: string,
+	description?: string,
+	link?: string
+): string {
+	return buildSearchText([name, description, link]);
+}
+
 export function buildInclusionAggregateSearchText(
 	title: string,
 	variants: InclusionVariantSearchFields[],

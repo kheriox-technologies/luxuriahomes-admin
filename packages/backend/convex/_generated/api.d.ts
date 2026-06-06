@@ -98,6 +98,14 @@ import type * as trades_shared from "../trades/shared.js";
 import type * as trades_update from "../trades/update.js";
 import type * as units_list from "../units/list.js";
 import type * as units_seed from "../units/seed.js";
+import type * as vendors_add from "../vendors/add.js";
+import type * as vendors_get from "../vendors/get.js";
+import type * as vendors_list from "../vendors/list.js";
+import type * as vendors_remove from "../vendors/remove.js";
+import type * as vendors_search from "../vendors/search.js";
+import type * as vendors_seed from "../vendors/seed.js";
+import type * as vendors_shared from "../vendors/shared.js";
+import type * as vendors_update from "../vendors/update.js";
 
 import type {
   ApiFromModules,
@@ -196,6 +204,14 @@ declare const fullApi: ApiFromModules<{
   "trades/update": typeof trades_update;
   "units/list": typeof units_list;
   "units/seed": typeof units_seed;
+  "vendors/add": typeof vendors_add;
+  "vendors/get": typeof vendors_get;
+  "vendors/list": typeof vendors_list;
+  "vendors/remove": typeof vendors_remove;
+  "vendors/search": typeof vendors_search;
+  "vendors/seed": typeof vendors_seed;
+  "vendors/shared": typeof vendors_shared;
+  "vendors/update": typeof vendors_update;
 }>;
 
 /**
