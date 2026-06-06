@@ -136,7 +136,8 @@ export const createCDNDistributions = (input: CDNInput): void => {
 	// CloudFront Public Key + Key Group for signed URL enforcement
 	const cdnPublicKey = new cloudfront.PublicKey('cdn-public-key', {
 		name: `${cloudFrontNamePrefix}-cdn-public-key`,
-		encodedKey: appConfig.require('cdnPublicKey'),
+		// AWS appends a trailing newline to stored keys; normalize to prevent perpetual diff
+		encodedKey: `${appConfig.require('cdnPublicKey').trim()}\n`,
 		comment: `CDN signed-URL public key for ${envName}`,
 	});
 
