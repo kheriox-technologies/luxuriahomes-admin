@@ -15,20 +15,20 @@ import {
 	ChevronsLeft,
 	ChevronsRight,
 } from 'lucide-react';
+import type * as React from 'react';
 
 interface DataTablePaginationProps<TData> {
 	table: Table<TData>;
+	label?: React.ReactNode;
 }
 
 export function DataTablePagination<TData>({
 	table,
+	label,
 }: DataTablePaginationProps<TData>) {
 	return (
 		<div className="flex items-center justify-between px-2">
-			<div className="flex-1 text-muted-foreground text-sm">
-				{/* {table.getFilteredSelectedRowModel().rows.length} of{" "}
-        {table.getFilteredRowModel().rows.length} row(s) selected. */}
-			</div>
+			<div className="flex-1 text-muted-foreground text-sm">{label}</div>
 			<div className="flex items-center space-x-6 lg:space-x-8">
 				<div className="flex items-center space-x-2">
 					<p className="font-medium text-sm">Rows per page</p>

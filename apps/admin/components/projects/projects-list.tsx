@@ -1,8 +1,10 @@
 'use client';
 
+import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
+import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	Empty,
 	EmptyDescription,
@@ -10,19 +12,13 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import {
-	Frame,
-	FrameHeader,
-	FramePanel,
-	FrameTitle,
-} from '@workspace/ui/components/frame';
-import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Building2, SearchIcon } from 'lucide-react';
-import Link, { type LinkProps } from 'next/link';
-import { formatStartDateRelative } from '@/components/projects/project-form-shared';
+import type { Route } from 'next';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-/** Set to `false` before commit — forces the “no projects yet” empty UI. */
+/** Set to `false` before commit — forces the "no projects yet" empty UI. */
 const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
 
 type Project = Doc<'projects'>;
@@ -64,57 +60,118 @@ function statusBadgeProps(status: Project['status']): {
 	}
 }
 
-function ProjectListItem({ project }: { project: Project }) {
-	const badge = statusBadgeProps(project.status);
-	return (
-		<Link
-			className="group block min-w-0"
-			href={`/projects/${project._id}` as LinkProps<string>['href']}
-			prefetch
-		>
-			<Frame
-				className={cn(
-					'h-full transition-colors',
-					'group-hover:ring-1 group-hover:ring-ring/32'
-				)}
-			>
-				<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
-					<FrameTitle className="min-w-0 truncate leading-snug">
-						{project.name}
-					</FrameTitle>
-					<Badge className="shrink-0" size="lg" variant={badge.variant}>
-						{badge.label}
-					</Badge>
-				</FrameHeader>
-				<FramePanel className="space-y-1 text-muted-foreground text-sm">
-					<p className="leading-snug">{project.address.street}</p>
-					<p className="leading-snug">
-						{project.address.suburb}, {project.address.state}{' '}
-						{project.address.postcode}
-					</p>
-					<div>
-						{project.startDate ? (
-							<Badge size="lg" variant="outline">
-								{formatStartDateRelative(project.startDate)}
-							</Badge>
-						) : (
-							<Badge size="lg" variant="warning">
-								No start date available
-							</Badge>
-						)}
-					</div>
-				</FramePanel>
-			</Frame>
-		</Link>
-	);
+function formatDuration(startDate: number): string {
+	const start = new Date(startDate);
+	const end = new Date();
+
+	let months =
+		(end.getFullYear() - start.getFullYear()) * 12 +
+		(end.getMonth() - start.getMonth());
+	let days = end.getDate() - start.getDate();
+
+	if (days < 0) {
+		months -= 1;
+		const daysInPrevMonth = new Date(
+			end.getFullYear(),
+			end.getMonth(),
+			0
+		).getDate();
+		days += daysInPrevMonth;
+	}
+
+	const parts: string[] = [];
+	if (months > 0) {
+		parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+	}
+	if (days > 0) {
+		parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+	}
+	return parts.length > 0 ? parts.join(' ') : 'Today';
 }
+
+const columns: ColumnDef<Project>[] = [
+	{
+		accessorKey: 'name',
+		header: 'Name',
+		cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+	},
+	{
+		id: 'address',
+		header: 'Address',
+		cell: ({ row }) => {
+			const { street, suburb, state, postcode } = row.original.address;
+			return (
+				<div className="space-y-0.5">
+					<p>{street}</p>
+					<p className="text-muted-foreground text-xs">
+						{suburb}, {state} {postcode}
+					</p>
+				</div>
+			);
+		},
+	},
+	{
+		accessorKey: 'status',
+		header: 'Status',
+		size: 130,
+		cell: ({ row }) => {
+			const badge = statusBadgeProps(row.original.status);
+			return <Badge variant={badge.variant}>{badge.label}</Badge>;
+		},
+	},
+	{
+		id: 'duration',
+		header: 'Duration',
+		size: 140,
+		cell: ({ row }) => {
+			const { status, startDate } = row.original;
+			if (status !== 'in_progress' || !startDate) {
+				return null;
+			}
+			return (
+				<span className="text-muted-foreground text-sm">
+					{formatDuration(startDate)}
+				</span>
+			);
+		},
+	},
+	{
+		id: 'clients',
+		header: 'Clients',
+		cell: ({ row }) => (
+			<div className="space-y-3">
+				{row.original.clients.map((client, i) => (
+					<div className="space-y-0.5" key={`${client.email}-${i}`}>
+						<p className="font-medium">
+							{client.firstName} {client.lastName}
+						</p>
+						<p className="text-muted-foreground text-xs">{client.email}</p>
+						<p className="text-muted-foreground text-xs">{client.phone}</p>
+					</div>
+				))}
+			</div>
+		),
+	},
+];
 
 export default function ProjectsList({
 	searchQuery = '',
 }: {
 	searchQuery?: string;
 }) {
+	const router = useRouter();
 	const trimmedSearch = searchQuery.trim();
+
+	const [{ pageIndex, pageSize }, setPagination] = useState({
+		pageIndex: 0,
+		pageSize: 20,
+	});
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: trimmedSearch is the trigger to reset pagination, not a value consumed inside the callback
+	useEffect(() => {
+		setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+	}, [trimmedSearch]);
+
 	const listResults = useQuery(
 		api.projects.list.list,
 		trimmedSearch === '' ? {} : 'skip'
@@ -156,11 +213,22 @@ export default function ProjectsList({
 		);
 	}
 
+	const pageCount = Math.ceil(projects.length / pageSize);
+	const pageData = projects.slice(
+		pageIndex * pageSize,
+		(pageIndex + 1) * pageSize
+	);
+
 	return (
-		<div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-			{projects.map((project) => (
-				<ProjectListItem key={project._id} project={project} />
-			))}
-		</div>
+		<DataTable
+			columns={columns}
+			data={pageData}
+			emptyMessage="No matching projects."
+			manualPagination
+			onPaginationChange={setPagination}
+			onRowClick={(project) => router.push(`/projects/${project._id}` as Route)}
+			pagination={{ pageIndex, pageSize, pageCount }}
+			totalCount={projects.length}
+		/>
 	);
 }

@@ -9,7 +9,7 @@ import {
 	useReactTable,
 } from '@tanstack/react-table';
 import { DataTablePagination } from '@workspace/ui/components/data-table-pagination';
-import { Frame } from '@workspace/ui/components/frame';
+import { Frame, FrameFooter } from '@workspace/ui/components/frame';
 import {
 	Table,
 	TableBody,
@@ -36,11 +36,13 @@ interface DataTableProps<TData, TValue> {
 	emptyMessage?: string;
 	manualPagination?: boolean;
 	onPaginationChange?: OnChangeFn<PaginationState>;
+	onRowClick?: (row: TData) => void;
 	pagination?: {
 		pageIndex: number;
 		pageSize: number;
 		pageCount: number;
 	};
+	totalCount?: number;
 }
 
 export function DataTable<TData, TValue>({
@@ -48,8 +50,10 @@ export function DataTable<TData, TValue>({
 	data,
 	pagination,
 	onPaginationChange,
+	onRowClick,
 	manualPagination = false,
 	emptyMessage = 'No results.',
+	totalCount,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -65,86 +69,103 @@ export function DataTable<TData, TValue>({
 		onPaginationChange,
 	});
 
+	const rangeLabel =
+		pagination && totalCount !== undefined
+			? (() => {
+					const start = pagination.pageIndex * pagination.pageSize + 1;
+					const end = Math.min(
+						(pagination.pageIndex + 1) * pagination.pageSize,
+						totalCount
+					);
+					return (
+						<span className="text-muted-foreground text-sm">
+							{start}–{end} / {totalCount}
+						</span>
+					);
+				})()
+			: undefined;
+
 	return (
-		<div className="space-y-4">
-			<Frame className="min-w-0 overflow-hidden">
-				<Table
-					className="w-full table-fixed"
-					containerClassName="min-w-0 overflow-x-hidden"
-				>
-					<TableHeader>
-						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id}>
-								{headerGroup.headers.map((header) => {
-									const size = header.getSize();
-									const columnSize = header.column.columnDef.size;
+		<Frame className="min-w-0 overflow-hidden">
+			<Table className="w-full table-fixed">
+				<TableHeader>
+					{table.getHeaderGroups().map((headerGroup) => (
+						<TableRow key={headerGroup.id}>
+							{headerGroup.headers.map((header) => {
+								const size = header.getSize();
+								const columnSize = header.column.columnDef.size;
+								const width = getColumnWidth(columnSize, size);
+								return (
+									<TableHead
+										className={width ? undefined : 'min-w-0'}
+										key={header.id}
+										style={
+											width
+												? { width, minWidth: width, maxWidth: width }
+												: undefined
+										}
+									>
+										{header.isPlaceholder
+											? null
+											: flexRender(
+													header.column.columnDef.header,
+													header.getContext()
+												)}
+									</TableHead>
+								);
+							})}
+						</TableRow>
+					))}
+				</TableHeader>
+				<TableBody>
+					{table.getRowModel().rows?.length ? (
+						table.getRowModel().rows.map((row) => (
+							<TableRow
+								className={onRowClick ? 'cursor-pointer' : undefined}
+								data-state={row.getIsSelected() && 'selected'}
+								key={row.id}
+								onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+							>
+								{row.getVisibleCells().map((cell) => {
+									const size = cell.column.getSize();
+									const columnSize = cell.column.columnDef.size;
 									const width = getColumnWidth(columnSize, size);
 									return (
-										<TableHead
-											className={width ? undefined : 'min-w-0'}
-											key={header.id}
+										<TableCell
+											className="min-w-0 whitespace-normal align-top"
+											key={cell.id}
 											style={
 												width
 													? { width, minWidth: width, maxWidth: width }
 													: undefined
 											}
 										>
-											{header.isPlaceholder
-												? null
-												: flexRender(
-														header.column.columnDef.header,
-														header.getContext()
-													)}
-										</TableHead>
+											{flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext()
+											)}
+										</TableCell>
 									);
 								})}
 							</TableRow>
-						))}
-					</TableHeader>
-					<TableBody>
-						{table.getRowModel().rows?.length ? (
-							table.getRowModel().rows.map((row) => (
-								<TableRow
-									data-state={row.getIsSelected() && 'selected'}
-									key={row.id}
-								>
-									{row.getVisibleCells().map((cell) => {
-										const size = cell.column.getSize();
-										const columnSize = cell.column.columnDef.size;
-										const width = getColumnWidth(columnSize, size);
-										return (
-											<TableCell
-												className="min-w-0 whitespace-normal"
-												key={cell.id}
-												style={
-													width
-														? { width, minWidth: width, maxWidth: width }
-														: undefined
-												}
-											>
-												{flexRender(
-													cell.column.columnDef.cell,
-													cell.getContext()
-												)}
-											</TableCell>
-										);
-									})}
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell
-									className="h-24 text-center"
-									colSpan={columns.length}
-								>
-									{emptyMessage}
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</Frame>
-			{pagination && <DataTablePagination table={table} />}
-		</div>
+						))
+					) : (
+						<TableRow>
+							<TableCell
+								className="h-24 text-center"
+								colSpan={columns.length}
+							>
+								{emptyMessage}
+							</TableCell>
+						</TableRow>
+					)}
+				</TableBody>
+			</Table>
+			{pagination && (
+				<FrameFooter>
+					<DataTablePagination label={rangeLabel} table={table} />
+				</FrameFooter>
+			)}
+		</Frame>
 	);
 }
