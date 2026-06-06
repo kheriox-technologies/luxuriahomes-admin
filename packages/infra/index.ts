@@ -6,4 +6,5 @@ requireMatchingBackendUrl();
 const s3Buckets = createS3Buckets();
 createCDNDistributions({
 	staticBucket: s3Buckets.staticBucket,
+	cdnBucket: s3Buckets.cdnBucket,
 });

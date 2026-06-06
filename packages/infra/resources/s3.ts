@@ -2,6 +2,7 @@ import { s3 } from '@pulumi/aws';
 import { appConfig, defaultTags, envName } from '../config';
 
 interface S3Buckets {
+	cdnBucket: s3.Bucket;
 	configBucket: s3.Bucket;
 	staticBucket: s3.Bucket;
 }
@@ -42,8 +43,18 @@ export const createS3Buckets = (): S3Buckets => {
 		corsRules,
 	});
 
+	const cdnBucket = new s3.Bucket('cdn-bucket', {
+		...commonBucketArgs,
+		bucket: `${bucketNamePrefix}-cdn`,
+	});
+	new s3.BucketCorsConfigurationV2('cdn-bucket-cors', {
+		bucket: cdnBucket.id,
+		corsRules,
+	});
+
 	return {
 		configBucket,
 		staticBucket,
+		cdnBucket,
 	};
 };
