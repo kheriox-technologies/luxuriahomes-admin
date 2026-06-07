@@ -175,6 +175,28 @@ export default defineSchema({
 		abbr: v.string(),
 		label: v.string(),
 	}).index('by_category', ['category']),
+	projectDocumentFolders: defineTable({
+		projectId: v.id('projects'),
+		name: v.string(),
+		path: v.string(),
+		parentPath: v.string(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_project_and_path', ['projectId', 'path'])
+		.index('by_project_and_parent', ['projectId', 'parentPath']),
+	projectDocuments: defineTable({
+		projectId: v.id('projects'),
+		name: v.string(),
+		kebabName: v.string(),
+		s3Key: v.string(),
+		folderPath: v.string(),
+		size: v.optional(v.number()),
+		mimeType: v.optional(v.string()),
+		uploadedBy: v.string(),
+		uploadedAt: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_project_and_folder', ['projectId', 'folderPath']),
 	locations: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

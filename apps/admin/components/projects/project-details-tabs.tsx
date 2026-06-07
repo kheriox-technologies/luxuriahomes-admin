@@ -15,6 +15,7 @@ import {
 	Users,
 } from 'lucide-react';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
+import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
@@ -71,7 +72,9 @@ export default function ProjectDetailsTabs({
 			<TabsPanel value="inclusions">
 				<ProjectInclusionsTabContent projectId={projectId} />
 			</TabsPanel>
-			<TabsPanel value="documents" />
+			<TabsPanel value="documents">
+				<ProjectDocumentsTabContent projectId={projectId} />
+			</TabsPanel>
 			<TabsPanel value="quotations" />
 			<TabsPanel value="contacts" />
 		</Tabs>
