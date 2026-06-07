@@ -55,6 +55,7 @@ export default defineSchema({
 		categoryId: v.id('inclusionCategories'),
 		searchText: v.string(),
 		variantCount: v.number(),
+		standardPrice: v.optional(v.number()),
 	})
 		.index('by_category', ['categoryId'])
 		.searchIndex('search_inclusions', { searchField: 'searchText' }),

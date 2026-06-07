@@ -182,16 +182,15 @@ const catalogueVariantsTableMinClass = (showPricing: boolean) =>
 function InclusionCatalogueVariantsTableInFrame({
 	inclusion,
 	mode,
-	standardSalePrice,
 	variants,
 }: {
 	inclusion: Doc<'inclusions'>;
 	mode: 'builder' | 'client';
-	standardSalePrice: number | null;
 	variants: Doc<'inclusionVariants'>[];
 }) {
 	const showPricing = mode === 'builder';
 	const minClass = catalogueVariantsTableMinClass(showPricing);
+	const standardPrice = inclusion.standardPrice ?? null;
 	const [signedImageUrls, setSignedImageUrls] = useState<
 		Record<string, string>
 	>({});
@@ -252,13 +251,13 @@ function InclusionCatalogueVariantsTableInFrame({
 									variationDisplay = (
 										<span className="text-muted-foreground">—</span>
 									);
-								} else if (standardSalePrice === null) {
+								} else if (standardPrice === null) {
 									variationDisplay = (
 										<span className="text-muted-foreground">N/A</span>
 									);
 								} else {
 									variationDisplay = formatSignedAud(
-										variant.salePrice - standardSalePrice
+										variant.salePrice - standardPrice
 									);
 								}
 								return (
@@ -380,8 +379,6 @@ export default function InclusionCatalogueDetailView({
 	}
 
 	const { categoryName, inclusion, variants } = data;
-	const standardSalePrice =
-		variants.find((variant) => variant.class === 'Standard')?.salePrice ?? null;
 
 	return (
 		<div className={cn('flex h-full w-full flex-col gap-6')}>
@@ -394,6 +391,7 @@ export default function InclusionCatalogueDetailView({
 						<EditInclusion
 							inclusionId={inclusionId}
 							initialCategoryId={inclusion.categoryId}
+							initialStandardPrice={inclusion.standardPrice}
 							initialTitle={inclusion.title}
 							trigger={
 								<Button
@@ -431,6 +429,15 @@ export default function InclusionCatalogueDetailView({
 						<Badge size="lg" variant="info">
 							{formatVariantBadgeLabel(inclusion.variantCount)}
 						</Badge>
+						{inclusion.standardPrice !== undefined ? (
+							<Badge size="lg" variant="purple">
+								{formatAud(inclusion.standardPrice)}
+							</Badge>
+						) : (
+							<Badge size="lg" variant="yellow">
+								No standard price set
+							</Badge>
+						)}
 					</>
 				}
 				rightSlot={
@@ -448,7 +455,6 @@ export default function InclusionCatalogueDetailView({
 				<InclusionCatalogueVariantsTableInFrame
 					inclusion={inclusion}
 					mode={mode}
-					standardSalePrice={standardSalePrice}
 					variants={variants}
 				/>
 			)}

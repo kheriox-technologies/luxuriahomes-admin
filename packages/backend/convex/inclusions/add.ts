@@ -8,6 +8,7 @@ export const add = mutation({
 	args: {
 		title: v.string(),
 		categoryId: v.id('inclusionCategories'),
+		standardPrice: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -28,6 +29,7 @@ export const add = mutation({
 			categoryId: args.categoryId,
 			searchText,
 			variantCount: 0,
+			standardPrice: args.standardPrice,
 		});
 		await ctx.db.patch(args.categoryId, {
 			count: category.count + 1,

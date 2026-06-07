@@ -12,6 +12,7 @@ export const update = mutation({
 		inclusionId: v.id('inclusions'),
 		title: v.string(),
 		categoryId: v.optional(v.id('inclusionCategories')),
+		standardPrice: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -41,6 +42,7 @@ export const update = mutation({
 		await ctx.db.patch(args.inclusionId, {
 			title,
 			categoryId: nextCategoryId,
+			standardPrice: args.standardPrice,
 		});
 		await syncSearchTextsForInclusion(ctx, args.inclusionId);
 		return args.inclusionId;
