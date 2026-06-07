@@ -79,42 +79,33 @@ export async function getStandardVariantOrThrow(
 
 export function buildVariationFromStandard(
 	className: Doc<'projectInclusions'>['class'],
-	costPrice: number,
 	salePrice: number,
-	standardCostPrice: number,
 	standardSalePrice: number
 ) {
 	if (className === 'Standard') {
-		return {
-			variationCostPrice: undefined,
-			variationSalePrice: undefined,
-		};
+		return { variationPrice: undefined };
 	}
-	return {
-		variationCostPrice: roundMoney(costPrice - standardCostPrice),
-		variationSalePrice: roundMoney(salePrice - standardSalePrice),
-	};
+	return { variationPrice: roundMoney(salePrice - standardSalePrice) };
 }
 
 export function validateVariationFields(
 	className: Doc<'projectInclusions'>['class'],
-	variationCostPrice: number | undefined,
-	variationSalePrice: number | undefined
+	variationPrice: number | undefined
 ) {
 	if (className === 'Standard') {
-		if (variationCostPrice !== undefined || variationSalePrice !== undefined) {
+		if (variationPrice !== undefined) {
 			throw new ConvexError({
 				code: 'INVALID_VARIATION',
-				message: 'Standard class cannot have variation prices',
+				message: 'Standard class cannot have a variation price',
 			});
 		}
 		return;
 	}
 
-	if (variationCostPrice === undefined || variationSalePrice === undefined) {
+	if (variationPrice === undefined) {
 		throw new ConvexError({
 			code: 'INVALID_VARIATION',
-			message: 'Variation prices are required for non-standard classes',
+			message: 'Variation price is required for non-standard classes',
 		});
 	}
 }

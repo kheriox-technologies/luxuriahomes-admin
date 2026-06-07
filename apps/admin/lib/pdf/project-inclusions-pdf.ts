@@ -43,7 +43,7 @@ export interface ProjectPdfInclusion {
 	models: string[];
 	status?: 'Under Review' | 'Approved';
 	title: string;
-	variationSalePrice?: number;
+	variationPrice?: number;
 	vendor: string;
 }
 
@@ -142,7 +142,7 @@ function buildDocDefinition(
 			const variation =
 				inclusion.class === 'Standard'
 					? '—'
-					: formatSignedAud(inclusion.variationSalePrice ?? 0);
+					: formatSignedAud(inclusion.variationPrice ?? 0);
 
 			const vendorDetails = [
 				inclusion.vendor,

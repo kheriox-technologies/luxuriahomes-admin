@@ -147,15 +147,17 @@ function CatalogueVariantImageThumbnail({
 
 function CatalogueVariantActionsCell({
 	variant,
+	hasUnit,
 }: {
 	variant: Doc<'inclusionVariants'>;
+	hasUnit: boolean;
 }) {
 	return (
 		<Group className="justify-end">
 			<AddVariantToProjectDialog
 				inclusionVariantId={variant._id}
 				trigger={
-					<Button type="button" variant="outline">
+					<Button disabled={!hasUnit} type="button" variant="outline">
 						Add To Project
 					</Button>
 				}
@@ -354,7 +356,10 @@ function InclusionCatalogueVariantsTableInFrame({
 										</TableCell>
 										<TableCell className="w-[200px] min-w-[200px] max-w-[200px] whitespace-nowrap align-middle">
 											<div className="flex justify-end">
-												<CatalogueVariantActionsCell variant={variant} />
+												<CatalogueVariantActionsCell
+													hasUnit={!!inclusion.measurementUnit}
+													variant={variant}
+												/>
 											</div>
 										</TableCell>
 									</TableRow>

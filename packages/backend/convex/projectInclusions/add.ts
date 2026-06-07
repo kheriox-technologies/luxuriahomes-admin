@@ -20,6 +20,15 @@ export const add = mutation({
 	args: {
 		projectId: v.id('projects'),
 		inclusionVariantId: v.id('inclusionVariants'),
+		locations: v.optional(
+			v.array(
+				v.object({
+					name: v.string(),
+					quantity: v.optional(v.number()),
+					unit: v.optional(v.string()),
+				})
+			)
+		),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -40,19 +49,12 @@ export const add = mutation({
 			ctx,
 			variant.inclusionId
 		);
-		const { variationCostPrice, variationSalePrice } =
-			buildVariationFromStandard(
-				variant.class,
-				costPrice,
-				salePrice,
-				standardVariant.costPrice,
-				standardVariant.salePrice
-			);
-		validateVariationFields(
+		const { variationPrice } = buildVariationFromStandard(
 			variant.class,
-			variationCostPrice,
-			variationSalePrice
+			salePrice,
+			standardVariant.salePrice
 		);
+		validateVariationFields(variant.class, variationPrice);
 
 		const title = inclusion.title.trim();
 		const code = variant.code.trim();
@@ -92,8 +94,8 @@ export const add = mutation({
 			link,
 			costPrice,
 			salePrice,
-			variationCostPrice,
-			variationSalePrice,
+			variationPrice,
+			locations: args.locations,
 			searchText,
 			status: 'Under Review' as const,
 		};
