@@ -143,6 +143,13 @@ export function buildVendorSearchText(
 	return buildSearchText([name, description, link]);
 }
 
+export function buildMaterialColorSearchText(
+	name: string,
+	description?: string
+): string {
+	return buildSearchText([name, description]);
+}
+
 export function buildInclusionAggregateSearchText(
 	title: string,
 	variants: InclusionVariantSearchFields[],

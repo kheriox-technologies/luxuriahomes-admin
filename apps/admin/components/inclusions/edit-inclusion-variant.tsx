@@ -40,7 +40,7 @@ import {
 import { SingleImageUpload } from '@workspace/ui/components/single-image-upload';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { Plus, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
@@ -52,14 +52,18 @@ import {
 	normalizeOptionalText,
 	parseMoneyString,
 } from '@/components/inclusions/inclusion-form-shared';
+import MaterialColorCombobox from '@/components/inclusions/material-color-combobox';
+import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 function toDefaultValues(variant: Doc<'inclusionVariants'>) {
 	return {
 		class: variant.class as InclusionVariantClass,
 		vendor: variant.vendor,
+		newVendorName: '',
 		models: variant.models,
 		color: variant.color ?? '',
+		newColorName: '',
 		costPrice: String(variant.costPrice),
 		salePrice: String(variant.salePrice),
 		details: variant.details ?? '',
@@ -98,6 +102,10 @@ export default function EditInclusionVariant({
 	const [previewUrl, setPreviewUrl] = useState('');
 
 	const updateVariant = useMutation(api.inclusionVariants.update.update);
+	const addVendor = useMutation(api.vendors.add.add);
+	const addMaterialColor = useMutation(api.materialColors.add.add);
+	const vendors = useQuery(api.vendors.list.list, {});
+	const materialColors = useQuery(api.materialColors.list.list, {});
 	const generateS3UploadUrl = useAction(
 		api.fileStorage.generateS3UploadUrl.generateS3UploadUrl
 	);
@@ -111,14 +119,28 @@ export default function EditInclusionVariant({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = addInclusionVariantFormSchema.parse(value);
+
+				const newVendorTrimmed = normalizeOptionalText(parsed.newVendorName);
+				const resolvedVendor = newVendorTrimmed ?? parsed.vendor.trim();
+				if (newVendorTrimmed) {
+					await addVendor({ name: newVendorTrimmed });
+				}
+
+				const newColorTrimmed = normalizeOptionalText(parsed.newColorName);
+				const resolvedColor =
+					newColorTrimmed ?? normalizeOptionalText(parsed.color);
+				if (newColorTrimmed) {
+					await addMaterialColor({ name: newColorTrimmed });
+				}
+
 				await updateVariant({
 					variantId: variant._id,
 					class: parsed.class,
 					costPrice: parseMoneyString(parsed.costPrice),
 					salePrice: parseMoneyString(parsed.salePrice),
-					vendor: parsed.vendor.trim(),
+					vendor: resolvedVendor,
 					models: parsed.models,
-					color: normalizeOptionalText(parsed.color) ?? null,
+					color: resolvedColor ?? null,
 					details: normalizeOptionalText(parsed.details) ?? null,
 					link: normalizeOptionalText(parsed.link) ?? null,
 					image: normalizeOptionalText(parsed.image) ?? null,
@@ -443,15 +465,34 @@ export default function EditInclusionVariant({
 										return (
 											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-												<Input
-													aria-invalid={invalid || undefined}
+												<VendorCombobox
 													id={field.name}
-													nativeInput
+													invalid={invalid || undefined}
 													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Vendor name"
+													onChange={(next) => {
+														field.handleChange(next);
+														if (next) {
+															form.setFieldValue('newVendorName', '');
+														}
+													}}
 													value={field.state.value}
+													vendors={vendors}
 												/>
+												<form.Field name="newVendorName">
+													{(newField) => (
+														<Input
+															nativeInput
+															onChange={(e) => {
+																newField.handleChange(e.target.value);
+																if (e.target.value.trim()) {
+																	field.handleChange('');
+																}
+															}}
+															placeholder="Or type a new vendor name"
+															value={newField.state.value ?? ''}
+														/>
+													)}
+												</form.Field>
 												{invalid ? (
 													<FieldError>
 														{inclusionFormFieldError(field.state.meta.errors)}
@@ -557,13 +598,33 @@ export default function EditInclusionVariant({
 									{(field) => (
 										<Field>
 											<FieldLabel htmlFor={field.name}>Color</FieldLabel>
-											<Input
+											<MaterialColorCombobox
+												colors={materialColors}
 												id={field.name}
-												nativeInput
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Color or finish"
+												onBlur={field.handleBlur}
+												onChange={(next) => {
+													field.handleChange(next);
+													if (next) {
+														form.setFieldValue('newColorName', '');
+													}
+												}}
 												value={field.state.value ?? ''}
 											/>
+											<form.Field name="newColorName">
+												{(newField) => (
+													<Input
+														nativeInput
+														onChange={(e) => {
+															newField.handleChange(e.target.value);
+															if (e.target.value.trim()) {
+																field.handleChange('');
+															}
+														}}
+														placeholder="Or type a new color name"
+														value={newField.state.value ?? ''}
+													/>
+												)}
+											</form.Field>
 										</Field>
 									)}
 								</form.Field>

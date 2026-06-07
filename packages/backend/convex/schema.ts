@@ -183,4 +183,9 @@ export default defineSchema({
 		link: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_vendors', { searchField: 'searchText' }),
+	materialColors: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_material_colors', { searchField: 'searchText' }),
 });

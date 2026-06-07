@@ -32,6 +32,8 @@ export const generateS3UploadUrl = action({
 		const client = new S3Client({
 			region,
 			credentials: { accessKeyId, secretAccessKey },
+			requestChecksumCalculation: 'WHEN_REQUIRED',
+			responseChecksumValidation: 'WHEN_REQUIRED',
 		});
 
 		const uploadUrl = await getSignedUrl(

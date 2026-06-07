@@ -27,6 +27,7 @@ import {
 	Layers,
 	type LucideIcon,
 	MapPin,
+	Palette,
 	SquaresIntersect,
 	Store,
 	Wrench,
@@ -83,6 +84,12 @@ const items: SidebarItem[] = [
 		url: '/vendors',
 		path: '/vendors',
 		icon: Store,
+	},
+	{
+		title: 'Material Colors',
+		url: '/material-colors',
+		path: '/material-colors',
+		icon: Palette,
 	},
 	{
 		title: 'Orders',
