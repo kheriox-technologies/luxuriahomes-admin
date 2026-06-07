@@ -4,6 +4,7 @@ import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Card, CardPanel } from '@workspace/ui/components/card';
 import {
 	Dialog,
 	DialogContent,
@@ -13,6 +14,7 @@ import {
 } from '@workspace/ui/components/dialog';
 import { Frame, FramePanel } from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import { Radio, RadioGroup } from '@workspace/ui/components/radio-group';
 import {
 	Table,
 	TableBody,
@@ -37,6 +39,7 @@ import EditInclusionVariant from '@/components/inclusions/edit-inclusion-variant
 import {
 	formatVariantBadgeLabel,
 	type InclusionVariantClass,
+	inclusionVariantClasses,
 } from '@/components/inclusions/inclusion-form-shared';
 import PageHeading from '@/components/page-heading';
 import { useAppModeStore } from '@/stores/app-mode-store';
@@ -70,6 +73,21 @@ function variantClassBadgeVariant(
 		return 'purple';
 	}
 	return 'outline';
+}
+
+type InclusionClassFilter = 'All' | InclusionVariantClass;
+
+function variantClassFilterCardClass(cls: InclusionClassFilter): string {
+	if (cls === 'Standard') {
+		return 'border-info/40 bg-info/8 dark:border-info/50 dark:bg-info/16';
+	}
+	if (cls === 'Gold') {
+		return 'border-yellow-300 bg-yellow-50 dark:border-yellow-700 dark:bg-yellow-950/30';
+	}
+	if (cls === 'Platinum') {
+		return 'border-violet-300 bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30';
+	}
+	return 'border-input bg-background';
 }
 
 function CatalogueVariantImageThumbnail({
@@ -215,7 +233,7 @@ function InclusionCatalogueVariantsTableInFrame({
 					<Table className={cn('w-full', minClass)}>
 						<TableHeader>
 							<TableRow>
-								<TableHead className="min-w-[11rem]">Title</TableHead>
+								<TableHead className="min-w-[11rem]">Code & Class</TableHead>
 								<TableHead className="min-w-[14rem]">
 									Vendor & details
 								</TableHead>
@@ -264,18 +282,16 @@ function InclusionCatalogueVariantsTableInFrame({
 									<TableRow key={variant._id}>
 										<TableCell className="whitespace-normal align-top leading-snug">
 											<div className="flex min-w-0 flex-col gap-1.5">
-												<span className="font-medium">{inclusion.title}</span>
-												<div className="flex flex-wrap items-center gap-2">
-													<Badge
-														size="lg"
-														variant={variantClassBadgeVariant(variant.class)}
-													>
-														{variant.class}
-													</Badge>
-													<span className="font-mono text-muted-foreground text-xs">
-														{variant.code}
-													</span>
-												</div>
+												<span className="font-medium font-mono text-sm">
+													{variant.code}
+												</span>
+												<Badge
+													className="self-start"
+													size="lg"
+													variant={variantClassBadgeVariant(variant.class)}
+												>
+													{variant.class}
+												</Badge>
 											</div>
 										</TableCell>
 										<TableCell className="whitespace-normal align-top leading-snug">
@@ -360,6 +376,8 @@ export default function InclusionCatalogueDetailView({
 	const data = useQuery(api.inclusions.get.get, { inclusionId });
 	const units = useQuery(api.units.list.list, {});
 	const mode = useAppModeStore((state) => state.mode);
+	const [selectedClass, setSelectedClass] =
+		useState<InclusionClassFilter>('All');
 
 	const unitAbbrById = useMemo(() => {
 		const m = new Map<string, string>();
@@ -388,6 +406,10 @@ export default function InclusionCatalogueDetailView({
 	}
 
 	const { categoryName, inclusion, variants } = data;
+	const filteredVariants =
+		selectedClass === 'All'
+			? variants
+			: variants.filter((v) => v.class === selectedClass);
 
 	return (
 		<div className={cn('flex h-full w-full flex-col gap-6')}>
@@ -468,11 +490,48 @@ export default function InclusionCatalogueDetailView({
 					No variants yet. Use Add Variant to create one.
 				</p>
 			) : (
-				<InclusionCatalogueVariantsTableInFrame
-					inclusion={inclusion}
-					mode={mode}
-					variants={variants}
-				/>
+				<div className="flex flex-col gap-4">
+					<RadioGroup
+						className="grid grid-cols-4 gap-3"
+						onValueChange={(val) =>
+							setSelectedClass(val as InclusionClassFilter)
+						}
+						value={selectedClass}
+					>
+						{(['All', ...inclusionVariantClasses] as const).map((cls) => (
+							<label
+								className="cursor-pointer"
+								htmlFor={`class-filter-${cls}`}
+								key={cls}
+							>
+								<Card
+									className={cn(
+										'h-full transition-colors',
+										selectedClass === cls
+											? variantClassFilterCardClass(cls)
+											: 'border-input'
+									)}
+								>
+									<CardPanel className="flex items-center gap-2">
+										<Radio id={`class-filter-${cls}`} value={cls} />
+										<span className="text-sm">{cls}</span>
+									</CardPanel>
+								</Card>
+							</label>
+						))}
+					</RadioGroup>
+					{filteredVariants.length === 0 ? (
+						<p className="text-muted-foreground text-sm">
+							No {selectedClass} variants for this inclusion.
+						</p>
+					) : (
+						<InclusionCatalogueVariantsTableInFrame
+							inclusion={inclusion}
+							mode={mode}
+							variants={filteredVariants}
+						/>
+					)}
+				</div>
 			)}
 		</div>
 	);
