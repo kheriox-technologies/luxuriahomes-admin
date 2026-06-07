@@ -1,10 +1,20 @@
 import { z } from 'zod';
 
+const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
+
 export const inclusionFormSchema = z
 	.object({
 		title: z.string().trim().min(1, 'Title is required'),
 		categoryId: z.string(),
 		newCategoryName: z.string().optional(),
+		standardPrice: z
+			.string()
+			.optional()
+			.refine(
+				(val) => !val || MONEY_PATTERN.test(val.trim()),
+				'Enter a valid amount (up to 2 decimals)'
+			),
+		measurementUnit: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
 		if (!(data.newCategoryName?.trim() || data.categoryId)) {
@@ -26,13 +36,11 @@ export const inclusionVariantClasses = [
 
 export type InclusionVariantClass = (typeof inclusionVariantClasses)[number];
 
-const moneyPattern = /^\d+(\.\d{1,2})?$/;
-
 const moneyStringSchema = z
 	.string()
 	.trim()
 	.min(1, 'Amount is required')
-	.regex(moneyPattern, 'Enter a valid amount (up to 2 decimals)');
+	.regex(MONEY_PATTERN, 'Enter a valid amount (up to 2 decimals)');
 
 export const addInclusionVariantFormSchema = z
 	.object({
@@ -68,10 +76,14 @@ export const emptyInclusionFormValues: {
 	title: string;
 	categoryId: string;
 	newCategoryName: string;
+	standardPrice: string;
+	measurementUnit: string;
 } = {
 	title: '',
 	categoryId: '',
 	newCategoryName: '',
+	standardPrice: '',
+	measurementUnit: '',
 };
 
 export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =
@@ -105,7 +117,7 @@ export function inclusionFormFieldError(
 
 export function parseMoneyString(value: string): number {
 	const normalized = value.trim();
-	if (!moneyPattern.test(normalized)) {
+	if (!MONEY_PATTERN.test(normalized)) {
 		throw new Error('Invalid money value');
 	}
 	return Number(normalized);

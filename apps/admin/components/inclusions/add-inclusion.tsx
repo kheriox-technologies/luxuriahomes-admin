@@ -16,6 +16,12 @@ import {
 } from '@workspace/ui/components/dialog';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useState } from 'react';
@@ -25,7 +31,9 @@ import {
 	emptyInclusionFormValues,
 	inclusionFormFieldError,
 	inclusionFormSchema,
+	parseMoneyString,
 } from '@/components/inclusions/inclusion-form-shared';
+import UnitCombobox from '@/components/inclusions/unit-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'add-inclusion-form';
@@ -39,6 +47,7 @@ export default function AddInclusion({
 } = {}) {
 	const [open, setOpen] = useState(false);
 	const categories = useQuery(api.inclusionCategories.list.list, {});
+	const units = useQuery(api.units.list.list, {});
 	const addInclusion = useMutation(api.inclusions.add.add);
 	const addCategory = useMutation(api.inclusionCategories.add.add);
 
@@ -60,9 +69,16 @@ export default function AddInclusion({
 					resolvedCategoryId = parsed.categoryId as Id<'inclusionCategories'>;
 				}
 
+				const standardPriceStr = parsed.standardPrice?.trim();
+				const standardPrice = standardPriceStr
+					? parseMoneyString(standardPriceStr)
+					: undefined;
+				const measurementUnit = parsed.measurementUnit?.trim() || undefined;
 				await addInclusion({
 					categoryId: resolvedCategoryId,
 					title: parsed.title,
+					standardPrice,
+					measurementUnit: measurementUnit as never,
 				});
 				toastManager.add({
 					title: 'Inclusion added',
@@ -188,6 +204,59 @@ export default function AddInclusion({
 								</Field>
 							)}
 						</form.Field>
+						<div className="grid grid-cols-2 gap-4">
+							<form.Field name="standardPrice">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>
+												Standard Base Price
+											</FieldLabel>
+											<InputGroup>
+												<InputGroupAddon align="inline-start">
+													<InputGroupText>$</InputGroupText>
+												</InputGroupAddon>
+												<InputGroupInput
+													aria-invalid={invalid || undefined}
+													id={field.name}
+													inputMode="decimal"
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="0.00"
+													type="text"
+													value={field.state.value ?? ''}
+												/>
+												<InputGroupAddon align="inline-end">
+													<InputGroupText>AUD</InputGroupText>
+												</InputGroupAddon>
+											</InputGroup>
+											{invalid ? (
+												<FieldError>
+													{inclusionFormFieldError(field.state.meta.errors)}
+												</FieldError>
+											) : null}
+										</Field>
+									);
+								}}
+							</form.Field>
+							<form.Field name="measurementUnit">
+								{(field) => (
+									<Field>
+										<FieldLabel htmlFor={field.name}>Unit</FieldLabel>
+										<UnitCombobox
+											id={field.name}
+											onBlur={field.handleBlur}
+											onChange={(next) => field.handleChange(next)}
+											units={units}
+											value={field.state.value ?? ''}
+										/>
+									</Field>
+								)}
+							</form.Field>
+						</div>
 					</DialogPanel>
 				</form>
 				<DialogFooter>

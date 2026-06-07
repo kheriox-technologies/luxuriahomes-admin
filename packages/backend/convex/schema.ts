@@ -55,6 +55,8 @@ export default defineSchema({
 		categoryId: v.id('inclusionCategories'),
 		searchText: v.string(),
 		variantCount: v.number(),
+		standardPrice: v.optional(v.number()),
+		measurementUnit: v.optional(v.id('units')),
 	})
 		.index('by_category', ['categoryId'])
 		.searchIndex('search_inclusions', { searchField: 'searchText' }),
@@ -67,7 +69,6 @@ export default defineSchema({
 		color: v.optional(v.string()),
 		details: v.optional(v.string()),
 		image: v.optional(v.string()),
-		storageId: v.optional(v.id('_storage')), // migration: remove after clearing all legacy records
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
@@ -87,7 +88,6 @@ export default defineSchema({
 		color: v.optional(v.string()),
 		details: v.optional(v.string()),
 		image: v.optional(v.string()),
-		storageId: v.optional(v.id('_storage')), // migration: remove after clearing all legacy records
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
