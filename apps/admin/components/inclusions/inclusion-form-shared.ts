@@ -96,7 +96,7 @@ export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =
 		newColorName: '',
 		costPrice: '',
 		salePrice: '',
-		details: '',
+		details: 'Subject to availability and approval by client',
 		link: '',
 		image: '',
 	};
