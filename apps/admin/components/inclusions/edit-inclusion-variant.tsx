@@ -90,12 +90,23 @@ function variantClassBorderClass(
 export default function EditInclusionVariant({
 	variant,
 	trigger,
+	open: openProp,
+	onOpenChange: onOpenChangeProp,
 }: {
 	variant: Doc<'inclusionVariants'>;
-	trigger: ReactElement;
+	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
 	const formId = `edit-inclusion-variant-form-${variant._id}`;
-	const [open, setOpen] = useState(false);
+	const [openInternal, setOpenInternal] = useState(false);
+	const open = openProp ?? openInternal;
+	const setOpen = (nextOpen: boolean) => {
+		if (openProp === undefined) {
+			setOpenInternal(nextOpen);
+		}
+		onOpenChangeProp?.(nextOpen);
+	};
 	const [uploadFieldKey, setUploadFieldKey] = useState(0);
 	const [modelDraft, setModelDraft] = useState('');
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -239,7 +250,7 @@ export default function EditInclusionVariant({
 			}}
 			open={open}
 		>
-			<SheetTrigger render={trigger} />
+			{trigger && <SheetTrigger render={trigger} />}
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"

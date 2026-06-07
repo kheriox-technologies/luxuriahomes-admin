@@ -8,7 +8,7 @@ interface AppModeState {
 }
 
 export const useAppModeStore = create<AppModeState>((set) => ({
-	mode: 'client',
+	mode: 'builder',
 	setMode: (mode) => {
 		set({ mode });
 	},

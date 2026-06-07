@@ -19,6 +19,7 @@ import type * as inclusionCategories_search from "../inclusionCategories/search.
 import type * as inclusionCategories_shared from "../inclusionCategories/shared.js";
 import type * as inclusionCategories_update from "../inclusionCategories/update.js";
 import type * as inclusionVariants_add from "../inclusionVariants/add.js";
+import type * as inclusionVariants_getUnit from "../inclusionVariants/getUnit.js";
 import type * as inclusionVariants_listByInclusion from "../inclusionVariants/listByInclusion.js";
 import type * as inclusionVariants_migrateImageBinariesToS3 from "../inclusionVariants/migrateImageBinariesToS3.js";
 import type * as inclusionVariants_migrateImageHelpers from "../inclusionVariants/migrateImageHelpers.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   "inclusionCategories/shared": typeof inclusionCategories_shared;
   "inclusionCategories/update": typeof inclusionCategories_update;
   "inclusionVariants/add": typeof inclusionVariants_add;
+  "inclusionVariants/getUnit": typeof inclusionVariants_getUnit;
   "inclusionVariants/listByInclusion": typeof inclusionVariants_listByInclusion;
   "inclusionVariants/migrateImageBinariesToS3": typeof inclusionVariants_migrateImageBinariesToS3;
   "inclusionVariants/migrateImageHelpers": typeof inclusionVariants_migrateImageHelpers;

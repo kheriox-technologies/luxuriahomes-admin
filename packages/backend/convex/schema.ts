@@ -91,8 +91,16 @@ export default defineSchema({
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
-		variationCostPrice: v.optional(v.number()),
-		variationSalePrice: v.optional(v.number()),
+		variationPrice: v.optional(v.number()),
+		locations: v.optional(
+			v.array(
+				v.object({
+					name: v.string(),
+					quantity: v.optional(v.number()),
+					unit: v.optional(v.string()),
+				})
+			)
+		),
 		searchText: v.string(),
 		status: v.optional(projectInclusionStatusValidator),
 	})

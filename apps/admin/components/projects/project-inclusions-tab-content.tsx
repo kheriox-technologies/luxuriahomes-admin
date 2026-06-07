@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: <required complexity> */
 'use client';
 
 import { api } from '@workspace/backend/api';
@@ -46,13 +47,19 @@ import {
 	FramePanel,
 	FrameTitle,
 } from '@workspace/ui/components/frame';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
 import {
 	Table,
 	TableBody,
@@ -63,17 +70,15 @@ import {
 } from '@workspace/ui/components/table';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import {
-	Tooltip,
-	TooltipPopup,
-	TooltipTrigger,
-} from '@workspace/ui/components/tooltip';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
 import {
 	Check,
 	Download,
+	EllipsisVertical,
 	Info,
+	MapPin,
+	Plus,
 	SearchIcon,
 	SquaresIntersect,
 	StickyNote,
@@ -83,6 +88,7 @@ import {
 import NextImage from 'next/image';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { signCdnUrls } from '@/actions/cdn';
+import LocationCombobox from '@/components/inclusions/location-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
@@ -147,16 +153,19 @@ function inclusionStatusBadgeVariant(
 	return status === 'Approved' ? 'success' : 'warning';
 }
 
-function DeleteProjectInclusionButton({
+function DeleteProjectInclusionDialog({
 	projectInclusionId,
 	title,
 	code,
+	open,
+	onOpenChange,
 }: {
 	projectInclusionId: Id<'projectInclusions'>;
 	title: string;
 	code: string;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeProjectInclusion = useMutation(
 		api.projectInclusions.remove.remove
@@ -170,7 +179,7 @@ function DeleteProjectInclusionButton({
 				title: 'Inclusion deleted',
 				type: 'success',
 			});
-			setOpen(false);
+			onOpenChange(false);
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -186,19 +195,7 @@ function DeleteProjectInclusionButton({
 	};
 
 	return (
-		<AlertDialog onOpenChange={setOpen} open={open}>
-			<AlertDialogTrigger
-				render={
-					<Button
-						aria-label={`Delete inclusion ${title} ${code}`}
-						size="icon"
-						type="button"
-						variant="destructive-outline"
-					/>
-				}
-			>
-				<Trash2 />
-			</AlertDialogTrigger>
+		<AlertDialog onOpenChange={onOpenChange} open={open}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete inclusion?</AlertDialogTitle>
@@ -225,76 +222,6 @@ function DeleteProjectInclusionButton({
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
-	);
-}
-
-function ProjectInclusionStatusToggleButton({
-	projectInclusionId,
-	status,
-}: {
-	projectInclusionId: Id<'projectInclusions'>;
-	status: ProjectInclusion['status'];
-}) {
-	const [loading, setLoading] = useState(false);
-	const updateProjectInclusion = useMutation(
-		api.projectInclusions.update.update
-	);
-	const isApproved = status === 'Approved';
-	const tooltip = isApproved ? 'Unapprove inclusion' : 'Approve inclusion';
-
-	const onToggle = async () => {
-		setLoading(true);
-		try {
-			await updateProjectInclusion({
-				projectInclusionId,
-				status: isApproved ? 'Under Review' : 'Approved',
-			});
-			toastManager.add({
-				title: isApproved
-					? 'Inclusion moved to under review'
-					: 'Inclusion approved',
-				type: 'success',
-			});
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not update status. Please try again in a moment.'
-				),
-				title: 'Could not update status',
-				type: 'error',
-			});
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={
-					<Button
-						aria-label={tooltip}
-						loading={loading}
-						onClick={() => {
-							onToggle().catch(() => {
-								/* Error is handled in onToggle */
-							});
-						}}
-						size="icon"
-						type="button"
-						variant="outline"
-					>
-						{isApproved ? (
-							<X aria-hidden="true" />
-						) : (
-							<Check aria-hidden="true" />
-						)}
-					</Button>
-				}
-			/>
-			<TooltipPopup>{tooltip}</TooltipPopup>
-		</Tooltip>
 	);
 }
 
@@ -352,16 +279,19 @@ function ProjectInclusionNotesCardList({
 	);
 }
 
-function ProjectInclusionNotesButton({
+function ProjectInclusionNotesDialog({
 	projectInclusionId,
 	title,
 	code,
+	open,
+	onOpenChange,
 }: {
 	projectInclusionId: Id<'projectInclusions'>;
 	title: string;
 	code: string;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
 	const [noteText, setNoteText] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const appendNoteMutation = useMutation(
@@ -421,85 +351,65 @@ function ProjectInclusionNotesButton({
 	}
 
 	return (
-		<>
-			<Tooltip>
-				<TooltipTrigger
-					render={
-						<Button
-							aria-label={`Notes for ${title} (${code})`}
-							onClick={() => setOpen(true)}
-							size="icon"
-							type="button"
-							variant="outline"
-						/>
-					}
-				>
-					<span className="inline-flex size-4 items-center justify-center">
-						<StickyNote aria-hidden className="size-4" />
-					</span>
-				</TooltipTrigger>
-				<TooltipPopup>Notes</TooltipPopup>
-			</Tooltip>
-			<Dialog
-				onOpenChange={(next) => {
-					setOpen(next);
-					if (!next) {
-						setNoteText('');
-					}
-				}}
-				open={open}
-			>
-				<DialogContent className="flex h-[min(88vh,44rem)] w-[min(92vw,40rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
-					<DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6">
-						<DialogTitle>Notes</DialogTitle>
-						<DialogDescription>
-							<span className="font-medium text-foreground">{title}</span>
-							<span className="text-muted-foreground">{` · ${code}`}</span>
-						</DialogDescription>
-					</DialogHeader>
-					<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-						<div className="shrink-0 px-6 py-4">
-							<div className="flex flex-col gap-2">
-								<label
-									className="font-medium text-sm"
-									htmlFor={`note-${projectInclusionId}`}
-								>
-									New note
-								</label>
-								<Textarea
-									className="min-h-[100px] resize-y"
-									id={`note-${projectInclusionId}`}
-									onChange={(e) => setNoteText(e.target.value)}
-									placeholder="Type your note…"
-									value={noteText}
-								/>
-							</div>
-						</div>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
-							<div className="min-h-0 flex-1 overflow-y-auto pe-1">
-								{notesBody}
-							</div>
+		<Dialog
+			onOpenChange={(next) => {
+				onOpenChange(next);
+				if (!next) {
+					setNoteText('');
+				}
+			}}
+			open={open}
+		>
+			<DialogContent className="flex h-[min(88vh,44rem)] w-[min(92vw,40rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+				<DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6">
+					<DialogTitle>Notes</DialogTitle>
+					<DialogDescription>
+						<span className="font-medium text-foreground">{title}</span>
+						<span className="text-muted-foreground">{` · ${code}`}</span>
+					</DialogDescription>
+				</DialogHeader>
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+					<div className="shrink-0 px-6 py-4">
+						<div className="flex flex-col gap-2">
+							<label
+								className="font-medium text-sm"
+								htmlFor={`note-${projectInclusionId}`}
+							>
+								New note
+							</label>
+							<Textarea
+								className="min-h-[100px] resize-y"
+								id={`note-${projectInclusionId}`}
+								onChange={(e) => setNoteText(e.target.value)}
+								placeholder="Type your note…"
+								value={noteText}
+							/>
 						</div>
 					</div>
-					<DialogFooter className="shrink-0 border-t px-6 py-4">
-						<DialogClose render={<Button type="button" variant="outline" />}>
-							Close
-						</DialogClose>
-						<Button
-							loading={submitting}
-							onClick={() => {
-								onSubmit().catch(() => {
-									/* Error is handled in onSubmit */
-								});
-							}}
-							type="button"
-						>
-							Save note
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-		</>
+					<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
+						<div className="min-h-0 flex-1 overflow-y-auto pe-1">
+							{notesBody}
+						</div>
+					</div>
+				</div>
+				<DialogFooter className="shrink-0 border-t px-6 py-4">
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Close
+					</DialogClose>
+					<Button
+						loading={submitting}
+						onClick={() => {
+							onSubmit().catch(() => {
+								/* Error is handled in onSubmit */
+							});
+						}}
+						type="button"
+					>
+						Save note
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -555,30 +465,297 @@ function ProjectInclusionImageThumbnail({
 	);
 }
 
+interface PendingLocation {
+	name: string;
+	quantity?: number;
+	unit?: string;
+}
+
+function EditInclusionQuantitiesDialog({
+	inclusion,
+	open,
+	onOpenChange,
+}: {
+	inclusion: ProjectInclusion;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+}) {
+	const [localLocations, setLocalLocations] = useState<PendingLocation[]>([]);
+	const [selectedLocationId, setSelectedLocationId] = useState('');
+	const [pendingQuantity, setPendingQuantity] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	const unitAbbr = inclusion.locations?.[0]?.unit ?? '';
+
+	const locations = useQuery(api.locations.list.list, open ? {} : 'skip');
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+
+	const locationNameById = useMemo(() => {
+		const map = new Map<Id<'locations'>, string>();
+		for (const loc of locations ?? []) {
+			map.set(loc._id, loc.name);
+		}
+		return map;
+	}, [locations]);
+
+	useEffect(() => {
+		if (open) {
+			setLocalLocations(inclusion.locations ?? []);
+			setSelectedLocationId('');
+			setPendingQuantity('');
+		}
+	}, [open, inclusion.locations]);
+
+	const handleAddLocation = () => {
+		const name = locationNameById.get(selectedLocationId as Id<'locations'>);
+		if (!name) {
+			return;
+		}
+		const qty =
+			pendingQuantity !== '' ? Number.parseFloat(pendingQuantity) : undefined;
+		setLocalLocations((prev) => [
+			...prev,
+			{ name, quantity: qty, unit: unitAbbr || undefined },
+		]);
+		setSelectedLocationId('');
+		setPendingQuantity('');
+	};
+
+	const onSave = async () => {
+		setIsSubmitting(true);
+		try {
+			await updateProjectInclusion({
+				projectInclusionId: inclusion._id,
+				locations: localLocations.length > 0 ? localLocations : null,
+			});
+			toastManager.add({ title: 'Quantities updated', type: 'success' });
+			onOpenChange(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update quantities. Please try again.'
+				),
+				title: 'Could not update quantities',
+				type: 'error',
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Edit Quantities</DialogTitle>
+					<DialogDescription>
+						<span className="font-medium text-foreground">
+							{inclusion.title}
+						</span>
+						<span className="text-muted-foreground">{` · ${inclusion.code}`}</span>
+					</DialogDescription>
+				</DialogHeader>
+				<div className="flex flex-col gap-3 px-6 pb-2">
+					<div className="flex items-center gap-2">
+						<div className="min-w-0 flex-1">
+							<LocationCombobox
+								id={`edit-quantities-location-${inclusion._id}`}
+								locations={locations}
+								onBlur={() => undefined}
+								onChange={setSelectedLocationId}
+								value={selectedLocationId}
+							/>
+						</div>
+						<InputGroup className="w-32 shrink-0">
+							<InputGroupInput
+								min="0"
+								onChange={(e) => setPendingQuantity(e.target.value)}
+								placeholder="Qty"
+								type="number"
+								value={pendingQuantity}
+							/>
+							{unitAbbr ? (
+								<InputGroupAddon align="inline-end">
+									<InputGroupText>{unitAbbr}</InputGroupText>
+								</InputGroupAddon>
+							) : null}
+						</InputGroup>
+						<Button
+							aria-label="Add location"
+							disabled={!selectedLocationId}
+							onClick={handleAddLocation}
+							size="icon"
+							type="button"
+							variant="outline"
+						>
+							<Plus />
+						</Button>
+					</div>
+					{localLocations.length > 0 ? (
+						<div className="flex flex-col gap-1.5">
+							{localLocations.map((entry, i) => (
+								<Card key={`${entry.name}-${i}`}>
+									<CardPanel className="flex items-center justify-between">
+										<CardTitle className="text-sm">{entry.name}</CardTitle>
+										<div className="inline-flex items-center gap-2">
+											<span className="text-muted-foreground text-sm">
+												{entry.quantity != null
+													? `${entry.quantity}${entry.unit ? ` ${entry.unit}` : ''}`
+													: (entry.unit ?? '')}
+											</span>
+											<Button
+												aria-label={`Remove ${entry.name}`}
+												onClick={() =>
+													setLocalLocations((prev) =>
+														prev.filter((_, idx) => idx !== i)
+													)
+												}
+												size="icon-sm"
+												type="button"
+												variant="destructive-outline"
+											>
+												<Trash2 className="size-4" />
+											</Button>
+										</div>
+									</CardPanel>
+								</Card>
+							))}
+						</div>
+					) : (
+						<p className="text-muted-foreground text-sm">
+							No locations added yet. Use the row above to add one.
+						</p>
+					)}
+				</div>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						disabled={isSubmitting}
+						loading={isSubmitting}
+						onClick={() => {
+							onSave().catch(() => {
+								/* Error handled in onSave */
+							});
+						}}
+						type="button"
+					>
+						Save
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 function ProjectInclusionActionsCell({
 	inclusion,
 }: {
 	inclusion: ProjectInclusion;
 }) {
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [notesOpen, setNotesOpen] = useState(false);
+	const [editQuantitiesOpen, setEditQuantitiesOpen] = useState(false);
+	const [approveLoading, setApproveLoading] = useState(false);
+
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+	const isApproved = inclusion.status === 'Approved';
+
+	const onToggleApprove = async () => {
+		setApproveLoading(true);
+		try {
+			await updateProjectInclusion({
+				projectInclusionId: inclusion._id,
+				status: isApproved ? 'Under Review' : 'Approved',
+			});
+			toastManager.add({
+				title: isApproved
+					? 'Inclusion moved to under review'
+					: 'Inclusion approved',
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update status. Please try again in a moment.'
+				),
+				title: 'Could not update status',
+				type: 'error',
+			});
+		} finally {
+			setApproveLoading(false);
+		}
+	};
+
 	return (
-		<Group className="justify-end">
-			<ProjectInclusionStatusToggleButton
-				projectInclusionId={inclusion._id}
-				status={inclusion.status}
-			/>
-			<GroupSeparator />
-			<ProjectInclusionNotesButton
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Inclusion actions"
+							loading={approveLoading}
+							size="icon-sm"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem
+						onClick={() => {
+							onToggleApprove().catch(() => {
+								/* Error handled in onToggleApprove */
+							});
+						}}
+					>
+						{isApproved ? <X /> : <Check />}
+						{isApproved ? 'Unapprove Inclusion' : 'Approve Inclusion'}
+					</MenuItem>
+					<MenuItem onClick={() => setNotesOpen(true)}>
+						<StickyNote />
+						View / Edit Notes
+					</MenuItem>
+					<MenuItem onClick={() => setEditQuantitiesOpen(true)}>
+						<MapPin />
+						Edit Quantities
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete Inclusion
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<DeleteProjectInclusionDialog
 				code={inclusion.code}
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
 				projectInclusionId={inclusion._id}
 				title={inclusion.title}
 			/>
-			<GroupSeparator />
-			<DeleteProjectInclusionButton
+			<ProjectInclusionNotesDialog
 				code={inclusion.code}
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
 				projectInclusionId={inclusion._id}
 				title={inclusion.title}
 			/>
-		</Group>
+			<EditInclusionQuantitiesDialog
+				inclusion={inclusion}
+				onOpenChange={setEditQuantitiesOpen}
+				open={editQuantitiesOpen}
+			/>
+		</>
 	);
 }
 
@@ -665,7 +842,7 @@ function ProjectInclusionsTableInFrame({
 				</div>
 				<div className="flex shrink-0 items-center gap-2">
 					<Badge className="shrink-0" size="lg" variant="purple">
-						{formatSignedAud(section.totalVariationSalePrice)}
+						{formatSignedAud(section.totalVariationPrice)}
 					</Badge>
 					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
 						<AlertDialogTrigger
@@ -723,6 +900,7 @@ function ProjectInclusionsTableInFrame({
 									Vendor & details
 								</TableHead>
 								<TableHead className="whitespace-nowrap">Status</TableHead>
+								<TableHead className="whitespace-nowrap">Quantity</TableHead>
 								{showPricing ? (
 									<TableHead className="whitespace-nowrap text-end">
 										Cost
@@ -739,8 +917,8 @@ function ProjectInclusionsTableInFrame({
 								<TableHead className="w-[6rem] min-w-[6rem] max-w-[6rem] text-end">
 									Image
 								</TableHead>
-								<TableHead className="w-[150px] min-w-[150px] max-w-[150px] whitespace-nowrap text-end">
-									Actions
+								<TableHead className="w-[3rem] min-w-[3rem] max-w-[3rem]">
+									<span className="sr-only">Actions</span>
 								</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -749,9 +927,15 @@ function ProjectInclusionsTableInFrame({
 								const displayStatus = inclusion.status ?? 'Under Review';
 								const variation =
 									inclusion.class !== 'Standard' &&
-									inclusion.variationSalePrice !== undefined
-										? formatSignedAud(inclusion.variationSalePrice)
+									inclusion.variationPrice !== undefined
+										? formatSignedAud(inclusion.variationPrice)
 										: null;
+								const totalQty =
+									inclusion.locations?.reduce(
+										(sum, l) => sum + (l.quantity ?? 0),
+										0
+									) ?? 0;
+								const unit = inclusion.locations?.[0]?.unit;
 								return (
 									<TableRow key={inclusion._id}>
 										<TableCell className="whitespace-normal align-top leading-snug">
@@ -793,6 +977,30 @@ function ProjectInclusionsTableInFrame({
 												{displayStatus}
 											</Badge>
 										</TableCell>
+										<TableCell className="whitespace-normal align-top">
+											{inclusion.locations && inclusion.locations.length > 0 ? (
+												<div className="flex flex-col gap-0.5 text-sm">
+													<span className="font-medium tabular-nums">
+														{totalQty
+															? `${totalQty}${unit ? ` ${unit}` : ''}`
+															: '—'}
+													</span>
+													{inclusion.locations.map((loc, i) => (
+														<span
+															className="text-muted-foreground text-xs"
+															key={`${loc.name}-${i}`}
+														>
+															{loc.name}
+															{loc.quantity != null
+																? ` (${loc.quantity}${loc.unit ? ` ${loc.unit}` : ''})`
+																: ''}
+														</span>
+													))}
+												</div>
+											) : (
+												<span className="text-muted-foreground">—</span>
+											)}
+										</TableCell>
 										{showPricing ? (
 											<TableCell className="whitespace-normal text-end align-top tabular-nums">
 												{formatAud(inclusion.costPrice)}
@@ -818,7 +1026,7 @@ function ProjectInclusionsTableInFrame({
 												/>
 											</div>
 										</TableCell>
-										<TableCell className="w-[150px] min-w-[150px] max-w-[150px] whitespace-nowrap align-middle">
+										<TableCell className="w-[3rem] min-w-[3rem] max-w-[3rem] align-middle">
 											<div className="flex justify-end">
 												<ProjectInclusionActionsCell inclusion={inclusion} />
 											</div>
@@ -838,7 +1046,7 @@ interface InclusionSection {
 	categoryId: InclusionCategory['_id'];
 	categoryName: string;
 	inclusions: ProjectInclusion[];
-	totalVariationSalePrice: number;
+	totalVariationPrice: number;
 }
 
 export default function ProjectInclusionsTabContent({
@@ -893,12 +1101,12 @@ export default function ProjectInclusionsTabContent({
 				inclusions: [...groupedInclusions].sort((a, b) =>
 					a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
 				),
-				totalVariationSalePrice: groupedInclusions.reduce(
+				totalVariationPrice: groupedInclusions.reduce(
 					(total, inclusion) =>
 						total +
 						(inclusion.class === 'Standard'
 							? 0
-							: (inclusion.variationSalePrice ?? 0)),
+							: (inclusion.variationPrice ?? 0)),
 					0
 				),
 			}))
@@ -922,18 +1130,18 @@ export default function ProjectInclusionsTabContent({
 				const filteredInclusions = section.inclusions.filter((inclusion) =>
 					codes.has(inclusion.code)
 				);
-				const totalVariationSalePrice = filteredInclusions.reduce(
+				const totalVariationPrice = filteredInclusions.reduce(
 					(total, inclusion) =>
 						total +
 						(inclusion.class === 'Standard'
 							? 0
-							: (inclusion.variationSalePrice ?? 0)),
+							: (inclusion.variationPrice ?? 0)),
 					0
 				);
 				return {
 					...section,
 					inclusions: filteredInclusions,
-					totalVariationSalePrice,
+					totalVariationPrice,
 				};
 			})
 			.filter((section) => section.inclusions.length > 0);
@@ -971,10 +1179,10 @@ export default function ProjectInclusionsTabContent({
 						details: inclusion.details,
 						status: inclusion.status,
 						class: inclusion.class,
-						variationSalePrice: inclusion.variationSalePrice,
+						variationPrice: inclusion.variationPrice,
 						image: inclusion.image,
 					})),
-					totalVariationSalePrice: section.totalVariationSalePrice,
+					totalVariationSalePrice: section.totalVariationPrice,
 				})),
 			});
 		} catch (error) {

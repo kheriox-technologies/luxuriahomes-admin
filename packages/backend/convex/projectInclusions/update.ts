@@ -27,13 +27,16 @@ interface UpdateArgs {
 	details?: string | null | undefined;
 	image?: string | null | undefined;
 	link?: string | null | undefined;
+	locations?:
+		| { name: string; quantity?: number; unit?: string }[]
+		| null
+		| undefined;
 	models?: string[] | undefined;
 	projectInclusionId: Doc<'projectInclusions'>['_id'];
 	salePrice?: number | undefined;
 	status?: Doc<'projectInclusions'>['status'] | undefined;
 	title?: string | undefined;
-	variationCostPrice?: number | null | undefined;
-	variationSalePrice?: number | null | undefined;
+	variationPrice?: number | null | undefined;
 	vendor?: string | undefined;
 }
 
@@ -96,17 +99,17 @@ function applyVariationFields(
 	args: UpdateArgs,
 	patch: Record<string, unknown>
 ) {
-	if (args.variationCostPrice !== undefined) {
-		patch.variationCostPrice =
-			args.variationCostPrice === null
+	if (args.variationPrice !== undefined) {
+		patch.variationPrice =
+			args.variationPrice === null
 				? undefined
-				: parseMoney2(args.variationCostPrice, 'Variation cost price');
+				: parseMoney2(args.variationPrice, 'Variation price');
 	}
-	if (args.variationSalePrice !== undefined) {
-		patch.variationSalePrice =
-			args.variationSalePrice === null
-				? undefined
-				: parseMoney2(args.variationSalePrice, 'Variation sale price');
+}
+
+function applyLocationsField(args: UpdateArgs, patch: Record<string, unknown>) {
+	if (args.locations !== undefined) {
+		patch.locations = args.locations === null ? undefined : args.locations;
 	}
 }
 
@@ -116,6 +119,7 @@ function buildScalarPatch(args: UpdateArgs): Record<string, unknown> {
 	applyVendorFields(args, patch);
 	applyPriceFields(args, patch);
 	applyVariationFields(args, patch);
+	applyLocationsField(args, patch);
 	applyStatus(args, patch);
 	return patch;
 }
@@ -126,16 +130,11 @@ function applyVariationPatchRules(
 ) {
 	const nextClass =
 		(patch.class as typeof existing.class | undefined) ?? existing.class;
-	const nextVariationCost =
-		(patch.variationCostPrice as number | undefined) ??
-		existing.variationCostPrice;
-	const nextVariationSale =
-		(patch.variationSalePrice as number | undefined) ??
-		existing.variationSalePrice;
-	validateVariationFields(nextClass, nextVariationCost, nextVariationSale);
+	const nextVariationPrice =
+		(patch.variationPrice as number | undefined) ?? existing.variationPrice;
+	validateVariationFields(nextClass, nextVariationPrice);
 	if (nextClass === 'Standard') {
-		patch.variationCostPrice = undefined;
-		patch.variationSalePrice = undefined;
+		patch.variationPrice = undefined;
 	}
 }
 
@@ -173,8 +172,19 @@ export const update = mutation({
 		link: v.optional(v.union(v.string(), v.null())),
 		costPrice: v.optional(v.number()),
 		salePrice: v.optional(v.number()),
-		variationCostPrice: v.optional(v.union(v.number(), v.null())),
-		variationSalePrice: v.optional(v.union(v.number(), v.null())),
+		variationPrice: v.optional(v.union(v.number(), v.null())),
+		locations: v.optional(
+			v.union(
+				v.array(
+					v.object({
+						name: v.string(),
+						quantity: v.optional(v.number()),
+						unit: v.optional(v.string()),
+					})
+				),
+				v.null()
+			)
+		),
 		status: v.optional(projectInclusionStatusValidator),
 	},
 	handler: async (ctx, args) => {
