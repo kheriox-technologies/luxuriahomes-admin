@@ -13,6 +13,7 @@ import {
 	buildVariationFromStandard,
 	getProjectOrThrow,
 	getStandardVariantOrThrow,
+	roundMoney,
 	validateVariationFields,
 } from './shared';
 
@@ -49,12 +50,21 @@ export const add = mutation({
 			ctx,
 			variant.inclusionId
 		);
-		const { variationPrice } = buildVariationFromStandard(
-			variant.class,
-			salePrice,
-			standardVariant.salePrice
-		);
-		validateVariationFields(variant.class, variationPrice);
+		const { variationPrice: perUnitVariationPrice } =
+			buildVariationFromStandard(
+				variant.class,
+				salePrice,
+				standardVariant.salePrice
+			);
+		validateVariationFields(variant.class, perUnitVariationPrice);
+
+		const totalQuantity = args.locations
+			? args.locations.reduce((sum, loc) => sum + (loc.quantity ?? 0), 0)
+			: 0;
+		const variationPrice =
+			perUnitVariationPrice !== undefined && totalQuantity > 0
+				? roundMoney(perUnitVariationPrice * totalQuantity)
+				: perUnitVariationPrice;
 
 		const title = inclusion.title.trim();
 		const code = variant.code.trim();

@@ -18,7 +18,6 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
-	CardAction,
 	CardDescription,
 	CardHeader,
 	CardPanel,
@@ -599,9 +598,9 @@ function EditInclusionQuantitiesDialog({
 						<div className="flex flex-col gap-1.5">
 							{localLocations.map((entry, i) => (
 								<Card key={`${entry.name}-${i}`}>
-									<CardHeader>
+									<CardPanel className="flex items-center justify-between">
 										<CardTitle className="text-sm">{entry.name}</CardTitle>
-										<CardAction>
+										<div className="inline-flex items-center gap-2">
 											<span className="text-muted-foreground text-sm">
 												{entry.quantity != null
 													? `${entry.quantity}${entry.unit ? ` ${entry.unit}` : ''}`
@@ -616,12 +615,12 @@ function EditInclusionQuantitiesDialog({
 												}
 												size="icon-sm"
 												type="button"
-												variant="ghost"
+												variant="destructive-outline"
 											>
 												<Trash2 className="size-4" />
 											</Button>
-										</CardAction>
-									</CardHeader>
+										</div>
+									</CardPanel>
 								</Card>
 							))}
 						</div>

@@ -5,7 +5,7 @@ import { buildInclusionVariantSearchText } from '../lib/buildSearchText';
 
 type ReadCtx = MutationCtx | QueryCtx;
 
-function roundMoney(value: number): number {
+export function roundMoney(value: number): number {
 	return Math.round(value * 100) / 100;
 }
 
