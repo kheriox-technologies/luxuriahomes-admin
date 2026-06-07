@@ -56,6 +56,7 @@ export default defineSchema({
 		searchText: v.string(),
 		variantCount: v.number(),
 		standardPrice: v.optional(v.number()),
+		measurementUnit: v.optional(v.id('units')),
 	})
 		.index('by_category', ['categoryId'])
 		.searchIndex('search_inclusions', { searchField: 'searchText' }),

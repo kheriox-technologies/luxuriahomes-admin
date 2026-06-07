@@ -14,6 +14,7 @@ export const inclusionFormSchema = z
 				(val) => !val || MONEY_PATTERN.test(val.trim()),
 				'Enter a valid amount (up to 2 decimals)'
 			),
+		measurementUnit: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
 		if (!(data.newCategoryName?.trim() || data.categoryId)) {
@@ -76,11 +77,13 @@ export const emptyInclusionFormValues: {
 	categoryId: string;
 	newCategoryName: string;
 	standardPrice: string;
+	measurementUnit: string;
 } = {
 	title: '',
 	categoryId: '',
 	newCategoryName: '',
 	standardPrice: '',
+	measurementUnit: '',
 };
 
 export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =

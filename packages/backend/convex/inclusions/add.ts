@@ -9,6 +9,7 @@ export const add = mutation({
 		title: v.string(),
 		categoryId: v.id('inclusionCategories'),
 		standardPrice: v.optional(v.number()),
+		measurementUnit: v.optional(v.id('units')),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -30,6 +31,7 @@ export const add = mutation({
 			searchText,
 			variantCount: 0,
 			standardPrice: args.standardPrice,
+			measurementUnit: args.measurementUnit,
 		});
 		await ctx.db.patch(args.categoryId, {
 			count: category.count + 1,

@@ -26,7 +26,7 @@ import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { signCdnUrls } from '@/actions/cdn';
 import AddInclusionVariant from '@/components/inclusions/add-inclusion-variant';
 import AddVariantToProjectDialog from '@/components/inclusions/add-variant-to-project-dialog';
@@ -358,7 +358,16 @@ export default function InclusionCatalogueDetailView({
 	inclusionId: Id<'inclusions'>;
 }) {
 	const data = useQuery(api.inclusions.get.get, { inclusionId });
+	const units = useQuery(api.units.list.list, {});
 	const mode = useAppModeStore((state) => state.mode);
+
+	const unitAbbrById = useMemo(() => {
+		const m = new Map<string, string>();
+		for (const u of units ?? []) {
+			m.set(u._id, u.abbr);
+		}
+		return m;
+	}, [units]);
 
 	if (data === undefined) {
 		return (
@@ -391,6 +400,7 @@ export default function InclusionCatalogueDetailView({
 						<EditInclusion
 							inclusionId={inclusionId}
 							initialCategoryId={inclusion.categoryId}
+							initialMeasurementUnit={inclusion.measurementUnit}
 							initialStandardPrice={inclusion.standardPrice}
 							initialTitle={inclusion.title}
 							trigger={
@@ -438,6 +448,12 @@ export default function InclusionCatalogueDetailView({
 								No standard price set
 							</Badge>
 						)}
+						{inclusion.measurementUnit &&
+						unitAbbrById.get(inclusion.measurementUnit) ? (
+							<Badge size="lg" variant="outline">
+								{unitAbbrById.get(inclusion.measurementUnit)}
+							</Badge>
+						) : null}
 					</>
 				}
 				rightSlot={

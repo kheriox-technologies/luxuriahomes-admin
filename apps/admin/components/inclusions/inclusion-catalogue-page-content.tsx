@@ -88,6 +88,8 @@ function InclusionCatalogueCard({
 						<EditInclusion
 							inclusionId={inclusion._id}
 							initialCategoryId={inclusion.categoryId}
+							initialMeasurementUnit={inclusion.measurementUnit}
+							initialStandardPrice={inclusion.standardPrice}
 							initialTitle={inclusion.title}
 							trigger={
 								<Button
