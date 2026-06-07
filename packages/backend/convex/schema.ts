@@ -25,6 +25,16 @@ export const projectInclusionStatusValidator = v.union(
 	v.literal('Approved')
 );
 
+export const stageDependencyTypeValidator = v.union(
+	v.literal('after'),
+	v.literal('alongWith')
+);
+
+export const taskDependencyTypeValidator = v.union(
+	v.literal('after'),
+	v.literal('alongWith')
+);
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -57,7 +67,7 @@ export default defineSchema({
 		color: v.optional(v.string()),
 		details: v.optional(v.string()),
 		image: v.optional(v.string()),
-		storageId: v.optional(v.id('_storage')),
+		storageId: v.optional(v.id('_storage')), // migration: remove after clearing all legacy records
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
@@ -77,7 +87,7 @@ export default defineSchema({
 		color: v.optional(v.string()),
 		details: v.optional(v.string()),
 		image: v.optional(v.string()),
-		storageId: v.optional(v.id('_storage')),
+		storageId: v.optional(v.id('_storage')), // migration: remove after clearing all legacy records
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
@@ -102,6 +112,80 @@ export default defineSchema({
 		address: australianAddressValidator,
 		status: projectStatusValidator,
 		clients: v.array(projectClientValidator),
+		startDate: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
+	stages: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		taskCount: v.number(),
+		totalDuration: v.number(),
+		displayOrder: v.number(),
+		dependsOn: v.array(
+			v.object({
+				stageId: v.id('stages'),
+				type: stageDependencyTypeValidator,
+			})
+		),
+		searchText: v.string(),
+	})
+		.index('by_name', ['name'])
+		.index('by_display_order', ['displayOrder'])
+		.searchIndex('search_stages', { searchField: 'searchText' }),
+	tasks: defineTable({
+		stageId: v.id('stages'),
+		name: v.string(),
+		description: v.optional(v.string()),
+		duration: v.number(),
+		displayOrder: v.number(),
+		dependsOn: v.array(
+			v.object({
+				taskId: v.id('tasks'),
+				type: taskDependencyTypeValidator,
+			})
+		),
+		searchText: v.string(),
+	})
+		.index('by_stage', ['stageId'])
+		.index('by_stage_display_order', ['stageId', 'displayOrder'])
+		.searchIndex('search_tasks', { searchField: 'searchText' }),
+	orders: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		stageId: v.optional(v.id('stages')),
+		taskId: v.optional(v.id('tasks')),
+		materials: v.optional(
+			v.array(v.object({ name: v.string(), units: v.string() }))
+		),
+		searchText: v.string(),
+	})
+		.index('by_stage', ['stageId'])
+		.index('by_task', ['taskId'])
+		.searchIndex('search_orders', { searchField: 'searchText' }),
+	units: defineTable({
+		category: v.string(),
+		abbr: v.string(),
+		label: v.string(),
+	}).index('by_category', ['category']),
+	locations: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_locations', { searchField: 'searchText' }),
+	trades: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_trades', { searchField: 'searchText' }),
+	vendors: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		link: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_vendors', { searchField: 'searchText' }),
+	materialColors: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_material_colors', { searchField: 'searchText' }),
 });

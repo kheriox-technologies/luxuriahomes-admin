@@ -12,6 +12,7 @@ import PageHeading from '@/components/page-heading';
 import DeleteProject from '@/components/projects/delete-project';
 import EditProjectForm from '@/components/projects/edit-project';
 import ProjectDetailsTabs from '@/components/projects/project-details-tabs';
+import { formatStartDateRelative } from '@/components/projects/project-form-shared';
 
 function formatAddressLine(address: {
 	street: string;
@@ -50,7 +51,7 @@ export default function ProjectDetailView({
 	if (project === undefined) {
 		return (
 			<div className={cn('flex h-full w-full flex-col')}>
-				<PageHeading backLink="/projects" heading="Project" />
+				<PageHeading heading="Project" />
 				<p className="text-muted-foreground text-sm">Loading…</p>
 			</div>
 		);
@@ -59,7 +60,7 @@ export default function ProjectDetailView({
 	if (project === null) {
 		return (
 			<div className={cn('flex h-full w-full flex-col')}>
-				<PageHeading backLink="/projects" heading="Project" />
+				<PageHeading heading="Project" />
 				<p className="text-muted-foreground text-sm">Project not found.</p>
 			</div>
 		);
@@ -70,7 +71,6 @@ export default function ProjectDetailView({
 	return (
 		<div className={cn('flex h-full w-full flex-col')}>
 			<PageHeading
-				backLink="/projects"
 				className="mb-0"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
@@ -112,6 +112,17 @@ export default function ProjectDetailView({
 					</Badge>
 				}
 			/>
+			<div className="mt-1 mb-4">
+				{project.startDate ? (
+					<Badge size="lg" variant="outline">
+						{formatStartDateRelative(project.startDate)}
+					</Badge>
+				) : (
+					<Badge size="lg" variant="warning">
+						No start date available
+					</Badge>
+				)}
+			</div>
 			<ProjectDetailsTabs clients={project.clients} projectId={projectId} />
 		</div>
 	);

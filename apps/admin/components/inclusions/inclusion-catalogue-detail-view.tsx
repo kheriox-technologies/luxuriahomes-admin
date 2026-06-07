@@ -26,6 +26,8 @@ import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { signCdnUrls } from '@/actions/cdn';
 import AddInclusionVariant from '@/components/inclusions/add-inclusion-variant';
 import AddVariantToProjectDialog from '@/components/inclusions/add-variant-to-project-dialog';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
@@ -73,13 +75,17 @@ function variantClassBadgeVariant(
 function CatalogueVariantImageThumbnail({
 	productTitle,
 	variant,
+	signedImageUrl,
 }: {
 	productTitle: string;
 	variant: Doc<'inclusionVariants'>;
+	signedImageUrl: string;
 }) {
-	const imageUrl = variant.image?.trim() ?? '';
-	if (!imageUrl) {
-		return <span className="text-muted-foreground text-xs">No image</span>;
+	if (!signedImageUrl) {
+		if (!variant.image) {
+			return <span className="text-muted-foreground text-xs">No image</span>;
+		}
+		return <span className="text-muted-foreground text-xs">Loading…</span>;
 	}
 	const label = `${productTitle} ${variant.code}`;
 	return (
@@ -97,7 +103,7 @@ function CatalogueVariantImageThumbnail({
 					alt={label}
 					className="size-[75px] object-contain"
 					height={75}
-					src={imageUrl}
+					src={signedImageUrl}
 					unoptimized
 					width={75}
 				/>
@@ -111,7 +117,7 @@ function CatalogueVariantImageThumbnail({
 						alt={label}
 						className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
 						height={1200}
-						src={imageUrl}
+						src={signedImageUrl}
 						unoptimized
 						width={1200}
 					/>
@@ -186,6 +192,23 @@ function InclusionCatalogueVariantsTableInFrame({
 }) {
 	const showPricing = mode === 'builder';
 	const minClass = catalogueVariantsTableMinClass(showPricing);
+	const [signedImageUrls, setSignedImageUrls] = useState<
+		Record<string, string>
+	>({});
+
+	useEffect(() => {
+		const keys = variants
+			.map((v) => v.image)
+			.filter((img): img is string => Boolean(img));
+		if (keys.length === 0) {
+			return;
+		}
+		signCdnUrls(keys)
+			.then(setSignedImageUrls)
+			.catch(() => {
+				/* images will show as loading if signing fails */
+			});
+	}, [variants]);
 	return (
 		<Frame className="w-full">
 			<FramePanel className="p-0">
@@ -307,6 +330,9 @@ function InclusionCatalogueVariantsTableInFrame({
 											<div className="flex justify-end">
 												<CatalogueVariantImageThumbnail
 													productTitle={inclusion.title}
+													signedImageUrl={
+														signedImageUrls[variant.image ?? ''] ?? ''
+													}
 													variant={variant}
 												/>
 											</div>

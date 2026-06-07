@@ -34,20 +34,31 @@ const moneyStringSchema = z
 	.min(1, 'Amount is required')
 	.regex(moneyPattern, 'Enter a valid amount (up to 2 decimals)');
 
-export const addInclusionVariantFormSchema = z.object({
-	class: z.enum(inclusionVariantClasses),
-	vendor: z.string().trim().min(1, 'Vendor is required'),
-	models: z
-		.array(z.string().trim().min(1, 'Model cannot be empty'))
-		.min(1, 'Add at least one model'),
-	color: z.string().optional(),
-	costPrice: moneyStringSchema,
-	salePrice: moneyStringSchema,
-	details: z.string().optional(),
-	link: z.string().optional(),
-	image: z.string().optional(),
-	storageId: z.string().optional(),
-});
+export const addInclusionVariantFormSchema = z
+	.object({
+		class: z.enum(inclusionVariantClasses),
+		vendor: z.string(),
+		newVendorName: z.string().optional(),
+		models: z
+			.array(z.string().trim().min(1, 'Model cannot be empty'))
+			.min(1, 'Add at least one model'),
+		color: z.string().optional(),
+		newColorName: z.string().optional(),
+		costPrice: moneyStringSchema,
+		salePrice: moneyStringSchema,
+		details: z.string().optional(),
+		link: z.string().optional(),
+		image: z.string().optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (!(data.vendor.trim() || data.newVendorName?.trim())) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'Vendor is required',
+				path: ['vendor'],
+			});
+		}
+	});
 
 export type AddInclusionVariantFormValues = z.infer<
 	typeof addInclusionVariantFormSchema
@@ -67,14 +78,15 @@ export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =
 	{
 		class: 'Standard',
 		vendor: '',
+		newVendorName: '',
 		models: [],
 		color: '',
+		newColorName: '',
 		costPrice: '',
 		salePrice: '',
 		details: '',
 		link: '',
 		image: '',
-		storageId: '',
 	};
 
 export function inclusionFormFieldError(

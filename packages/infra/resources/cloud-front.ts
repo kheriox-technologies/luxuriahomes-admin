@@ -14,6 +14,7 @@ const usEast1Provider = new Provider('us-east-1-provider', {
 });
 
 interface CDNInput {
+	cdnBucket: s3.Bucket;
 	staticBucket: s3.Bucket;
 }
 
@@ -124,6 +125,112 @@ export const createCDNDistributions = (input: CDNInput): void => {
 			{
 				name: staticDistribution.domainName,
 				zoneId: staticDistribution.hostedZoneId,
+				evaluateTargetHealth: false,
+			},
+		],
+	});
+
+	const cdnDomain =
+		envName === 'prod' ? `cdn.${baseDomain}` : `cdn-${envName}.${baseDomain}`;
+
+	// CloudFront Public Key + Key Group for signed URL enforcement
+	const cdnPublicKey = new cloudfront.PublicKey('cdn-public-key', {
+		name: `${cloudFrontNamePrefix}-cdn-public-key`,
+		// AWS appends a trailing newline to stored keys; normalize to prevent perpetual diff
+		encodedKey: `${appConfig.require('cdnPublicKey').trim()}\n`,
+		comment: `CDN signed-URL public key for ${envName}`,
+	});
+
+	const cdnKeyGroup = new cloudfront.KeyGroup('cdn-key-group', {
+		name: `${cloudFrontNamePrefix}-cdn-key-group`,
+		items: [cdnPublicKey.id],
+		comment: `CDN key group for ${envName}`,
+	});
+
+	const cdnOAC = new cloudfront.OriginAccessControl('cdn-oac', {
+		name: `${cloudFrontNamePrefix}-cdn-oac`,
+		originAccessControlOriginType: 's3',
+		signingBehavior: 'always',
+		signingProtocol: 'sigv4',
+	});
+
+	// CDN Distribution — signed URLs required (trustedKeyGroups enforces this)
+	const cdnDistribution = new cloudfront.Distribution('cdn-distribution', {
+		origins: [
+			{
+				domainName: input.cdnBucket.bucketRegionalDomainName,
+				originAccessControlId: cdnOAC.id,
+				originId: 'cdnS3Origin',
+			},
+		],
+		enabled: true,
+		comment: `CDN Distribution for ${envName}`,
+		aliases: [cdnDomain],
+		defaultCacheBehavior: {
+			allowedMethods: ['GET', 'HEAD', 'OPTIONS'],
+			cachedMethods: ['GET', 'HEAD'],
+			targetOriginId: 'cdnS3Origin',
+			forwardedValues: {
+				queryString: false,
+				cookies: { forward: 'none' },
+			},
+			viewerProtocolPolicy: 'redirect-to-https',
+			trustedKeyGroups: [cdnKeyGroup.id],
+			minTtl: 0,
+			defaultTtl: 3600,
+			maxTtl: 86_400,
+		},
+		priceClass: 'PriceClass_All',
+		restrictions: {
+			geoRestriction: {
+				restrictionType: 'none',
+			},
+		},
+		tags: defaultTags,
+		viewerCertificate: {
+			acmCertificateArn: certificate.then((cert) => cert.arn),
+			sslSupportMethod: 'sni-only',
+			minimumProtocolVersion: 'TLSv1.2_2021',
+		},
+	});
+
+	// S3 Bucket Policy for CDN bucket — CloudFront-only access via OAC
+	const cdnBucketPolicy = iam.getPolicyDocumentOutput({
+		statements: [
+			{
+				principals: [
+					{
+						type: 'Service',
+						identifiers: ['cloudfront.amazonaws.com'],
+					},
+				],
+				actions: ['s3:GetObject'],
+				resources: [input.cdnBucket.arn.apply((arn) => `${arn}/*`)],
+				conditions: [
+					{
+						test: 'StringEquals',
+						variable: 'AWS:SourceArn',
+						values: [cdnDistribution.arn],
+					},
+				],
+			},
+		],
+	});
+
+	new s3Sdk.BucketPolicy('cdn-bucket-policy', {
+		bucket: input.cdnBucket.id,
+		policy: cdnBucketPolicy.json,
+	});
+
+	// Route53 record for CDN distribution
+	new route53.Record('cdn-route53-record', {
+		zoneId: hostedZoneId,
+		name: cdnDomain,
+		type: 'A',
+		aliases: [
+			{
+				name: cdnDistribution.domainName,
+				zoneId: cdnDistribution.hostedZoneId,
 				evaluateTargetHealth: false,
 			},
 		],

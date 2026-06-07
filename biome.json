@@ -33,7 +33,9 @@
       "!**/wrangler.jsonc",
       "!**/.source",
       "!**/convex/_generated",
-      "!**/temp"
+      "!**/temp",
+      "!**/frappe-gantt.css",
+      "!**/frappe-gantt-vendor.css"
     ]
   },
   "overrides": [

@@ -9,3 +9,8 @@ config:
   app:logsRetentionDays: "7"
   app:baseDomain: "luxuriahomes.com.au"
   app:hostedZoneId: "Z0269169345LCDXPGG23V"
+  # Set via: pulumi config set --secret app:cdnPublicKey "$(cat cdn_public_key.pem)" --stack dev
+  # app:cdnPublicKey: "<RSA 2048-bit public key PEM — set as a Pulumi secret, do not commit the real value>"
+
+  app:cdnPublicKey:
+    secure: AAABAL4eoSuekXQwbQAggP7cOHwmGWP7QPAGwaovxxmhCRyug9dzWz+LQYCN7DLFMQfe/X4KaI42kBZfup9A+zbiESgX+zaIXDhmQFQbctgor2cbc5jOGoxIEYoOhmNrgeaghTsWUL4Srd+e+pJUuUMhoo9HM47JIQqedc0UIs2AEZN4aRDbVQSzt1VFs7b1YAUdYfCAw1zfeJRdSD03RRNZ6jvmrPEikpWvMno22TkxIoUTYoNBS4SszruFTvZ0vUSEjUaxxw+Vgjn377f6bs/k2ax5iSJ1S/i20j3bGPB9lkJcnKw/IqukNUrp7TGpNzvz7cBreABvu0oah8pStK8Ef7TBGG1X8/NbfOJwYjl1Q9ohvu5fIGUw+ARHSEnR0lPPvc0QJGH5aqHY16/jz64ISkYuI1nrXIF2Gg9Z44ar1vLYeNU0HnH0MuprnBHeAukzH9zYt5QMSo7rBGLlK8GrP/n1bJFug26wUUMy0DHXv3vQQKFB6WsbjWZLK4WqThkQmYPB6tBshvqSrDEVaGfYobtEzU2SKkFDGnMpsThEbRRdvc2gmvGWKkO4Ptgw8UgIAgE9dN4Ci84x0wGnqJKtlBn2IYraCi4V9e0DzRdQDT+h/u7cG9DM0fuvXBm0WCc=

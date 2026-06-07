@@ -1,0 +1,66 @@
+{
+  "construction_units": [
+    {
+      "category": "Area",
+      "description": "Surface-based materials like flooring, tiling, roofing, cladding",
+      "units": [
+        { "abbr": "m²", "label": "Square metre", "unicode": "m\u00B2" },
+        { "abbr": "ha", "label": "Hectare", "unicode": "ha" }
+      ]
+    },
+    {
+      "category": "Volume",
+      "description": "Bulk materials like concrete, gravel, sand, soil",
+      "units": [
+        { "abbr": "m³", "label": "Cubic metre", "unicode": "m\u00B3" },
+        { "abbr": "L", "label": "Litre", "unicode": "L" },
+        { "abbr": "kL", "label": "Kilolitre", "unicode": "kL" },
+        { "abbr": "mL", "label": "Millilitre", "unicode": "mL" }
+      ]
+    },
+    {
+      "category": "Linear",
+      "description": "Length-based materials like pipes, cables, timber, conduit",
+      "units": [
+        { "abbr": "m", "label": "Metre", "unicode": "m" },
+        { "abbr": "lm", "label": "Linear metre", "unicode": "lm" },
+        { "abbr": "mm", "label": "Millimetre", "unicode": "mm" },
+        { "abbr": "cm", "label": "Centimetre", "unicode": "cm" }
+      ]
+    },
+    {
+      "category": "Weight",
+      "description": "Bulk materials ordered by mass like steel, aggregates, cement",
+      "units": [
+        { "abbr": "kg", "label": "Kilogram", "unicode": "kg" },
+        { "abbr": "t", "label": "Metric tonne", "unicode": "t" },
+        { "abbr": "g", "label": "Gram", "unicode": "g" }
+      ]
+    },
+    {
+      "category": "Count",
+      "description": "Discrete items like doors, windows, fixtures, fittings, fasteners",
+      "units": [
+        { "abbr": "no.", "label": "Number", "unicode": "no." },
+        { "abbr": "ea", "label": "Each", "unicode": "ea" },
+        { "abbr": "set", "label": "Set", "unicode": "set" },
+        { "abbr": "lot", "label": "Lot", "unicode": "lot" },
+        { "abbr": "pair", "label": "Pair", "unicode": "pair" },
+        { "abbr": "pkt", "label": "Packet", "unicode": "pkt" }
+      ]
+    },
+    {
+      "category": "Packaged Goods",
+      "description": "Materials supplied in standard packaging like bags, rolls, sheets",
+      "units": [
+        { "abbr": "bag", "label": "Bag", "unicode": "bag" },
+        { "abbr": "pallet", "label": "Pallet", "unicode": "pallet" },
+        { "abbr": "roll", "label": "Roll", "unicode": "roll" },
+        { "abbr": "bundle", "label": "Bundle", "unicode": "bundle" },
+        { "abbr": "sheet", "label": "Sheet", "unicode": "sheet" },
+        { "abbr": "box", "label": "Box", "unicode": "box" },
+        { "abbr": "drum", "label": "Drum", "unicode": "drum" }
+      ]
+    }
+  ]
+}

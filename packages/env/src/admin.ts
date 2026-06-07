@@ -6,6 +6,8 @@ export const env = createEnv({
 		APP_NAME: z.string().min(1),
 		CONVEX_DEPLOYMENT: z.string().min(1),
 		CLERK_SECRET_KEY: z.string().min(1),
+		CDN_KEY_PAIR_ID: z.string().min(1),
+		CDN_PRIVATE_KEY: z.string().min(1),
 	},
 	client: {
 		NEXT_PUBLIC_APP_NAME: z.string().min(1),
@@ -19,6 +21,7 @@ export const env = createEnv({
 		NEXT_PUBLIC_CLERK_SIGN_IN_URL: z.string().min(1),
 		NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: z.string().min(1),
 		NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: z.string().min(1),
+		NEXT_PUBLIC_CDN_URL: z.string().min(1),
 	},
 	experimental__runtimeEnv: {
 		NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
@@ -36,5 +39,6 @@ export const env = createEnv({
 			process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL,
 		NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL:
 			process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL,
+		NEXT_PUBLIC_CDN_URL: process.env.NEXT_PUBLIC_CDN_URL,
 	},
 });

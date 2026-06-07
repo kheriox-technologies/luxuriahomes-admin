@@ -49,3 +49,8 @@ coverage
 .cache
 tmp
 temp
+
+# CDN key files
+*.pem
+
+.playwright-mcp

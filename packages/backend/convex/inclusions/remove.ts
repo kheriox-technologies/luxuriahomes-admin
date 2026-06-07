@@ -1,6 +1,5 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { deleteVariantStorageIfPresent } from '../inclusionVariants/shared';
 import { requireAdmin } from '../lib/checkIdentity';
 import { getInclusionOrThrow } from './shared';
 
@@ -18,7 +17,6 @@ export const remove = mutation({
 			.collect();
 
 		for (const variant of variants) {
-			await deleteVariantStorageIfPresent(ctx, variant.storageId);
 			await ctx.db.delete(variant._id);
 		}
 

@@ -2,7 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
-import type { Doc, Id } from '@workspace/backend/dataModel';
+import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardPanel } from '@workspace/ui/components/card';
@@ -40,9 +40,10 @@ import {
 import { SingleImageUpload } from '@workspace/ui/components/single-image-upload';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { Plus, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
+import { signCdnUrl } from '@/actions/cdn';
 import {
 	addInclusionVariantFormSchema,
 	type InclusionVariantClass,
@@ -51,20 +52,23 @@ import {
 	normalizeOptionalText,
 	parseMoneyString,
 } from '@/components/inclusions/inclusion-form-shared';
+import MaterialColorCombobox from '@/components/inclusions/material-color-combobox';
+import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 function toDefaultValues(variant: Doc<'inclusionVariants'>) {
 	return {
 		class: variant.class as InclusionVariantClass,
 		vendor: variant.vendor,
+		newVendorName: '',
 		models: variant.models,
 		color: variant.color ?? '',
+		newColorName: '',
 		costPrice: String(variant.costPrice),
 		salePrice: String(variant.salePrice),
 		details: variant.details ?? '',
 		link: variant.link ?? '',
 		image: variant.image ?? '',
-		storageId: variant.storageId ?? '',
 	};
 }
 
@@ -95,19 +99,15 @@ export default function EditInclusionVariant({
 	const [uploadFieldKey, setUploadFieldKey] = useState(0);
 	const [modelDraft, setModelDraft] = useState('');
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
-	const [originalStorageId, setOriginalStorageId] = useState(
-		variant.storageId ?? ''
-	);
+	const [previewUrl, setPreviewUrl] = useState('');
 
 	const updateVariant = useMutation(api.inclusionVariants.update.update);
-	const generateUploadUrl = useMutation(
-		api.fileStorage.generateUploadUrl.generateUploadUrl
-	);
-	const resolvePublicUrl = useMutation(
-		api.fileStorage.resolvePublicUrl.resolvePublicUrl
-	);
-	const deleteStoredFile = useMutation(
-		api.fileStorage.deleteStorage.deleteStorage
+	const addVendor = useMutation(api.vendors.add.add);
+	const addMaterialColor = useMutation(api.materialColors.add.add);
+	const vendors = useQuery(api.vendors.list.list, {});
+	const materialColors = useQuery(api.materialColors.list.list, {});
+	const generateS3UploadUrl = useAction(
+		api.fileStorage.generateS3UploadUrl.generateS3UploadUrl
 	);
 
 	const form = useForm({
@@ -119,26 +119,37 @@ export default function EditInclusionVariant({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = addInclusionVariantFormSchema.parse(value);
-				const normalizedStorageId = parsed.storageId?.trim();
+
+				const newVendorTrimmed = normalizeOptionalText(parsed.newVendorName);
+				const resolvedVendor = newVendorTrimmed ?? parsed.vendor.trim();
+				if (newVendorTrimmed) {
+					await addVendor({ name: newVendorTrimmed });
+				}
+
+				const newColorTrimmed = normalizeOptionalText(parsed.newColorName);
+				const resolvedColor =
+					newColorTrimmed ?? normalizeOptionalText(parsed.color);
+				if (newColorTrimmed) {
+					await addMaterialColor({ name: newColorTrimmed });
+				}
+
 				await updateVariant({
 					variantId: variant._id,
 					class: parsed.class,
 					costPrice: parseMoneyString(parsed.costPrice),
 					salePrice: parseMoneyString(parsed.salePrice),
-					vendor: parsed.vendor.trim(),
+					vendor: resolvedVendor,
 					models: parsed.models,
-					color: normalizeOptionalText(parsed.color) ?? null,
+					color: resolvedColor ?? null,
 					details: normalizeOptionalText(parsed.details) ?? null,
 					link: normalizeOptionalText(parsed.link) ?? null,
 					image: normalizeOptionalText(parsed.image) ?? null,
-					storageId: normalizedStorageId
-						? (normalizedStorageId as Id<'_storage'>)
-						: null,
 				});
 				toastManager.add({
 					title: 'Variant updated',
 					type: 'success',
 				});
+				setPreviewUrl('');
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
@@ -153,63 +164,37 @@ export default function EditInclusionVariant({
 		},
 	});
 
-	const removeVariantImage = async () => {
-		const storageId = form.getFieldValue('storageId')?.trim();
-		if (storageId) {
-			try {
-				await deleteStoredFile({
-					storageId: storageId as Id<'_storage'>,
-				});
-			} catch (error) {
-				toastManager.add({
-					description: getConvexErrorMessage(
-						error,
-						'Could not delete the file from storage. Please try again.'
-					),
-					title: 'Could not delete image',
-					type: 'error',
-				});
-				throw error;
-			}
+	const removeVariantImage = () => {
+		if (previewUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(previewUrl);
 		}
 		form.setFieldValue('image', '');
-		form.setFieldValue('storageId', '');
+		setPreviewUrl('');
 	};
 
 	const uploadImage = async (file: File) => {
 		setIsUploadingImage(true);
+		const localPreview = URL.createObjectURL(file);
+		setPreviewUrl(localPreview);
 		try {
-			const uploadUrl = await generateUploadUrl({});
+			const ext = file.name.split('.').pop() ?? 'jpg';
+			const { uploadUrl, s3Key } = await generateS3UploadUrl({
+				contentType: file.type || 'application/octet-stream',
+				ext,
+			});
 			const response = await fetch(uploadUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': file.type || 'application/octet-stream',
-				},
+				method: 'PUT',
+				headers: { 'Content-Type': file.type || 'application/octet-stream' },
 				body: file,
 			});
 			if (!response.ok) {
 				throw new Error('Upload failed');
 			}
-			const payload = (await response.json()) as { storageId?: string };
-			if (!payload.storageId) {
-				throw new Error('Upload response missing storageId');
-			}
-			if (originalStorageId && originalStorageId !== payload.storageId) {
-				await deleteStoredFile({
-					storageId: originalStorageId as Id<'_storage'>,
-				});
-			}
-			const resolved = await resolvePublicUrl({
-				storageId: payload.storageId as Id<'_storage'>,
-			});
-			setOriginalStorageId(resolved.storageId);
-			form.setFieldValue('storageId', resolved.storageId);
-			form.setFieldValue('image', resolved.url);
-			toastManager.add({
-				title: 'Image uploaded',
-				type: 'success',
-			});
+			form.setFieldValue('image', s3Key);
+			toastManager.add({ title: 'Image uploaded', type: 'success' });
 		} catch (error) {
+			URL.revokeObjectURL(localPreview);
+			setPreviewUrl('');
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
@@ -230,14 +215,25 @@ export default function EditInclusionVariant({
 				if (nextOpen) {
 					const defaults = toDefaultValues(variant);
 					form.reset(defaults);
-					setOriginalStorageId(variant.storageId ?? '');
 					setUploadFieldKey((key) => key + 1);
 					setModelDraft('');
+					setPreviewUrl('');
+					if (variant.image) {
+						signCdnUrl(variant.image)
+							.then((url) => setPreviewUrl(url))
+							.catch(() => {
+								/* preview unavailable — image key still saved in form */
+							});
+					}
 					Promise.resolve(form.validate('change')).catch(() => {
 						/* validation errors are reflected in form state */
 					});
 				}
 				if (!nextOpen) {
+					if (previewUrl.startsWith('blob:')) {
+						URL.revokeObjectURL(previewUrl);
+					}
+					setPreviewUrl('');
 					setIsUploadingImage(false);
 				}
 			}}
@@ -469,15 +465,34 @@ export default function EditInclusionVariant({
 										return (
 											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-												<Input
-													aria-invalid={invalid || undefined}
+												<VendorCombobox
 													id={field.name}
-													nativeInput
+													invalid={invalid || undefined}
 													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Vendor name"
+													onChange={(next) => {
+														field.handleChange(next);
+														if (next) {
+															form.setFieldValue('newVendorName', '');
+														}
+													}}
 													value={field.state.value}
+													vendors={vendors}
 												/>
+												<form.Field name="newVendorName">
+													{(newField) => (
+														<Input
+															nativeInput
+															onChange={(e) => {
+																newField.handleChange(e.target.value);
+																if (e.target.value.trim()) {
+																	field.handleChange('');
+																}
+															}}
+															placeholder="Or type a new vendor name"
+															value={newField.state.value ?? ''}
+														/>
+													)}
+												</form.Field>
 												{invalid ? (
 													<FieldError>
 														{inclusionFormFieldError(field.state.meta.errors)}
@@ -583,13 +598,33 @@ export default function EditInclusionVariant({
 									{(field) => (
 										<Field>
 											<FieldLabel htmlFor={field.name}>Color</FieldLabel>
-											<Input
+											<MaterialColorCombobox
+												colors={materialColors}
 												id={field.name}
-												nativeInput
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Color or finish"
+												onBlur={field.handleBlur}
+												onChange={(next) => {
+													field.handleChange(next);
+													if (next) {
+														form.setFieldValue('newColorName', '');
+													}
+												}}
 												value={field.state.value ?? ''}
 											/>
+											<form.Field name="newColorName">
+												{(newField) => (
+													<Input
+														nativeInput
+														onChange={(e) => {
+															newField.handleChange(e.target.value);
+															if (e.target.value.trim()) {
+																field.handleChange('');
+															}
+														}}
+														placeholder="Or type a new color name"
+														value={newField.state.value ?? ''}
+													/>
+												)}
+											</form.Field>
 										</Field>
 									)}
 								</form.Field>
@@ -624,29 +659,21 @@ export default function EditInclusionVariant({
 									)}
 								</form.Field>
 
-								<form.Subscribe
-									selector={(state) => ({
-										imageUrl: state.values.image,
-									})}
-								>
-									{({ imageUrl }) => (
-										<SingleImageUpload
-											description="Upload 1 image for this variant."
-											disabled={form.state.isSubmitting}
-											id="variant-image"
-											imageUrl={imageUrl}
-											key={uploadFieldKey}
-											label="Image"
-											onClear={() => removeVariantImage()}
-											onFileSelected={(file) => {
-												uploadImage(file).catch(() => {
-													/* Error handled in uploadImage */
-												});
-											}}
-											uploading={isUploadingImage}
-										/>
-									)}
-								</form.Subscribe>
+								<SingleImageUpload
+									description="Upload 1 image for this variant."
+									disabled={form.state.isSubmitting}
+									id="variant-image"
+									imageUrl={previewUrl}
+									key={uploadFieldKey}
+									label="Image"
+									onClear={() => removeVariantImage()}
+									onFileSelected={(file) => {
+										uploadImage(file).catch(() => {
+											/* Error handled in uploadImage */
+										});
+									}}
+									uploading={isUploadingImage}
+								/>
 							</FramePanel>
 						</Frame>
 					</SheetPanel>

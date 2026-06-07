@@ -16,6 +16,7 @@ export const update = mutation({
 		address: v.optional(australianAddressValidator),
 		status: v.optional(projectStatusValidator),
 		clients: v.optional(v.array(projectClientValidator)),
+		startDate: v.optional(v.union(v.number(), v.null())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -51,6 +52,11 @@ export const update = mutation({
 			clients = args.clients;
 		}
 
+		let startDate = existing.startDate;
+		if (args.startDate !== undefined) {
+			startDate = args.startDate === null ? undefined : args.startDate;
+		}
+
 		const searchText = buildProjectSearchText({
 			name,
 			address,
@@ -63,6 +69,7 @@ export const update = mutation({
 			address,
 			status,
 			clients,
+			startDate,
 			searchText,
 		});
 		return args.projectId;

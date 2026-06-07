@@ -1,6 +1,5 @@
 import { ConvexError, v } from 'convex/values';
-import type { Doc, Id } from '../_generated/dataModel';
-import { type MutationCtx, mutation } from '../_generated/server';
+import { mutation } from '../_generated/server';
 import {
 	getInclusionOrThrow,
 	syncSearchTextsForInclusion,
@@ -8,7 +7,6 @@ import {
 import { requireAdmin } from '../lib/checkIdentity';
 import { inclusionVariantClassValidator } from '../schema';
 import {
-	deleteVariantStorageIfPresent,
 	type InclusionVariantClass,
 	parseModels,
 	parseMoney2,
@@ -25,39 +23,10 @@ interface VariantPatchArgs {
 	link?: string | null | undefined;
 	models?: string[] | undefined;
 	salePrice?: number | undefined;
-	storageId?: Id<'_storage'> | null | undefined;
 	vendor?: string | undefined;
 }
 
-async function applyStorageAndImagePatch(
-	ctx: MutationCtx,
-	existing: Doc<'inclusionVariants'>,
-	args: VariantPatchArgs,
-	patch: Record<string, unknown>
-) {
-	if (args.storageId === undefined && args.image === undefined) {
-		return;
-	}
-
-	if (args.storageId !== undefined) {
-		const nextStorageId = args.storageId === null ? undefined : args.storageId;
-		if (existing.storageId && existing.storageId !== nextStorageId) {
-			await deleteVariantStorageIfPresent(ctx, existing.storageId);
-		}
-		patch.storageId = nextStorageId;
-		if (args.storageId === null && args.image === undefined) {
-			patch.image = undefined;
-		}
-	}
-	if (args.image !== undefined) {
-		patch.image =
-			args.image === null ? undefined : parseOptionalDetail(args.image);
-	}
-}
-
-function buildScalarVariantPatch(
-	args: VariantPatchArgs
-): Record<string, unknown> {
+function buildVariantPatch(args: VariantPatchArgs): Record<string, unknown> {
 	const patch: Record<string, unknown> = {};
 	if (args.class !== undefined) {
 		patch.class = args.class;
@@ -75,6 +44,10 @@ function buildScalarVariantPatch(
 	if (args.details !== undefined) {
 		patch.details =
 			args.details === null ? undefined : parseOptionalDetail(args.details);
+	}
+	if (args.image !== undefined) {
+		patch.image =
+			args.image === null ? undefined : parseOptionalDetail(args.image);
 	}
 	if (args.link !== undefined) {
 		patch.link =
@@ -98,7 +71,6 @@ export const update = mutation({
 		color: v.optional(v.union(v.string(), v.null())),
 		details: v.optional(v.union(v.string(), v.null())),
 		image: v.optional(v.union(v.string(), v.null())),
-		storageId: v.optional(v.union(v.id('_storage'), v.null())),
 		link: v.optional(v.union(v.string(), v.null())),
 		costPrice: v.optional(v.number()),
 		salePrice: v.optional(v.number()),
@@ -115,11 +87,7 @@ export const update = mutation({
 
 		await getInclusionOrThrow(ctx, existing.inclusionId);
 
-		const patch: Record<string, unknown> = {
-			...buildScalarVariantPatch(args),
-		};
-		await applyStorageAndImagePatch(ctx, existing, args, patch);
-
+		const patch = buildVariantPatch(args);
 		await ctx.db.patch(args.variantId, patch);
 		await syncSearchTextsForInclusion(ctx, existing.inclusionId);
 		return args.variantId;

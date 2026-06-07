@@ -1,7 +1,6 @@
 {
   "extends": "@workspace/config/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@workspace/ui/*": ["./src/*"]
     },

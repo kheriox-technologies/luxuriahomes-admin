@@ -82,6 +82,7 @@ import {
 } from 'lucide-react';
 import NextImage from 'next/image';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { signCdnUrls } from '@/actions/cdn';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
@@ -504,12 +505,16 @@ function ProjectInclusionNotesButton({
 
 function ProjectInclusionImageThumbnail({
 	inclusion,
+	signedImageUrl,
 }: {
 	inclusion: ProjectInclusion;
+	signedImageUrl: string;
 }) {
-	const imageUrl = inclusion.image?.trim() ?? '';
-	if (!imageUrl) {
-		return <span className="text-muted-foreground text-xs">No image</span>;
+	if (!signedImageUrl) {
+		if (!inclusion.image) {
+			return <span className="text-muted-foreground text-xs">No image</span>;
+		}
+		return <span className="text-muted-foreground text-xs">Loading…</span>;
 	}
 	return (
 		<Dialog>
@@ -526,7 +531,7 @@ function ProjectInclusionImageThumbnail({
 					alt={`${inclusion.title} ${inclusion.code}`}
 					className="size-full object-contain"
 					height={75}
-					src={imageUrl}
+					src={signedImageUrl}
 					unoptimized
 					width={75}
 				/>
@@ -540,7 +545,7 @@ function ProjectInclusionImageThumbnail({
 						alt={`${inclusion.title} ${inclusion.code}`}
 						className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
 						height={1200}
-						src={imageUrl}
+						src={signedImageUrl}
 						unoptimized
 						width={1200}
 					/>
@@ -587,6 +592,23 @@ function ProjectInclusionsTableInFrame({
 	const showPricing = mode === 'builder';
 	const [bulkLoading, setBulkLoading] = useState(false);
 	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+	const [signedImageUrls, setSignedImageUrls] = useState<
+		Record<string, string>
+	>({});
+
+	useEffect(() => {
+		const keys = section.inclusions
+			.map((inc) => inc.image)
+			.filter((img): img is string => Boolean(img));
+		if (keys.length === 0) {
+			return;
+		}
+		signCdnUrls(keys)
+			.then(setSignedImageUrls)
+			.catch(() => {
+				/* images will show as loading if signing fails */
+			});
+	}, [section.inclusions]);
 	const updateProjectInclusion = useMutation(
 		api.projectInclusions.update.update
 	);
@@ -788,7 +810,12 @@ function ProjectInclusionsTableInFrame({
 										</TableCell>
 										<TableCell className="w-[6rem] min-w-[6rem] max-w-[6rem] text-end align-middle">
 											<div className="flex justify-end">
-												<ProjectInclusionImageThumbnail inclusion={inclusion} />
+												<ProjectInclusionImageThumbnail
+													inclusion={inclusion}
+													signedImageUrl={
+														signedImageUrls[inclusion.image ?? ''] ?? ''
+													}
+												/>
 											</div>
 										</TableCell>
 										<TableCell className="w-[150px] min-w-[150px] max-w-[150px] whitespace-nowrap align-middle">

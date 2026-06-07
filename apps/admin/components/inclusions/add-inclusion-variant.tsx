@@ -40,7 +40,7 @@ import {
 import { SingleImageUpload } from '@workspace/ui/components/single-image-upload';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { Plus, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import {
@@ -51,6 +51,8 @@ import {
 	normalizeOptionalText,
 	parseMoneyString,
 } from '@/components/inclusions/inclusion-form-shared';
+import MaterialColorCombobox from '@/components/inclusions/material-color-combobox';
+import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'add-inclusion-variant-form';
@@ -81,16 +83,15 @@ export default function AddInclusionVariant({
 	const [uploadFieldKey, setUploadFieldKey] = useState(0);
 	const [modelDraft, setModelDraft] = useState('');
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const [previewUrl, setPreviewUrl] = useState('');
 
 	const addVariant = useMutation(api.inclusionVariants.add.add);
-	const generateUploadUrl = useMutation(
-		api.fileStorage.generateUploadUrl.generateUploadUrl
-	);
-	const resolvePublicUrl = useMutation(
-		api.fileStorage.resolvePublicUrl.resolvePublicUrl
-	);
-	const deleteStoredFile = useMutation(
-		api.fileStorage.deleteStorage.deleteStorage
+	const addVendor = useMutation(api.vendors.add.add);
+	const addMaterialColor = useMutation(api.materialColors.add.add);
+	const vendors = useQuery(api.vendors.list.list, {});
+	const materialColors = useQuery(api.materialColors.list.list, {});
+	const generateS3UploadUrl = useAction(
+		api.fileStorage.generateS3UploadUrl.generateS3UploadUrl
 	);
 
 	const form = useForm({
@@ -102,20 +103,31 @@ export default function AddInclusionVariant({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = addInclusionVariantFormSchema.parse(value);
+
+				const newVendorTrimmed = normalizeOptionalText(parsed.newVendorName);
+				const resolvedVendor = newVendorTrimmed ?? parsed.vendor.trim();
+				if (newVendorTrimmed) {
+					await addVendor({ name: newVendorTrimmed });
+				}
+
+				const newColorTrimmed = normalizeOptionalText(parsed.newColorName);
+				const resolvedColor =
+					newColorTrimmed ?? normalizeOptionalText(parsed.color);
+				if (newColorTrimmed) {
+					await addMaterialColor({ name: newColorTrimmed });
+				}
+
 				await addVariant({
 					inclusionId,
 					class: parsed.class,
 					costPrice: parseMoneyString(parsed.costPrice),
 					salePrice: parseMoneyString(parsed.salePrice),
-					vendor: parsed.vendor.trim(),
+					vendor: resolvedVendor,
 					models: parsed.models,
-					color: normalizeOptionalText(parsed.color),
+					color: resolvedColor,
 					details: normalizeOptionalText(parsed.details),
 					link: normalizeOptionalText(parsed.link),
 					image: normalizeOptionalText(parsed.image),
-					storageId: parsed.storageId
-						? (parsed.storageId as Id<'_storage'>)
-						: undefined,
 				});
 				toastManager.add({
 					title: 'Variant added',
@@ -123,6 +135,7 @@ export default function AddInclusionVariant({
 				});
 				form.reset();
 				setModelDraft('');
+				setPreviewUrl('');
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
@@ -137,57 +150,37 @@ export default function AddInclusionVariant({
 		},
 	});
 
-	const removeVariantImage = async () => {
-		const storageId = form.getFieldValue('storageId')?.trim();
-		if (storageId) {
-			try {
-				await deleteStoredFile({
-					storageId: storageId as Id<'_storage'>,
-				});
-			} catch (error) {
-				toastManager.add({
-					description: getConvexErrorMessage(
-						error,
-						'Could not delete the file from storage. Please try again.'
-					),
-					title: 'Could not delete image',
-					type: 'error',
-				});
-				throw error;
-			}
+	const removeVariantImage = () => {
+		if (previewUrl.startsWith('blob:')) {
+			URL.revokeObjectURL(previewUrl);
 		}
 		form.setFieldValue('image', '');
-		form.setFieldValue('storageId', '');
+		setPreviewUrl('');
 	};
 
 	const uploadImage = async (file: File) => {
 		setIsUploadingImage(true);
+		const localPreview = URL.createObjectURL(file);
+		setPreviewUrl(localPreview);
 		try {
-			const uploadUrl = await generateUploadUrl({});
+			const ext = file.name.split('.').pop() ?? 'jpg';
+			const { uploadUrl, s3Key } = await generateS3UploadUrl({
+				contentType: file.type || 'application/octet-stream',
+				ext,
+			});
 			const response = await fetch(uploadUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': file.type || 'application/octet-stream',
-				},
+				method: 'PUT',
+				headers: { 'Content-Type': file.type || 'application/octet-stream' },
 				body: file,
 			});
 			if (!response.ok) {
 				throw new Error('Upload failed');
 			}
-			const payload = (await response.json()) as { storageId?: string };
-			if (!payload.storageId) {
-				throw new Error('Upload response missing storageId');
-			}
-			const resolved = await resolvePublicUrl({
-				storageId: payload.storageId as Id<'_storage'>,
-			});
-			form.setFieldValue('storageId', resolved.storageId);
-			form.setFieldValue('image', resolved.url);
-			toastManager.add({
-				title: 'Image uploaded',
-				type: 'success',
-			});
+			form.setFieldValue('image', s3Key);
+			toastManager.add({ title: 'Image uploaded', type: 'success' });
 		} catch (error) {
+			URL.revokeObjectURL(localPreview);
+			setPreviewUrl('');
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
@@ -212,6 +205,10 @@ export default function AddInclusionVariant({
 					});
 				}
 				if (!nextOpen) {
+					if (previewUrl.startsWith('blob:')) {
+						URL.revokeObjectURL(previewUrl);
+					}
+					setPreviewUrl('');
 					form.reset();
 					setModelDraft('');
 					setIsUploadingImage(false);
@@ -447,15 +444,34 @@ export default function AddInclusionVariant({
 										return (
 											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-												<Input
-													aria-invalid={invalid || undefined}
+												<VendorCombobox
 													id={field.name}
-													nativeInput
+													invalid={invalid || undefined}
 													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Vendor name"
+													onChange={(next) => {
+														field.handleChange(next);
+														if (next) {
+															form.setFieldValue('newVendorName', '');
+														}
+													}}
 													value={field.state.value}
+													vendors={vendors}
 												/>
+												<form.Field name="newVendorName">
+													{(newField) => (
+														<Input
+															nativeInput
+															onChange={(e) => {
+																newField.handleChange(e.target.value);
+																if (e.target.value.trim()) {
+																	field.handleChange('');
+																}
+															}}
+															placeholder="Or type a new vendor name"
+															value={newField.state.value ?? ''}
+														/>
+													)}
+												</form.Field>
 												{invalid ? (
 													<FieldError>
 														{inclusionFormFieldError(field.state.meta.errors)}
@@ -561,13 +577,33 @@ export default function AddInclusionVariant({
 									{(field) => (
 										<Field>
 											<FieldLabel htmlFor={field.name}>Color</FieldLabel>
-											<Input
+											<MaterialColorCombobox
+												colors={materialColors}
 												id={field.name}
-												nativeInput
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Color or finish"
+												onBlur={field.handleBlur}
+												onChange={(next) => {
+													field.handleChange(next);
+													if (next) {
+														form.setFieldValue('newColorName', '');
+													}
+												}}
 												value={field.state.value ?? ''}
 											/>
+											<form.Field name="newColorName">
+												{(newField) => (
+													<Input
+														nativeInput
+														onChange={(e) => {
+															newField.handleChange(e.target.value);
+															if (e.target.value.trim()) {
+																field.handleChange('');
+															}
+														}}
+														placeholder="Or type a new color name"
+														value={newField.state.value ?? ''}
+													/>
+												)}
+											</form.Field>
 										</Field>
 									)}
 								</form.Field>
@@ -602,29 +638,21 @@ export default function AddInclusionVariant({
 									)}
 								</form.Field>
 
-								<form.Subscribe
-									selector={(state) => ({
-										imageUrl: state.values.image,
-									})}
-								>
-									{({ imageUrl }) => (
-										<SingleImageUpload
-											description="Upload 1 image for this variant."
-											disabled={form.state.isSubmitting}
-											id="variant-image"
-											imageUrl={imageUrl}
-											key={uploadFieldKey}
-											label="Image"
-											onClear={() => removeVariantImage()}
-											onFileSelected={(file) => {
-												uploadImage(file).catch(() => {
-													/* Error handled in uploadImage */
-												});
-											}}
-											uploading={isUploadingImage}
-										/>
-									)}
-								</form.Subscribe>
+								<SingleImageUpload
+									description="Upload 1 image for this variant."
+									disabled={form.state.isSubmitting}
+									id="variant-image"
+									imageUrl={previewUrl}
+									key={uploadFieldKey}
+									label="Image"
+									onClear={() => removeVariantImage()}
+									onFileSelected={(file) => {
+										uploadImage(file).catch(() => {
+											/* Error handled in uploadImage */
+										});
+									}}
+									uploading={isUploadingImage}
+								/>
 							</FramePanel>
 						</Frame>
 					</SheetPanel>

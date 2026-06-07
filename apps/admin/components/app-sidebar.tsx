@@ -23,8 +23,14 @@ import { useQuery } from 'convex/react';
 import {
 	Building2,
 	ChevronDown,
+	ClipboardList,
+	Layers,
 	type LucideIcon,
+	MapPin,
+	Palette,
 	SquaresIntersect,
+	Store,
+	Wrench,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
@@ -60,6 +66,42 @@ const items: SidebarItem[] = [
 		url: '/inclusions',
 		path: '/inclusions',
 		icon: SquaresIntersect,
+	},
+	{
+		title: 'Locations',
+		url: '/locations',
+		path: '/locations',
+		icon: MapPin,
+	},
+	{
+		title: 'Trades',
+		url: '/trades',
+		path: '/trades',
+		icon: Wrench,
+	},
+	{
+		title: 'Vendors',
+		url: '/vendors',
+		path: '/vendors',
+		icon: Store,
+	},
+	{
+		title: 'Material Colors',
+		url: '/material-colors',
+		path: '/material-colors',
+		icon: Palette,
+	},
+	{
+		title: 'Orders',
+		url: '/orders',
+		path: '/orders',
+		icon: ClipboardList,
+	},
+	{
+		title: 'Stages',
+		url: '/stages',
+		path: '/stages',
+		icon: Layers,
 	},
 ];
 
