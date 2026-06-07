@@ -64,12 +64,23 @@ export default function AddVariantToProjectDialog({
 	inclusionVariantId,
 	variantLabel,
 	trigger,
+	open: openProp,
+	onOpenChange: onOpenChangeProp,
 }: {
 	inclusionVariantId: Id<'inclusionVariants'>;
 	variantLabel: string;
-	trigger: ReactElement;
+	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [openInternal, setOpenInternal] = useState(false);
+	const open = openProp ?? openInternal;
+	const setOpen = (nextOpen: boolean) => {
+		if (openProp === undefined) {
+			setOpenInternal(nextOpen);
+		}
+		onOpenChangeProp?.(nextOpen);
+	};
 	const [selectedProjectId, setSelectedProjectId] = useState('');
 	const [showProjectError, setShowProjectError] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -198,7 +209,7 @@ export default function AddVariantToProjectDialog({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger} />
+			{trigger && <DialogTrigger render={trigger} />}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add To Project</DialogTitle>

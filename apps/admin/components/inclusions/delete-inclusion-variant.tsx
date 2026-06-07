@@ -22,12 +22,23 @@ export default function DeleteInclusionVariant({
 	variantId,
 	variantLabel,
 	trigger,
+	open: openProp,
+	onOpenChange: onOpenChangeProp,
 }: {
 	variantId: Id<'inclusionVariants'>;
 	variantLabel: string;
-	trigger: ReactElement;
+	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [openInternal, setOpenInternal] = useState(false);
+	const open = openProp ?? openInternal;
+	const setOpen = (nextOpen: boolean) => {
+		if (openProp === undefined) {
+			setOpenInternal(nextOpen);
+		}
+		onOpenChangeProp?.(nextOpen);
+	};
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeVariant = useMutation(api.inclusionVariants.remove.remove);
 
@@ -56,7 +67,7 @@ export default function DeleteInclusionVariant({
 
 	return (
 		<AlertDialog onOpenChange={setOpen} open={open}>
-			<AlertDialogTrigger render={trigger} />
+			{trigger && <AlertDialogTrigger render={trigger} />}
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete variant?</AlertDialogTitle>

@@ -13,7 +13,13 @@ import {
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Frame, FramePanel } from '@workspace/ui/components/frame';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
 import { Radio, RadioGroup } from '@workspace/ui/components/radio-group';
 import {
 	Table,
@@ -25,7 +31,7 @@ import {
 } from '@workspace/ui/components/table';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { EllipsisVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -152,47 +158,59 @@ function CatalogueVariantActionsCell({
 	variant: Doc<'inclusionVariants'>;
 	hasUnit: boolean;
 }) {
+	const [addOpen, setAddOpen] = useState(false);
+	const [editOpen, setEditOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+
 	return (
-		<Group className="justify-end">
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Variant actions"
+							size="icon-sm"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem disabled={!hasUnit} onClick={() => setAddOpen(true)}>
+						<Plus />
+						Add To Project
+					</MenuItem>
+					<MenuItem onClick={() => setEditOpen(true)}>
+						<Pencil />
+						Edit Variant
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete Variant
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
 			<AddVariantToProjectDialog
 				inclusionVariantId={variant._id}
-				trigger={
-					<Button disabled={!hasUnit} type="button" variant="outline">
-						Add To Project
-					</Button>
-				}
+				onOpenChange={setAddOpen}
+				open={addOpen}
 				variantLabel={`${variant.vendor} ${variant.code}`}
 			/>
-			<GroupSeparator />
 			<EditInclusionVariant
-				trigger={
-					<Button
-						aria-label="Edit variant"
-						size="icon"
-						type="button"
-						variant="outline"
-					>
-						<Pencil />
-					</Button>
-				}
+				onOpenChange={setEditOpen}
+				open={editOpen}
 				variant={variant}
 			/>
-			<GroupSeparator />
 			<DeleteInclusionVariant
-				trigger={
-					<Button
-						aria-label="Delete variant"
-						size="icon"
-						type="button"
-						variant="destructive-outline"
-					>
-						<Trash2 />
-					</Button>
-				}
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
 				variantId={variant._id}
 				variantLabel={`${variant.vendor} ${variant.code}`}
 			/>
-		</Group>
+		</>
 	);
 }
 
