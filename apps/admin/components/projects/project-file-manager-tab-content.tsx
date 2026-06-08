@@ -58,6 +58,7 @@ import {
 	Download,
 	EllipsisVertical,
 	File,
+	FileSpreadsheet,
 	FileText,
 	Folder,
 	FolderOpen,
@@ -177,7 +178,41 @@ function getFileIcon(mimeType?: string) {
 	if (mimeType.startsWith('image/')) {
 		return <File className="size-4 text-blue-500" />;
 	}
+	if (
+		mimeType.includes('wordprocessingml') ||
+		mimeType === 'application/msword'
+	) {
+		return <FileText className="size-4 text-blue-600" />;
+	}
+	if (
+		mimeType.includes('spreadsheetml') ||
+		mimeType === 'application/vnd.ms-excel'
+	) {
+		return <FileSpreadsheet className="size-4 text-green-600" />;
+	}
+	if (
+		mimeType.includes('presentationml') ||
+		mimeType === 'application/vnd.ms-powerpoint'
+	) {
+		return <File className="size-4 text-orange-500" />;
+	}
 	return <File className="size-4 text-muted-foreground" />;
+}
+
+const OFFICE_MIME_TYPES = new Set([
+	'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+	'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+	'application/msword',
+	'application/vnd.ms-excel',
+	'application/vnd.ms-powerpoint',
+]);
+
+function getOpenUrl(mimeType: string | undefined, signedUrl: string): string {
+	if (mimeType && OFFICE_MIME_TYPES.has(mimeType)) {
+		return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(signedUrl)}`;
+	}
+	return signedUrl;
 }
 
 // ---------- Create Folder Dialog ----------
@@ -1122,6 +1157,30 @@ export function ProjectFileManagerTabContent({
 	const [currentPath, setCurrentPath] = useState('');
 	const [createFolderOpen, setCreateFolderOpen] = useState(false);
 	const [uploadOpen, setUploadOpen] = useState(false);
+	const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
+
+	const handleOpenDocument = async (doc: FileItem) => {
+		if (loadingDocs.has(doc._id)) {
+			return;
+		}
+		setLoadingDocs((prev) => new Set(prev).add(doc._id));
+		try {
+			const signedUrl = await signCdnUrl(doc.s3Key);
+			window.open(getOpenUrl(doc.mimeType, signedUrl), '_blank', 'noopener');
+		} catch {
+			toastManager.add({
+				title: 'Could not open file',
+				description: 'Please try again.',
+				type: 'error',
+			});
+		} finally {
+			setLoadingDocs((prev) => {
+				const next = new Set(prev);
+				next.delete(doc._id);
+				return next;
+			});
+		}
+	};
 
 	const raw = useQuery(listContentsQuery, {
 		projectId,
@@ -1199,7 +1258,11 @@ export function ProjectFileManagerTabContent({
 							</TableRow>
 						))}
 						{contents.documents.map((doc) => (
-							<TableRow key={doc._id}>
+							<TableRow
+								className="cursor-pointer"
+								key={doc._id}
+								onClick={() => handleOpenDocument(doc).catch(() => undefined)}
+							>
 								<TableCell className="font-medium">
 									<div className="flex items-center gap-2">
 										{getFileIcon(doc.mimeType)}
@@ -1212,7 +1275,10 @@ export function ProjectFileManagerTabContent({
 								<TableCell className="text-muted-foreground text-sm">
 									{formatDate(doc.uploadedAt)}
 								</TableCell>
-								<TableCell className="w-12">
+								<TableCell
+									className="w-12"
+									onClick={(e) => e.stopPropagation()}
+								>
 									<div className="flex justify-end">
 										<FileRowActions
 											item={doc}
