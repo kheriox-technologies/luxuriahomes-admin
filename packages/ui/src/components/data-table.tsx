@@ -37,6 +37,7 @@ interface DataTableProps<TData, TValue> {
 	emptyMessage?: string;
 	initialPageSize?: number;
 	onRowClick?: (row: TData) => void;
+	showPagination?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -45,6 +46,7 @@ export function DataTable<TData, TValue>({
 	initialPageSize = 20,
 	onRowClick,
 	emptyMessage = 'No results.',
+	showPagination = true,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -146,7 +148,7 @@ export function DataTable<TData, TValue>({
 					)}
 				</TableBody>
 			</Table>
-			{rowCount > 0 && (
+			{showPagination && rowCount > 0 && (
 				<FrameFooter>
 					<DataTablePagination label={rangeLabel} table={table} />
 				</FrameFooter>

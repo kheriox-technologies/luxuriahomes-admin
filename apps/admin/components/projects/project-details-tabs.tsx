@@ -29,8 +29,11 @@ export default function ProjectDetailsTabs({
 	projectId: Id<'projects'>;
 }) {
 	return (
-		<Tabs className="mt-6 gap-4" defaultValue="clients">
-			<TabsList className="**:data-[slot=tab-indicator]:bg-primary">
+		<Tabs
+			className="flex-1 gap-0 overflow-hidden rounded-xl border"
+			defaultValue="clients"
+		>
+			<TabsList className="w-full gap-x-1 rounded-none border-b bg-muted/50 px-4 pt-2 pb-2 **:data-[slot=tab-indicator]:bg-primary">
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="clients"
@@ -67,17 +70,17 @@ export default function ProjectDetailsTabs({
 					Service Providers
 				</TabsTab>
 			</TabsList>
-			<TabsPanel value="clients">
+			<TabsPanel className="overflow-auto p-4" value="clients">
 				<ProjectClientsTabContent clients={clients} />
 			</TabsPanel>
-			<TabsPanel value="inclusions">
+			<TabsPanel className="overflow-auto p-4" value="inclusions">
 				<ProjectInclusionsTabContent projectId={projectId} />
 			</TabsPanel>
-			<TabsPanel value="documents">
+			<TabsPanel className="overflow-auto p-4" value="documents">
 				<ProjectDocumentsTabContent projectId={projectId} />
 			</TabsPanel>
-			<TabsPanel value="quotations" />
-			<TabsPanel value="contacts">
+			<TabsPanel className="p-4" value="quotations" />
+			<TabsPanel className="overflow-auto p-4" value="contacts">
 				<ProjectServiceProvidersTabContent projectId={projectId} />
 			</TabsPanel>
 		</Tabs>
