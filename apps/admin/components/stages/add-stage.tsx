@@ -186,7 +186,10 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 					const initialDeps = lastStage
 						? [{ stageId: lastStage._id as string, type: 'after' as const }]
 						: [];
-					form.reset({ ...emptyStageFormValues, dependsOn: initialDeps });
+					form.reset(
+						{ ...emptyStageFormValues, dependsOn: initialDeps },
+						{ keepDefaultValues: true }
+					);
 					setNewDepStageId(null);
 					setNewDepType('after');
 					setNewOrderId(null);

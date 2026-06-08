@@ -225,7 +225,7 @@ export default function EditInclusionVariant({
 				setOpen(nextOpen);
 				if (nextOpen) {
 					const defaults = toDefaultValues(variant);
-					form.reset(defaults);
+					form.reset(defaults, { keepDefaultValues: true });
 					setUploadFieldKey((key) => key + 1);
 					setModelDraft('');
 					setPreviewUrl('');

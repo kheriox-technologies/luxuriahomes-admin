@@ -191,7 +191,10 @@ export default function AddTask({
 			const initialDeps = lastTask
 				? [{ taskId: lastTask._id as string, type: 'after' as const }]
 				: [];
-			form.reset({ ...emptyTaskFormValues, dependsOn: initialDeps });
+			form.reset(
+				{ ...emptyTaskFormValues, dependsOn: initialDeps },
+				{ keepDefaultValues: true }
+			);
 			setNewDepTaskId(null);
 			setNewDepType('after');
 			setNewOrderId(null);
