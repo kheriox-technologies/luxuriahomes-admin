@@ -31,6 +31,8 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { EllipsisVertical, Handshake, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import AddExistingServiceProviderToProject from '@/components/service-providers/add-existing-service-provider-to-project';
+import AddServiceProvider from '@/components/service-providers/add-service-provider';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 type ServiceProvider = Doc<'serviceProviders'>;
@@ -229,36 +231,58 @@ export default function ProjectServiceProvidersTabContent({
 
 	const columns = buildColumns(projectId, tradeMap);
 
+	const header = (
+		<div className="flex justify-end gap-2">
+			<AddExistingServiceProviderToProject
+				projectId={projectId}
+				trigger={<Button variant="outline">Add Existing</Button>}
+			/>
+			<AddServiceProvider
+				projectId={projectId}
+				trigger={<Button>New Service Provider</Button>}
+			/>
+		</div>
+	);
+
 	if (serviceProviders === undefined) {
 		return (
-			<div className="text-muted-foreground text-sm">
-				Loading service providers…
+			<div className="flex flex-col gap-4">
+				{header}
+				<div className="text-muted-foreground text-sm">
+					Loading service providers…
+				</div>
 			</div>
 		);
 	}
 
 	if (serviceProviders.length === 0) {
 		return (
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<Handshake aria-hidden />
-					</EmptyMedia>
-					<EmptyTitle>No service providers linked</EmptyTitle>
-					<EmptyDescription>
-						Add service providers to this project from the Service Providers
-						list.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
+			<div className="flex flex-col gap-4">
+				{header}
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<Handshake aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No service providers linked</EmptyTitle>
+						<EmptyDescription>
+							Add existing service providers or create new ones using the
+							buttons above.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			</div>
 		);
 	}
 
 	return (
-		<DataTable
-			columns={columns}
-			data={serviceProviders}
-			emptyMessage="No service providers."
-		/>
+		<div className="flex flex-col gap-4">
+			{header}
+			<DataTable
+				columns={columns}
+				data={serviceProviders}
+				emptyMessage="No service providers."
+			/>
+		</div>
 	);
 }
