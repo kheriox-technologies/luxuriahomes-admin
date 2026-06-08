@@ -8,8 +8,8 @@ import {
 	TabsTab,
 } from '@workspace/ui/components/tabs';
 import {
-	Contact,
 	FileText,
+	Handshake,
 	Quote,
 	SquaresIntersect,
 	Users,
@@ -17,6 +17,7 @@ import {
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
+import ProjectServiceProvidersTabContent from '@/components/projects/project-service-providers-tab-content';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
 
@@ -62,8 +63,8 @@ export default function ProjectDetailsTabs({
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="contacts"
 				>
-					<Contact />
-					Contacts
+					<Handshake />
+					Service Providers
 				</TabsTab>
 			</TabsList>
 			<TabsPanel value="clients">
@@ -76,7 +77,9 @@ export default function ProjectDetailsTabs({
 				<ProjectDocumentsTabContent projectId={projectId} />
 			</TabsPanel>
 			<TabsPanel value="quotations" />
-			<TabsPanel value="contacts" />
+			<TabsPanel value="contacts">
+				<ProjectServiceProvidersTabContent projectId={projectId} />
+			</TabsPanel>
 		</Tabs>
 	);
 }
