@@ -8,6 +8,15 @@
  * @module
  */
 
+import type * as documentFolders_add from "../documentFolders/add.js";
+import type * as documentFolders_get from "../documentFolders/get.js";
+import type * as documentFolders_list from "../documentFolders/list.js";
+import type * as documentFolders_remove from "../documentFolders/remove.js";
+import type * as documentFolders_search from "../documentFolders/search.js";
+import type * as documentFolders_seed from "../documentFolders/seed.js";
+import type * as documentFolders_seedProjectFolders from "../documentFolders/seedProjectFolders.js";
+import type * as documentFolders_shared from "../documentFolders/shared.js";
+import type * as documentFolders_update from "../documentFolders/update.js";
 import type * as fileStorage_deleteStorage from "../fileStorage/deleteStorage.js";
 import type * as fileStorage_generateS3UploadUrl from "../fileStorage/generateS3UploadUrl.js";
 import type * as fileStorage_generateUploadUrl from "../fileStorage/generateUploadUrl.js";
@@ -141,6 +150,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "documentFolders/add": typeof documentFolders_add;
+  "documentFolders/get": typeof documentFolders_get;
+  "documentFolders/list": typeof documentFolders_list;
+  "documentFolders/remove": typeof documentFolders_remove;
+  "documentFolders/search": typeof documentFolders_search;
+  "documentFolders/seed": typeof documentFolders_seed;
+  "documentFolders/seedProjectFolders": typeof documentFolders_seedProjectFolders;
+  "documentFolders/shared": typeof documentFolders_shared;
+  "documentFolders/update": typeof documentFolders_update;
   "fileStorage/deleteStorage": typeof fileStorage_deleteStorage;
   "fileStorage/generateS3UploadUrl": typeof fileStorage_generateS3UploadUrl;
   "fileStorage/generateUploadUrl": typeof fileStorage_generateUploadUrl;

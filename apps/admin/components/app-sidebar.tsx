@@ -78,6 +78,11 @@ const items: SidebarItem[] = [
 				url: '/material-colors',
 				path: '/material-colors',
 			},
+			{
+				title: 'Document Folders',
+				url: '/document-folders',
+				path: '/document-folders',
+			},
 		],
 	},
 	{

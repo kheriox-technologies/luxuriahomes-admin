@@ -150,6 +150,10 @@ export function buildMaterialColorSearchText(
 	return buildSearchText([name, description]);
 }
 
+export function buildDocumentFolderSearchText(name: string): string {
+	return buildSearchText([name]);
+}
+
 export function buildInclusionAggregateSearchText(
 	title: string,
 	variants: InclusionVariantSearchFields[],
