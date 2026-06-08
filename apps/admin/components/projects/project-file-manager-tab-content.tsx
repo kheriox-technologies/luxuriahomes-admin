@@ -214,6 +214,8 @@ function CreateFolderDialog({
 			setName('');
 			onOpenChange(false);
 		} catch (error) {
+			onOpenChange(false);
+			setName('');
 			toastManager.add({
 				title: 'Could not create folder',
 				description: getConvexErrorMessage(error, 'Please try again.'),

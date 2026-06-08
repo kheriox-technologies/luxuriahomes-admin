@@ -218,4 +218,8 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_material_colors', { searchField: 'searchText' }),
+	documentFolders: defineTable({
+		name: v.string(),
+		searchText: v.string(),
+	}).searchIndex('search_document_folders', { searchField: 'searchText' }),
 });
