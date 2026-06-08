@@ -33,7 +33,7 @@ export default function ProjectDetailsTabs({
 			className="flex-1 gap-0 overflow-hidden rounded-xl border"
 			defaultValue="clients"
 		>
-			<TabsList className="w-full gap-x-1 rounded-none border-b bg-muted/50 px-4 pt-2 pb-2 **:data-[slot=tab-indicator]:bg-primary">
+			<TabsList className="w-full rounded-none border-b bg-muted/50 **:data-[slot=tab-indicator]:bg-primary">
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="clients"
