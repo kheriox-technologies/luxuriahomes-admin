@@ -136,12 +136,15 @@ export default function EditServiceProvider({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({
-				company: initialCompany,
-				name: initialName,
-				email: initialEmail,
-				phone: initialPhone,
-			});
+			form.reset(
+				{
+					company: initialCompany,
+					name: initialName,
+					email: initialEmail,
+					phone: initialPhone,
+				},
+				{ keepDefaultValues: true }
+			);
 			setSelectedTradeIds(initialTradeIds);
 			setContacts(initialContacts);
 			setDraft(emptyContactDraft);
