@@ -25,6 +25,12 @@ export const projectInclusionStatusValidator = v.union(
 	v.literal('Approved')
 );
 
+export const quotationStatusValidator = v.union(
+	v.literal('Under Review'),
+	v.literal('Approved'),
+	v.literal('Rejected')
+);
+
 export const stageDependencyTypeValidator = v.union(
 	v.literal('after'),
 	v.literal('alongWith')
@@ -251,4 +257,16 @@ export default defineSchema({
 		name: v.string(),
 		searchText: v.string(),
 	}).searchIndex('search_document_folders', { searchField: 'searchText' }),
+	quotations: defineTable({
+		projectId: v.id('projects'),
+		tradeId: v.id('trades'),
+		serviceProviderId: v.id('serviceProviders'),
+		s3Key: v.optional(v.string()),
+		price: v.number(),
+		status: quotationStatusValidator,
+		searchText: v.string(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_project_and_trade', ['projectId', 'tradeId'])
+		.searchIndex('search_quotations', { searchField: 'searchText' }),
 });
