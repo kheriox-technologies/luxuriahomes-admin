@@ -2,6 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
+import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
@@ -32,7 +33,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	ServiceProviderContactCard,
@@ -50,8 +51,28 @@ import {
 
 const FORM_ID = 'add-service-provider-form';
 
-export default function AddServiceProvider() {
-	const [open, setOpen] = useState(false);
+export default function AddServiceProvider({
+	projectId,
+	open: openProp,
+	onOpenChange: onOpenChangeProp,
+	trigger,
+}: {
+	projectId?: Id<'projects'>;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	trigger?: ReactElement;
+}) {
+	const [openInternal, setOpenInternal] = useState(false);
+	const isControlled = openProp !== undefined;
+	const open = isControlled ? (openProp ?? false) : openInternal;
+	const setOpen = (next: boolean) => {
+		if (isControlled) {
+			onOpenChangeProp?.(next);
+		} else {
+			setOpenInternal(next);
+		}
+	};
+
 	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
 	const [contacts, setContacts] = useState<ContactDraftValues[]>([]);
 	const [draft, setDraft] = useState<ContactDraftValues>(emptyContactDraft);
@@ -59,6 +80,7 @@ export default function AddServiceProvider() {
 
 	const trades = useQuery(api.trades.list.list, {});
 	const addServiceProvider = useMutation(api.serviceProviders.add.add);
+	const addToProject = useMutation(api.projectServiceProviders.add.add);
 
 	const form = useForm({
 		defaultValues: emptyServiceProviderFormValues,
@@ -68,7 +90,7 @@ export default function AddServiceProvider() {
 		onSubmit: async ({ value }) => {
 			const parsed = serviceProviderFormSchema.parse(value);
 			try {
-				await addServiceProvider({
+				const newId = await addServiceProvider({
 					company: parsed.company,
 					name: parsed.name,
 					email: parsed.email,
@@ -76,8 +98,13 @@ export default function AddServiceProvider() {
 					tradeIds: selectedTradeIds as never,
 					contacts,
 				});
+				if (projectId) {
+					await addToProject({ projectId, serviceProviderId: newId });
+				}
 				toastManager.add({
-					title: 'Service provider added',
+					title: projectId
+						? 'Service provider added and linked to project'
+						: 'Service provider added',
 					type: 'success',
 				});
 				resetAll();
@@ -154,7 +181,9 @@ export default function AddServiceProvider() {
 			open={open}
 		>
 			<SheetTrigger
-				render={<Button variant="default">Add Service Provider</Button>}
+				render={
+					trigger ?? <Button variant="default">Add Service Provider</Button>
+				}
 			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
