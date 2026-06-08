@@ -213,6 +213,31 @@ export default defineSchema({
 		link: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_vendors', { searchField: 'searchText' }),
+	serviceProviders: defineTable({
+		company: v.string(),
+		name: v.string(),
+		email: v.string(),
+		phone: v.string(),
+		tradeIds: v.array(v.id('trades')),
+		contacts: v.array(
+			v.object({
+				name: v.string(),
+				email: v.string(),
+				phone: v.string(),
+			})
+		),
+		searchText: v.string(),
+	}).searchIndex('search_service_providers', { searchField: 'searchText' }),
+	projectServiceProviders: defineTable({
+		projectId: v.id('projects'),
+		serviceProviderId: v.id('serviceProviders'),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_service_provider', ['serviceProviderId'])
+		.index('by_project_and_service_provider', [
+			'projectId',
+			'serviceProviderId',
+		]),
 	materialColors: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

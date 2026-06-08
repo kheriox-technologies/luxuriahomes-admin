@@ -79,7 +79,10 @@ export default function EditInclusionCategory({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({ name: initialName, code: initialCode });
+			form.reset(
+				{ name: initialName, code: initialCode },
+				{ keepDefaultValues: true }
+			);
 			return;
 		}
 

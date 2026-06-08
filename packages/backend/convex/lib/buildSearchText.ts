@@ -154,6 +154,15 @@ export function buildDocumentFolderSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
+export function buildServiceProviderSearchText(
+	company: string,
+	name: string,
+	email: string,
+	phone: string
+): string {
+	return buildSearchText([company, name, email, phone]);
+}
+
 export function buildInclusionAggregateSearchText(
 	title: string,
 	variants: InclusionVariantSearchFields[],

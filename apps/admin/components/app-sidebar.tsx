@@ -83,6 +83,11 @@ const items: SidebarItem[] = [
 				url: '/document-folders',
 				path: '/document-folders',
 			},
+			{
+				title: 'Service Providers',
+				url: '/service-providers',
+				path: '/service-providers',
+			},
 		],
 	},
 	{

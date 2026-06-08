@@ -111,16 +111,19 @@ export default function EditInclusion({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({
-				categoryId: initialCategoryId,
-				title: initialTitle,
-				newCategoryName: '',
-				standardPrice:
-					initialStandardPrice !== undefined
-						? String(initialStandardPrice)
-						: '',
-				measurementUnit: initialMeasurementUnit ?? '',
-			});
+			form.reset(
+				{
+					categoryId: initialCategoryId,
+					title: initialTitle,
+					newCategoryName: '',
+					standardPrice:
+						initialStandardPrice !== undefined
+							? String(initialStandardPrice)
+							: '',
+					measurementUnit: initialMeasurementUnit ?? '',
+				},
+				{ keepDefaultValues: true }
+			);
 			return;
 		}
 

@@ -118,11 +118,14 @@ export default function EditOrder({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({
-				name: initialName,
-				description: initialDescription ?? '',
-				materials: initialMaterials ?? [],
-			});
+			form.reset(
+				{
+					name: initialName,
+					description: initialDescription ?? '',
+					materials: initialMaterials ?? [],
+				},
+				{ keepDefaultValues: true }
+			);
 			setNewMaterialName('');
 			setNewMaterialUnits('');
 			return;

@@ -78,10 +78,13 @@ export default function EditTrade({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({
-				name: initialName,
-				description: initialDescription ?? '',
-			});
+			form.reset(
+				{
+					name: initialName,
+					description: initialDescription ?? '',
+				},
+				{ keepDefaultValues: true }
+			);
 			return;
 		}
 		form.reset();

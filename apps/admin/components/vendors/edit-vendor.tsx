@@ -81,11 +81,14 @@ export default function EditVendor({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({
-				name: initialName,
-				description: initialDescription ?? '',
-				link: initialLink ?? '',
-			});
+			form.reset(
+				{
+					name: initialName,
+					description: initialDescription ?? '',
+					link: initialLink ?? '',
+				},
+				{ keepDefaultValues: true }
+			);
 			return;
 		}
 		form.reset();

@@ -74,7 +74,7 @@ export default function EditDocumentFolder({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({ name: initialName });
+			form.reset({ name: initialName }, { keepDefaultValues: true });
 			return;
 		}
 		form.reset();
