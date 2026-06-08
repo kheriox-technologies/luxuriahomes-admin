@@ -38,9 +38,16 @@ export function ServiceProviderContactCard({
 	return (
 		<Frame>
 			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
-				<FrameTitle className="min-w-0 truncate leading-none">
-					{contact.name}
-				</FrameTitle>
+				<div className="min-w-0">
+					<FrameTitle className="truncate leading-none">
+						{contact.name}
+					</FrameTitle>
+					{contact.position ? (
+						<p className="mt-0.5 truncate text-muted-foreground text-xs leading-snug">
+							{contact.position}
+						</p>
+					) : null}
+				</div>
 				<Group className="shrink-0">
 					<Button
 						aria-label="Edit contact"
@@ -110,16 +117,30 @@ export function ServiceProviderContactDraftFields({
 }) {
 	return (
 		<div className="flex flex-col gap-4">
-			<Field>
-				<FieldLabel htmlFor="contact-draft-name">Name</FieldLabel>
-				<Input
-					id="contact-draft-name"
-					nativeInput
-					onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-					placeholder="Full name"
-					value={draft.name}
-				/>
-			</Field>
+			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<Field>
+					<FieldLabel htmlFor="contact-draft-name">Name</FieldLabel>
+					<Input
+						id="contact-draft-name"
+						nativeInput
+						onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+						placeholder="Full name"
+						value={draft.name}
+					/>
+				</Field>
+				<Field>
+					<FieldLabel htmlFor="contact-draft-position">Position</FieldLabel>
+					<Input
+						id="contact-draft-position"
+						nativeInput
+						onChange={(e) =>
+							setDraft((p) => ({ ...p, position: e.target.value }))
+						}
+						placeholder="Position / role"
+						value={draft.position ?? ''}
+					/>
+				</Field>
+			</div>
 			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<Field>
 					<FieldLabel htmlFor="contact-draft-email">Email</FieldLabel>

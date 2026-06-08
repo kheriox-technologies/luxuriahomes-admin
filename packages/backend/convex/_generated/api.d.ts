@@ -115,6 +115,7 @@ import type * as serviceProviders_get from "../serviceProviders/get.js";
 import type * as serviceProviders_list from "../serviceProviders/list.js";
 import type * as serviceProviders_remove from "../serviceProviders/remove.js";
 import type * as serviceProviders_search from "../serviceProviders/search.js";
+import type * as serviceProviders_seed from "../serviceProviders/seed.js";
 import type * as serviceProviders_shared from "../serviceProviders/shared.js";
 import type * as serviceProviders_update from "../serviceProviders/update.js";
 import type * as stages_add from "../stages/add.js";
@@ -267,6 +268,7 @@ declare const fullApi: ApiFromModules<{
   "serviceProviders/list": typeof serviceProviders_list;
   "serviceProviders/remove": typeof serviceProviders_remove;
   "serviceProviders/search": typeof serviceProviders_search;
+  "serviceProviders/seed": typeof serviceProviders_seed;
   "serviceProviders/shared": typeof serviceProviders_shared;
   "serviceProviders/update": typeof serviceProviders_update;
   "stages/add": typeof stages_add;

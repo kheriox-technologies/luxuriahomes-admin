@@ -218,12 +218,16 @@ export default defineSchema({
 		name: v.string(),
 		email: v.string(),
 		phone: v.string(),
+		position: v.optional(v.string()),
+		qbccLicense: v.optional(v.string()),
+		website: v.optional(v.string()),
 		tradeIds: v.array(v.id('trades')),
 		contacts: v.array(
 			v.object({
 				name: v.string(),
 				email: v.string(),
 				phone: v.string(),
+				position: v.optional(v.string()),
 			})
 		),
 		searchText: v.string(),

@@ -57,7 +57,10 @@ function ServiceProviderActionsCell({ row }: { row: ServiceProvider }) {
 				initialEmail={row.email}
 				initialName={row.name}
 				initialPhone={row.phone}
+				initialPosition={row.position}
+				initialQbccLicense={row.qbccLicense}
 				initialTradeIds={row.tradeIds}
+				initialWebsite={row.website}
 				onOpenChange={setEditOpen}
 				open={editOpen}
 				serviceProviderId={row._id}
@@ -115,27 +118,21 @@ function buildColumns(
 			),
 		},
 		{
-			accessorKey: 'name',
-			header: 'Contact Name',
-			cell: ({ row }) => <span className="text-sm">{row.original.name}</span>,
-		},
-		{
-			accessorKey: 'email',
-			header: 'Email',
-			cell: ({ row }) => (
-				<span className="text-muted-foreground text-sm">
-					{row.original.email}
-				</span>
-			),
-		},
-		{
-			accessorKey: 'phone',
-			header: 'Phone',
-			cell: ({ row }) => (
-				<span className="text-muted-foreground text-sm">
-					{row.original.phone}
-				</span>
-			),
+			id: 'mainContact',
+			header: 'Main Contact',
+			cell: ({ row }) => {
+				const { name, email, phone, position } = row.original;
+				return (
+					<div className="space-y-0.5">
+						<p className="text-sm">{name}</p>
+						{position ? (
+							<p className="text-muted-foreground text-xs">{position}</p>
+						) : null}
+						<p className="text-muted-foreground text-xs">{email}</p>
+						<p className="text-muted-foreground text-xs">{phone}</p>
+					</div>
+				);
+			},
 		},
 		{
 			id: 'trades',
@@ -151,8 +148,33 @@ function buildColumns(
 			},
 		},
 		{
+			accessorKey: 'qbccLicense',
+			header: 'QBCC Licence',
+			cell: ({ row }) =>
+				row.original.qbccLicense ? (
+					<span className="text-muted-foreground text-sm">
+						{row.original.qbccLicense}
+					</span>
+				) : null,
+		},
+		{
+			accessorKey: 'website',
+			header: 'Website',
+			cell: ({ row }) =>
+				row.original.website ? (
+					<a
+						className="text-blue-600 text-sm underline-offset-4 hover:underline"
+						href={row.original.website}
+						rel="noopener noreferrer"
+						target="_blank"
+					>
+						{row.original.website}
+					</a>
+				) : null,
+		},
+		{
 			id: 'contacts',
-			header: 'Contacts',
+			header: 'Additional Contacts',
 			cell: ({ row }) => {
 				const { contacts } = row.original;
 				if (contacts.length === 0) {
@@ -163,6 +185,9 @@ function buildColumns(
 						{contacts.map((c, i) => (
 							<div className="space-y-0.5" key={`${c.email}-${i}`}>
 								<p className="text-sm">{c.name}</p>
+								{c.position ? (
+									<p className="text-muted-foreground text-xs">{c.position}</p>
+								) : null}
 								<p className="text-muted-foreground text-xs">{c.email}</p>
 								<p className="text-muted-foreground text-xs">{c.phone}</p>
 							</div>
