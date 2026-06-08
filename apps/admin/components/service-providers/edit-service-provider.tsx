@@ -55,6 +55,7 @@ interface StoredContact {
 	email: string;
 	name: string;
 	phone: string;
+	position?: string;
 }
 
 export default function EditServiceProvider({
@@ -63,6 +64,9 @@ export default function EditServiceProvider({
 	initialName,
 	initialEmail,
 	initialPhone,
+	initialPosition,
+	initialQbccLicense,
+	initialWebsite,
 	initialTradeIds,
 	initialContacts,
 	open: openProp,
@@ -74,6 +78,9 @@ export default function EditServiceProvider({
 	initialName: string;
 	initialEmail: string;
 	initialPhone: string;
+	initialPosition?: string;
+	initialQbccLicense?: string;
+	initialWebsite?: string;
 	initialTradeIds: string[];
 	initialContacts: StoredContact[];
 	open?: boolean;
@@ -92,12 +99,14 @@ export default function EditServiceProvider({
 	};
 
 	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
+	const [newTradeName, setNewTradeName] = useState('');
 	const [contacts, setContacts] = useState<ContactDraftValues[]>([]);
 	const [draft, setDraft] = useState<ContactDraftValues>(emptyContactDraft);
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
 	const trades = useQuery(api.trades.list.list, {});
 	const updateServiceProvider = useMutation(api.serviceProviders.update.update);
+	const addTrade = useMutation(api.trades.add.add);
 
 	const form = useForm({
 		defaultValues: emptyServiceProviderFormValues,
@@ -107,13 +116,22 @@ export default function EditServiceProvider({
 		onSubmit: async ({ value }) => {
 			const parsed = serviceProviderFormSchema.parse(value);
 			try {
+				const trimmedNewTrade = newTradeName.trim();
+				let tradeIds = [...selectedTradeIds];
+				if (trimmedNewTrade) {
+					const newTradeId = await addTrade({ name: trimmedNewTrade });
+					tradeIds = [...tradeIds, newTradeId as string];
+				}
 				await updateServiceProvider({
 					serviceProviderId,
 					company: parsed.company,
 					name: parsed.name,
 					email: parsed.email,
 					phone: parsed.phone,
-					tradeIds: selectedTradeIds as never,
+					position: parsed.position || undefined,
+					qbccLicense: parsed.qbccLicense || undefined,
+					website: parsed.website || undefined,
+					tradeIds: tradeIds as never,
 					contacts,
 				});
 				toastManager.add({
@@ -142,10 +160,14 @@ export default function EditServiceProvider({
 					name: initialName,
 					email: initialEmail,
 					phone: initialPhone,
+					position: initialPosition ?? '',
+					qbccLicense: initialQbccLicense ?? '',
+					website: initialWebsite ?? '',
 				},
 				{ keepDefaultValues: true }
 			);
 			setSelectedTradeIds(initialTradeIds);
+			setNewTradeName('');
 			setContacts(initialContacts);
 			setDraft(emptyContactDraft);
 			setEditingIndex(null);
@@ -153,6 +175,7 @@ export default function EditServiceProvider({
 		}
 		form.reset();
 		setSelectedTradeIds([]);
+		setNewTradeName('');
 		setContacts([]);
 		setDraft(emptyContactDraft);
 		setEditingIndex(null);
@@ -163,6 +186,9 @@ export default function EditServiceProvider({
 		initialName,
 		initialEmail,
 		initialPhone,
+		initialPosition,
+		initialQbccLicense,
+		initialWebsite,
 		initialTradeIds,
 		initialContacts,
 	]);
@@ -261,34 +287,52 @@ export default function EditServiceProvider({
 										);
 									}}
 								</form.Field>
-								<form.Field name="name">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>
-													Contact Name
-												</FieldLabel>
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<form.Field name="name">
+										{(field) => {
+											const invalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={invalid}>
+													<FieldLabel htmlFor={field.name}>
+														Main Contact Name
+													</FieldLabel>
+													<Input
+														aria-invalid={invalid}
+														id={field.name}
+														name={field.name}
+														nativeInput
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="Primary contact name"
+														value={field.state.value}
+													/>
+													{invalid ? (
+														<FieldError>
+															{formatFieldErrors(field.state.meta.errors)}
+														</FieldError>
+													) : null}
+												</Field>
+											);
+										}}
+									</form.Field>
+									<form.Field name="position">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Position</FieldLabel>
 												<Input
-													aria-invalid={invalid}
 													id={field.name}
 													name={field.name}
 													nativeInput
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Primary contact name"
-													value={field.state.value}
+													placeholder="Position / role"
+													value={field.state.value ?? ''}
 												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
 											</Field>
-										);
-									}}
-								</form.Field>
+										)}
+									</form.Field>
+								</div>
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 									<form.Field name="email">
 										{(field) => {
@@ -345,6 +389,43 @@ export default function EditServiceProvider({
 										}}
 									</form.Field>
 								</div>
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<form.Field name="qbccLicense">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>
+													QBCC Licence
+												</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="QBCC licence number"
+													value={field.state.value ?? ''}
+												/>
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="website">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Website</FieldLabel>
+												<Input
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="https://example.com"
+													type="url"
+													value={field.state.value ?? ''}
+												/>
+											</Field>
+										)}
+									</form.Field>
+								</div>
 							</FramePanel>
 						</Frame>
 
@@ -354,7 +435,7 @@ export default function EditServiceProvider({
 									Trades
 								</FrameTitle>
 							</FrameHeader>
-							<FramePanel>
+							<FramePanel className="space-y-3">
 								<Combobox
 									itemToStringLabel={(val) =>
 										(trades ?? []).find((t) => t._id === val)?.name ??
@@ -385,6 +466,12 @@ export default function EditServiceProvider({
 										</ComboboxList>
 									</ComboboxPopup>
 								</Combobox>
+								<Input
+									nativeInput
+									onChange={(e) => setNewTradeName(e.target.value)}
+									placeholder="Or type a new trade name…"
+									value={newTradeName}
+								/>
 							</FramePanel>
 						</Frame>
 

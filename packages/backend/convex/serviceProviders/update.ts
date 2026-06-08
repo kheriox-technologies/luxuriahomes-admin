@@ -14,12 +14,16 @@ export const update = mutation({
 		name: v.string(),
 		email: v.string(),
 		phone: v.string(),
+		position: v.optional(v.string()),
+		qbccLicense: v.optional(v.string()),
+		website: v.optional(v.string()),
 		tradeIds: v.array(v.id('trades')),
 		contacts: v.array(
 			v.object({
 				name: v.string(),
 				email: v.string(),
 				phone: v.string(),
+				position: v.optional(v.string()),
 			})
 		),
 	},
@@ -30,6 +34,9 @@ export const update = mutation({
 		const name = args.name.trim();
 		const email = args.email.trim();
 		const phone = args.phone.trim();
+		const position = args.position?.trim() || undefined;
+		const qbccLicense = args.qbccLicense?.trim() || undefined;
+		const website = args.website?.trim() || undefined;
 		const searchText = buildServiceProviderSearchText(
 			company,
 			name,
@@ -41,6 +48,9 @@ export const update = mutation({
 			name,
 			email,
 			phone,
+			position,
+			qbccLicense,
+			website,
 			tradeIds: args.tradeIds,
 			contacts: args.contacts,
 			searchText,
