@@ -1,65 +1,74 @@
 'use client';
 
+import type { ColumnDef } from '@tanstack/react-table';
 import type { Doc } from '@workspace/backend/dataModel';
-import {
-	Frame,
-	FrameHeader,
-	FramePanel,
-	FrameTitle,
-} from '@workspace/ui/components/frame';
+import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	projectClientAddressLine,
 	projectClientDisplayName,
-	projectClientEmailPhoneLine,
 } from '@/components/projects/project-form-shared';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
 
-function ProjectClientReadOnlyCard({ client }: { client: ProjectClient }) {
-	const addressLine = projectClientAddressLine(client);
-
-	return (
-		<Frame>
-			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
-				<FrameTitle className="min-w-0 truncate leading-snug">
-					{projectClientDisplayName(client)}
-				</FrameTitle>
-			</FrameHeader>
-			<FramePanel className="space-y-2 text-muted-foreground">
-				<p className="text-sm leading-snug">
-					{projectClientEmailPhoneLine(client)}
-				</p>
-				<p className="text-sm leading-snug">
-					{addressLine || (
-						<span className="text-muted-foreground/72">No address</span>
-					)}
-				</p>
-			</FramePanel>
-		</Frame>
-	);
-}
+const columns: ColumnDef<ProjectClient>[] = [
+	{
+		id: 'name',
+		header: 'Name',
+		cell: ({ row }) => (
+			<span className="font-medium">
+				{projectClientDisplayName(row.original)}
+			</span>
+		),
+	},
+	{
+		accessorKey: 'email',
+		header: 'Email',
+		cell: ({ row }) => (
+			<span className="text-muted-foreground text-sm">
+				{row.original.email}
+			</span>
+		),
+	},
+	{
+		accessorKey: 'phone',
+		header: 'Phone',
+		cell: ({ row }) => (
+			<span className="text-muted-foreground text-sm">
+				{row.original.phone}
+			</span>
+		),
+	},
+	{
+		id: 'company',
+		header: 'Company',
+		cell: ({ row }) =>
+			row.original.company ? (
+				<span className="text-sm">{row.original.company}</span>
+			) : null,
+	},
+	{
+		id: 'address',
+		header: 'Address',
+		cell: ({ row }) => {
+			const line = projectClientAddressLine(row.original);
+			return line ? (
+				<span className="text-muted-foreground text-sm">{line}</span>
+			) : null;
+		},
+	},
+];
 
 export default function ProjectClientsTabContent({
 	clients,
 }: {
 	clients: ProjectClient[];
 }) {
-	if (!clients.length) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				No clients have been added to this project yet.
-			</p>
-		);
-	}
-
 	return (
-		<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-			{clients.map((client, index) => (
-				<ProjectClientReadOnlyCard
-					client={client}
-					key={`${client.email}-${client.phone}-${index}`}
-				/>
-			))}
-		</div>
+		<DataTable
+			columns={columns}
+			data={clients}
+			emptyMessage="No clients have been added to this project yet."
+			showPagination={false}
+		/>
 	);
 }

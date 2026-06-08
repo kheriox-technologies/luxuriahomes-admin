@@ -239,7 +239,7 @@ export default function ProjectServiceProvidersTabContent({
 			/>
 			<AddServiceProvider
 				projectId={projectId}
-				trigger={<Button>New Service Provider</Button>}
+				trigger={<Button variant="outline">New Service Provider</Button>}
 			/>
 		</div>
 	);
