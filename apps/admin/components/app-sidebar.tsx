@@ -25,12 +25,9 @@ import {
 	ChevronDown,
 	ClipboardList,
 	Layers,
+	List,
 	type LucideIcon,
-	MapPin,
-	Palette,
 	SquaresIntersect,
-	Store,
-	Wrench,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
@@ -68,28 +65,20 @@ const items: SidebarItem[] = [
 		icon: SquaresIntersect,
 	},
 	{
-		title: 'Locations',
-		url: '/locations',
-		path: '/locations',
-		icon: MapPin,
-	},
-	{
-		title: 'Trades',
-		url: '/trades',
-		path: '/trades',
-		icon: Wrench,
-	},
-	{
-		title: 'Vendors',
-		url: '/vendors',
-		path: '/vendors',
-		icon: Store,
-	},
-	{
-		title: 'Material Colors',
-		url: '/material-colors',
-		path: '/material-colors',
-		icon: Palette,
+		title: 'Lists',
+		url: '#',
+		path: '#',
+		icon: List,
+		items: [
+			{ title: 'Locations', url: '/locations', path: '/locations' },
+			{ title: 'Trades', url: '/trades', path: '/trades' },
+			{ title: 'Vendors', url: '/vendors', path: '/vendors' },
+			{
+				title: 'Material Colors',
+				url: '/material-colors',
+				path: '/material-colors',
+			},
+		],
 	},
 	{
 		title: 'Orders',
