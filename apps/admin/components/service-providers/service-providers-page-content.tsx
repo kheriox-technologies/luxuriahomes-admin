@@ -114,8 +114,38 @@ function buildColumns(
 			accessorKey: 'company',
 			header: 'Company',
 			cell: ({ row }) => (
-				<span className="font-medium">{row.original.company}</span>
+				<div className="space-y-0.5">
+					<p className="font-medium">{row.original.company}</p>
+					{row.original.website ? (
+						<a
+							className="text-blue-600 text-xs underline-offset-4 hover:underline"
+							href={row.original.website}
+							rel="noopener noreferrer"
+							target="_blank"
+						>
+							{row.original.website}
+						</a>
+					) : null}
+					{row.original.qbccLicense ? (
+						<p className="text-muted-foreground text-xs">
+							QBCC {row.original.qbccLicense}
+						</p>
+					) : null}
+				</div>
 			),
+		},
+		{
+			id: 'trades',
+			header: 'Trades',
+			cell: ({ row }) => {
+				const names = row.original.tradeIds
+					.map((id) => tradeMap.get(id))
+					.filter(Boolean)
+					.join(', ');
+				return names ? (
+					<span className="text-muted-foreground text-sm">{names}</span>
+				) : null;
+			},
 		},
 		{
 			id: 'mainContact',
@@ -133,44 +163,6 @@ function buildColumns(
 					</div>
 				);
 			},
-		},
-		{
-			id: 'trades',
-			header: 'Trades',
-			cell: ({ row }) => {
-				const names = row.original.tradeIds
-					.map((id) => tradeMap.get(id))
-					.filter(Boolean)
-					.join(', ');
-				return names ? (
-					<span className="text-muted-foreground text-sm">{names}</span>
-				) : null;
-			},
-		},
-		{
-			accessorKey: 'qbccLicense',
-			header: 'QBCC Licence',
-			cell: ({ row }) =>
-				row.original.qbccLicense ? (
-					<span className="text-muted-foreground text-sm">
-						{row.original.qbccLicense}
-					</span>
-				) : null,
-		},
-		{
-			accessorKey: 'website',
-			header: 'Website',
-			cell: ({ row }) =>
-				row.original.website ? (
-					<a
-						className="text-blue-600 text-sm underline-offset-4 hover:underline"
-						href={row.original.website}
-						rel="noopener noreferrer"
-						target="_blank"
-					>
-						{row.original.website}
-					</a>
-				) : null,
 		},
 		{
 			id: 'contacts',

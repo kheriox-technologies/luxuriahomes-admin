@@ -119,7 +119,7 @@ export function DataTable<TData, TValue>({
 									const width = getColumnWidth(columnSize, size);
 									return (
 										<TableCell
-											className="min-w-0 whitespace-normal"
+											className="min-w-0 whitespace-normal break-all"
 											key={cell.id}
 											style={
 												width
