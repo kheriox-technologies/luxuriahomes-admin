@@ -9,6 +9,7 @@ import {
 	AccordionPrimitive,
 } from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
 	ComboboxChip,
@@ -28,7 +29,12 @@ import {
 } from '@workspace/ui/components/empty';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { ChevronDownIcon, GitCompareArrows } from 'lucide-react';
+import {
+	ChevronDownIcon,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	GitCompareArrows,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import type { QuotationStatus } from './quotation-form-shared';
@@ -206,6 +212,7 @@ export default function ComparePageContent() {
 	const [filterServiceProviderIds, setFilterServiceProviderIds] = useState<
 		Id<'serviceProviders'>[] | null
 	>(null);
+	const [openTradeIds, setOpenTradeIds] = useState<Id<'trades'>[]>([]);
 
 	const quotations = useQuery(
 		api.quotations.listByProjects.listByProjects,
@@ -321,7 +328,11 @@ export default function ComparePageContent() {
 				</div>
 
 				{/* Trade accordion rows */}
-				<Accordion multiple>
+				<Accordion
+					multiple
+					onValueChange={(val) => setOpenTradeIds(val as Id<'trades'>[])}
+					value={openTradeIds}
+				>
 					{[...compareData.values()].map((tradeGroup) => (
 						<AccordionItem key={tradeGroup.tradeId} value={tradeGroup.tradeId}>
 							<AccordionPrimitive.Header className="flex border-b last:border-b-0">
@@ -405,108 +416,133 @@ export default function ComparePageContent() {
 			/>
 
 			{/* Filter row */}
-			<div className="grid grid-cols-3 gap-2">
-				{/* Projects multi-select (max 5) */}
-				<Combobox
-					items={(projects ?? []).map((p) => p._id)}
-					itemToStringLabel={(val) =>
-						projectNameById.get(val as Id<'projects'>) ?? String(val ?? '')
-					}
-					multiple
-					onValueChange={(val) => {
-						const ids = (val as Id<'projects'>[] | null) ?? [];
-						setSelectedProjectIds(ids.slice(0, 5));
-					}}
-					value={selectedProjectIds}
-				>
-					<ComboboxChips>
-						{selectedProjectIds.map((id) => (
-							<ComboboxChip key={id}>
-								{projectNameById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="Select projects (max 5)…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No projects found.</ComboboxEmpty>
-						<ComboboxList>
-							{(pid: Id<'projects'>) => (
-								<ComboboxItem key={pid} value={pid}>
-									{projectNameById.get(pid) ?? pid}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+			<div className="flex gap-2">
+				<div className="grid flex-1 grid-cols-3 gap-2">
+					{/* Projects multi-select (max 5) */}
+					<Combobox
+						items={(projects ?? []).map((p) => p._id)}
+						itemToStringLabel={(val) =>
+							projectNameById.get(val as Id<'projects'>) ?? String(val ?? '')
+						}
+						multiple
+						onValueChange={(val) => {
+							const ids = (val as Id<'projects'>[] | null) ?? [];
+							setSelectedProjectIds(ids.slice(0, 5));
+						}}
+						value={selectedProjectIds}
+					>
+						<ComboboxChips>
+							{selectedProjectIds.map((id) => (
+								<ComboboxChip key={id}>
+									{projectNameById.get(id) ?? id}
+								</ComboboxChip>
+							))}
+							<ComboboxChipsInput placeholder="Select projects (max 5)…" />
+						</ComboboxChips>
+						<ComboboxPopup>
+							<ComboboxEmpty>No projects found.</ComboboxEmpty>
+							<ComboboxList>
+								{(pid: Id<'projects'>) => (
+									<ComboboxItem key={pid} value={pid}>
+										{projectNameById.get(pid) ?? pid}
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
 
-				{/* Trades multi-select */}
-				<Combobox
-					disabled={availableTradeIds.length === 0}
-					items={availableTradeIds}
-					itemToStringLabel={(val) =>
-						tradeNameById.get(val as Id<'trades'>) ?? String(val ?? '')
-					}
-					multiple
-					onValueChange={(val) => {
-						const ids = (val as Id<'trades'>[] | null) ?? [];
-						setFilterTradeIds(ids.length > 0 ? ids : null);
-					}}
-					value={filterTradeIds ?? []}
-				>
-					<ComboboxChips>
-						{(filterTradeIds ?? []).map((id) => (
-							<ComboboxChip key={id}>
-								{tradeNameById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="All trades…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No trades found.</ComboboxEmpty>
-						<ComboboxList>
-							{(tradeId: Id<'trades'>) => (
-								<ComboboxItem key={tradeId} value={tradeId}>
-									{tradeNameById.get(tradeId) ?? tradeId}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+					{/* Trades multi-select */}
+					<Combobox
+						disabled={availableTradeIds.length === 0}
+						items={availableTradeIds}
+						itemToStringLabel={(val) =>
+							tradeNameById.get(val as Id<'trades'>) ?? String(val ?? '')
+						}
+						multiple
+						onValueChange={(val) => {
+							const ids = (val as Id<'trades'>[] | null) ?? [];
+							setFilterTradeIds(ids.length > 0 ? ids : null);
+						}}
+						value={filterTradeIds ?? []}
+					>
+						<ComboboxChips>
+							{(filterTradeIds ?? []).map((id) => (
+								<ComboboxChip key={id}>
+									{tradeNameById.get(id) ?? id}
+								</ComboboxChip>
+							))}
+							<ComboboxChipsInput placeholder="All trades…" />
+						</ComboboxChips>
+						<ComboboxPopup>
+							<ComboboxEmpty>No trades found.</ComboboxEmpty>
+							<ComboboxList>
+								{(tradeId: Id<'trades'>) => (
+									<ComboboxItem key={tradeId} value={tradeId}>
+										{tradeNameById.get(tradeId) ?? tradeId}
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
 
-				{/* Service Providers multi-select */}
-				<Combobox
-					disabled={availableServiceProviderIds.length === 0}
-					items={availableServiceProviderIds}
-					itemToStringLabel={(val) =>
-						companyNameById.get(val as Id<'serviceProviders'>) ??
-						String(val ?? '')
-					}
-					multiple
-					onValueChange={(val) => {
-						const ids = (val as Id<'serviceProviders'>[] | null) ?? [];
-						setFilterServiceProviderIds(ids.length > 0 ? ids : null);
-					}}
-					value={filterServiceProviderIds ?? []}
-				>
-					<ComboboxChips>
-						{(filterServiceProviderIds ?? []).map((id) => (
-							<ComboboxChip key={id}>
-								{companyNameById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="All service providers…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No service providers found.</ComboboxEmpty>
-						<ComboboxList>
-							{(spId: Id<'serviceProviders'>) => (
-								<ComboboxItem key={spId} value={spId}>
-									{companyNameById.get(spId) ?? spId}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+					{/* Service Providers multi-select */}
+					<Combobox
+						disabled={availableServiceProviderIds.length === 0}
+						items={availableServiceProviderIds}
+						itemToStringLabel={(val) =>
+							companyNameById.get(val as Id<'serviceProviders'>) ??
+							String(val ?? '')
+						}
+						multiple
+						onValueChange={(val) => {
+							const ids = (val as Id<'serviceProviders'>[] | null) ?? [];
+							setFilterServiceProviderIds(ids.length > 0 ? ids : null);
+						}}
+						value={filterServiceProviderIds ?? []}
+					>
+						<ComboboxChips>
+							{(filterServiceProviderIds ?? []).map((id) => (
+								<ComboboxChip key={id}>
+									{companyNameById.get(id) ?? id}
+								</ComboboxChip>
+							))}
+							<ComboboxChipsInput placeholder="All service providers…" />
+						</ComboboxChips>
+						<ComboboxPopup>
+							<ComboboxEmpty>No service providers found.</ComboboxEmpty>
+							<ComboboxList>
+								{(spId: Id<'serviceProviders'>) => (
+									<ComboboxItem key={spId} value={spId}>
+										{companyNameById.get(spId) ?? spId}
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
+				</div>
+
+				{compareData.size > 0 && (
+					<div className="flex shrink-0 flex-row gap-1.5">
+						<Button
+							onClick={() =>
+								setOpenTradeIds([...compareData.keys()] as Id<'trades'>[])
+							}
+							size="sm"
+							variant="outline"
+						>
+							<ChevronsDownIcon />
+							Expand All
+						</Button>
+						<Button
+							onClick={() => setOpenTradeIds([])}
+							size="sm"
+							variant="outline"
+						>
+							<ChevronsUpIcon />
+							Collapse All
+						</Button>
+					</div>
+				)}
 			</div>
 
 			{tableContent}
