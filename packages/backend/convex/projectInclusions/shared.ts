@@ -1,7 +1,7 @@
 import { ConvexError } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
-import { buildInclusionVariantSearchText } from '../lib/buildSearchText';
+import { buildSearchText } from '../lib/buildSearchText';
 
 type ReadCtx = MutationCtx | QueryCtx;
 
@@ -11,9 +11,21 @@ export function roundMoney(value: number): number {
 
 export function buildProjectInclusionSearchText(
 	title: string,
-	fields: Pick<Doc<'projectInclusions'>, 'code' | 'vendor' | 'models' | 'color'>
+	fields: Pick<
+		Doc<'projectInclusions'>,
+		'code' | 'vendor' | 'models' | 'color' | 'locations' | 'status'
+	>
 ): string {
-	return buildInclusionVariantSearchText(title, fields);
+	const locationNames = fields.locations?.map((l) => l.name) ?? [];
+	return buildSearchText([
+		title,
+		fields.code,
+		fields.vendor,
+		fields.color,
+		...fields.models,
+		...locationNames,
+		fields.status,
+	]);
 }
 
 export async function getProjectOrThrow(

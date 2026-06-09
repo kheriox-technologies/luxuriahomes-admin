@@ -70,6 +70,10 @@ import {
 } from '@workspace/ui/components/table';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
+import {
+	ToggleGroup,
+	ToggleGroupItem,
+} from '@workspace/ui/components/toggle-group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
 import {
@@ -812,17 +816,17 @@ function ProjectInclusionsTableInFrame({
 			);
 			toastManager.add({
 				title: allApproved
-					? `${section.categoryName} inclusions moved to under review`
-					: `${section.categoryName} inclusions approved`,
+					? `${section.groupName} inclusions moved to under review`
+					: `${section.groupName} inclusions approved`,
 				type: 'success',
 			});
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
-					`Could not update ${section.categoryName} inclusions. Please try again in a moment.`
+					`Could not update ${section.groupName} inclusions. Please try again in a moment.`
 				),
-				title: `Could not update ${section.categoryName} inclusions`,
+				title: `Could not update ${section.groupName} inclusions`,
 				type: 'error',
 			});
 		} finally {
@@ -834,7 +838,7 @@ function ProjectInclusionsTableInFrame({
 		<Frame className="w-full">
 			<FrameHeader className="flex flex-row items-center justify-between gap-3">
 				<div className="min-w-0">
-					<FrameTitle>{section.categoryName}</FrameTitle>
+					<FrameTitle>{section.groupName}</FrameTitle>
 					<FrameDescription>
 						{section.inclusions.length}{' '}
 						{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
@@ -854,11 +858,11 @@ function ProjectInclusionsTableInFrame({
 						</AlertDialogTrigger>
 						<AlertDialogContent>
 							<AlertDialogHeader>
-								<AlertDialogTitle>{`${bulkActionLabel} in ${section.categoryName}?`}</AlertDialogTitle>
+								<AlertDialogTitle>{`${bulkActionLabel} in ${section.groupName}?`}</AlertDialogTitle>
 								<AlertDialogDescription>
 									{allApproved
-										? `This will set all inclusions in ${section.categoryName} to Under Review.`
-										: `This will set all inclusions in ${section.categoryName} to Approved.`}
+										? `This will set all inclusions in ${section.groupName} to Under Review.`
+										: `This will set all inclusions in ${section.groupName} to Approved.`}
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>
@@ -1042,9 +1046,11 @@ function ProjectInclusionsTableInFrame({
 	);
 }
 
+type GroupBy = 'category' | 'location' | 'vendor';
+
 interface InclusionSection {
-	categoryId: InclusionCategory['_id'];
-	categoryName: string;
+	groupKey: string;
+	groupName: string;
 	inclusions: ProjectInclusion[];
 	totalVariationPrice: number;
 }
@@ -1061,6 +1067,7 @@ export default function ProjectInclusionsTabContent({
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const [groupBy, setGroupBy] = useState<GroupBy>('category');
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -1084,7 +1091,7 @@ export default function ProjectInclusionsTabContent({
 		return map;
 	}, [categories]);
 
-	const sections = useMemo((): InclusionSection[] => {
+	const categorySections = useMemo((): InclusionSection[] => {
 		if (!inclusions) {
 			return [];
 		}
@@ -1096,8 +1103,8 @@ export default function ProjectInclusionsTabContent({
 		}
 		return [...grouped.entries()]
 			.map(([categoryId, groupedInclusions]) => ({
-				categoryId,
-				categoryName: categoryById.get(categoryId) ?? 'Unknown category',
+				groupKey: String(categoryId),
+				groupName: categoryById.get(categoryId) ?? 'Unknown category',
 				inclusions: [...groupedInclusions].sort((a, b) =>
 					a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
 				),
@@ -1111,11 +1118,76 @@ export default function ProjectInclusionsTabContent({
 				),
 			}))
 			.sort((a, b) =>
-				a.categoryName.localeCompare(b.categoryName, undefined, {
+				a.groupName.localeCompare(b.groupName, undefined, {
 					sensitivity: 'base',
 				})
 			);
 	}, [inclusions, categoryById]);
+
+	const sections = useMemo((): InclusionSection[] => {
+		if (!inclusions) {
+			return [];
+		}
+
+		const computeTotal = (group: ProjectInclusion[]) =>
+			group.reduce(
+				(total, inc) =>
+					total + (inc.class === 'Standard' ? 0 : (inc.variationPrice ?? 0)),
+				0
+			);
+		const sortByTitle = (group: ProjectInclusion[]) =>
+			[...group].sort((a, b) =>
+				a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+			);
+
+		if (groupBy === 'category') {
+			return categorySections;
+		}
+
+		if (groupBy === 'location') {
+			const grouped = new Map<string, ProjectInclusion[]>();
+			for (const inclusion of inclusions) {
+				const locationNames = inclusion.locations?.map((l) => l.name) ?? [];
+				const keys = locationNames.length > 0 ? locationNames : ['No Location'];
+				for (const key of keys) {
+					const existing = grouped.get(key) ?? [];
+					existing.push(inclusion);
+					grouped.set(key, existing);
+				}
+			}
+			return [...grouped.entries()]
+				.map(([key, group]) => ({
+					groupKey: key,
+					groupName: key,
+					inclusions: sortByTitle(group),
+					totalVariationPrice: computeTotal(group),
+				}))
+				.sort((a, b) =>
+					a.groupName.localeCompare(b.groupName, undefined, {
+						sensitivity: 'base',
+					})
+				);
+		}
+
+		const grouped = new Map<string, ProjectInclusion[]>();
+		for (const inclusion of inclusions) {
+			const existing = grouped.get(inclusion.vendor) ?? [];
+			existing.push(inclusion);
+			grouped.set(inclusion.vendor, existing);
+		}
+		return [...grouped.entries()]
+			.map(([key, group]) => ({
+				groupKey: key,
+				groupName: key,
+				inclusions: sortByTitle(group),
+				totalVariationPrice: computeTotal(group),
+			}))
+			.sort((a, b) =>
+				a.groupName.localeCompare(b.groupName, undefined, {
+					sensitivity: 'base',
+				})
+			);
+	}, [inclusions, groupBy, categorySections]);
 
 	const visibleSections = useMemo(() => {
 		if (trimmedSearch === '') {
@@ -1167,9 +1239,9 @@ export default function ProjectInclusionsTabContent({
 					email: client.email,
 					phone: client.phone,
 				})),
-				sections: sections.map((section) => ({
-					categoryId: String(section.categoryId),
-					categoryName: section.categoryName,
+				sections: categorySections.map((section) => ({
+					categoryId: section.groupKey,
+					categoryName: section.groupName,
 					inclusions: section.inclusions.map((inclusion) => ({
 						_id: String(inclusion._id),
 						title: inclusion.title,
@@ -1217,6 +1289,21 @@ export default function ProjectInclusionsTabContent({
 					value={search}
 				/>
 			</InputGroup>
+			<ToggleGroup
+				aria-label="Group inclusions by"
+				className="shrink-0"
+				onValueChange={(val) => {
+					if (val.length > 0) {
+						setGroupBy(val[0] as GroupBy);
+					}
+				}}
+				value={[groupBy]}
+				variant="outline"
+			>
+				<ToggleGroupItem value="category">Category</ToggleGroupItem>
+				<ToggleGroupItem value="location">Location</ToggleGroupItem>
+				<ToggleGroupItem value="vendor">Vendor</ToggleGroupItem>
+			</ToggleGroup>
 			<Button
 				aria-label="Download project inclusions"
 				className="shrink-0"
@@ -1276,7 +1363,7 @@ export default function ProjectInclusionsTabContent({
 			<div className={cn('flex flex-col gap-4')}>
 				{frames.map((section) => (
 					<ProjectInclusionsTableInFrame
-						key={section.categoryId}
+						key={section.groupKey}
 						mode={mode}
 						section={section}
 					/>

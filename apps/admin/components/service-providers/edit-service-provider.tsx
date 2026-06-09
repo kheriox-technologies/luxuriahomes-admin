@@ -9,6 +9,7 @@ import {
 	ComboboxChip,
 	ComboboxChips,
 	ComboboxChipsInput,
+	ComboboxEmpty,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
@@ -436,36 +437,44 @@ export default function EditServiceProvider({
 								</FrameTitle>
 							</FrameHeader>
 							<FramePanel className="space-y-3">
-								<Combobox
-									itemToStringLabel={(val) =>
-										(trades ?? []).find((t) => t._id === val)?.name ??
-										String(val ?? '')
-									}
-									multiple
-									onValueChange={(val) => setSelectedTradeIds(val as string[])}
-									value={selectedTradeIds}
-								>
-									<ComboboxChips>
-										{selectedTradeIds.map((id) => {
-											const trade = (trades ?? []).find((t) => t._id === id);
-											return (
-												<ComboboxChip key={id}>
-													{trade?.name ?? id}
-												</ComboboxChip>
-											);
-										})}
-										<ComboboxChipsInput placeholder="Search trades…" />
-									</ComboboxChips>
-									<ComboboxPopup>
-										<ComboboxList>
-											{(trades ?? []).map((trade) => (
-												<ComboboxItem key={trade._id} value={trade._id}>
-													{trade.name}
-												</ComboboxItem>
-											))}
-										</ComboboxList>
-									</ComboboxPopup>
-								</Combobox>
+								{(() => {
+									const tradeItems = (trades ?? []).map((t) => t._id);
+									const labelById = new Map(
+										(trades ?? []).map((t) => [t._id, t.name])
+									);
+									return (
+										<Combobox
+											items={tradeItems}
+											itemToStringLabel={(val) =>
+												labelById.get(val as Id<'trades'>) ?? String(val ?? '')
+											}
+											multiple
+											onValueChange={(val) =>
+												setSelectedTradeIds(val as string[])
+											}
+											value={selectedTradeIds}
+										>
+											<ComboboxChips>
+												{selectedTradeIds.map((id) => (
+													<ComboboxChip key={id}>
+														{labelById.get(id as Id<'trades'>) ?? id}
+													</ComboboxChip>
+												))}
+												<ComboboxChipsInput placeholder="Search trades…" />
+											</ComboboxChips>
+											<ComboboxPopup>
+												<ComboboxEmpty>No trades found.</ComboboxEmpty>
+												<ComboboxList>
+													{(item: Id<'trades'>) => (
+														<ComboboxItem key={item} value={item}>
+															{labelById.get(item) ?? item}
+														</ComboboxItem>
+													)}
+												</ComboboxList>
+											</ComboboxPopup>
+										</Combobox>
+									);
+								})()}
 								<Input
 									nativeInput
 									onChange={(e) => setNewTradeName(e.target.value)}

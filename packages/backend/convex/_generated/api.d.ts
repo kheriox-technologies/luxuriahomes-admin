@@ -91,6 +91,7 @@ import type * as projectDocuments_renameFolder from "../projectDocuments/renameF
 import type * as projectDocuments_shared from "../projectDocuments/shared.js";
 import type * as projectInclusions_add from "../projectInclusions/add.js";
 import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
+import type * as projectInclusions_backfillSearchText from "../projectInclusions/backfillSearchText.js";
 import type * as projectInclusions_list from "../projectInclusions/list.js";
 import type * as projectInclusions_listNotes from "../projectInclusions/listNotes.js";
 import type * as projectInclusions_migrateImageBinariesToS3 from "../projectInclusions/migrateImageBinariesToS3.js";
@@ -254,6 +255,7 @@ declare const fullApi: ApiFromModules<{
   "projectDocuments/shared": typeof projectDocuments_shared;
   "projectInclusions/add": typeof projectInclusions_add;
   "projectInclusions/appendNote": typeof projectInclusions_appendNote;
+  "projectInclusions/backfillSearchText": typeof projectInclusions_backfillSearchText;
   "projectInclusions/list": typeof projectInclusions_list;
   "projectInclusions/listNotes": typeof projectInclusions_listNotes;
   "projectInclusions/migrateImageBinariesToS3": typeof projectInclusions_migrateImageBinariesToS3;

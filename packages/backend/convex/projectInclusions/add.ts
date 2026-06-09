@@ -88,6 +88,8 @@ export const add = mutation({
 			vendor,
 			models,
 			color,
+			locations: args.locations,
+			status: 'Under Review',
 		});
 
 		const nextValues = {

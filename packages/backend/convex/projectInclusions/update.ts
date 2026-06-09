@@ -149,11 +149,19 @@ function applySearchTextPatch(
 	const nextColor =
 		(patch.color as string | undefined) ??
 		(existing.color as string | undefined);
+	const nextLocations =
+		(patch.locations as Doc<'projectInclusions'>['locations'] | undefined) ??
+		existing.locations;
+	const nextStatus =
+		(patch.status as Doc<'projectInclusions'>['status'] | undefined) ??
+		existing.status;
 	patch.searchText = buildProjectInclusionSearchText(nextTitle, {
 		code: nextCode,
 		vendor: nextVendor,
 		models: nextModels,
 		color: nextColor,
+		locations: nextLocations,
+		status: nextStatus,
 	});
 }
 
