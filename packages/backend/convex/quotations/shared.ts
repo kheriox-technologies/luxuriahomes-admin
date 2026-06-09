@@ -6,11 +6,11 @@ import { buildSearchText } from '../lib/buildSearchText';
 type ReadCtx = MutationCtx | QueryCtx;
 
 export function buildQuotationSearchText(
-	tradeName: string,
+	tradeNames: string[],
 	projectName: string,
 	companyName: string
 ): string {
-	return buildSearchText([tradeName, projectName, companyName]);
+	return buildSearchText([...tradeNames, projectName, companyName]);
 }
 
 export async function getQuotationOrThrow(

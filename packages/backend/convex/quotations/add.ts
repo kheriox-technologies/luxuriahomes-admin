@@ -7,7 +7,7 @@ import { buildQuotationSearchText } from './shared';
 export const add = mutation({
 	args: {
 		projectId: v.id('projects'),
-		tradeId: v.id('trades'),
+		tradeIds: v.array(v.id('trades')),
 		serviceProviderId: v.id('serviceProviders'),
 		s3Key: v.optional(v.string()),
 		price: v.number(),
@@ -16,14 +16,19 @@ export const add = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 
-		const [trade, project, serviceProvider] = await Promise.all([
-			ctx.db.get(args.tradeId),
+		const [trades, project, serviceProvider] = await Promise.all([
+			Promise.all(args.tradeIds.map((id) => ctx.db.get(id))),
 			ctx.db.get(args.projectId),
 			ctx.db.get(args.serviceProviderId),
 		]);
 
-		if (!trade) {
-			throw new ConvexError({ code: 'NOT_FOUND', message: 'Trade not found' });
+		for (const trade of trades) {
+			if (!trade) {
+				throw new ConvexError({
+					code: 'NOT_FOUND',
+					message: 'Trade not found',
+				});
+			}
 		}
 		if (!project) {
 			throw new ConvexError({
@@ -38,15 +43,16 @@ export const add = mutation({
 			});
 		}
 
+		const tradeNames = trades.map((t) => t?.name ?? '');
 		const searchText = buildQuotationSearchText(
-			trade.name,
+			tradeNames,
 			project.name,
 			serviceProvider.company
 		);
 
 		return await ctx.db.insert('quotations', {
 			projectId: args.projectId,
-			tradeId: args.tradeId,
+			tradeIds: args.tradeIds,
 			serviceProviderId: args.serviceProviderId,
 			s3Key: args.s3Key,
 			price: args.price,

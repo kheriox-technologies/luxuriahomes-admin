@@ -13,15 +13,17 @@ export const approve = mutation({
 
 		await ctx.db.patch(args.quotationId, { status: 'Approved' });
 
-		const siblings = await ctx.db
+		const projectQuotations = await ctx.db
 			.query('quotations')
-			.withIndex('by_project_and_trade', (q) =>
-				q.eq('projectId', quotation.projectId).eq('tradeId', quotation.tradeId)
-			)
+			.withIndex('by_project', (q) => q.eq('projectId', quotation.projectId))
 			.collect();
 
-		for (const sibling of siblings) {
-			if (sibling._id !== args.quotationId) {
+		const approvedTradeSet = new Set(quotation.tradeIds);
+		for (const sibling of projectQuotations) {
+			if (
+				sibling._id !== args.quotationId &&
+				sibling.tradeIds.some((id) => approvedTradeSet.has(id))
+			) {
 				await ctx.db.patch(sibling._id, { status: 'Rejected' });
 			}
 		}

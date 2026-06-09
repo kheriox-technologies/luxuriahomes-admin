@@ -6,6 +6,9 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
+	ComboboxChip,
+	ComboboxChips,
+	ComboboxChipsInput,
 	ComboboxEmpty,
 	ComboboxInput,
 	ComboboxItem,
@@ -77,17 +80,18 @@ export default function AddQuotation({
 
 	const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 	const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-	const [selectedTradeId, setSelectedTradeId] = useState<string>('');
+	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
 
 	const projects = useQuery(api.projects.list.list, {});
 	const trades = useQuery(api.trades.list.list, {});
 	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
 
-	const filteredServiceProviders = selectedTradeId
-		? (serviceProviders ?? []).filter((sp) =>
-				sp.tradeIds.includes(selectedTradeId as Id<'trades'>)
-			)
-		: (serviceProviders ?? []);
+	const filteredServiceProviders =
+		selectedTradeIds.length > 0
+			? (serviceProviders ?? []).filter((sp) =>
+					sp.tradeIds.some((t) => selectedTradeIds.includes(t))
+				)
+			: (serviceProviders ?? []);
 
 	const addQuotation = useMutation(api.quotations.add.add);
 	const generateUploadUrl = useAction(
@@ -108,7 +112,7 @@ export default function AddQuotation({
 			try {
 				await addQuotation({
 					projectId: parsed.projectId as Id<'projects'>,
-					tradeId: parsed.tradeId as Id<'trades'>,
+					tradeIds: parsed.tradeIds as Id<'trades'>[],
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -133,7 +137,7 @@ export default function AddQuotation({
 	const resetAll = () => {
 		form.reset();
 		setUploadedFileName(null);
-		setSelectedTradeId('');
+		setSelectedTradeIds([]);
 	};
 
 	const handleFileChange = async (file: File | null) => {
@@ -267,7 +271,7 @@ export default function AddQuotation({
 									}}
 								</form.Field>
 
-								<form.Field name="tradeId">
+								<form.Field name="tradeIds">
 									{(field) => {
 										const invalid =
 											field.state.meta.isTouched && !field.state.meta.isValid;
@@ -275,31 +279,35 @@ export default function AddQuotation({
 										const labelById = new Map(
 											(trades ?? []).map((t) => [t._id, t.name])
 										);
+										const value = (field.state.value as string[]) ?? [];
 										return (
 											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-												<Combobox<Id<'trades'>>
+												<FieldLabel>Trades</FieldLabel>
+												<Combobox
 													items={items}
 													itemToStringLabel={(item) =>
-														labelById.get(item) ?? ''
+														labelById.get(item as Id<'trades'>) ?? ''
 													}
+													multiple
 													onValueChange={(next) => {
-														field.handleChange(next ?? '');
-														setSelectedTradeId(next ?? '');
+														const ids = (next as Id<'trades'>[] | null) ?? [];
+														field.handleChange(ids);
+														setSelectedTradeIds(ids);
 														form.setFieldValue('serviceProviderId', '');
 													}}
-													value={
-														field.state.value
-															? (field.state.value as Id<'trades'>)
-															: null
-													}
+													value={value}
 												>
-													<ComboboxInput
-														aria-invalid={invalid}
-														id={field.name}
-														onBlur={field.handleBlur}
-														placeholder="Select a trade"
-													/>
+													<ComboboxChips onBlur={field.handleBlur}>
+														{value.map((id) => (
+															<ComboboxChip key={id}>
+																{labelById.get(id as Id<'trades'>) ?? id}
+															</ComboboxChip>
+														))}
+														<ComboboxChipsInput
+															aria-invalid={invalid}
+															placeholder="Select trades…"
+														/>
+													</ComboboxChips>
 													<ComboboxPopup>
 														<ComboboxEmpty>No trades found.</ComboboxEmpty>
 														<ComboboxList>
@@ -353,15 +361,15 @@ export default function AddQuotation({
 														id={field.name}
 														onBlur={field.handleBlur}
 														placeholder={
-															selectedTradeId
+															selectedTradeIds.length > 0
 																? 'Select a service provider'
 																: 'Select a trade first'
 														}
 													/>
 													<ComboboxPopup>
 														<ComboboxEmpty>
-															{selectedTradeId
-																? 'No service providers for this trade.'
+															{selectedTradeIds.length > 0
+																? 'No service providers for these trades.'
 																: 'Select a trade to filter providers.'}
 														</ComboboxEmpty>
 														<ComboboxList>

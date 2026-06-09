@@ -44,8 +44,8 @@ interface ApprovedQuotation {
 	searchText: string;
 	serviceProviderId: Id<'serviceProviders'>;
 	status: QuotationFormValues['status'];
-	tradeId: Id<'trades'>;
-	tradeName: string;
+	tradeIds: Id<'trades'>[];
+	tradeNames: string[];
 }
 
 function formatPrice(price: number): string {
@@ -83,7 +83,7 @@ function QuotationTabActionsCell({ row }: { row: ApprovedQuotation }) {
 				initialS3Key={row.s3Key}
 				initialServiceProviderId={row.serviceProviderId}
 				initialStatus={row.status}
-				initialTradeId={row.tradeId}
+				initialTradeIds={row.tradeIds}
 				onOpenChange={setEditOpen}
 				open={editOpen}
 				quotationId={row._id}
@@ -142,7 +142,9 @@ function buildColumns(): ColumnDef<ApprovedQuotation>[] {
 			id: 'trade',
 			header: 'Trade',
 			cell: ({ row }) => (
-				<span className="font-medium">{row.original.tradeName}</span>
+				<span className="font-medium">
+					{row.original.tradeNames.join(', ')}
+				</span>
 			),
 		},
 		{
