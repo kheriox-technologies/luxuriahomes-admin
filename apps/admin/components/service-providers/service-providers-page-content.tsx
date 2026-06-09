@@ -320,7 +320,7 @@ export default function ServiceProvidersPageContent() {
 						<InputGroupInput
 							aria-label="Search service providers"
 							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by company, name, email, or phone…"
+							placeholder="Search by company, trade, name, email, phone…"
 							type="search"
 							value={search}
 						/>

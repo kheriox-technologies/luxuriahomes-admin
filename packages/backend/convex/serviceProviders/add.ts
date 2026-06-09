@@ -1,8 +1,10 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { buildServiceProviderSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
-import { parseServiceProviderCompany } from './shared';
+import {
+	parseServiceProviderCompany,
+	syncServiceProviderSearchText,
+} from './shared';
 
 export const add = mutation({
 	args: {
@@ -37,13 +39,14 @@ export const add = mutation({
 		const qbccLicense = args.qbccLicense?.trim() || undefined;
 		const website = args.website?.trim() || undefined;
 		const address = args.address?.trim() || undefined;
-		const searchText = buildServiceProviderSearchText(
-			company,
-			name,
-			email,
-			phone
-		);
-		return await ctx.db.insert('serviceProviders', {
+		const contacts = args.contacts.map((c) => ({
+			name: c.name.trim(),
+			email: c.email?.trim() || undefined,
+			phone: c.phone?.trim() || undefined,
+			landline: c.landline?.trim() || undefined,
+			position: c.position?.trim() || undefined,
+		}));
+		const serviceProviderId = await ctx.db.insert('serviceProviders', {
 			company,
 			name,
 			email,
@@ -54,8 +57,10 @@ export const add = mutation({
 			website,
 			address,
 			tradeIds: args.tradeIds,
-			contacts: args.contacts,
-			searchText,
+			contacts,
+			searchText: '',
 		});
+		await syncServiceProviderSearchText(ctx, serviceProviderId);
+		return serviceProviderId;
 	},
 });
