@@ -222,17 +222,20 @@ export default defineSchema({
 	serviceProviders: defineTable({
 		company: v.string(),
 		name: v.string(),
-		email: v.string(),
-		phone: v.string(),
+		email: v.optional(v.string()),
+		phone: v.optional(v.string()),
+		landline: v.optional(v.string()),
 		position: v.optional(v.string()),
 		qbccLicense: v.optional(v.string()),
 		website: v.optional(v.string()),
+		address: v.optional(v.string()),
 		tradeIds: v.array(v.id('trades')),
 		contacts: v.array(
 			v.object({
 				name: v.string(),
-				email: v.string(),
-				phone: v.string(),
+				email: v.optional(v.string()),
+				phone: v.optional(v.string()),
+				landline: v.optional(v.string()),
 				position: v.optional(v.string()),
 			})
 		),

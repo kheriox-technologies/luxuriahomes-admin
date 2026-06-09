@@ -157,8 +157,8 @@ export function buildDocumentFolderSearchText(name: string): string {
 export function buildServiceProviderSearchText(
 	company: string,
 	name: string,
-	email: string,
-	phone: string
+	email?: string,
+	phone?: string
 ): string {
 	return buildSearchText([company, name, email, phone]);
 }

@@ -52,9 +52,11 @@ function ServiceProviderActionsCell({ row }: { row: ServiceProvider }) {
 	return (
 		<>
 			<EditServiceProvider
+				initialAddress={row.address}
 				initialCompany={row.company}
 				initialContacts={row.contacts}
 				initialEmail={row.email}
+				initialLandline={row.landline}
 				initialName={row.name}
 				initialPhone={row.phone}
 				initialPosition={row.position}
@@ -142,24 +144,31 @@ function buildColumns(
 					.map((id) => tradeMap.get(id))
 					.filter(Boolean)
 					.join(', ');
-				return names ? (
-					<span className="text-muted-foreground text-sm">{names}</span>
-				) : null;
+				return names ? <span>{names}</span> : null;
 			},
 		},
 		{
 			id: 'mainContact',
 			header: 'Main Contact',
 			cell: ({ row }) => {
-				const { name, email, phone, position } = row.original;
+				const { name, email, phone, landline, position, address } =
+					row.original;
+				const phoneDisplay = [phone, landline].filter(Boolean).join(' | ');
 				return (
 					<div className="space-y-0.5">
 						<p className="text-sm">{name}</p>
 						{position ? (
 							<p className="text-muted-foreground text-xs">{position}</p>
 						) : null}
-						<p className="text-muted-foreground text-xs">{email}</p>
-						<p className="text-muted-foreground text-xs">{phone}</p>
+						{email ? (
+							<p className="text-muted-foreground text-xs">{email}</p>
+						) : null}
+						{phoneDisplay ? (
+							<p className="text-muted-foreground text-xs">{phoneDisplay}</p>
+						) : null}
+						{address ? (
+							<p className="text-muted-foreground text-xs">{address}</p>
+						) : null}
 					</div>
 				);
 			},
@@ -174,16 +183,29 @@ function buildColumns(
 				}
 				return (
 					<div className="flex flex-col gap-2">
-						{contacts.map((c, i) => (
-							<div className="space-y-0.5" key={`${c.email}-${i}`}>
-								<p className="text-sm">{c.name}</p>
-								{c.position ? (
-									<p className="text-muted-foreground text-xs">{c.position}</p>
-								) : null}
-								<p className="text-muted-foreground text-xs">{c.email}</p>
-								<p className="text-muted-foreground text-xs">{c.phone}</p>
-							</div>
-						))}
+						{contacts.map((c) => {
+							const phoneDisplay = [c.phone, c.landline]
+								.filter(Boolean)
+								.join(' | ');
+							return (
+								<div className="space-y-0.5" key={c.name}>
+									<p className="text-sm">{c.name}</p>
+									{c.position ? (
+										<p className="text-muted-foreground text-xs">
+											{c.position}
+										</p>
+									) : null}
+									{c.email ? (
+										<p className="text-muted-foreground text-xs">{c.email}</p>
+									) : null}
+									{phoneDisplay ? (
+										<p className="text-muted-foreground text-xs">
+											{phoneDisplay}
+										</p>
+									) : null}
+								</div>
+							);
+						})}
 					</div>
 				);
 			},

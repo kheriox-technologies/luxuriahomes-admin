@@ -35,6 +35,9 @@ export function ServiceProviderContactCard({
 	onDelete: () => void;
 }) {
 	const [confirmOpen, setConfirmOpen] = useState(false);
+	const phoneDisplay = [contact.phone, contact.landline]
+		.filter(Boolean)
+		.join(' | ');
 	return (
 		<Frame>
 			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
@@ -101,8 +104,12 @@ export function ServiceProviderContactCard({
 				</Group>
 			</FrameHeader>
 			<FramePanel className="space-y-1 text-muted-foreground">
-				<p className="text-sm leading-snug">{contact.email}</p>
-				<p className="text-sm leading-snug">{contact.phone}</p>
+				{contact.email ? (
+					<p className="text-sm leading-snug">{contact.email}</p>
+				) : null}
+				{phoneDisplay ? (
+					<p className="text-sm leading-snug">{phoneDisplay}</p>
+				) : null}
 			</FramePanel>
 		</Frame>
 	);
@@ -117,56 +124,75 @@ export function ServiceProviderContactDraftFields({
 }) {
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<Field>
-					<FieldLabel htmlFor="contact-draft-name">Name</FieldLabel>
-					<Input
-						id="contact-draft-name"
-						nativeInput
-						onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
-						placeholder="Full name"
-						value={draft.name}
-					/>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="contact-draft-position">Position</FieldLabel>
-					<Input
-						id="contact-draft-position"
-						nativeInput
-						onChange={(e) =>
-							setDraft((p) => ({ ...p, position: e.target.value }))
-						}
-						placeholder="Position / role"
-						value={draft.position ?? ''}
-					/>
-				</Field>
-			</div>
-			<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<Field>
-					<FieldLabel htmlFor="contact-draft-email">Email</FieldLabel>
-					<Input
-						autoComplete="email"
-						id="contact-draft-email"
-						nativeInput
-						onChange={(e) => setDraft((p) => ({ ...p, email: e.target.value }))}
-						placeholder="Email"
-						type="email"
-						value={draft.email}
-					/>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="contact-draft-phone">Phone</FieldLabel>
-					<Input
-						autoComplete="tel"
-						id="contact-draft-phone"
-						nativeInput
-						onChange={(e) => setDraft((p) => ({ ...p, phone: e.target.value }))}
-						placeholder="Phone"
-						type="tel"
-						value={draft.phone}
-					/>
-				</Field>
-			</div>
+			<Field>
+				<FieldLabel htmlFor="contact-draft-name">Name</FieldLabel>
+				<Input
+					id="contact-draft-name"
+					nativeInput
+					onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
+					placeholder="Full name"
+					value={draft.name}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="contact-draft-position">Position</FieldLabel>
+				<Input
+					id="contact-draft-position"
+					nativeInput
+					onChange={(e) =>
+						setDraft((p) => ({ ...p, position: e.target.value }))
+					}
+					placeholder="Position / role"
+					value={draft.position ?? ''}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="contact-draft-email">
+					Email{' '}
+					<span className="text-muted-foreground text-xs">(optional)</span>
+				</FieldLabel>
+				<Input
+					autoComplete="email"
+					id="contact-draft-email"
+					nativeInput
+					onChange={(e) => setDraft((p) => ({ ...p, email: e.target.value }))}
+					placeholder="Email"
+					type="email"
+					value={draft.email}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="contact-draft-phone">
+					Phone{' '}
+					<span className="text-muted-foreground text-xs">(optional)</span>
+				</FieldLabel>
+				<Input
+					autoComplete="tel"
+					id="contact-draft-phone"
+					nativeInput
+					onChange={(e) => setDraft((p) => ({ ...p, phone: e.target.value }))}
+					placeholder="Mobile"
+					type="tel"
+					value={draft.phone}
+				/>
+			</Field>
+			<Field>
+				<FieldLabel htmlFor="contact-draft-landline">
+					Landline{' '}
+					<span className="text-muted-foreground text-xs">(optional)</span>
+				</FieldLabel>
+				<Input
+					autoComplete="tel"
+					id="contact-draft-landline"
+					nativeInput
+					onChange={(e) =>
+						setDraft((p) => ({ ...p, landline: e.target.value }))
+					}
+					placeholder="Landline"
+					type="tel"
+					value={draft.landline}
+				/>
+			</Field>
 		</div>
 	);
 }

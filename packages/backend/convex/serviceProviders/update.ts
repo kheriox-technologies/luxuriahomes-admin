@@ -12,17 +12,20 @@ export const update = mutation({
 		serviceProviderId: v.id('serviceProviders'),
 		company: v.string(),
 		name: v.string(),
-		email: v.string(),
-		phone: v.string(),
+		email: v.optional(v.string()),
+		phone: v.optional(v.string()),
+		landline: v.optional(v.string()),
 		position: v.optional(v.string()),
 		qbccLicense: v.optional(v.string()),
 		website: v.optional(v.string()),
+		address: v.optional(v.string()),
 		tradeIds: v.array(v.id('trades')),
 		contacts: v.array(
 			v.object({
 				name: v.string(),
-				email: v.string(),
-				phone: v.string(),
+				email: v.optional(v.string()),
+				phone: v.optional(v.string()),
+				landline: v.optional(v.string()),
 				position: v.optional(v.string()),
 			})
 		),
@@ -32,11 +35,13 @@ export const update = mutation({
 		await getServiceProviderOrThrow(ctx, args.serviceProviderId);
 		const company = parseServiceProviderCompany(args.company);
 		const name = args.name.trim();
-		const email = args.email.trim();
-		const phone = args.phone.trim();
+		const email = args.email?.trim() || undefined;
+		const phone = args.phone?.trim() || undefined;
+		const landline = args.landline?.trim() || undefined;
 		const position = args.position?.trim() || undefined;
 		const qbccLicense = args.qbccLicense?.trim() || undefined;
 		const website = args.website?.trim() || undefined;
+		const address = args.address?.trim() || undefined;
 		const searchText = buildServiceProviderSearchText(
 			company,
 			name,
@@ -48,9 +53,11 @@ export const update = mutation({
 			name,
 			email,
 			phone,
+			landline,
 			position,
 			qbccLicense,
 			website,
+			address,
 			tradeIds: args.tradeIds,
 			contacts: args.contacts,
 			searchText,

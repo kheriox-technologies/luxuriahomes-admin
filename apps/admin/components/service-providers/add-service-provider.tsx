@@ -102,13 +102,21 @@ export default function AddServiceProvider({
 				const newId = await addServiceProvider({
 					company: parsed.company,
 					name: parsed.name,
-					email: parsed.email,
-					phone: parsed.phone,
+					email: parsed.email || undefined,
+					phone: parsed.phone || undefined,
+					landline: parsed.landline || undefined,
 					position: parsed.position || undefined,
 					qbccLicense: parsed.qbccLicense || undefined,
 					website: parsed.website || undefined,
+					address: parsed.address || undefined,
 					tradeIds: tradeIds as never,
-					contacts,
+					contacts: contacts.map((c) => ({
+						name: c.name,
+						email: c.email || undefined,
+						phone: c.phone || undefined,
+						landline: c.landline || undefined,
+						position: c.position || undefined,
+					})),
 				});
 				if (projectId) {
 					await addToProject({ projectId, serviceProviderId: newId });
@@ -249,145 +257,180 @@ export default function AddServiceProvider({
 										);
 									}}
 								</form.Field>
-								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-									<form.Field name="name">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>
-														Main Contact Name
-													</FieldLabel>
-													<Input
-														aria-invalid={invalid}
-														id={field.name}
-														name={field.name}
-														nativeInput
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Primary contact name"
-														value={field.state.value}
-													/>
-													{invalid ? (
-														<FieldError>
-															{formatFieldErrors(field.state.meta.errors)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
-									<form.Field name="position">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor={field.name}>Position</FieldLabel>
-												<Input
-													id={field.name}
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Position / role"
-													value={field.state.value ?? ''}
-												/>
-											</Field>
-										)}
-									</form.Field>
-								</div>
-								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-									<form.Field name="email">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Email</FieldLabel>
-													<Input
-														aria-invalid={invalid}
-														id={field.name}
-														name={field.name}
-														nativeInput
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Email"
-														type="email"
-														value={field.state.value}
-													/>
-													{invalid ? (
-														<FieldError>
-															{formatFieldErrors(field.state.meta.errors)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
-									<form.Field name="phone">
-										{(field) => {
-											const invalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={invalid}>
-													<FieldLabel htmlFor={field.name}>Phone</FieldLabel>
-													<Input
-														aria-invalid={invalid}
-														id={field.name}
-														name={field.name}
-														nativeInput
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="Phone"
-														type="tel"
-														value={field.state.value}
-													/>
-													{invalid ? (
-														<FieldError>
-															{formatFieldErrors(field.state.meta.errors)}
-														</FieldError>
-													) : null}
-												</Field>
-											);
-										}}
-									</form.Field>
-								</div>
-								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-									<form.Field name="qbccLicense">
-										{(field) => (
-											<Field>
+								<form.Field name="name">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>
-													QBCC Licence
+													Main Contact Name
 												</FieldLabel>
 												<Input
+													aria-invalid={invalid}
 													id={field.name}
 													name={field.name}
 													nativeInput
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="QBCC licence number"
-													value={field.state.value ?? ''}
+													placeholder="Primary contact name"
+													value={field.state.value}
 												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
 											</Field>
-										)}
-									</form.Field>
-									<form.Field name="website">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor={field.name}>Website</FieldLabel>
+										);
+									}}
+								</form.Field>
+								<form.Field name="position">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Position</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Position / role"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="email">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>
+													Email{' '}
+													<span className="text-muted-foreground text-xs">
+														(optional)
+													</span>
+												</FieldLabel>
 												<Input
+													aria-invalid={invalid}
 													id={field.name}
 													name={field.name}
 													nativeInput
 													onBlur={field.handleBlur}
 													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="https://example.com"
-													type="url"
-													value={field.state.value ?? ''}
+													placeholder="Email"
+													type="email"
+													value={field.state.value}
 												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
 											</Field>
-										)}
-									</form.Field>
-								</div>
+										);
+									}}
+								</form.Field>
+								<form.Field name="phone">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Phone{' '}
+												<span className="text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Mobile"
+												type="tel"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="landline">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Landline{' '}
+												<span className="text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Landline"
+												type="tel"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="qbccLicense">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>QBCC Licence</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="QBCC licence number"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="website">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Website</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="https://example.com"
+												type="url"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="address">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Address{' '}
+												<span className="text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Street address"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
 							</FramePanel>
 						</Frame>
 
@@ -470,7 +513,7 @@ export default function AddServiceProvider({
 										{contacts.map((c, index) => (
 											<ServiceProviderContactCard
 												contact={c}
-												key={`${c.email}-${index}`}
+												key={c.name}
 												onDelete={() => handleDeleteContact(index)}
 												onEdit={() => handleEditContact(index)}
 											/>
