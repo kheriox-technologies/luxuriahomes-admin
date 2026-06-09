@@ -8,6 +8,7 @@ import {
 	ComboboxChip,
 	ComboboxChips,
 	ComboboxChipsInput,
+	ComboboxEmpty,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
@@ -61,6 +62,7 @@ export default function AddExistingServiceProviderToProject({
 
 	const linkedIds = new Set(linked?.map((p) => p._id) ?? []);
 	const available = (allProviders ?? []).filter((p) => !linkedIds.has(p._id));
+	const availableIds = available.map((p) => p._id);
 
 	const handleSubmit = async () => {
 		if (selectedIds.length === 0) {
@@ -118,6 +120,7 @@ export default function AddExistingServiceProviderToProject({
 					<Field>
 						<FieldLabel>Select service providers</FieldLabel>
 						<Combobox
+							items={availableIds}
 							itemToStringLabel={(val) =>
 								(allProviders ?? []).find((p) => p._id === val)?.company ??
 								String(val ?? '')
@@ -140,12 +143,18 @@ export default function AddExistingServiceProviderToProject({
 								<ComboboxChipsInput placeholder="Search service providers…" />
 							</ComboboxChips>
 							<ComboboxPopup>
+								<ComboboxEmpty>No service providers found.</ComboboxEmpty>
 								<ComboboxList>
-									{available.map((provider) => (
-										<ComboboxItem key={provider._id} value={provider._id}>
-											{provider.company}
-										</ComboboxItem>
-									))}
+									{(id: Id<'serviceProviders'>) => {
+										const provider = (allProviders ?? []).find(
+											(p) => p._id === id
+										);
+										return (
+											<ComboboxItem key={id} value={id}>
+												{provider?.company ?? id}
+											</ComboboxItem>
+										);
+									}}
 								</ComboboxList>
 							</ComboboxPopup>
 						</Combobox>
