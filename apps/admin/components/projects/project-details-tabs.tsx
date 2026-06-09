@@ -8,15 +8,16 @@ import {
 	TabsTab,
 } from '@workspace/ui/components/tabs';
 import {
+	DollarSign,
 	FileText,
 	Handshake,
-	Quote,
 	SquaresIntersect,
 	Users,
 } from 'lucide-react';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
+import ProjectQuotationsTabContent from '@/components/projects/project-quotations-tab-content';
 import ProjectServiceProvidersTabContent from '@/components/projects/project-service-providers-tab-content';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
@@ -59,7 +60,7 @@ export default function ProjectDetailsTabs({
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="quotations"
 				>
-					<Quote />
+					<DollarSign />
 					Quotations
 				</TabsTab>
 				<TabsTab
@@ -79,7 +80,9 @@ export default function ProjectDetailsTabs({
 			<TabsPanel className="overflow-auto p-4" value="documents">
 				<ProjectDocumentsTabContent projectId={projectId} />
 			</TabsPanel>
-			<TabsPanel className="p-4" value="quotations" />
+			<TabsPanel className="overflow-auto p-4" value="quotations">
+				<ProjectQuotationsTabContent projectId={projectId} />
+			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="contacts">
 				<ProjectServiceProvidersTabContent projectId={projectId} />
 			</TabsPanel>

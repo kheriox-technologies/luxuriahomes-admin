@@ -24,6 +24,7 @@ import {
 	Building2,
 	ChevronDown,
 	ClipboardList,
+	DollarSign,
 	Layers,
 	List,
 	type LucideIcon,
@@ -63,6 +64,12 @@ const items: SidebarItem[] = [
 		url: '/inclusions',
 		path: '/inclusions',
 		icon: SquaresIntersect,
+	},
+	{
+		title: 'Quotations',
+		url: '/quotations',
+		path: '/quotations',
+		icon: DollarSign,
 	},
 	{
 		title: 'Lists',
