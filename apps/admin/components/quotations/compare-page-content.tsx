@@ -9,6 +9,7 @@ import {
 	AccordionPrimitive,
 } from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
 	ComboboxChip,
@@ -28,7 +29,12 @@ import {
 } from '@workspace/ui/components/empty';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { ChevronDownIcon, GitCompareArrows } from 'lucide-react';
+import {
+	ChevronDownIcon,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	GitCompareArrows,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import type { QuotationStatus } from './quotation-form-shared';
@@ -43,8 +49,8 @@ interface CompareQuotation {
 	projectName: string;
 	serviceProviderId: Id<'serviceProviders'>;
 	status: QuotationStatus;
-	tradeId: Id<'trades'>;
-	tradeName: string;
+	tradeIds: Id<'trades'>[];
+	tradeNames: string[];
 }
 
 interface CellData {
@@ -95,9 +101,6 @@ function buildCompareData(
 	const tradeMap = new Map<Id<'trades'>, TradeGroup>();
 
 	for (const q of quotations) {
-		if (filterTradeIds && !filterTradeIds.includes(q.tradeId)) {
-			continue;
-		}
 		if (
 			filterServiceProviderIds &&
 			!filterServiceProviderIds.includes(q.serviceProviderId)
@@ -105,40 +108,49 @@ function buildCompareData(
 			continue;
 		}
 
-		let trade = tradeMap.get(q.tradeId);
-		if (!trade) {
-			trade = {
-				tradeName: q.tradeName,
-				tradeId: q.tradeId,
-				countByProject: new Map(),
-				companies: new Map(),
-			};
-			tradeMap.set(q.tradeId, trade);
-		}
+		for (let i = 0; i < q.tradeIds.length; i++) {
+			const tradeId = q.tradeIds[i];
+			const tradeName = q.tradeNames[i] ?? '';
 
-		trade.countByProject.set(
-			q.projectId,
-			(trade.countByProject.get(q.projectId) ?? 0) + 1
-		);
+			if (filterTradeIds && !filterTradeIds.includes(tradeId)) {
+				continue;
+			}
 
-		let company = trade.companies.get(q.serviceProviderId);
-		if (!company) {
-			company = {
-				companyName: q.companyName,
-				serviceProviderId: q.serviceProviderId,
-				byProject: new Map(),
-			};
-			trade.companies.set(q.serviceProviderId, company);
-		}
+			let trade = tradeMap.get(tradeId);
+			if (!trade) {
+				trade = {
+					tradeName,
+					tradeId,
+					countByProject: new Map(),
+					companies: new Map(),
+				};
+				tradeMap.set(tradeId, trade);
+			}
 
-		let cell = company.byProject.get(q.projectId);
-		if (!cell) {
-			cell = { quotations: [], totalPrice: 0, statuses: new Set() };
-			company.byProject.set(q.projectId, cell);
+			trade.countByProject.set(
+				q.projectId,
+				(trade.countByProject.get(q.projectId) ?? 0) + 1
+			);
+
+			let company = trade.companies.get(q.serviceProviderId);
+			if (!company) {
+				company = {
+					companyName: q.companyName,
+					serviceProviderId: q.serviceProviderId,
+					byProject: new Map(),
+				};
+				trade.companies.set(q.serviceProviderId, company);
+			}
+
+			let cell = company.byProject.get(q.projectId);
+			if (!cell) {
+				cell = { quotations: [], totalPrice: 0, statuses: new Set() };
+				company.byProject.set(q.projectId, cell);
+			}
+			cell.quotations.push(q);
+			cell.totalPrice += q.price;
+			cell.statuses.add(q.status);
 		}
-		cell.quotations.push(q);
-		cell.totalPrice += q.price;
-		cell.statuses.add(q.status);
 	}
 
 	return tradeMap;
@@ -200,6 +212,7 @@ export default function ComparePageContent() {
 	const [filterServiceProviderIds, setFilterServiceProviderIds] = useState<
 		Id<'serviceProviders'>[] | null
 	>(null);
+	const [openTradeIds, setOpenTradeIds] = useState<Id<'trades'>[]>([]);
 
 	const quotations = useQuery(
 		api.quotations.listByProjects.listByProjects,
@@ -217,14 +230,20 @@ export default function ComparePageContent() {
 		if (!quotations) {
 			return [];
 		}
-		return [...new Set(quotations.map((q) => q.tradeId))];
+		return [...new Set(quotations.flatMap((q) => q.tradeIds))];
 	}, [quotations]);
 
 	const tradeNameById = useMemo(() => {
 		if (!quotations) {
 			return new Map<Id<'trades'>, string>();
 		}
-		return new Map(quotations.map((q) => [q.tradeId, q.tradeName]));
+		const map = new Map<Id<'trades'>, string>();
+		for (const q of quotations) {
+			for (let i = 0; i < q.tradeIds.length; i++) {
+				map.set(q.tradeIds[i], q.tradeNames[i] ?? '');
+			}
+		}
+		return map;
 	}, [quotations]);
 
 	const availableServiceProviderIds = useMemo(() => {
@@ -309,7 +328,11 @@ export default function ComparePageContent() {
 				</div>
 
 				{/* Trade accordion rows */}
-				<Accordion multiple>
+				<Accordion
+					multiple
+					onValueChange={(val) => setOpenTradeIds(val as Id<'trades'>[])}
+					value={openTradeIds}
+				>
 					{[...compareData.values()].map((tradeGroup) => (
 						<AccordionItem key={tradeGroup.tradeId} value={tradeGroup.tradeId}>
 							<AccordionPrimitive.Header className="flex border-b last:border-b-0">
@@ -393,108 +416,133 @@ export default function ComparePageContent() {
 			/>
 
 			{/* Filter row */}
-			<div className="grid grid-cols-3 gap-2">
-				{/* Projects multi-select (max 5) */}
-				<Combobox
-					items={(projects ?? []).map((p) => p._id)}
-					itemToStringLabel={(val) =>
-						projectNameById.get(val as Id<'projects'>) ?? String(val ?? '')
-					}
-					multiple
-					onValueChange={(val) => {
-						const ids = (val as Id<'projects'>[] | null) ?? [];
-						setSelectedProjectIds(ids.slice(0, 5));
-					}}
-					value={selectedProjectIds}
-				>
-					<ComboboxChips>
-						{selectedProjectIds.map((id) => (
-							<ComboboxChip key={id}>
-								{projectNameById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="Select projects (max 5)…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No projects found.</ComboboxEmpty>
-						<ComboboxList>
-							{(pid: Id<'projects'>) => (
-								<ComboboxItem key={pid} value={pid}>
-									{projectNameById.get(pid) ?? pid}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+			<div className="flex gap-2">
+				<div className="grid flex-1 grid-cols-3 gap-2">
+					{/* Projects multi-select (max 5) */}
+					<Combobox
+						items={(projects ?? []).map((p) => p._id)}
+						itemToStringLabel={(val) =>
+							projectNameById.get(val as Id<'projects'>) ?? String(val ?? '')
+						}
+						multiple
+						onValueChange={(val) => {
+							const ids = (val as Id<'projects'>[] | null) ?? [];
+							setSelectedProjectIds(ids.slice(0, 5));
+						}}
+						value={selectedProjectIds}
+					>
+						<ComboboxChips>
+							{selectedProjectIds.map((id) => (
+								<ComboboxChip key={id}>
+									{projectNameById.get(id) ?? id}
+								</ComboboxChip>
+							))}
+							<ComboboxChipsInput placeholder="Select projects (max 5)…" />
+						</ComboboxChips>
+						<ComboboxPopup>
+							<ComboboxEmpty>No projects found.</ComboboxEmpty>
+							<ComboboxList>
+								{(pid: Id<'projects'>) => (
+									<ComboboxItem key={pid} value={pid}>
+										{projectNameById.get(pid) ?? pid}
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
 
-				{/* Trades multi-select */}
-				<Combobox
-					disabled={availableTradeIds.length === 0}
-					items={availableTradeIds}
-					itemToStringLabel={(val) =>
-						tradeNameById.get(val as Id<'trades'>) ?? String(val ?? '')
-					}
-					multiple
-					onValueChange={(val) => {
-						const ids = (val as Id<'trades'>[] | null) ?? [];
-						setFilterTradeIds(ids.length > 0 ? ids : null);
-					}}
-					value={filterTradeIds ?? []}
-				>
-					<ComboboxChips>
-						{(filterTradeIds ?? []).map((id) => (
-							<ComboboxChip key={id}>
-								{tradeNameById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="All trades…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No trades found.</ComboboxEmpty>
-						<ComboboxList>
-							{(tradeId: Id<'trades'>) => (
-								<ComboboxItem key={tradeId} value={tradeId}>
-									{tradeNameById.get(tradeId) ?? tradeId}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+					{/* Trades multi-select */}
+					<Combobox
+						disabled={availableTradeIds.length === 0}
+						items={availableTradeIds}
+						itemToStringLabel={(val) =>
+							tradeNameById.get(val as Id<'trades'>) ?? String(val ?? '')
+						}
+						multiple
+						onValueChange={(val) => {
+							const ids = (val as Id<'trades'>[] | null) ?? [];
+							setFilterTradeIds(ids.length > 0 ? ids : null);
+						}}
+						value={filterTradeIds ?? []}
+					>
+						<ComboboxChips>
+							{(filterTradeIds ?? []).map((id) => (
+								<ComboboxChip key={id}>
+									{tradeNameById.get(id) ?? id}
+								</ComboboxChip>
+							))}
+							<ComboboxChipsInput placeholder="All trades…" />
+						</ComboboxChips>
+						<ComboboxPopup>
+							<ComboboxEmpty>No trades found.</ComboboxEmpty>
+							<ComboboxList>
+								{(tradeId: Id<'trades'>) => (
+									<ComboboxItem key={tradeId} value={tradeId}>
+										{tradeNameById.get(tradeId) ?? tradeId}
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
 
-				{/* Service Providers multi-select */}
-				<Combobox
-					disabled={availableServiceProviderIds.length === 0}
-					items={availableServiceProviderIds}
-					itemToStringLabel={(val) =>
-						companyNameById.get(val as Id<'serviceProviders'>) ??
-						String(val ?? '')
-					}
-					multiple
-					onValueChange={(val) => {
-						const ids = (val as Id<'serviceProviders'>[] | null) ?? [];
-						setFilterServiceProviderIds(ids.length > 0 ? ids : null);
-					}}
-					value={filterServiceProviderIds ?? []}
-				>
-					<ComboboxChips>
-						{(filterServiceProviderIds ?? []).map((id) => (
-							<ComboboxChip key={id}>
-								{companyNameById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="All service providers…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No service providers found.</ComboboxEmpty>
-						<ComboboxList>
-							{(spId: Id<'serviceProviders'>) => (
-								<ComboboxItem key={spId} value={spId}>
-									{companyNameById.get(spId) ?? spId}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+					{/* Service Providers multi-select */}
+					<Combobox
+						disabled={availableServiceProviderIds.length === 0}
+						items={availableServiceProviderIds}
+						itemToStringLabel={(val) =>
+							companyNameById.get(val as Id<'serviceProviders'>) ??
+							String(val ?? '')
+						}
+						multiple
+						onValueChange={(val) => {
+							const ids = (val as Id<'serviceProviders'>[] | null) ?? [];
+							setFilterServiceProviderIds(ids.length > 0 ? ids : null);
+						}}
+						value={filterServiceProviderIds ?? []}
+					>
+						<ComboboxChips>
+							{(filterServiceProviderIds ?? []).map((id) => (
+								<ComboboxChip key={id}>
+									{companyNameById.get(id) ?? id}
+								</ComboboxChip>
+							))}
+							<ComboboxChipsInput placeholder="All service providers…" />
+						</ComboboxChips>
+						<ComboboxPopup>
+							<ComboboxEmpty>No service providers found.</ComboboxEmpty>
+							<ComboboxList>
+								{(spId: Id<'serviceProviders'>) => (
+									<ComboboxItem key={spId} value={spId}>
+										{companyNameById.get(spId) ?? spId}
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
+				</div>
+
+				{compareData.size > 0 && (
+					<div className="flex shrink-0 flex-row gap-1.5">
+						<Button
+							onClick={() =>
+								setOpenTradeIds([...compareData.keys()] as Id<'trades'>[])
+							}
+							size="sm"
+							variant="outline"
+						>
+							<ChevronsDownIcon />
+							Expand All
+						</Button>
+						<Button
+							onClick={() => setOpenTradeIds([])}
+							size="sm"
+							variant="outline"
+						>
+							<ChevronsUpIcon />
+							Collapse All
+						</Button>
+					</div>
+				)}
 			</div>
 
 			{tableContent}

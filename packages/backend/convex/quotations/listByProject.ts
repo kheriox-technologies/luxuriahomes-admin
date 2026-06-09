@@ -13,13 +13,13 @@ export const listByProject = query({
 			.collect();
 		return Promise.all(
 			rows.map(async (row) => {
-				const [trade, serviceProvider] = await Promise.all([
-					ctx.db.get(row.tradeId),
+				const [trades, serviceProvider] = await Promise.all([
+					Promise.all(row.tradeIds.map((id) => ctx.db.get(id))),
 					ctx.db.get(row.serviceProviderId),
 				]);
 				return {
 					...row,
-					tradeName: trade?.name ?? '',
+					tradeNames: trades.map((t) => t?.name ?? '').filter(Boolean),
 					companyName: serviceProvider?.company ?? '',
 				};
 			})

@@ -8,14 +8,14 @@ export const list = query({
 		const rows = await ctx.db.query('quotations').collect();
 		return Promise.all(
 			rows.map(async (row) => {
-				const [trade, project, serviceProvider] = await Promise.all([
-					ctx.db.get(row.tradeId),
+				const [trades, project, serviceProvider] = await Promise.all([
+					Promise.all(row.tradeIds.map((id) => ctx.db.get(id))),
 					ctx.db.get(row.projectId),
 					ctx.db.get(row.serviceProviderId),
 				]);
 				return {
 					...row,
-					tradeName: trade?.name ?? '',
+					tradeNames: trades.map((t) => t?.name ?? '').filter(Boolean),
 					projectName: project?.name ?? '',
 					companyName: serviceProvider?.company ?? '',
 				};

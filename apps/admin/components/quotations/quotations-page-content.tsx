@@ -67,8 +67,8 @@ interface Quotation {
 	searchText: string;
 	serviceProviderId: Id<'serviceProviders'>;
 	status: QuotationFormValues['status'];
-	tradeId: Id<'trades'>;
-	tradeName: string;
+	tradeIds: Id<'trades'>[];
+	tradeNames: string[];
 }
 
 function statusBadgeVariant(
@@ -140,7 +140,7 @@ function QuotationActionsCell({ row }: { row: Quotation }) {
 				initialS3Key={row.s3Key}
 				initialServiceProviderId={row.serviceProviderId}
 				initialStatus={row.status}
-				initialTradeId={row.tradeId}
+				initialTradeIds={row.tradeIds}
 				onOpenChange={setEditOpen}
 				open={editOpen}
 				quotationId={row._id}
@@ -208,7 +208,7 @@ const columns: ColumnDef<Quotation>[] = [
 		id: 'trade',
 		header: 'Trade',
 		cell: ({ row }) => (
-			<span className="font-medium">{row.original.tradeName}</span>
+			<span className="font-medium">{row.original.tradeNames.join(', ')}</span>
 		),
 	},
 	{
@@ -309,7 +309,7 @@ export default function QuotationsPageContent() {
 			if (filterProjectId && row.projectId !== filterProjectId) {
 				return false;
 			}
-			if (filterTradeId && row.tradeId !== filterTradeId) {
+			if (filterTradeId && !row.tradeIds.includes(filterTradeId)) {
 				return false;
 			}
 			if (filterStatus && row.status !== filterStatus) {

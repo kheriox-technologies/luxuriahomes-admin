@@ -259,7 +259,7 @@ export default defineSchema({
 	}).searchIndex('search_document_folders', { searchField: 'searchText' }),
 	quotations: defineTable({
 		projectId: v.id('projects'),
-		tradeId: v.id('trades'),
+		tradeIds: v.array(v.id('trades')),
 		serviceProviderId: v.id('serviceProviders'),
 		s3Key: v.optional(v.string()),
 		price: v.number(),
@@ -267,6 +267,5 @@ export default defineSchema({
 		searchText: v.string(),
 	})
 		.index('by_project', ['projectId'])
-		.index('by_project_and_trade', ['projectId', 'tradeId'])
 		.searchIndex('search_quotations', { searchField: 'searchText' }),
 });

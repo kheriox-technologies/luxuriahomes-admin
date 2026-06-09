@@ -78,6 +78,9 @@
       "correctness": {
         "useExhaustiveDependencies": "info"
       },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "off"
+      },
       "nursery": {
         "useSortedClasses": {
           "level": "warn",

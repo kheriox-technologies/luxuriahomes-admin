@@ -12,7 +12,7 @@ export type QuotationStatus = (typeof quotationStatusValues)[number];
 
 export const quotationFormSchema = z.object({
 	projectId: z.string().min(1, 'Project is required'),
-	tradeId: z.string().min(1, 'Trade is required'),
+	tradeIds: z.array(z.string()).min(1, 'At least one trade is required'),
 	serviceProviderId: z.string().min(1, 'Service provider is required'),
 	price: z
 		.string()
@@ -27,7 +27,7 @@ export type QuotationFormValues = z.infer<typeof quotationFormSchema>;
 
 export const emptyQuotationFormValues: QuotationFormValues = {
 	projectId: '',
-	tradeId: '',
+	tradeIds: [],
 	serviceProviderId: '',
 	price: '',
 	status: 'Under Review',

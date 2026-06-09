@@ -6,6 +6,9 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
+	ComboboxChip,
+	ComboboxChips,
+	ComboboxChipsInput,
 	ComboboxEmpty,
 	ComboboxInput,
 	ComboboxItem,
@@ -52,7 +55,7 @@ const FORM_ID = 'edit-quotation-form';
 export default function EditQuotation({
 	quotationId,
 	initialProjectId,
-	initialTradeId,
+	initialTradeIds,
 	initialServiceProviderId,
 	initialPrice,
 	initialStatus,
@@ -62,7 +65,7 @@ export default function EditQuotation({
 }: {
 	quotationId: Id<'quotations'>;
 	initialProjectId: Id<'projects'>;
-	initialTradeId: Id<'trades'>;
+	initialTradeIds: Id<'trades'>[];
 	initialServiceProviderId: Id<'serviceProviders'>;
 	initialPrice: number;
 	initialStatus: QuotationFormValues['status'];
@@ -74,19 +77,20 @@ export default function EditQuotation({
 	const [uploadedFileName, setUploadedFileName] = useState<string | null>(
 		initialS3Key ? '(existing document)' : null
 	);
-	const [selectedTradeId, setSelectedTradeId] = useState<string>(
-		initialTradeId as string
+	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>(
+		initialTradeIds as string[]
 	);
 
 	const projects = useQuery(api.projects.list.list, {});
 	const trades = useQuery(api.trades.list.list, {});
 	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
 
-	const filteredServiceProviders = selectedTradeId
-		? (serviceProviders ?? []).filter((sp) =>
-				sp.tradeIds.includes(selectedTradeId as Id<'trades'>)
-			)
-		: (serviceProviders ?? []);
+	const filteredServiceProviders =
+		selectedTradeIds.length > 0
+			? (serviceProviders ?? []).filter((sp) =>
+					sp.tradeIds.some((t) => selectedTradeIds.includes(t))
+				)
+			: (serviceProviders ?? []);
 
 	const updateQuotation = useMutation(api.quotations.update.update);
 	const generateUploadUrl = useAction(
@@ -96,7 +100,7 @@ export default function EditQuotation({
 	const form = useForm({
 		defaultValues: {
 			projectId: initialProjectId as string,
-			tradeId: initialTradeId as string,
+			tradeIds: initialTradeIds as string[],
 			serviceProviderId: initialServiceProviderId as string,
 			price: String(initialPrice),
 			status: initialStatus,
@@ -109,7 +113,7 @@ export default function EditQuotation({
 				await updateQuotation({
 					quotationId,
 					projectId: parsed.projectId as Id<'projects'>,
-					tradeId: parsed.tradeId as Id<'trades'>,
+					tradeIds: parsed.tradeIds as Id<'trades'>[],
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -253,7 +257,7 @@ export default function EditQuotation({
 									}}
 								</form.Field>
 
-								<form.Field name="tradeId">
+								<form.Field name="tradeIds">
 									{(field) => {
 										const invalid =
 											field.state.meta.isTouched && !field.state.meta.isValid;
@@ -261,31 +265,35 @@ export default function EditQuotation({
 										const labelById = new Map(
 											(trades ?? []).map((t) => [t._id, t.name])
 										);
+										const value = (field.state.value as string[]) ?? [];
 										return (
 											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-												<Combobox<Id<'trades'>>
+												<FieldLabel>Trades</FieldLabel>
+												<Combobox
 													items={items}
 													itemToStringLabel={(item) =>
-														labelById.get(item) ?? ''
+														labelById.get(item as Id<'trades'>) ?? ''
 													}
+													multiple
 													onValueChange={(next) => {
-														field.handleChange(next ?? '');
-														setSelectedTradeId(next ?? '');
+														const ids = (next as Id<'trades'>[] | null) ?? [];
+														field.handleChange(ids);
+														setSelectedTradeIds(ids);
 														form.setFieldValue('serviceProviderId', '');
 													}}
-													value={
-														field.state.value
-															? (field.state.value as Id<'trades'>)
-															: null
-													}
+													value={value}
 												>
-													<ComboboxInput
-														aria-invalid={invalid}
-														id={field.name}
-														onBlur={field.handleBlur}
-														placeholder="Select a trade"
-													/>
+													<ComboboxChips onBlur={field.handleBlur}>
+														{value.map((id) => (
+															<ComboboxChip key={id}>
+																{labelById.get(id as Id<'trades'>) ?? id}
+															</ComboboxChip>
+														))}
+														<ComboboxChipsInput
+															aria-invalid={invalid}
+															placeholder="Select trades…"
+														/>
+													</ComboboxChips>
 													<ComboboxPopup>
 														<ComboboxEmpty>No trades found.</ComboboxEmpty>
 														<ComboboxList>
