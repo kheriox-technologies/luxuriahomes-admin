@@ -8,7 +8,18 @@ import { ScrollArea } from "@workspace/ui/components/scroll-area";
 
 const DialogCreateHandle = DialogPrimitive.createHandle;
 
-const Dialog = DialogPrimitive.Root;
+function Dialog({ onOpenChange, ...props }: DialogPrimitive.Root.Props) {
+  return (
+    <DialogPrimitive.Root
+      {...props}
+      disablePointerDismissal
+      onOpenChange={(open, eventDetails) => {
+        if (!open && eventDetails.reason === "escape-key") return;
+        onOpenChange?.(open, eventDetails);
+      }}
+    />
+  );
+}
 
 const DialogPortal = DialogPrimitive.Portal;
 

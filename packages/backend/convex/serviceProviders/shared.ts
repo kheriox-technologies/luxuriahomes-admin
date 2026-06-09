@@ -1,6 +1,7 @@
 import { ConvexError } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
+import { buildServiceProviderSearchText } from '../lib/buildSearchText';
 
 export function parseServiceProviderCompany(company: string): string {
 	const trimmed = company.trim();
@@ -25,4 +26,30 @@ export async function getServiceProviderOrThrow(
 		});
 	}
 	return serviceProvider;
+}
+
+export async function syncServiceProviderSearchText(
+	ctx: MutationCtx,
+	serviceProviderId: Id<'serviceProviders'>
+) {
+	const sp = await ctx.db.get(serviceProviderId);
+	if (!sp) {
+		return;
+	}
+	const trades = await Promise.all(sp.tradeIds.map((id) => ctx.db.get(id)));
+	const tradeNames = trades.flatMap((t) => (t ? [t.name] : []));
+	const searchText = buildServiceProviderSearchText(
+		sp.company,
+		sp.name,
+		sp.email,
+		sp.phone,
+		sp.landline,
+		sp.position,
+		sp.qbccLicense,
+		sp.website,
+		sp.address,
+		sp.contacts,
+		tradeNames
+	);
+	await ctx.db.patch(serviceProviderId, { searchText });
 }

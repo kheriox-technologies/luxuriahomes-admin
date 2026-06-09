@@ -154,13 +154,59 @@ export function buildDocumentFolderSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
+// Strips the domain from an email and replaces dots in the local part with spaces,
+// preventing TLD tokens like "com" or "au" from polluting full-text search results.
+function normalizeEmailForSearch(email?: string): string | undefined {
+	if (!email) {
+		return undefined;
+	}
+	const local = email.split('@')[0];
+	return local ? local.replace(/\./g, ' ') : undefined;
+}
+
+interface ServiceProviderContact {
+	email?: string;
+	landline?: string;
+	name: string;
+	phone?: string;
+	position?: string;
+}
+
 export function buildServiceProviderSearchText(
 	company: string,
 	name: string,
-	email: string,
-	phone: string
+	email?: string,
+	phone?: string,
+	landline?: string,
+	position?: string,
+	qbccLicense?: string,
+	website?: string,
+	address?: string,
+	contacts?: ServiceProviderContact[],
+	tradeNames?: string[]
 ): string {
-	return buildSearchText([company, name, email, phone]);
+	const parts: Array<string | undefined> = [
+		company,
+		name,
+		normalizeEmailForSearch(email),
+		phone,
+		landline,
+		position,
+		qbccLicense,
+		website,
+		address,
+		...(tradeNames ?? []),
+	];
+	for (const contact of contacts ?? []) {
+		parts.push(
+			contact.name,
+			normalizeEmailForSearch(contact.email),
+			contact.phone,
+			contact.landline,
+			contact.position
+		);
+	}
+	return buildSearchText(parts);
 }
 
 export function buildInclusionAggregateSearchText(

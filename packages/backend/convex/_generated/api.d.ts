@@ -122,6 +122,7 @@ import type * as quotations_search from "../quotations/search.js";
 import type * as quotations_shared from "../quotations/shared.js";
 import type * as quotations_update from "../quotations/update.js";
 import type * as serviceProviders_add from "../serviceProviders/add.js";
+import type * as serviceProviders_backfillSearchText from "../serviceProviders/backfillSearchText.js";
 import type * as serviceProviders_get from "../serviceProviders/get.js";
 import type * as serviceProviders_list from "../serviceProviders/list.js";
 import type * as serviceProviders_remove from "../serviceProviders/remove.js";
@@ -286,6 +287,7 @@ declare const fullApi: ApiFromModules<{
   "quotations/shared": typeof quotations_shared;
   "quotations/update": typeof quotations_update;
   "serviceProviders/add": typeof serviceProviders_add;
+  "serviceProviders/backfillSearchText": typeof serviceProviders_backfillSearchText;
   "serviceProviders/get": typeof serviceProviders_get;
   "serviceProviders/list": typeof serviceProviders_list;
   "serviceProviders/remove": typeof serviceProviders_remove;
