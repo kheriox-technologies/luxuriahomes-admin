@@ -9,21 +9,29 @@ const DOCUMENT_FOLDERS_DATA: string[] = [
 	'Certificates',
 	'Marketing',
 	'Design & CC Stage',
+	'Certifier Approved Documents',
 ];
 
 export const populate = mutation({
 	args: {},
 	handler: async (ctx) => {
-		const existing = await ctx.db.query('documentFolders').first();
-		if (existing) {
-			return { skipped: true, message: 'Document folders already populated' };
-		}
+		const existing = await ctx.db.query('documentFolders').collect();
+		const existingNames = new Set(existing.map((f) => f.name));
+
+		let inserted = 0;
+		let skipped = 0;
+
 		for (const name of DOCUMENT_FOLDERS_DATA) {
+			if (existingNames.has(name)) {
+				skipped++;
+				continue;
+			}
 			await ctx.db.insert('documentFolders', {
 				name,
 				searchText: buildDocumentFolderSearchText(name),
 			});
+			inserted++;
 		}
-		return { inserted: DOCUMENT_FOLDERS_DATA.length };
+		return { inserted, skipped };
 	},
 });
