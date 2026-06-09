@@ -1,4 +1,5 @@
 import type { Id } from '@workspace/backend/dataModel';
+import { Suspense } from 'react';
 
 import InclusionCatalogueDetailView from '@/components/inclusions/inclusion-catalogue-detail-view';
 
@@ -9,8 +10,10 @@ export default async function InclusionDetailPage({
 }) {
 	const { inclusionId } = await params;
 	return (
-		<InclusionCatalogueDetailView
-			inclusionId={inclusionId as Id<'inclusions'>}
-		/>
+		<Suspense fallback={null}>
+			<InclusionCatalogueDetailView
+				inclusionId={inclusionId as Id<'inclusions'>}
+			/>
+		</Suspense>
 	);
 }

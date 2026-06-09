@@ -45,6 +45,7 @@ import {
 	Trash2,
 } from 'lucide-react';
 import NextImage from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { signCdnUrls } from '@/actions/cdn';
@@ -408,6 +409,12 @@ export default function InclusionCatalogueDetailView({
 }: {
 	inclusionId: Id<'inclusions'>;
 }) {
+	const searchParams = useSearchParams();
+	const fromCategoryId = searchParams.get('from');
+	const backLink = fromCategoryId
+		? `/inclusions#${fromCategoryId}`
+		: '/inclusions';
+
 	const data = useQuery(api.inclusions.get.get, { inclusionId });
 	const units = useQuery(api.units.list.list, {});
 	const mode = useAppModeStore((state) => state.mode);
@@ -459,7 +466,7 @@ export default function InclusionCatalogueDetailView({
 	if (data === undefined) {
 		return (
 			<div className={cn('flex h-full w-full flex-col')}>
-				<PageHeading backLink="/inclusions" heading="Inclusion" />
+				<PageHeading backLink={backLink} heading="Inclusion" />
 				<p className="text-muted-foreground text-sm">Loading…</p>
 			</div>
 		);
@@ -468,7 +475,7 @@ export default function InclusionCatalogueDetailView({
 	if (data === null) {
 		return (
 			<div className={cn('flex h-full w-full flex-col')}>
-				<PageHeading backLink="/inclusions" heading="Inclusion" />
+				<PageHeading backLink={backLink} heading="Inclusion" />
 				<p className="text-muted-foreground text-sm">Inclusion not found.</p>
 			</div>
 		);
@@ -479,7 +486,7 @@ export default function InclusionCatalogueDetailView({
 	return (
 		<div className={cn('flex h-full w-full flex-col gap-6')}>
 			<PageHeading
-				backLink="/inclusions"
+				backLink={backLink}
 				className="mb-0"
 				heading={inclusion.title}
 				headingActions={
