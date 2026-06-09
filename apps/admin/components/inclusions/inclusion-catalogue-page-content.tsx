@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AddInclusion from '@/components/inclusions/add-inclusion';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
 import EditInclusion from '@/components/inclusions/edit-inclusion';
@@ -58,10 +58,12 @@ function inclusionCountBadgeLabel(count: number): string {
 function InclusionCatalogueCard({
 	inclusion,
 	categoryName,
+	categoryId,
 	showCategorySubtitle = true,
 }: {
 	inclusion: Inclusion;
 	categoryName: string;
+	categoryId: Id<'inclusionCategories'>;
 	showCategorySubtitle?: boolean;
 }) {
 	return (
@@ -69,7 +71,9 @@ function InclusionCatalogueCard({
 			<CardHeader className="flex flex-row items-start justify-between gap-3">
 				<Link
 					className="-m-2 flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-foreground no-underline outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-					href={`/inclusions/${inclusion._id}` as LinkProps<string>['href']}
+					href={
+						`/inclusions/${inclusion._id}?from=${categoryId}` as LinkProps<string>['href']
+					}
 				>
 					<CardTitle className="truncate leading-tight">
 						{inclusion.title}
@@ -154,7 +158,7 @@ function CategoryInclusionsFrame({
 	const count = categoryInclusions.length;
 
 	return (
-		<Frame>
+		<Frame id={categoryId}>
 			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
 				<FrameTitle className="min-w-0 truncate text-base">
 					{categoryName}
@@ -181,6 +185,7 @@ function CategoryInclusionsFrame({
 			<FramePanel className="grid grid-cols-1 gap-4 lg:grid-cols-3">
 				{categoryInclusions.map((inclusion) => (
 					<InclusionCatalogueCard
+						categoryId={categoryId}
 						categoryName={
 							categoryNameById.get(inclusion.categoryId) ?? 'Unknown category'
 						}
@@ -264,6 +269,26 @@ export default function InclusionCataloguePageContent() {
 			(c) => (inclusionsByCategoryId.get(c._id)?.length ?? 0) > 0
 		);
 	}, [categories, inclusionsByCategoryId]);
+
+	const hasScrolledRef = useRef(false);
+	useEffect(() => {
+		if (hasScrolledRef.current) {
+			return;
+		}
+		if (categoriesWithInclusions.length === 0) {
+			return;
+		}
+		const hash = window.location.hash;
+		if (!hash) {
+			return;
+		}
+		const element = document.getElementById(hash.slice(1));
+		if (!element) {
+			return;
+		}
+		hasScrolledRef.current = true;
+		element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}, [categoriesWithInclusions]);
 
 	let content: ReactNode;
 
