@@ -14,6 +14,12 @@ import {
 } from '@workspace/ui/components/dialog';
 import { Frame, FramePanel } from '@workspace/ui/components/frame';
 import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import {
 	Menu,
 	MenuItem,
 	MenuPopup,
@@ -31,7 +37,13 @@ import {
 } from '@workspace/ui/components/table';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { EllipsisVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+	EllipsisVertical,
+	Pencil,
+	Plus,
+	SearchIcon,
+	Trash2,
+} from 'lucide-react';
 import NextImage from 'next/image';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -401,6 +413,15 @@ export default function InclusionCatalogueDetailView({
 	const mode = useAppModeStore((state) => state.mode);
 	const [selectedClass, setSelectedClass] =
 		useState<InclusionClassFilter>('All');
+	const [search, setSearch] = useState('');
+	const [debouncedSearch, setDebouncedSearch] = useState('');
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
+		return () => window.clearTimeout(id);
+	}, [search]);
+
+	const trimmedSearch = debouncedSearch.trim().toLowerCase();
 
 	const unitAbbrById = useMemo(() => {
 		const m = new Map<string, string>();
@@ -409,6 +430,31 @@ export default function InclusionCatalogueDetailView({
 		}
 		return m;
 	}, [units]);
+
+	const variants = data?.variants ?? [];
+	const filteredVariants = useMemo(() => {
+		let result = variants;
+		if (selectedClass !== 'All') {
+			result = result.filter((v) => v.class === selectedClass);
+		}
+		if (trimmedSearch) {
+			result = result.filter((v) =>
+				[
+					v.class,
+					v.code,
+					v.vendor,
+					v.models.join(' '),
+					v.color ?? '',
+					v.details ?? '',
+					v.link ?? '',
+				]
+					.join(' ')
+					.toLowerCase()
+					.includes(trimmedSearch)
+			);
+		}
+		return result;
+	}, [variants, selectedClass, trimmedSearch]);
 
 	if (data === undefined) {
 		return (
@@ -428,11 +474,7 @@ export default function InclusionCatalogueDetailView({
 		);
 	}
 
-	const { categoryName, inclusion, variants } = data;
-	const filteredVariants =
-		selectedClass === 'All'
-			? variants
-			: variants.filter((v) => v.class === selectedClass);
+	const { categoryName, inclusion } = data;
 
 	return (
 		<div className={cn('flex h-full w-full flex-col gap-6')}>
@@ -442,6 +484,20 @@ export default function InclusionCatalogueDetailView({
 				heading={inclusion.title}
 				headingActions={
 					<>
+						<InputGroup className="w-48 sm:w-64">
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>
+									<SearchIcon aria-hidden />
+								</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-label="Search variants"
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder="Search variants…"
+								type="search"
+								value={search}
+							/>
+						</InputGroup>
 						<EditInclusion
 							inclusionId={inclusionId}
 							initialCategoryId={inclusion.categoryId}
@@ -545,7 +601,9 @@ export default function InclusionCatalogueDetailView({
 					</RadioGroup>
 					{filteredVariants.length === 0 ? (
 						<p className="text-muted-foreground text-sm">
-							No {selectedClass} variants for this inclusion.
+							{trimmedSearch
+								? 'No variants match your search.'
+								: `No ${selectedClass} variants for this inclusion.`}
 						</p>
 					) : (
 						<InclusionCatalogueVariantsTableInFrame

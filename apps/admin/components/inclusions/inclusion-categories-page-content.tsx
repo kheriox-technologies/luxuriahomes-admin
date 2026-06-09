@@ -53,8 +53,12 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 						{category.name}
 					</CardTitle>
 					<div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-						<Badge variant="outline">{category.code}</Badge>
-						<Badge variant="info">{inclusionLabel}</Badge>
+						<Badge size="lg" variant="outline">
+							{category.code}
+						</Badge>
+						<Badge size="lg" variant="info">
+							{inclusionLabel}
+						</Badge>
 					</div>
 				</div>
 				<CardAction>

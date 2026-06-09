@@ -41,7 +41,7 @@ export default function StageRow({
 					{stage.name}
 				</span>
 				{stage.taskCount > 0 ? (
-					<Badge className="shrink-0" size="sm" variant="outline">
+					<Badge className="shrink-0" size="lg" variant="outline">
 						{stage.taskCount}
 					</Badge>
 				) : null}

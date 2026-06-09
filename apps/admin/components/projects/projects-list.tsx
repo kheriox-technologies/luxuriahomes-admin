@@ -115,7 +115,11 @@ const columns: ColumnDef<Project>[] = [
 		size: 130,
 		cell: ({ row }) => {
 			const badge = statusBadgeProps(row.original.status);
-			return <Badge variant={badge.variant}>{badge.label}</Badge>;
+			return (
+				<Badge size="lg" variant={badge.variant}>
+					{badge.label}
+				</Badge>
+			);
 		},
 	},
 	{

@@ -36,14 +36,16 @@ import {
 	clientDraftFromStored,
 	clientDraftSchema,
 	cloneProjectClientAddress,
+	editProjectFormSchema,
 	emptyClientDraft,
-	emptyProjectCoreFormValues,
+	emptyEditProjectFormValues,
 	formatFieldErrors,
 	ProjectStartDatePicker,
+	type ProjectStatus,
+	ProjectStatusCombobox,
 	type ProjectStoredClient,
 	projectClientAddressesEqual,
 	projectClientFromDraft,
-	projectCoreFormSchema,
 	toConvexCreatePayload,
 } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -64,12 +66,12 @@ export default function AddProjectForm() {
 		clients.length === 0 || editingIndex === 0 || !sameAsFirstClient;
 
 	const form = useForm({
-		defaultValues: emptyProjectCoreFormValues,
+		defaultValues: emptyEditProjectFormValues,
 		validators: {
-			onChange: projectCoreFormSchema as never,
+			onChange: editProjectFormSchema as never,
 		},
 		onSubmit: async ({ value }) => {
-			const parsed = projectCoreFormSchema.parse(value);
+			const parsed = editProjectFormSchema.parse(value);
 			if (clients.length < 1) {
 				toastManager.add({
 					description: 'Add at least one client before saving.',
@@ -251,6 +253,33 @@ export default function AddProjectForm() {
 											/>
 										</Field>
 									)}
+								</form.Field>
+
+								<form.Field name="status">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Status</FieldLabel>
+												<ProjectStatusCombobox
+													id={field.name}
+													invalid={invalid}
+													onBlur={field.handleBlur}
+													onChange={(next) =>
+														field.handleChange(next as ProjectStatus)
+													}
+													placeholder="Select status"
+													value={field.state.value}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
 								</form.Field>
 
 								<p className="font-medium text-muted-foreground text-sm">

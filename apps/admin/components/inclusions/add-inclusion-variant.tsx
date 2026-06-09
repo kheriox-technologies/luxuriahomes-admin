@@ -537,6 +537,7 @@ export default function AddInclusionVariant({
 																render={
 																	<div className="flex items-center gap-1.5" />
 																}
+																size="lg"
 																variant="outline"
 															>
 																{model}

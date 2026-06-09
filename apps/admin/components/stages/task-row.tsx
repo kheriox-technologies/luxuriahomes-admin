@@ -37,7 +37,7 @@ export default function TaskRow({
 			>
 				<span className="min-w-0 flex-1 truncate text-sm">{task.name}</span>
 				{task.duration > 0 ? (
-					<Badge className="shrink-0" size="sm" variant="outline">
+					<Badge className="shrink-0" size="lg" variant="outline">
 						{task.duration}d
 					</Badge>
 				) : null}

@@ -47,6 +47,7 @@ import {
 	X,
 } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
 import PageHeading from '@/components/page-heading';
@@ -239,7 +240,7 @@ const columns: ColumnDef<Quotation>[] = [
 		id: 'status',
 		header: 'Status',
 		cell: ({ row }) => (
-			<Badge size="sm" variant={statusBadgeVariant(row.original.status)}>
+			<Badge size="lg" variant={statusBadgeVariant(row.original.status)}>
 				{row.original.status}
 			</Badge>
 		),
@@ -260,13 +261,22 @@ export default function QuotationsPageContent() {
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 
+	const searchParams = useSearchParams();
+
 	const [filterProjectId, setFilterProjectId] = useState<Id<'projects'> | null>(
-		null
+		() => (searchParams.get('projectId') as Id<'projects'>) ?? null
 	);
-	const [filterTradeId, setFilterTradeId] = useState<Id<'trades'> | null>(null);
+	const [filterTradeId, setFilterTradeId] = useState<Id<'trades'> | null>(
+		() => (searchParams.get('tradeId') as Id<'trades'>) ?? null
+	);
 	const [filterStatus, setFilterStatus] = useState<
 		QuotationFormValues['status'] | null
-	>(null);
+	>(() => {
+		const s = searchParams.get('status');
+		return s === 'Under Review' || s === 'Approved' || s === 'Rejected'
+			? s
+			: null;
+	});
 
 	const trimmedSearch = debouncedSearch.trim();
 

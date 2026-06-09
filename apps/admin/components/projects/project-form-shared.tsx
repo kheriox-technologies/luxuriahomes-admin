@@ -322,7 +322,7 @@ function sanitizeProjectClient(c: ProjectStoredClient): ProjectStoredClient {
 }
 
 export function toConvexCreatePayload(
-	value: z.infer<typeof projectCoreFormSchema>,
+	value: z.infer<typeof editProjectFormSchema>,
 	clients: ProjectStoredClient[]
 ) {
 	return {
@@ -333,7 +333,7 @@ export function toConvexCreatePayload(
 			state: value.address.state as AustralianState,
 			postcode: trim(value.address.postcode),
 		},
-		status: 'not_started' as const,
+		status: value.status,
 		clients: clients.map(sanitizeProjectClient),
 		startDate: value.startDate ? value.startDate.getTime() : undefined,
 	};
