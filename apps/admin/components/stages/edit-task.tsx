@@ -439,7 +439,7 @@ export default function EditTask({
 													{taskNameById.get(dep.taskId as never) ?? dep.taskId}
 												</span>
 												<div className="flex items-center gap-2">
-													<Badge variant="outline">
+													<Badge size="lg" variant="outline">
 														{dep.type === 'after' ? 'after' : 'along with'}
 													</Badge>
 													<Button

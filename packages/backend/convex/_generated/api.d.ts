@@ -115,6 +115,7 @@ import type * as quotations_approve from "../quotations/approve.js";
 import type * as quotations_generateUploadUrl from "../quotations/generateUploadUrl.js";
 import type * as quotations_list from "../quotations/list.js";
 import type * as quotations_listByProject from "../quotations/listByProject.js";
+import type * as quotations_listByProjects from "../quotations/listByProjects.js";
 import type * as quotations_remove from "../quotations/remove.js";
 import type * as quotations_search from "../quotations/search.js";
 import type * as quotations_shared from "../quotations/shared.js";
@@ -277,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   "quotations/generateUploadUrl": typeof quotations_generateUploadUrl;
   "quotations/list": typeof quotations_list;
   "quotations/listByProject": typeof quotations_listByProject;
+  "quotations/listByProjects": typeof quotations_listByProjects;
   "quotations/remove": typeof quotations_remove;
   "quotations/search": typeof quotations_search;
   "quotations/shared": typeof quotations_shared;

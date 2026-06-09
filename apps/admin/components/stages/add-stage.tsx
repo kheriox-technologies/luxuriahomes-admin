@@ -367,7 +367,7 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 														dep.stageId}
 												</span>
 												<div className="flex items-center gap-2">
-													<Badge variant="outline">
+													<Badge size="lg" variant="outline">
 														{dep.type === 'after' ? 'after' : 'along with'}
 													</Badge>
 													<Button

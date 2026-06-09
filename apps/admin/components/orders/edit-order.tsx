@@ -322,7 +322,9 @@ export default function EditOrder({
 															{material.name}
 														</span>
 														<div className="flex items-center gap-2">
-															<Badge variant="outline">{material.units}</Badge>
+															<Badge size="lg" variant="outline">
+																{material.units}
+															</Badge>
 															<Button
 																aria-label={`Remove ${material.name}`}
 																onClick={() => handleRemoveMaterial(index)}
