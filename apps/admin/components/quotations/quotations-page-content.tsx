@@ -43,6 +43,7 @@ import {
 	ExternalLink,
 	Pencil,
 	SearchIcon,
+	StickyNote,
 	Trash2,
 	X,
 } from 'lucide-react';
@@ -56,10 +57,12 @@ import AddQuotation from './add-quotation';
 import DeleteQuotation from './delete-quotation';
 import EditQuotation from './edit-quotation';
 import type { QuotationFormValues } from './quotation-form-shared';
+import QuotationNotesDialog from './quotation-notes-dialog';
 
 interface Quotation {
 	_id: Id<'quotations'>;
 	companyName: string;
+	noteCount: number;
 	price: number;
 	projectId: Id<'projects'>;
 	projectName: string;
@@ -90,9 +93,31 @@ function formatPrice(price: number): string {
 	}).format(price);
 }
 
+function QuotationNotesBadge({ row }: { row: Quotation }) {
+	const [notesOpen, setNotesOpen] = useState(false);
+	if (row.noteCount === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+	return (
+		<>
+			<QuotationNotesDialog
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				quotationId={row._id}
+			/>
+			<button onClick={() => setNotesOpen(true)} type="button">
+				<Badge size="lg" variant="secondary">
+					{row.noteCount} {row.noteCount === 1 ? 'Note' : 'Notes'}
+				</Badge>
+			</button>
+		</>
+	);
+}
+
 function QuotationActionsCell({ row }: { row: Quotation }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [notesOpen, setNotesOpen] = useState(false);
 	const [isApproving, setIsApproving] = useState(false);
 	const [isViewingDoc, setIsViewingDoc] = useState(false);
 
@@ -150,6 +175,11 @@ function QuotationActionsCell({ row }: { row: Quotation }) {
 				open={deleteOpen}
 				quotationId={row._id}
 			/>
+			<QuotationNotesDialog
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				quotationId={row._id}
+			/>
 			<Menu>
 				<MenuTrigger
 					render={
@@ -193,6 +223,9 @@ function QuotationActionsCell({ row }: { row: Quotation }) {
 					>
 						<Check /> Approve
 					</MenuItem>
+					<MenuItem onClick={() => setNotesOpen(true)}>
+						<StickyNote /> View / Edit Notes
+					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 /> Delete
@@ -235,6 +268,12 @@ const columns: ColumnDef<Quotation>[] = [
 		cell: ({ row }) => (
 			<span className="text-sm">{formatPrice(row.original.price)}</span>
 		),
+	},
+	{
+		id: 'notes',
+		header: 'Notes',
+		size: 100,
+		cell: ({ row }) => <QuotationNotesBadge row={row.original} />,
 	},
 	{
 		id: 'status',

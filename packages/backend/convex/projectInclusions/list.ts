@@ -14,6 +14,17 @@ export const list = query({
 			.query('projectInclusions')
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
 			.collect();
-		return rows.sort((a, b) => a.code.localeCompare(b.code));
+		const sorted = rows.sort((a, b) => a.code.localeCompare(b.code));
+		return await Promise.all(
+			sorted.map(async (row) => {
+				const firstNote = await ctx.db
+					.query('projectInclusionNotes')
+					.withIndex('by_project_inclusion', (q) =>
+						q.eq('projectInclusionId', row._id)
+					)
+					.first();
+				return { ...row, hasNotes: firstNote !== null };
+			})
+		);
 	},
 });

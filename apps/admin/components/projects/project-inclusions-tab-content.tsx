@@ -18,6 +18,7 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
+	CardAction,
 	CardDescription,
 	CardHeader,
 	CardPanel,
@@ -76,12 +77,14 @@ import {
 } from '@workspace/ui/components/toggle-group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
+import type { FunctionReturnType } from 'convex/server';
 import {
 	Check,
 	Download,
 	EllipsisVertical,
 	Info,
 	MapPin,
+	Pencil,
 	Plus,
 	SearchIcon,
 	SquaresIntersect,
@@ -97,7 +100,9 @@ import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
-type ProjectInclusion = Doc<'projectInclusions'>;
+type ProjectInclusion = NonNullable<
+	FunctionReturnType<typeof api.projectInclusions.list.list>
+>[number];
 type ProjectInclusionNote = Doc<'projectInclusionNotes'>;
 type InclusionCategory = Doc<'inclusionCategories'>;
 
@@ -262,15 +267,50 @@ function ProjectInclusionNotesCardList({
 }: {
 	notes: ProjectInclusionNote[];
 }) {
+	const deleteNoteMutation = useMutation(
+		api.projectInclusions.deleteNote.deleteNote
+	);
+
+	const onDelete = async (noteId: ProjectInclusionNote['_id']) => {
+		try {
+			await deleteNoteMutation({ noteId });
+			toastManager.add({ title: 'Note deleted', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete note. Please try again in a moment.'
+				),
+				title: 'Could not delete note',
+				type: 'error',
+			});
+		}
+	};
+
 	return (
 		<div className="flex flex-col gap-3">
 			{notes.map((entry) => (
 				<Card key={entry._id}>
 					<CardHeader>
-						<CardTitle>
+						<CardTitle>{entry.addedBy}</CardTitle>
+						<CardDescription>
 							{formatProjectInclusionNoteDate(entry.timestamp)}
-						</CardTitle>
-						<CardDescription>{entry.addedBy}</CardDescription>
+						</CardDescription>
+						<CardAction>
+							<Button
+								aria-label="Delete note"
+								onClick={() => {
+									onDelete(entry._id).catch(() => {
+										/* Error is handled in onDelete */
+									});
+								}}
+								size="icon"
+								type="button"
+								variant="destructive-outline"
+							>
+								<Trash2 />
+							</Button>
+						</CardAction>
 					</CardHeader>
 					<CardPanel>
 						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
@@ -488,6 +528,7 @@ function EditInclusionQuantitiesDialog({
 	const [selectedLocationId, setSelectedLocationId] = useState('');
 	const [pendingQuantity, setPendingQuantity] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
 	const unitAbbr = inclusion.locations?.[0]?.unit ?? '';
 
@@ -504,25 +545,51 @@ function EditInclusionQuantitiesDialog({
 		return map;
 	}, [locations]);
 
+	const locationIdByName = useMemo(() => {
+		const map = new Map<string, Id<'locations'>>();
+		for (const loc of locations ?? []) {
+			map.set(loc.name, loc._id);
+		}
+		return map;
+	}, [locations]);
+
 	useEffect(() => {
 		if (open) {
 			setLocalLocations(inclusion.locations ?? []);
 			setSelectedLocationId('');
 			setPendingQuantity('');
+			setEditingIndex(null);
 		}
 	}, [open, inclusion.locations]);
 
-	const handleAddLocation = () => {
+	const handleEditLocation = (i: number) => {
+		const entry = localLocations[i];
+		const locationId = locationIdByName.get(entry.name);
+		if (locationId) {
+			setSelectedLocationId(locationId);
+		}
+		setPendingQuantity(entry.quantity?.toString() ?? '');
+		setEditingIndex(i);
+	};
+
+	const handleSaveAction = () => {
 		const name = locationNameById.get(selectedLocationId as Id<'locations'>);
 		if (!name) {
 			return;
 		}
 		const qty =
 			pendingQuantity !== '' ? Number.parseFloat(pendingQuantity) : undefined;
-		setLocalLocations((prev) => [
-			...prev,
-			{ name, quantity: qty, unit: unitAbbr || undefined },
-		]);
+		const updated = { name, quantity: qty, unit: unitAbbr || undefined };
+		if (editingIndex !== null) {
+			setLocalLocations((prev) => {
+				const next = [...prev];
+				next[editingIndex] = updated;
+				return next;
+			});
+			setEditingIndex(null);
+		} else {
+			setLocalLocations((prev) => [...prev, updated]);
+		}
 		setSelectedLocationId('');
 		setPendingQuantity('');
 	};
@@ -588,14 +655,14 @@ function EditInclusionQuantitiesDialog({
 							) : null}
 						</InputGroup>
 						<Button
-							aria-label="Add location"
+							aria-label={editingIndex !== null ? 'Save edit' : 'Add location'}
 							disabled={!selectedLocationId}
-							onClick={handleAddLocation}
+							onClick={handleSaveAction}
 							size="icon"
 							type="button"
-							variant="outline"
+							variant={editingIndex !== null ? 'default' : 'outline'}
 						>
-							<Plus />
+							{editingIndex !== null ? <Check /> : <Plus />}
 						</Button>
 					</div>
 					{localLocations.length > 0 ? (
@@ -611,12 +678,24 @@ function EditInclusionQuantitiesDialog({
 													: (entry.unit ?? '')}
 											</span>
 											<Button
+												aria-label={`Edit ${entry.name}`}
+												onClick={() => handleEditLocation(i)}
+												size="icon-sm"
+												type="button"
+												variant="outline"
+											>
+												<Pencil className="size-4" />
+											</Button>
+											<Button
 												aria-label={`Remove ${entry.name}`}
-												onClick={() =>
+												onClick={() => {
+													if (editingIndex === i) {
+														setEditingIndex(null);
+													}
 													setLocalLocations((prev) =>
 														prev.filter((_, idx) => idx !== i)
-													)
-												}
+													);
+												}}
 												size="icon-sm"
 												type="button"
 												variant="destructive-outline"
@@ -653,6 +732,35 @@ function EditInclusionQuantitiesDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function ProjectInclusionNotesLink({
+	inclusion,
+}: {
+	inclusion: ProjectInclusion;
+}) {
+	const [notesOpen, setNotesOpen] = useState(false);
+	if (!inclusion.hasNotes) {
+		return null;
+	}
+	return (
+		<>
+			<button
+				className="text-left text-muted-foreground text-xs underline hover:text-foreground"
+				onClick={() => setNotesOpen(true)}
+				type="button"
+			>
+				View Notes
+			</button>
+			<ProjectInclusionNotesDialog
+				code={inclusion.code}
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				projectInclusionId={inclusion._id}
+				title={inclusion.title}
+			/>
+		</>
 	);
 }
 
@@ -894,7 +1002,7 @@ function ProjectInclusionsTableInFrame({
 					<Table
 						className={cn(
 							'w-full',
-							showPricing ? 'min-w-[56rem]' : 'min-w-[44rem]'
+							showPricing ? 'min-w-[62rem]' : 'min-w-[50rem]'
 						)}
 					>
 						<TableHeader>
@@ -903,6 +1011,7 @@ function ProjectInclusionsTableInFrame({
 								<TableHead className="min-w-[14rem]">
 									Vendor & details
 								</TableHead>
+								<TableHead className="whitespace-nowrap">Colour</TableHead>
 								<TableHead className="whitespace-nowrap">Status</TableHead>
 								<TableHead className="whitespace-nowrap">Quantity</TableHead>
 								{showPricing ? (
@@ -956,6 +1065,7 @@ function ProjectInclusionsTableInFrame({
 														{inclusion.code}
 													</span>
 												</div>
+												<ProjectInclusionNotesLink inclusion={inclusion} />
 											</div>
 										</TableCell>
 										<TableCell className="whitespace-normal align-top leading-snug">
@@ -972,6 +1082,11 @@ function ProjectInclusionsTableInFrame({
 													</p>
 												) : null}
 											</div>
+										</TableCell>
+										<TableCell className="whitespace-normal align-top text-sm">
+											{inclusion.color ?? (
+												<span className="text-muted-foreground">—</span>
+											)}
 										</TableCell>
 										<TableCell className="whitespace-normal align-top">
 											<Badge
@@ -1031,9 +1146,7 @@ function ProjectInclusionsTableInFrame({
 											</div>
 										</TableCell>
 										<TableCell className="w-[3rem] min-w-[3rem] max-w-[3rem] align-middle">
-											<div className="flex justify-end">
-												<ProjectInclusionActionsCell inclusion={inclusion} />
-											</div>
+											<ProjectInclusionActionsCell inclusion={inclusion} />
 										</TableCell>
 									</TableRow>
 								);

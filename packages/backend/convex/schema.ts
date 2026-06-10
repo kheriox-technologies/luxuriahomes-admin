@@ -271,4 +271,10 @@ export default defineSchema({
 	})
 		.index('by_project', ['projectId'])
 		.searchIndex('search_quotations', { searchField: 'searchText' }),
+	quotationNotes: defineTable({
+		quotationId: v.id('quotations'),
+		timestamp: v.number(),
+		addedBy: v.string(),
+		note: v.string(),
+	}).index('by_quotation', ['quotationId']),
 });
