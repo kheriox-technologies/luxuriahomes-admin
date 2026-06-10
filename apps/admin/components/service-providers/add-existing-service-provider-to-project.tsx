@@ -60,6 +60,17 @@ export default function AddExistingServiceProviderToProject({
 	});
 	const addToProject = useMutation(api.projectServiceProviders.add.add);
 
+	const getLabel = (id: string) => {
+		const p = (allProviders ?? []).find((pr) => pr._id === id);
+		if (!p) {
+			return id;
+		}
+		if (p.name) {
+			return `${p.company} (${p.name})`;
+		}
+		return p.company;
+	};
+
 	const linkedIds = new Set(linked?.map((p) => p._id) ?? []);
 	const available = (allProviders ?? []).filter((p) => !linkedIds.has(p._id));
 	const availableIds = available.map((p) => p._id);
@@ -121,40 +132,34 @@ export default function AddExistingServiceProviderToProject({
 						<FieldLabel>Select service providers</FieldLabel>
 						<Combobox
 							items={availableIds}
-							itemToStringLabel={(val) =>
-								(allProviders ?? []).find((p) => p._id === val)?.company ??
-								String(val ?? '')
-							}
+							itemToStringLabel={(val) => {
+								const p = (allProviders ?? []).find((pr) => pr._id === val);
+								if (!p) {
+									return String(val ?? '');
+								}
+								if (p.name) {
+									return `${p.company} ${p.name}`;
+								}
+								return p.company;
+							}}
 							multiple
 							onValueChange={(val) => setSelectedIds(val as string[])}
 							value={selectedIds}
 						>
 							<ComboboxChips>
-								{selectedIds.map((id) => {
-									const provider = (allProviders ?? []).find(
-										(p) => p._id === id
-									);
-									return (
-										<ComboboxChip key={id}>
-											{provider?.company ?? id}
-										</ComboboxChip>
-									);
-								})}
+								{selectedIds.map((id) => (
+									<ComboboxChip key={id}>{getLabel(id)}</ComboboxChip>
+								))}
 								<ComboboxChipsInput placeholder="Search service providers…" />
 							</ComboboxChips>
 							<ComboboxPopup>
 								<ComboboxEmpty>No service providers found.</ComboboxEmpty>
 								<ComboboxList>
-									{(id: Id<'serviceProviders'>) => {
-										const provider = (allProviders ?? []).find(
-											(p) => p._id === id
-										);
-										return (
-											<ComboboxItem key={id} value={id}>
-												{provider?.company ?? id}
-											</ComboboxItem>
-										);
-									}}
+									{(id: Id<'serviceProviders'>) => (
+										<ComboboxItem key={id} value={id}>
+											{getLabel(id)}
+										</ComboboxItem>
+									)}
 								</ComboboxList>
 							</ComboboxPopup>
 						</Combobox>
