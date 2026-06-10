@@ -25,16 +25,21 @@ export const search = query({
 			.take(limit);
 		return Promise.all(
 			rows.map(async (row) => {
-				const [trades, project, serviceProvider] = await Promise.all([
+				const [trades, project, serviceProvider, notes] = await Promise.all([
 					Promise.all(row.tradeIds.map((id) => ctx.db.get(id))),
 					ctx.db.get(row.projectId),
 					ctx.db.get(row.serviceProviderId),
+					ctx.db
+						.query('quotationNotes')
+						.withIndex('by_quotation', (q) => q.eq('quotationId', row._id))
+						.collect(),
 				]);
 				return {
 					...row,
 					tradeNames: trades.map((t) => t?.name ?? '').filter(Boolean),
 					projectName: project?.name ?? '',
 					companyName: serviceProvider?.company ?? '',
+					noteCount: notes.length,
 				};
 			})
 		);

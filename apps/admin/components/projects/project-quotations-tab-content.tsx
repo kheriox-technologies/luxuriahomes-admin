@@ -3,6 +3,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { DataTable } from '@workspace/ui/components/data-table';
 import {
@@ -26,6 +27,7 @@ import {
 	EllipsisVertical,
 	ExternalLink,
 	Pencil,
+	StickyNote,
 	Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -34,10 +36,12 @@ import AddQuotation from '@/components/quotations/add-quotation';
 import DeleteQuotation from '@/components/quotations/delete-quotation';
 import EditQuotation from '@/components/quotations/edit-quotation';
 import type { QuotationFormValues } from '@/components/quotations/quotation-form-shared';
+import QuotationNotesDialog from '@/components/quotations/quotation-notes-dialog';
 
 interface ApprovedQuotation {
 	_id: Id<'quotations'>;
 	companyName: string;
+	noteCount: number;
 	price: number;
 	projectId: Id<'projects'>;
 	s3Key?: string;
@@ -55,9 +59,31 @@ function formatPrice(price: number): string {
 	}).format(price);
 }
 
+function QuotationTabNotesBadge({ row }: { row: ApprovedQuotation }) {
+	const [notesOpen, setNotesOpen] = useState(false);
+	if (row.noteCount === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+	return (
+		<>
+			<QuotationNotesDialog
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				quotationId={row._id}
+			/>
+			<button onClick={() => setNotesOpen(true)} type="button">
+				<Badge size="lg" variant="secondary">
+					{row.noteCount} {row.noteCount === 1 ? 'Note' : 'Notes'}
+				</Badge>
+			</button>
+		</>
+	);
+}
+
 function QuotationTabActionsCell({ row }: { row: ApprovedQuotation }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [notesOpen, setNotesOpen] = useState(false);
 	const [isViewingDoc, setIsViewingDoc] = useState(false);
 
 	const handleViewDoc = async () => {
@@ -93,6 +119,11 @@ function QuotationTabActionsCell({ row }: { row: ApprovedQuotation }) {
 				open={deleteOpen}
 				quotationId={row._id}
 			/>
+			<QuotationNotesDialog
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				quotationId={row._id}
+			/>
 			<Menu>
 				<MenuTrigger
 					render={
@@ -126,6 +157,9 @@ function QuotationTabActionsCell({ row }: { row: ApprovedQuotation }) {
 							<ExternalLink /> View Quotation
 						</MenuItem>
 					)}
+					<MenuItem onClick={() => setNotesOpen(true)}>
+						<StickyNote /> View / Edit Notes
+					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 /> Delete
@@ -162,6 +196,12 @@ function buildColumns(): ColumnDef<ApprovedQuotation>[] {
 			cell: ({ row }) => (
 				<span className="text-sm">{formatPrice(row.original.price)}</span>
 			),
+		},
+		{
+			id: 'notes',
+			header: 'Notes',
+			size: 100,
+			cell: ({ row }) => <QuotationTabNotesBadge row={row.original} />,
 		},
 		{
 			id: 'actions',

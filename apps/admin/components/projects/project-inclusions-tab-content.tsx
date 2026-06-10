@@ -18,6 +18,7 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
+	CardAction,
 	CardDescription,
 	CardHeader,
 	CardPanel,
@@ -266,15 +267,50 @@ function ProjectInclusionNotesCardList({
 }: {
 	notes: ProjectInclusionNote[];
 }) {
+	const deleteNoteMutation = useMutation(
+		api.projectInclusions.deleteNote.deleteNote
+	);
+
+	const onDelete = async (noteId: ProjectInclusionNote['_id']) => {
+		try {
+			await deleteNoteMutation({ noteId });
+			toastManager.add({ title: 'Note deleted', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete note. Please try again in a moment.'
+				),
+				title: 'Could not delete note',
+				type: 'error',
+			});
+		}
+	};
+
 	return (
 		<div className="flex flex-col gap-3">
 			{notes.map((entry) => (
 				<Card key={entry._id}>
 					<CardHeader>
-						<CardTitle>
+						<CardTitle>{entry.addedBy}</CardTitle>
+						<CardDescription>
 							{formatProjectInclusionNoteDate(entry.timestamp)}
-						</CardTitle>
-						<CardDescription>{entry.addedBy}</CardDescription>
+						</CardDescription>
+						<CardAction>
+							<Button
+								aria-label="Delete note"
+								onClick={() => {
+									onDelete(entry._id).catch(() => {
+										/* Error is handled in onDelete */
+									});
+								}}
+								size="icon"
+								type="button"
+								variant="destructive-outline"
+							>
+								<Trash2 />
+							</Button>
+						</CardAction>
 					</CardHeader>
 					<CardPanel>
 						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
