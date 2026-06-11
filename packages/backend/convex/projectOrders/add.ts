@@ -3,7 +3,22 @@ import { mutation } from '../_generated/server';
 import { buildProjectOrderSearchText } from '../lib/buildSearchText';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { projectOrderStatusValidator } from '../schema';
-import { addedByFromIdentity } from './shared';
+import { addedByFromIdentity, allocateUniqueOrderId } from './shared';
+
+function orderStatusToInclusionOrderStatus(
+	status: string
+): 'Order Created' | 'Ordered' | 'In Transit' | 'Delivered' {
+	switch (status) {
+		case 'Ordered':
+			return 'Ordered';
+		case 'In Transit':
+			return 'In Transit';
+		case 'Delivered':
+			return 'Delivered';
+		default:
+			return 'Order Created';
+	}
+}
 
 export const add = mutation({
 	args: {
@@ -21,6 +36,7 @@ export const add = mutation({
 			})
 		),
 		status: v.optional(projectOrderStatusValidator),
+		inclusionIds: v.optional(v.array(v.id('projectInclusions'))),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -36,7 +52,9 @@ export const add = mutation({
 			link: item.link?.trim() || undefined,
 		}));
 		const searchText = buildProjectOrderSearchText(vendor, items);
-		const orderId = await ctx.db.insert('projectOrders', {
+		const orderCode = await allocateUniqueOrderId(ctx);
+		const newOrderId = await ctx.db.insert('projectOrders', {
+			orderId: orderCode,
 			projectId: args.projectId,
 			vendor,
 			orderBy: args.orderBy,
@@ -46,12 +64,23 @@ export const add = mutation({
 		});
 		const changedBy = addedByFromIdentity(identity);
 		await ctx.db.insert('projectOrderStatusHistory', {
-			orderId,
+			orderId: newOrderId,
 			status,
 			label: 'Order Added',
 			changedBy,
 			timestamp: Date.now(),
 		});
-		return orderId;
+		if (args.inclusionIds && args.inclusionIds.length > 0) {
+			const inclusionOrderStatus = orderStatusToInclusionOrderStatus(status);
+			await Promise.all(
+				args.inclusionIds.map((inclusionId) =>
+					ctx.db.patch(inclusionId, {
+						orderRefId: orderCode,
+						orderStatus: inclusionOrderStatus,
+					})
+				)
+			);
+		}
+		return newOrderId;
 	},
 });

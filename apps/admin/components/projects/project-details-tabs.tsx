@@ -15,6 +15,8 @@ import {
 	SquaresIntersect,
 	Users,
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback } from 'react';
 import ProjectOrdersTabContent from '@/components/orders/orders-tab-content';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
@@ -31,10 +33,26 @@ export default function ProjectDetailsTabs({
 	clients: ProjectClient[];
 	projectId: Id<'projects'>;
 }) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const activeTab = searchParams.get('tab') ?? 'clients';
+	const orderIdFilter = searchParams.get('orderId') ?? '';
+
+	const onTabChange = useCallback(
+		(tab: string) => {
+			const params = new URLSearchParams(searchParams.toString());
+			params.set('tab', tab);
+			params.delete('orderId');
+			router.push(`?${params.toString()}`);
+		},
+		[router, searchParams]
+	);
+
 	return (
 		<Tabs
 			className="flex-1 gap-0 overflow-hidden rounded-xl border"
-			defaultValue="clients"
+			onValueChange={onTabChange}
+			value={activeTab}
 		>
 			<TabsList className="w-full rounded-none border-b bg-muted/50 **:data-[slot=tab-indicator]:bg-primary">
 				<TabsTab
@@ -96,7 +114,10 @@ export default function ProjectDetailsTabs({
 				<ProjectServiceProvidersTabContent projectId={projectId} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="orders">
-				<ProjectOrdersTabContent projectId={projectId} />
+				<ProjectOrdersTabContent
+					orderIdFilter={orderIdFilter}
+					projectId={projectId}
+				/>
 			</TabsPanel>
 		</Tabs>
 	);

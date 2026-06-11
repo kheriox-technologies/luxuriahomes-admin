@@ -15,23 +15,33 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import {
 	Menu,
 	MenuItem,
 	MenuPopup,
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { toastManager } from '@workspace/ui/components/toast';
 import { useQuery } from 'convex/react';
 import {
 	ClipboardList,
 	EllipsisVertical,
 	ExternalLink,
+	FileText,
 	History,
 	Pencil,
+	SearchIcon,
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import { openProjectOrderPdfInNewTab } from '@/lib/pdf/project-order-pdf';
 import AddOrder from './add-order';
 import DeleteOrder from './delete-order';
 import EditOrder from './edit-order';
@@ -40,6 +50,13 @@ import OrderNotesDialog from './order-notes-dialog';
 import OrderStatusHistoryDialog from './order-status-history-dialog';
 
 type ProjectOrder = Doc<'projectOrders'> & { noteCount: number };
+
+interface PdfProjectAddress {
+	postcode: string;
+	state: string;
+	street: string;
+	suburb: string;
+}
 
 function orderStatusBadgeVariant(
 	status: OrderStatus
@@ -56,11 +73,45 @@ function orderStatusBadgeVariant(
 	}
 }
 
-function OrderActionsCell({ row }: { row: ProjectOrder }) {
+function OrderActionsCell({
+	row,
+	projectAddress,
+}: {
+	row: ProjectOrder;
+	projectAddress?: PdfProjectAddress;
+}) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
+
+	const handleViewOrderPdf = async () => {
+		if (!projectAddress) {
+			toastManager.add({
+				title: 'Could not generate PDF',
+				description: 'Project address is still loading. Please try again.',
+				type: 'error',
+			});
+			return;
+		}
+		try {
+			await openProjectOrderPdfInNewTab({
+				orderId: row.orderId,
+				vendor: row.vendor,
+				items: row.items,
+				projectAddress,
+			});
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not generate PDF',
+				description:
+					error instanceof Error
+						? error.message
+						: 'Please try again in a moment.',
+				type: 'error',
+			});
+		}
+	};
 
 	return (
 		<>
@@ -103,6 +154,9 @@ function OrderActionsCell({ row }: { row: ProjectOrder }) {
 					</MenuItem>
 					<MenuItem onClick={() => setHistoryOpen(true)}>
 						<History /> View Status History
+					</MenuItem>
+					<MenuItem onClick={handleViewOrderPdf}>
+						<FileText /> View Order
 					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
@@ -151,8 +205,18 @@ function formatOrderByDate(timestamp: number): string {
 	});
 }
 
-function buildColumns(): ColumnDef<ProjectOrder>[] {
+function buildColumns(
+	projectAddress?: PdfProjectAddress
+): ColumnDef<ProjectOrder>[] {
 	return [
+		{
+			id: 'orderId',
+			header: 'Order ID',
+			size: 130,
+			cell: ({ row }) => (
+				<span className="font-mono text-sm">{row.original.orderId}</span>
+			),
+		},
 		{
 			id: 'vendor',
 			header: 'Vendor',
@@ -213,7 +277,10 @@ function buildColumns(): ColumnDef<ProjectOrder>[] {
 			size: 60,
 			cell: ({ row }) => (
 				<div className="flex justify-end">
-					<OrderActionsCell row={row.original} />
+					<OrderActionsCell
+						projectAddress={projectAddress}
+						row={row.original}
+					/>
 				</div>
 			),
 		},
@@ -222,11 +289,23 @@ function buildColumns(): ColumnDef<ProjectOrder>[] {
 
 export default function ProjectOrdersTabContent({
 	projectId,
+	orderIdFilter = '',
 }: {
 	projectId: Id<'projects'>;
+	orderIdFilter?: string;
 }) {
+	const project = useQuery(api.projects.get.get, { projectId });
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
-	const columns = buildColumns();
+	const columns = buildColumns(project?.address);
+	const [search, setSearch] = useState(orderIdFilter);
+
+	const trimmedSearch = search.trim();
+	const filteredOrders =
+		trimmedSearch !== '' && orders
+			? orders.filter((o) =>
+					o.orderId.toLowerCase().includes(trimmedSearch.toLowerCase())
+				)
+			: (orders ?? []);
 
 	let content: React.ReactNode;
 
@@ -252,16 +331,31 @@ export default function ProjectOrdersTabContent({
 		content = (
 			<DataTable
 				columns={columns}
-				data={orders}
+				data={filteredOrders}
 				emptyMessage="No orders found."
 				initialPageSize={20}
+				key={trimmedSearch}
 			/>
 		);
 	}
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-end">
+			<div className="flex items-center gap-2">
+				<InputGroup className="min-w-0 flex-1">
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>
+							<SearchIcon aria-hidden />
+						</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label="Search orders by ID"
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="Search by order ID (LHA-XXXXXX)…"
+						type="search"
+						value={search}
+					/>
+				</InputGroup>
 				<AddOrder projectId={projectId} />
 			</div>
 			{content}

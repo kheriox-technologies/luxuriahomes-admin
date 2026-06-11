@@ -82,20 +82,29 @@ import {
 	Check,
 	Download,
 	EllipsisVertical,
+	ExternalLink,
 	Info,
 	MapPin,
 	Pencil,
 	Plus,
 	SearchIcon,
+	ShoppingCart,
 	SquaresIntersect,
 	StickyNote,
 	Trash2,
 	X,
 } from 'lucide-react';
 import NextImage from 'next/image';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from 'react';
 import { signCdnUrls } from '@/actions/cdn';
 import LocationCombobox from '@/components/inclusions/location-combobox';
+import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
@@ -105,6 +114,17 @@ type ProjectInclusion = NonNullable<
 >[number];
 type ProjectInclusionNote = Doc<'projectInclusionNotes'>;
 type InclusionCategory = Doc<'inclusionCategories'>;
+
+interface PendingOrderItem {
+	color?: string;
+	details?: string;
+	inclusionId: Id<'projectInclusions'>;
+	models: string[];
+	title: string;
+	totalQty: number;
+	unit: string;
+	vendor: string;
+}
 
 const audFormatter = new Intl.NumberFormat('en-AU', {
 	style: 'currency',
@@ -160,6 +180,21 @@ function inclusionStatusBadgeVariant(
 	status: NonNullable<ProjectInclusion['status']>
 ): 'success' | 'warning' {
 	return status === 'Approved' ? 'success' : 'warning';
+}
+
+function inclusionOrderStatusBadgeVariant(
+	status: NonNullable<ProjectInclusion['orderStatus']>
+): 'warning' | 'info' | 'purple' | 'success' {
+	switch (status) {
+		case 'Order Created':
+			return 'warning';
+		case 'Ordered':
+			return 'info';
+		case 'In Transit':
+			return 'purple';
+		default:
+			return 'success';
+	}
 }
 
 function DeleteProjectInclusionDialog({
@@ -766,8 +801,14 @@ function ProjectInclusionNotesLink({
 
 function ProjectInclusionActionsCell({
 	inclusion,
+	projectId,
+	pendingOrderItems,
+	onAddToOrder,
 }: {
 	inclusion: ProjectInclusion;
+	projectId: Id<'projects'>;
+	pendingOrderItems: PendingOrderItem[];
+	onAddToOrder: (inclusion: ProjectInclusion) => void;
 }) {
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
@@ -778,6 +819,15 @@ function ProjectInclusionActionsCell({
 		api.projectInclusions.update.update
 	);
 	const isApproved = inclusion.status === 'Approved';
+
+	const activeVendor = pendingOrderItems[0]?.vendor;
+	const isAlreadyInOrder = pendingOrderItems.some(
+		(item) => item.inclusionId === inclusion._id
+	);
+	const canAddToOrder =
+		isApproved &&
+		!isAlreadyInOrder &&
+		(!activeVendor || activeVendor === inclusion.vendor);
 
 	const onToggleApprove = async () => {
 		setApproveLoading(true);
@@ -841,6 +891,30 @@ function ProjectInclusionActionsCell({
 						<MapPin />
 						Edit Quantities
 					</MenuItem>
+					<MenuItem
+						disabled={!canAddToOrder}
+						onClick={() => {
+							if (canAddToOrder) {
+								onAddToOrder(inclusion);
+							}
+						}}
+					>
+						<ShoppingCart />
+						Add to order
+					</MenuItem>
+					{inclusion.orderRefId ? (
+						<MenuItem
+							onClick={() => {
+								window.open(
+									`/projects/${projectId}?tab=orders&orderId=${inclusion.orderRefId}`,
+									'_blank'
+								);
+							}}
+						>
+							<ExternalLink />
+							View Order
+						</MenuItem>
+					) : null}
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
@@ -874,13 +948,25 @@ function ProjectInclusionActionsCell({
 function ProjectInclusionsTableInFrame({
 	section,
 	mode,
+	groupType,
+	projectId,
+	pendingOrderItems,
+	onAddToOrder,
+	onCreateVendorGroupOrder,
 }: {
 	section: InclusionSection;
 	mode: 'builder' | 'client';
+	groupType: GroupBy;
+	projectId: Id<'projects'>;
+	pendingOrderItems: PendingOrderItem[];
+	onAddToOrder: (inclusion: ProjectInclusion) => void;
+	onCreateVendorGroupOrder: (inclusions: ProjectInclusion[]) => Promise<void>;
 }) {
 	const showPricing = mode === 'builder';
 	const [bulkLoading, setBulkLoading] = useState(false);
 	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+	const [vendorOrderLoading, setVendorOrderLoading] = useState(false);
+	const [vendorOrderConfirmOpen, setVendorOrderConfirmOpen] = useState(false);
 	const [signedImageUrls, setSignedImageUrls] = useState<
 		Record<string, string>
 	>({});
@@ -942,6 +1028,28 @@ function ProjectInclusionsTableInFrame({
 		}
 	};
 
+	const isVendorGroup = groupType === 'vendor';
+	const alreadyOrderedInclusions = section.inclusions.filter(
+		(inc) => inc.orderRefId
+	);
+	const unorderedInclusions = section.inclusions.filter(
+		(inc) => !inc.orderRefId
+	);
+	const showCreateOrderButton =
+		isVendorGroup && allApproved && unorderedInclusions.length > 0;
+
+	const handleVendorGroupOrder = async (inclusions: ProjectInclusion[]) => {
+		setVendorOrderLoading(true);
+		try {
+			await onCreateVendorGroupOrder(inclusions);
+			setVendorOrderConfirmOpen(false);
+		} catch {
+			/* Error handled in onCreateVendorGroupOrder */
+		} finally {
+			setVendorOrderLoading(false);
+		}
+	};
+
 	return (
 		<Frame className="w-full">
 			<FrameHeader className="flex flex-row items-center justify-between gap-3">
@@ -956,6 +1064,74 @@ function ProjectInclusionsTableInFrame({
 					<Badge className="shrink-0" size="lg" variant="purple">
 						{formatSignedAud(section.totalVariationPrice)}
 					</Badge>
+					{showCreateOrderButton && alreadyOrderedInclusions.length > 0 ? (
+						<AlertDialog
+							onOpenChange={setVendorOrderConfirmOpen}
+							open={vendorOrderConfirmOpen}
+						>
+							<AlertDialogTrigger
+								render={
+									<Button
+										loading={vendorOrderLoading}
+										type="button"
+										variant="outline"
+									/>
+								}
+							>
+								<ShoppingCart />
+								Create Order
+							</AlertDialogTrigger>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>
+										Some items already ordered
+									</AlertDialogTitle>
+									<AlertDialogDescription>
+										The following items are already part of an order and will be
+										skipped:
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<ul className="px-6 pb-2 text-sm">
+									{alreadyOrderedInclusions.map((inc) => (
+										<li key={inc._id}>{inc.title}</li>
+									))}
+								</ul>
+								<AlertDialogFooter>
+									<AlertDialogClose
+										render={<Button type="button" variant="outline" />}
+									>
+										Cancel
+									</AlertDialogClose>
+									<Button
+										loading={vendorOrderLoading}
+										onClick={() => {
+											handleVendorGroupOrder(unorderedInclusions).catch(() => {
+												/* handled */
+											});
+										}}
+										type="button"
+									>
+										Create Order
+									</Button>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+					) : null}
+					{showCreateOrderButton && alreadyOrderedInclusions.length === 0 ? (
+						<Button
+							loading={vendorOrderLoading}
+							onClick={() => {
+								handleVendorGroupOrder(section.inclusions).catch(() => {
+									/* handled */
+								});
+							}}
+							type="button"
+							variant="outline"
+						>
+							<ShoppingCart />
+							Create Order
+						</Button>
+					) : null}
 					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
 						<AlertDialogTrigger
 							render={
@@ -1013,6 +1189,7 @@ function ProjectInclusionsTableInFrame({
 								</TableHead>
 								<TableHead className="whitespace-nowrap">Colour</TableHead>
 								<TableHead className="whitespace-nowrap">Status</TableHead>
+								<TableHead className="whitespace-nowrap">Order</TableHead>
 								<TableHead className="whitespace-nowrap">Quantity</TableHead>
 								{showPricing ? (
 									<TableHead className="whitespace-nowrap text-end">
@@ -1097,6 +1274,32 @@ function ProjectInclusionsTableInFrame({
 											</Badge>
 										</TableCell>
 										<TableCell className="whitespace-normal align-top">
+											{inclusion.orderStatus && inclusion.orderRefId ? (
+												<button
+													className="text-left"
+													onClick={() => {
+														window.open(
+															`/projects/${projectId}?tab=orders&orderId=${inclusion.orderRefId}`,
+															'_blank'
+														);
+													}}
+													type="button"
+												>
+													<Badge
+														className="cursor-pointer hover:opacity-80"
+														size="lg"
+														variant={inclusionOrderStatusBadgeVariant(
+															inclusion.orderStatus
+														)}
+													>
+														{inclusion.orderStatus}
+													</Badge>
+												</button>
+											) : (
+												<span className="text-muted-foreground">—</span>
+											)}
+										</TableCell>
+										<TableCell className="whitespace-normal align-top">
 											{inclusion.locations && inclusion.locations.length > 0 ? (
 												<div className="flex flex-col gap-0.5 text-sm">
 													<span className="font-medium tabular-nums">
@@ -1146,7 +1349,12 @@ function ProjectInclusionsTableInFrame({
 											</div>
 										</TableCell>
 										<TableCell className="w-[3rem] min-w-[3rem] max-w-[3rem] align-middle">
-											<ProjectInclusionActionsCell inclusion={inclusion} />
+											<ProjectInclusionActionsCell
+												inclusion={inclusion}
+												onAddToOrder={onAddToOrder}
+												pendingOrderItems={pendingOrderItems}
+												projectId={projectId}
+											/>
 										</TableCell>
 									</TableRow>
 								);
@@ -1154,6 +1362,92 @@ function ProjectInclusionsTableInFrame({
 						</TableBody>
 					</Table>
 				</div>
+			</FramePanel>
+		</Frame>
+	);
+}
+
+function NewOrderBuilderCard({
+	items,
+	onRemove,
+	onCreateOrder,
+	onCancel,
+	isCreating,
+}: {
+	items: PendingOrderItem[];
+	onRemove: (inclusionId: Id<'projectInclusions'>) => void;
+	onCreateOrder: (orderBy: Date | undefined) => void;
+	onCancel: () => void;
+	isCreating: boolean;
+}) {
+	const [orderBy, setOrderBy] = useState<Date | undefined>(undefined);
+
+	if (items.length === 0) {
+		return null;
+	}
+	return (
+		<Frame className="w-full">
+			<FrameHeader className="flex flex-row items-center justify-between gap-3">
+				<div className="min-w-0">
+					<FrameTitle>{items[0].vendor}</FrameTitle>
+					<FrameDescription>
+						<Badge size="lg" variant="secondary">
+							{items.length} {items.length === 1 ? 'item' : 'items'}
+						</Badge>
+					</FrameDescription>
+				</div>
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<div className="w-44 shrink-0">
+						<ProjectStartDatePicker
+							onChange={setOrderBy}
+							placeholder="Order by"
+							value={orderBy}
+						/>
+					</div>
+					<Button
+						disabled={isCreating}
+						onClick={() => {
+							setOrderBy(undefined);
+							onCancel();
+						}}
+						type="button"
+						variant="outline"
+					>
+						Cancel
+					</Button>
+					<Button
+						loading={isCreating}
+						onClick={() => onCreateOrder(orderBy)}
+						type="button"
+					>
+						Create Order
+					</Button>
+				</div>
+			</FrameHeader>
+			<FramePanel className="flex flex-wrap gap-2 p-3">
+				{items.map((item) => (
+					<Badge
+						className="flex items-center gap-1.5 pr-1"
+						key={String(item.inclusionId)}
+						size="lg"
+						variant="outline"
+					>
+						<span>
+							{item.title}
+							{item.totalQty > 0
+								? ` · ${item.totalQty}${item.unit ? ` ${item.unit}` : ''}`
+								: ''}
+						</span>
+						<button
+							aria-label={`Remove ${item.title} from order`}
+							className="flex items-center rounded-sm opacity-60 hover:opacity-100 focus-visible:outline-none focus-visible:ring-1"
+							onClick={() => onRemove(item.inclusionId)}
+							type="button"
+						>
+							<X className="size-3.5" />
+						</button>
+					</Badge>
+				))}
 			</FramePanel>
 		</Frame>
 	);
@@ -1177,10 +1471,15 @@ export default function ProjectInclusionsTabContent({
 	const categories = useQuery(api.inclusionCategories.list.list, {});
 	const project = useQuery(api.projects.get.get, { projectId });
 	const mode = useAppModeStore((state) => state.mode);
+	const addOrder = useMutation(api.projectOrders.add.add);
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const [groupBy, setGroupBy] = useState<GroupBy>('category');
+	const [pendingOrderItems, setPendingOrderItems] = useState<
+		PendingOrderItem[]
+	>([]);
+	const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -1333,6 +1632,122 @@ export default function ProjectInclusionsTabContent({
 		return { loading: false as const, list };
 	}, [trimmedSearch, variantSearchResults, sections]);
 
+	const inclusionById = useMemo(() => {
+		const map = new Map<Id<'projectInclusions'>, ProjectInclusion>();
+		for (const inc of inclusions ?? []) {
+			map.set(inc._id, inc);
+		}
+		return map;
+	}, [inclusions]);
+
+	const onAddToOrder = useCallback((inclusion: ProjectInclusion) => {
+		const totalQty =
+			inclusion.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
+		const unit = inclusion.locations?.[0]?.unit ?? '';
+		setPendingOrderItems((prev) => [
+			...prev,
+			{
+				inclusionId: inclusion._id,
+				title: inclusion.title,
+				vendor: inclusion.vendor,
+				totalQty,
+				unit,
+				details: inclusion.details,
+				color: inclusion.color,
+				models: inclusion.models,
+			},
+		]);
+	}, []);
+
+	const onRemoveFromOrder = useCallback(
+		(inclusionId: Id<'projectInclusions'>) => {
+			setPendingOrderItems((prev) =>
+				prev.filter((item) => item.inclusionId !== inclusionId)
+			);
+		},
+		[]
+	);
+
+	const handleCreateOrder = useCallback(
+		async (orderBy: Date | undefined) => {
+			if (pendingOrderItems.length === 0) {
+				return;
+			}
+			setIsCreatingOrder(true);
+			try {
+				const vendor = pendingOrderItems[0].vendor;
+				const items = pendingOrderItems.map((item) => {
+					const inc = inclusionById.get(item.inclusionId);
+					const descParts = [inc?.details, inc?.color].filter(Boolean);
+					return {
+						name: item.title,
+						description:
+							descParts.length > 0 ? descParts.join(', ') : undefined,
+						quantity: item.totalQty > 0 ? item.totalQty : 1,
+						unit: item.unit || 'unit',
+						sku:
+							inc?.models && inc.models.length > 0
+								? inc.models.join(', ')
+								: undefined,
+					};
+				});
+				await addOrder({
+					projectId,
+					vendor,
+					orderBy: orderBy?.getTime(),
+					items,
+					status: 'Pending',
+					inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
+				});
+				toastManager.add({ title: 'Order created', type: 'success' });
+				setPendingOrderItems([]);
+			} catch (error) {
+				toastManager.add({
+					description: getConvexErrorMessage(
+						error,
+						'Could not create order. Please try again in a moment.'
+					),
+					title: 'Could not create order',
+					type: 'error',
+				});
+			} finally {
+				setIsCreatingOrder(false);
+			}
+		},
+		[pendingOrderItems, inclusionById, addOrder, projectId]
+	);
+
+	const handleCreateVendorGroupOrder = useCallback(
+		async (groupInclusions: ProjectInclusion[]) => {
+			if (groupInclusions.length === 0) {
+				return;
+			}
+			const vendor = groupInclusions[0].vendor;
+			const items = groupInclusions.map((inc) => {
+				const descParts = [inc.details, inc.color].filter(Boolean);
+				const totalQty =
+					inc.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
+				const unit = inc.locations?.[0]?.unit ?? 'unit';
+				return {
+					name: inc.title,
+					description: descParts.length > 0 ? descParts.join(', ') : undefined,
+					quantity: totalQty > 0 ? totalQty : 1,
+					unit,
+					sku: inc.models.length > 0 ? inc.models.join(', ') : undefined,
+				};
+			});
+			await addOrder({
+				projectId,
+				vendor,
+				items,
+				status: 'Pending',
+				inclusionIds: groupInclusions.map((inc) => inc._id),
+			});
+			toastManager.add({ title: 'Order created', type: 'success' });
+		},
+		[addOrder, projectId]
+	);
+
 	const onDownloadPdf = async () => {
 		if (!project) {
 			toastManager.add({
@@ -1476,8 +1891,13 @@ export default function ProjectInclusionsTabContent({
 			<div className={cn('flex flex-col gap-4')}>
 				{frames.map((section) => (
 					<ProjectInclusionsTableInFrame
+						groupType={groupBy}
 						key={section.groupKey}
 						mode={mode}
+						onAddToOrder={onAddToOrder}
+						onCreateVendorGroupOrder={handleCreateVendorGroupOrder}
+						pendingOrderItems={pendingOrderItems}
+						projectId={projectId}
 						section={section}
 					/>
 				))}
@@ -1488,6 +1908,17 @@ export default function ProjectInclusionsTabContent({
 	return (
 		<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
 			{toolbar}
+			<NewOrderBuilderCard
+				isCreating={isCreatingOrder}
+				items={pendingOrderItems}
+				onCancel={() => setPendingOrderItems([])}
+				onCreateOrder={(orderBy) => {
+					handleCreateOrder(orderBy).catch(() => {
+						/* handled in handleCreateOrder */
+					});
+				}}
+				onRemove={onRemoveFromOrder}
+			/>
 			{listBody}
 		</div>
 	);

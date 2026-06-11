@@ -2,7 +2,10 @@ import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { buildProjectOrderSearchText } from '../lib/buildSearchText';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
-import { addedByFromIdentity } from '../projectOrders/shared';
+import {
+	addedByFromIdentity,
+	allocateUniqueOrderId,
+} from '../projectOrders/shared';
 
 export const addToProject = mutation({
 	args: {
@@ -103,7 +106,9 @@ export const addToProject = mutation({
 
 		for (const [vendor, items] of vendorMap) {
 			const searchText = buildProjectOrderSearchText(vendor, items);
-			const orderId = await ctx.db.insert('projectOrders', {
+			const orderCode = await allocateUniqueOrderId(ctx);
+			const newOrderId = await ctx.db.insert('projectOrders', {
+				orderId: orderCode,
 				projectId: args.projectId,
 				vendor,
 				orderBy: args.orderBy,
@@ -112,7 +117,7 @@ export const addToProject = mutation({
 				searchText,
 			});
 			await ctx.db.insert('projectOrderStatusHistory', {
-				orderId,
+				orderId: newOrderId,
 				status,
 				label: 'Order Added',
 				changedBy,

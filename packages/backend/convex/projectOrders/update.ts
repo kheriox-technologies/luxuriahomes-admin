@@ -5,6 +5,21 @@ import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { projectOrderStatusValidator } from '../schema';
 import { addedByFromIdentity, getOrderOrThrow } from './shared';
 
+function orderStatusToInclusionOrderStatus(
+	status: string
+): 'Order Created' | 'Ordered' | 'In Transit' | 'Delivered' {
+	switch (status) {
+		case 'Ordered':
+			return 'Ordered';
+		case 'In Transit':
+			return 'In Transit';
+		case 'Delivered':
+			return 'Delivered';
+		default:
+			return 'Order Created';
+	}
+}
+
 export const update = mutation({
 	args: {
 		orderId: v.id('projectOrders'),
@@ -52,6 +67,18 @@ export const update = mutation({
 				changedBy,
 				timestamp: Date.now(),
 			});
+			const inclusionOrderStatus = orderStatusToInclusionOrderStatus(
+				args.status
+			);
+			const inclusions = await ctx.db
+				.query('projectInclusions')
+				.withIndex('by_order_ref', (q) => q.eq('orderRefId', existing.orderId))
+				.collect();
+			await Promise.all(
+				inclusions.map((inc) =>
+					ctx.db.patch(inc._id, { orderStatus: inclusionOrderStatus })
+				)
+			);
 		}
 		return args.orderId;
 	},

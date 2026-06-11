@@ -10,6 +10,7 @@ import {
 import { requireAdmin } from '../lib/checkIdentity';
 import {
 	inclusionVariantClassValidator,
+	projectInclusionOrderStatusValidator,
 	projectInclusionStatusValidator,
 } from '../schema';
 import {
@@ -32,6 +33,8 @@ interface UpdateArgs {
 		| null
 		| undefined;
 	models?: string[] | undefined;
+	orderRefId?: string | null | undefined;
+	orderStatus?: Doc<'projectInclusions'>['orderStatus'] | undefined;
 	projectInclusionId: Doc<'projectInclusions'>['_id'];
 	salePrice?: number | undefined;
 	status?: Doc<'projectInclusions'>['status'] | undefined;
@@ -95,6 +98,15 @@ function applyStatus(args: UpdateArgs, patch: Record<string, unknown>) {
 	}
 }
 
+function applyOrderFields(args: UpdateArgs, patch: Record<string, unknown>) {
+	if (args.orderRefId !== undefined) {
+		patch.orderRefId = args.orderRefId === null ? undefined : args.orderRefId;
+	}
+	if (args.orderStatus !== undefined) {
+		patch.orderStatus = args.orderStatus;
+	}
+}
+
 function applyVariationFields(
 	args: UpdateArgs,
 	patch: Record<string, unknown>
@@ -121,6 +133,7 @@ function buildScalarPatch(args: UpdateArgs): Record<string, unknown> {
 	applyVariationFields(args, patch);
 	applyLocationsField(args, patch);
 	applyStatus(args, patch);
+	applyOrderFields(args, patch);
 	return patch;
 }
 
@@ -194,6 +207,8 @@ export const update = mutation({
 			)
 		),
 		status: v.optional(projectInclusionStatusValidator),
+		orderRefId: v.optional(v.union(v.string(), v.null())),
+		orderStatus: v.optional(projectInclusionOrderStatusValidator),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
