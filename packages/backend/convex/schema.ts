@@ -306,6 +306,7 @@ export default defineSchema({
 		.index('by_material_variant', ['materialVariantId'])
 		.searchIndex('search_material_items', { searchField: 'searchText' }),
 	projectOrders: defineTable({
+		orderId: v.string(),
 		projectId: v.id('projects'),
 		vendor: v.string(),
 		orderBy: v.optional(v.number()),
@@ -323,6 +324,7 @@ export default defineSchema({
 		searchText: v.string(),
 	})
 		.index('by_project', ['projectId'])
+		.index('by_order_id', ['orderId'])
 		.searchIndex('search_project_orders', {
 			searchField: 'searchText',
 			filterFields: ['projectId'],

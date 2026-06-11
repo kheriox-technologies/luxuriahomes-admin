@@ -154,6 +154,14 @@ function formatOrderByDate(timestamp: number): string {
 function buildColumns(): ColumnDef<ProjectOrder>[] {
 	return [
 		{
+			id: 'orderId',
+			header: 'Order ID',
+			size: 130,
+			cell: ({ row }) => (
+				<span className="font-mono text-sm">{row.original.orderId}</span>
+			),
+		},
+		{
 			id: 'vendor',
 			header: 'Vendor',
 			cell: ({ row }) => <OrderVendorCell row={row.original} />,

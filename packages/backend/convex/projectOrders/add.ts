@@ -3,7 +3,7 @@ import { mutation } from '../_generated/server';
 import { buildProjectOrderSearchText } from '../lib/buildSearchText';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { projectOrderStatusValidator } from '../schema';
-import { addedByFromIdentity } from './shared';
+import { addedByFromIdentity, allocateUniqueOrderId } from './shared';
 
 export const add = mutation({
 	args: {
@@ -36,7 +36,9 @@ export const add = mutation({
 			link: item.link?.trim() || undefined,
 		}));
 		const searchText = buildProjectOrderSearchText(vendor, items);
-		const orderId = await ctx.db.insert('projectOrders', {
+		const orderCode = await allocateUniqueOrderId(ctx);
+		const newOrderId = await ctx.db.insert('projectOrders', {
+			orderId: orderCode,
 			projectId: args.projectId,
 			vendor,
 			orderBy: args.orderBy,
@@ -46,12 +48,12 @@ export const add = mutation({
 		});
 		const changedBy = addedByFromIdentity(identity);
 		await ctx.db.insert('projectOrderStatusHistory', {
-			orderId,
+			orderId: newOrderId,
 			status,
 			label: 'Order Added',
 			changedBy,
 			timestamp: Date.now(),
 		});
-		return orderId;
+		return newOrderId;
 	},
 });
