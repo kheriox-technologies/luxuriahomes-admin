@@ -23,7 +23,6 @@ import { useQuery } from 'convex/react';
 import {
 	Building2,
 	ChevronDown,
-	ClipboardList,
 	DollarSign,
 	Layers,
 	List,
@@ -103,12 +102,6 @@ const items: SidebarItem[] = [
 				path: '/service-providers',
 			},
 		],
-	},
-	{
-		title: 'Orders',
-		url: '/orders',
-		path: '/orders',
-		icon: ClipboardList,
 	},
 	{
 		title: 'Stages',

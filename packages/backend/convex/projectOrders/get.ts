@@ -1,15 +1,14 @@
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
 import { getOrderOrThrow } from './shared';
 
-export const remove = mutation({
+export const get = query({
 	args: {
-		orderId: v.id('orders'),
+		orderId: v.id('projectOrders'),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getOrderOrThrow(ctx, args.orderId);
-		await ctx.db.delete(args.orderId);
+		return await getOrderOrThrow(ctx, args.orderId);
 	},
 });

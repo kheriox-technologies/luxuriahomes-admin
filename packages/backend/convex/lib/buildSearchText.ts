@@ -114,13 +114,6 @@ export function buildTaskSearchText(
 	return buildSearchText([name, description]);
 }
 
-export function buildOrderSearchText(
-	name: string,
-	description?: string
-): string {
-	return buildSearchText([name, description]);
-}
-
 export function buildLocationSearchText(
 	name: string,
 	description?: string
@@ -233,6 +226,14 @@ export function buildServiceProviderSearchText(
 		);
 	}
 	return buildSearchText(parts);
+}
+
+export function buildProjectOrderSearchText(
+	name: string,
+	vendor: string,
+	description?: string
+): string {
+	return buildSearchText([name, vendor, description]);
 }
 
 export function buildInclusionAggregateSearchText(

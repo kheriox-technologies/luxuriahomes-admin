@@ -31,6 +31,13 @@ export const quotationStatusValidator = v.union(
 	v.literal('Rejected')
 );
 
+export const projectOrderStatusValidator = v.union(
+	v.literal('Pending'),
+	v.literal('Ordered'),
+	v.literal('In Transit'),
+	v.literal('Delivered')
+);
+
 export const stageDependencyTypeValidator = v.union(
 	v.literal('after'),
 	v.literal('alongWith')
@@ -163,19 +170,6 @@ export default defineSchema({
 		.index('by_stage', ['stageId'])
 		.index('by_stage_display_order', ['stageId', 'displayOrder'])
 		.searchIndex('search_tasks', { searchField: 'searchText' }),
-	orders: defineTable({
-		name: v.string(),
-		description: v.optional(v.string()),
-		stageId: v.optional(v.id('stages')),
-		taskId: v.optional(v.id('tasks')),
-		materials: v.optional(
-			v.array(v.object({ name: v.string(), units: v.string() }))
-		),
-		searchText: v.string(),
-	})
-		.index('by_stage', ['stageId'])
-		.index('by_task', ['taskId'])
-		.searchIndex('search_orders', { searchField: 'searchText' }),
 	units: defineTable({
 		category: v.string(),
 		abbr: v.string(),
@@ -309,4 +303,33 @@ export default defineSchema({
 	})
 		.index('by_material_variant', ['materialVariantId'])
 		.searchIndex('search_material_items', { searchField: 'searchText' }),
+	projectOrders: defineTable({
+		projectId: v.id('projects'),
+		name: v.string(),
+		description: v.optional(v.string()),
+		vendor: v.string(),
+		quantity: v.number(),
+		unit: v.string(),
+		link: v.optional(v.string()),
+		status: projectOrderStatusValidator,
+		searchText: v.string(),
+	})
+		.index('by_project', ['projectId'])
+		.searchIndex('search_project_orders', {
+			searchField: 'searchText',
+			filterFields: ['projectId'],
+		}),
+	projectOrderStatusHistory: defineTable({
+		orderId: v.id('projectOrders'),
+		status: projectOrderStatusValidator,
+		label: v.string(),
+		changedBy: v.string(),
+		timestamp: v.number(),
+	}).index('by_order', ['orderId']),
+	projectOrderNotes: defineTable({
+		orderId: v.id('projectOrders'),
+		timestamp: v.number(),
+		addedBy: v.string(),
+		note: v.string(),
+	}).index('by_order', ['orderId']),
 });

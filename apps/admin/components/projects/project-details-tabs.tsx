@@ -8,12 +8,14 @@ import {
 	TabsTab,
 } from '@workspace/ui/components/tabs';
 import {
+	ClipboardList,
 	DollarSign,
 	FileText,
 	Handshake,
 	SquaresIntersect,
 	Users,
 } from 'lucide-react';
+import ProjectOrdersTabContent from '@/components/orders/orders-tab-content';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
@@ -70,6 +72,13 @@ export default function ProjectDetailsTabs({
 					<Handshake />
 					Service Providers
 				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="orders"
+				>
+					<ClipboardList />
+					Orders
+				</TabsTab>
 			</TabsList>
 			<TabsPanel className="overflow-auto p-4" value="clients">
 				<ProjectClientsTabContent clients={clients} />
@@ -85,6 +94,9 @@ export default function ProjectDetailsTabs({
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="contacts">
 				<ProjectServiceProvidersTabContent projectId={projectId} />
+			</TabsPanel>
+			<TabsPanel className="overflow-auto p-4" value="orders">
+				<ProjectOrdersTabContent projectId={projectId} />
 			</TabsPanel>
 		</Tabs>
 	);
