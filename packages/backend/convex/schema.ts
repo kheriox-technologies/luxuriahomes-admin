@@ -305,18 +305,21 @@ export default defineSchema({
 		.searchIndex('search_material_items', { searchField: 'searchText' }),
 	projectOrders: defineTable({
 		projectId: v.id('projects'),
-		projectInclusionId: v.optional(v.id('projectInclusions')),
-		name: v.string(),
-		description: v.optional(v.string()),
 		vendor: v.string(),
-		quantity: v.number(),
-		unit: v.string(),
-		link: v.optional(v.string()),
+		orderBy: v.optional(v.number()),
+		items: v.array(
+			v.object({
+				name: v.string(),
+				description: v.optional(v.string()),
+				quantity: v.number(),
+				unit: v.string(),
+				link: v.optional(v.string()),
+			})
+		),
 		status: projectOrderStatusValidator,
 		searchText: v.string(),
 	})
 		.index('by_project', ['projectId'])
-		.index('by_project_inclusion', ['projectInclusionId'])
 		.searchIndex('search_project_orders', {
 			searchField: 'searchText',
 			filterFields: ['projectId'],

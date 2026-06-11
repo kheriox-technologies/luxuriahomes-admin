@@ -7,9 +7,7 @@ import {
 	parseOptionalDetail,
 	parseVendor,
 } from '../inclusionVariants/shared';
-import { buildProjectOrderSearchText } from '../lib/buildSearchText';
-import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
-import { addedByFromIdentity } from '../projectOrders/shared';
+import { requireAdmin } from '../lib/checkIdentity';
 import {
 	buildProjectInclusionSearchText,
 	buildVariationFromStandard,
@@ -118,36 +116,6 @@ export const add = mutation({
 			'projectInclusions',
 			nextValues
 		);
-
-		if (totalQuantity > 0) {
-			const identity = await checkIdentity(ctx);
-			const orderUnit = args.locations?.find((loc) => loc.unit)?.unit ?? '';
-			const orderDescription = color || undefined;
-			const orderSearchText = buildProjectOrderSearchText(
-				title,
-				vendor,
-				orderDescription
-			);
-			const orderId = await ctx.db.insert('projectOrders', {
-				projectId: args.projectId,
-				projectInclusionId,
-				name: title,
-				description: orderDescription,
-				vendor,
-				quantity: totalQuantity,
-				unit: orderUnit,
-				link,
-				status: 'Pending',
-				searchText: orderSearchText,
-			});
-			await ctx.db.insert('projectOrderStatusHistory', {
-				orderId,
-				status: 'Pending',
-				label: 'Order Added',
-				changedBy: addedByFromIdentity(identity),
-				timestamp: Date.now(),
-			});
-		}
 
 		return projectInclusionId;
 	},

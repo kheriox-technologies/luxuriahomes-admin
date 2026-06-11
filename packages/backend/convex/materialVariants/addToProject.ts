@@ -9,6 +9,7 @@ export const addToProject = mutation({
 		projectId: v.id('projects'),
 		variantId: v.id('materialVariants'),
 		quantity: v.number(),
+		orderBy: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -45,33 +46,65 @@ export const addToProject = mutation({
 			});
 		}
 
-		const items = await ctx.db
+		const materialItems = await ctx.db
 			.query('materialItems')
 			.withIndex('by_material_variant', (q) =>
 				q.eq('materialVariantId', args.variantId)
 			)
 			.collect();
 
+		interface OrderItem {
+			description?: string;
+			link?: string;
+			name: string;
+			quantity: number;
+			unit: string;
+		}
+
+		const vendorMap = new Map<string, OrderItem[]>();
+
+		const addToVendor = (vendorKey: string, item: OrderItem) => {
+			const existing = vendorMap.get(vendorKey);
+			if (existing) {
+				existing.push(item);
+			} else {
+				vendorMap.set(vendorKey, [item]);
+			}
+		};
+
+		addToVendor(variant.vendor.trim(), {
+			name: variant.name.trim(),
+			description: variant.description?.trim() || undefined,
+			quantity: args.quantity,
+			unit: materialUnit.abbr,
+			link: variant.link?.trim() || undefined,
+		});
+
+		for (const item of materialItems) {
+			if (item.quantity === undefined) {
+				continue;
+			}
+			const itemUnit = await ctx.db.get(item.unit);
+			const itemUnitAbbr = itemUnit?.abbr ?? materialUnit.abbr;
+			addToVendor(item.vendor.trim(), {
+				name: item.name.trim(),
+				description: item.description?.trim() || undefined,
+				quantity: item.quantity * args.quantity,
+				unit: itemUnitAbbr,
+				link: item.link?.trim() || undefined,
+			});
+		}
+
 		const changedBy = addedByFromIdentity(identity);
 		const status = 'Pending' as const;
 
-		const insertOrder = async (
-			name: string,
-			vendor: string,
-			quantity: number,
-			unit: string,
-			link?: string,
-			description?: string
-		) => {
-			const searchText = buildProjectOrderSearchText(name, vendor, description);
+		for (const [vendor, items] of vendorMap) {
+			const searchText = buildProjectOrderSearchText(vendor, items);
 			const orderId = await ctx.db.insert('projectOrders', {
 				projectId: args.projectId,
-				name: name.trim(),
-				vendor: vendor.trim(),
-				quantity,
-				unit: unit.trim(),
-				link: link?.trim() || undefined,
-				description: description?.trim() || undefined,
+				vendor,
+				orderBy: args.orderBy,
+				items,
 				status,
 				searchText,
 			});
@@ -82,31 +115,6 @@ export const addToProject = mutation({
 				changedBy,
 				timestamp: Date.now(),
 			});
-		};
-
-		await insertOrder(
-			variant.name,
-			variant.vendor,
-			args.quantity,
-			materialUnit.abbr,
-			variant.link,
-			variant.description
-		);
-
-		for (const item of items) {
-			if (item.quantity === undefined) {
-				continue;
-			}
-			const itemUnit = await ctx.db.get(item.unit);
-			const itemUnitAbbr = itemUnit?.abbr ?? materialUnit.abbr;
-			await insertOrder(
-				item.name,
-				item.vendor,
-				item.quantity * args.quantity,
-				itemUnitAbbr,
-				item.link,
-				item.description
-			);
 		}
 	},
 });

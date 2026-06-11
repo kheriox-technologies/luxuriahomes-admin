@@ -229,11 +229,14 @@ export function buildServiceProviderSearchText(
 }
 
 export function buildProjectOrderSearchText(
-	name: string,
 	vendor: string,
-	description?: string
+	items: Array<{ name: string; description?: string }>
 ): string {
-	return buildSearchText([name, vendor, description]);
+	const parts: Array<string | undefined> = [
+		vendor,
+		...items.flatMap((i) => [i.name, i.description]),
+	];
+	return buildSearchText(parts);
 }
 
 export function buildInclusionAggregateSearchText(
