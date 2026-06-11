@@ -24,7 +24,6 @@ import {
 	Building2,
 	ChevronDown,
 	DollarSign,
-	Layers,
 	List,
 	type LucideIcon,
 	Package,
@@ -102,12 +101,6 @@ const items: SidebarItem[] = [
 				path: '/service-providers',
 			},
 		],
-	},
-	{
-		title: 'Stages',
-		url: '/stages',
-		path: '/stages',
-		icon: Layers,
 	},
 ];
 
