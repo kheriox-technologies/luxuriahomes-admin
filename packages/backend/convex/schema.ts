@@ -303,6 +303,7 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		vendor: v.string(),
 		unit: v.id('units'),
+		quantity: v.optional(v.number()),
 		link: v.optional(v.string()),
 		searchText: v.string(),
 	})

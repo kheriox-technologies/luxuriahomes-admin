@@ -58,7 +58,7 @@ export default function AddMaterialItem({
 		try {
 			const { data } = parsed;
 			const newVendorTrimmed = data.newVendorName?.trim();
-			const resolvedVendor = newVendorTrimmed ?? data.vendor.trim();
+			const resolvedVendor = newVendorTrimmed || data.vendor.trim();
 			if (newVendorTrimmed) {
 				await addVendor({ name: newVendorTrimmed });
 			}
@@ -68,12 +68,14 @@ export default function AddMaterialItem({
 				description: data.description?.trim() || undefined,
 				vendor: resolvedVendor,
 				unit: data.unit as never,
+				quantity: Number(data.quantity),
 				link: data.link?.trim() || undefined,
 			});
 			toastManager.add({ title: 'Item added', type: 'success' });
 			setDraft(emptyMaterialItemDraft);
 			setOpen(false);
 		} catch (error) {
+			setOpen(false);
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
@@ -180,6 +182,21 @@ export default function AddMaterialItem({
 							onChange={(next) => setDraft((p) => ({ ...p, unit: next }))}
 							units={units}
 							value={draft.unit}
+						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="add-item-quantity">Quantity</FieldLabel>
+						<Input
+							id="add-item-quantity"
+							min="0"
+							nativeInput
+							onChange={(e) =>
+								setDraft((p) => ({ ...p, quantity: e.target.value }))
+							}
+							placeholder="e.g. 100"
+							step="any"
+							type="number"
+							value={draft.quantity}
 						/>
 					</Field>
 					<Field>

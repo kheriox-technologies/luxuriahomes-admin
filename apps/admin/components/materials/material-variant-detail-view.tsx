@@ -151,32 +151,31 @@ export default function MaterialVariantDetailView({
 			{
 				accessorKey: 'vendor',
 				header: 'Vendor',
-				cell: ({ row }) => (
-					<span className="text-muted-foreground text-sm">
-						{row.original.vendor}
-					</span>
-				),
+				cell: ({ row }) => <span>{row.original.vendor}</span>,
 			},
 			{
-				id: 'unit',
-				header: 'Unit',
-				cell: ({ row }) =>
-					unitAbbrById.get(row.original.unit) ? (
-						<Badge size="sm" variant="outline">
-							{unitAbbrById.get(row.original.unit)}
-						</Badge>
-					) : (
-						<span className="text-muted-foreground">—</span>
-					),
+				id: 'quantity',
+				header: 'Quantity',
+				cell: ({ row }) => {
+					const { quantity } = row.original;
+					if (quantity === undefined) {
+						return <span className="text-muted-foreground">—</span>;
+					}
+					const itemUnitAbbr = unitAbbrById.get(row.original.unit) ?? '';
+					const materialUnitAbbr = data?.unit?.abbr ?? '';
+					return (
+						<span className="text-sm">
+							{quantity} {itemUnitAbbr} / {materialUnitAbbr}
+						</span>
+					);
+				},
 			},
 			{
 				accessorKey: 'description',
 				header: 'Description',
 				cell: ({ row }) =>
 					row.original.description ? (
-						<span className="text-muted-foreground text-sm">
-							{row.original.description}
-						</span>
+						<span>{row.original.description}</span>
 					) : (
 						<span className="text-muted-foreground">—</span>
 					),
@@ -210,7 +209,7 @@ export default function MaterialVariantDetailView({
 				),
 			},
 		],
-		[unitAbbrById]
+		[unitAbbrById, data]
 	);
 
 	if (data === undefined || itemsData === undefined) {
@@ -277,15 +276,15 @@ export default function MaterialVariantDetailView({
 				}
 				metaSlot={
 					<>
-						<Badge size="sm" variant="secondary">
+						<Badge size="lg" variant="secondary">
 							{material.name}
 						</Badge>
 						{unit ? (
-							<Badge size="sm" variant="outline">
+							<Badge size="lg" variant="outline">
 								{unit.abbr}
 							</Badge>
 						) : null}
-						<Badge size="sm" variant="secondary">
+						<Badge size="lg" variant="secondary">
 							{formatItemCountBadgeLabel(variant.itemCount)}
 						</Badge>
 					</>

@@ -74,7 +74,7 @@ export default function AddMaterialVariant({
 			const parsed = materialVariantFormSchema.parse(value);
 			try {
 				const newVendorTrimmed = parsed.newVendorName?.trim();
-				const resolvedVendor = newVendorTrimmed ?? parsed.vendor.trim();
+				const resolvedVendor = newVendorTrimmed || parsed.vendor.trim();
 				if (newVendorTrimmed) {
 					await addVendor({ name: newVendorTrimmed });
 				}
@@ -89,7 +89,7 @@ export default function AddMaterialVariant({
 
 				for (const item of items) {
 					const itemNewVendorTrimmed = item.newVendorName?.trim();
-					const itemVendor = itemNewVendorTrimmed ?? item.vendor.trim();
+					const itemVendor = itemNewVendorTrimmed || item.vendor.trim();
 					if (itemNewVendorTrimmed) {
 						await addVendor({ name: itemNewVendorTrimmed });
 					}
@@ -99,6 +99,7 @@ export default function AddMaterialVariant({
 						description: item.description?.trim() || undefined,
 						vendor: itemVendor,
 						unit: item.unit as never,
+						quantity: item.quantity ? Number(item.quantity) : undefined,
 						link: item.link?.trim() || undefined,
 					});
 				}

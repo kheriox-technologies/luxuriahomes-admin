@@ -12,6 +12,7 @@ export const update = mutation({
 		description: v.optional(v.string()),
 		vendor: v.string(),
 		unit: v.id('units'),
+		quantity: v.optional(v.number()),
 		link: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
@@ -42,6 +43,7 @@ export const update = mutation({
 			description,
 			vendor,
 			unit: args.unit,
+			quantity: args.quantity,
 			link,
 			searchText,
 		});

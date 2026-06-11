@@ -191,6 +191,21 @@ export function MaterialItemDraftFields({
 				/>
 			</Field>
 			<Field>
+				<FieldLabel htmlFor="item-draft-quantity">Quantity</FieldLabel>
+				<Input
+					id="item-draft-quantity"
+					min="0"
+					nativeInput
+					onChange={(e) =>
+						setDraft((p) => ({ ...p, quantity: e.target.value }))
+					}
+					placeholder="e.g. 100"
+					step="any"
+					type="number"
+					value={draft.quantity}
+				/>
+			</Field>
+			<Field>
 				<FieldLabel htmlFor="item-draft-link">
 					Link <span className="text-muted-foreground text-xs">(optional)</span>
 				</FieldLabel>

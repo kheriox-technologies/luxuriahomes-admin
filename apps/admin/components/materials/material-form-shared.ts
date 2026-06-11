@@ -51,6 +51,13 @@ export const materialItemDraftSchema = z
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
 		unit: z.string().min(1, 'Unit is required'),
+		quantity: z
+			.string()
+			.min(1, 'Quantity is required')
+			.refine(
+				(v) => !Number.isNaN(Number(v)) && Number(v) > 0,
+				'Quantity must be a positive number'
+			),
 		link: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
@@ -71,6 +78,7 @@ export const emptyMaterialItemDraft: MaterialItemDraftValues = {
 	vendor: '',
 	newVendorName: '',
 	unit: '',
+	quantity: '',
 	link: '',
 };
 
