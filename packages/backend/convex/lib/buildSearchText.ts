@@ -100,20 +100,6 @@ export function buildInclusionVariantSearchText(
 	]);
 }
 
-export function buildStageSearchText(
-	name: string,
-	description?: string
-): string {
-	return buildSearchText([name, description]);
-}
-
-export function buildTaskSearchText(
-	name: string,
-	description?: string
-): string {
-	return buildSearchText([name, description]);
-}
-
 export function buildLocationSearchText(
 	name: string,
 	description?: string

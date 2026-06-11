@@ -45,16 +45,6 @@ export const projectInclusionOrderStatusValidator = v.union(
 	v.literal('Delivered')
 );
 
-export const stageDependencyTypeValidator = v.union(
-	v.literal('after'),
-	v.literal('alongWith')
-);
-
-export const taskDependencyTypeValidator = v.union(
-	v.literal('after'),
-	v.literal('alongWith')
-);
-
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -146,40 +136,6 @@ export default defineSchema({
 		startDate: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
-	stages: defineTable({
-		name: v.string(),
-		description: v.optional(v.string()),
-		taskCount: v.number(),
-		totalDuration: v.number(),
-		displayOrder: v.number(),
-		dependsOn: v.array(
-			v.object({
-				stageId: v.id('stages'),
-				type: stageDependencyTypeValidator,
-			})
-		),
-		searchText: v.string(),
-	})
-		.index('by_name', ['name'])
-		.index('by_display_order', ['displayOrder'])
-		.searchIndex('search_stages', { searchField: 'searchText' }),
-	tasks: defineTable({
-		stageId: v.id('stages'),
-		name: v.string(),
-		description: v.optional(v.string()),
-		duration: v.number(),
-		displayOrder: v.number(),
-		dependsOn: v.array(
-			v.object({
-				taskId: v.id('tasks'),
-				type: taskDependencyTypeValidator,
-			})
-		),
-		searchText: v.string(),
-	})
-		.index('by_stage', ['stageId'])
-		.index('by_stage_display_order', ['stageId', 'displayOrder'])
-		.searchIndex('search_tasks', { searchField: 'searchText' }),
 	units: defineTable({
 		category: v.string(),
 		abbr: v.string(),
