@@ -4,6 +4,7 @@ import { env } from '@workspace/env/admin';
 import { getProjectInclusionsPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
 
 export interface OrderPdfItem {
+	description?: string;
 	link?: string;
 	name: string;
 	quantity: number;
@@ -110,12 +111,14 @@ function buildOrderDocDefinition(
 	const tableBody: unknown[][] = [
 		[
 			{ text: 'Name', bold: true, fillColor: '#f3f4f6' },
+			{ text: 'Description', bold: true, fillColor: '#f3f4f6' },
 			{ text: 'SKU', bold: true, fillColor: '#f3f4f6' },
 			{ text: 'Link', bold: true, fillColor: '#f3f4f6' },
 			{ text: 'Quantity', bold: true, fillColor: '#f3f4f6' },
 		],
 		...options.items.map((item) => [
 			item.name,
+			item.description ?? '—',
 			item.sku ?? '—',
 			item.link ? { text: item.link, link: item.link } : '—',
 			`${item.quantity} ${item.unit}`,
@@ -166,7 +169,7 @@ function buildOrderDocDefinition(
 			{
 				table: {
 					headerRows: 1,
-					widths: ['*', '15%', '25%', '15%'],
+					widths: ['*', '20%', '12%', '20%', '13%'],
 					body: tableBody,
 				},
 				layout: 'lightHorizontalLines',
