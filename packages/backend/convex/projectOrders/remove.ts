@@ -7,7 +7,7 @@ export const remove = mutation({
 	args: { orderId: v.id('projectOrders') },
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getOrderOrThrow(ctx, args.orderId);
+		const order = await getOrderOrThrow(ctx, args.orderId);
 
 		const notes = await ctx.db
 			.query('projectOrderNotes')
@@ -23,6 +23,17 @@ export const remove = mutation({
 			.collect();
 		for (const entry of history) {
 			await ctx.db.delete(entry._id);
+		}
+
+		const inclusions = await ctx.db
+			.query('projectInclusions')
+			.withIndex('by_order_ref', (q) => q.eq('orderRefId', order.orderId))
+			.collect();
+		for (const inclusion of inclusions) {
+			await ctx.db.patch(inclusion._id, {
+				orderRefId: undefined,
+				orderStatus: undefined,
+			});
 		}
 
 		await ctx.db.delete(args.orderId);

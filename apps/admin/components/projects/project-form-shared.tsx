@@ -420,10 +420,12 @@ export function ProjectStartDatePicker({
 	value,
 	onChange,
 	onBlur,
+	placeholder = 'Select start date',
 }: {
 	value: Date | undefined;
 	onChange: (date: Date | undefined) => void;
 	onBlur?: () => void;
+	placeholder?: string;
 }) {
 	const label = value
 		? value.toLocaleDateString('en-AU', {
@@ -431,7 +433,7 @@ export function ProjectStartDatePicker({
 				month: 'long',
 				year: 'numeric',
 			})
-		: 'Select start date';
+		: placeholder;
 
 	return (
 		<Popover>

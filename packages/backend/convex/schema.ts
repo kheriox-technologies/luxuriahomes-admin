@@ -38,6 +38,13 @@ export const projectOrderStatusValidator = v.union(
 	v.literal('Delivered')
 );
 
+export const projectInclusionOrderStatusValidator = v.union(
+	v.literal('Order Created'),
+	v.literal('Ordered'),
+	v.literal('In Transit'),
+	v.literal('Delivered')
+);
+
 export const stageDependencyTypeValidator = v.union(
 	v.literal('after'),
 	v.literal('alongWith')
@@ -116,8 +123,11 @@ export default defineSchema({
 		),
 		searchText: v.string(),
 		status: v.optional(projectInclusionStatusValidator),
+		orderRefId: v.optional(v.string()),
+		orderStatus: v.optional(projectInclusionOrderStatusValidator),
 	})
 		.index('by_project', ['projectId'])
+		.index('by_order_ref', ['orderRefId'])
 		.searchIndex('search_project_inclusions', {
 			searchField: 'searchText',
 			filterFields: ['projectId'],

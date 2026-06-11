@@ -15,6 +15,12 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import {
 	Menu,
 	MenuItem,
 	MenuPopup,
@@ -30,6 +36,7 @@ import {
 	FileText,
 	History,
 	Pencil,
+	SearchIcon,
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
@@ -282,12 +289,23 @@ function buildColumns(
 
 export default function ProjectOrdersTabContent({
 	projectId,
+	orderIdFilter = '',
 }: {
 	projectId: Id<'projects'>;
+	orderIdFilter?: string;
 }) {
 	const project = useQuery(api.projects.get.get, { projectId });
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
 	const columns = buildColumns(project?.address);
+	const [search, setSearch] = useState(orderIdFilter);
+
+	const trimmedSearch = search.trim();
+	const filteredOrders =
+		trimmedSearch !== '' && orders
+			? orders.filter((o) =>
+					o.orderId.toLowerCase().includes(trimmedSearch.toLowerCase())
+				)
+			: (orders ?? []);
 
 	let content: React.ReactNode;
 
@@ -313,16 +331,31 @@ export default function ProjectOrdersTabContent({
 		content = (
 			<DataTable
 				columns={columns}
-				data={orders}
+				data={filteredOrders}
 				emptyMessage="No orders found."
 				initialPageSize={20}
+				key={trimmedSearch}
 			/>
 		);
 	}
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-end">
+			<div className="flex items-center gap-2">
+				<InputGroup className="min-w-0 flex-1">
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>
+							<SearchIcon aria-hidden />
+						</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label="Search orders by ID"
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="Search by order ID (LHA-XXXXXX)…"
+						type="search"
+						value={search}
+					/>
+				</InputGroup>
 				<AddOrder projectId={projectId} />
 			</div>
 			{content}

@@ -5,6 +5,21 @@ import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { projectOrderStatusValidator } from '../schema';
 import { addedByFromIdentity, allocateUniqueOrderId } from './shared';
 
+function orderStatusToInclusionOrderStatus(
+	status: string
+): 'Order Created' | 'Ordered' | 'In Transit' | 'Delivered' {
+	switch (status) {
+		case 'Ordered':
+			return 'Ordered';
+		case 'In Transit':
+			return 'In Transit';
+		case 'Delivered':
+			return 'Delivered';
+		default:
+			return 'Order Created';
+	}
+}
+
 export const add = mutation({
 	args: {
 		projectId: v.id('projects'),
@@ -21,6 +36,7 @@ export const add = mutation({
 			})
 		),
 		status: v.optional(projectOrderStatusValidator),
+		inclusionIds: v.optional(v.array(v.id('projectInclusions'))),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -54,6 +70,17 @@ export const add = mutation({
 			changedBy,
 			timestamp: Date.now(),
 		});
+		if (args.inclusionIds && args.inclusionIds.length > 0) {
+			const inclusionOrderStatus = orderStatusToInclusionOrderStatus(status);
+			await Promise.all(
+				args.inclusionIds.map((inclusionId) =>
+					ctx.db.patch(inclusionId, {
+						orderRefId: orderCode,
+						orderStatus: inclusionOrderStatus,
+					})
+				)
+			);
+		}
 		return newOrderId;
 	},
 });
