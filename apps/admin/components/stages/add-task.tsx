@@ -2,7 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
-import type { Doc, Id } from '@workspace/backend/dataModel';
+import type { Id } from '@workspace/backend/dataModel';
 import { Alert, AlertDescription } from '@workspace/ui/components/alert';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
@@ -55,23 +55,19 @@ const FORM_ID = 'add-task-form';
 
 export default function AddTask({
 	stageId,
-	allOrders,
 	open,
 	onOpenChange,
 }: {
 	stageId: Id<'stages'>;
-	allOrders: Doc<'orders'>[];
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
 	const [newDepTaskId, setNewDepTaskId] = useState<string | null>(null);
 	const [newDepType, setNewDepType] = useState<'after' | 'alongWith'>('after');
-	const [newOrderId, setNewOrderId] = useState<string | null>(null);
 	const [, forceRender] = useState(0);
 
 	const addTask = useMutation(api.tasks.add.add);
 	const updateTask = useMutation(api.tasks.update.update);
-	const updateOrder = useMutation(api.orders.update.update);
 	const stageTasks = useQuery(api.tasks.list.list, { stageId });
 
 	const form = useForm({
@@ -102,25 +98,10 @@ export default function AddTask({
 					});
 				}
 
-				for (const orderId of parsed.linkedOrderIds) {
-					const order = allOrders.find((o) => (o._id as string) === orderId);
-					if (order) {
-						await updateOrder({
-							orderId: order._id,
-							name: order.name,
-							description: order.description,
-							stageId,
-							taskId,
-							materials: order.materials,
-						});
-					}
-				}
-
 				toastManager.add({ title: 'Task added', type: 'success' });
 				form.reset();
 				setNewDepTaskId(null);
 				setNewDepType('after');
-				setNewOrderId(null);
 				onOpenChange(false);
 			} catch (error) {
 				toastManager.add({
@@ -161,26 +142,6 @@ export default function AddTask({
 		);
 	}
 
-	function handleAddOrder() {
-		if (!newOrderId) {
-			return;
-		}
-		const current = form.getFieldValue('linkedOrderIds') ?? [];
-		if (current.includes(newOrderId)) {
-			return;
-		}
-		form.setFieldValue('linkedOrderIds', [...current, newOrderId]);
-		setNewOrderId(null);
-	}
-
-	function handleRemoveOrder(index: number) {
-		const current = form.getFieldValue('linkedOrderIds') ?? [];
-		form.setFieldValue(
-			'linkedOrderIds',
-			current.filter((_, i) => i !== index)
-		);
-	}
-
 	const stageTasksRef = useRef(stageTasks);
 	stageTasksRef.current = stageTasks;
 
@@ -197,7 +158,6 @@ export default function AddTask({
 			);
 			setNewDepTaskId(null);
 			setNewDepType('after');
-			setNewOrderId(null);
 			forceRender((n) => n + 1);
 		} else {
 			form.reset();
@@ -209,15 +169,6 @@ export default function AddTask({
 	const availableTasks = (stageTasks ?? []).filter(
 		(t) => !currentDepIds.includes(t._id)
 	);
-
-	const currentOrderIds = form.getFieldValue('linkedOrderIds') ?? [];
-	const availableOrders = allOrders.filter(
-		(o) => !currentOrderIds.includes(o._id)
-	);
-
-	const linkedOrders = currentOrderIds
-		.map((id) => allOrders.find((o) => o._id === id))
-		.filter(Boolean);
 
 	const currentDeps = form.getFieldValue('dependsOn') ?? [];
 	const taskNameById = new Map((stageTasks ?? []).map((t) => [t._id, t.name]));
@@ -435,90 +386,6 @@ export default function AddTask({
 												</div>
 											</div>
 										))}
-									</div>
-								)}
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Link order
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel>
-								<div className="flex w-full gap-2">
-									<div className="flex-1">
-										<Combobox
-											itemToStringLabel={(val) =>
-												allOrders.find((o) => (o._id as string) === val)
-													?.name ?? String(val ?? '')
-											}
-											onValueChange={(val) => setNewOrderId(val ?? null)}
-											value={newOrderId}
-										>
-											<ComboboxInput placeholder="Select order" />
-											<ComboboxPopup>
-												<ComboboxList>
-													<ComboboxEmpty>No orders available.</ComboboxEmpty>
-													{availableOrders.map((order) => (
-														<ComboboxItem key={order._id} value={order._id}>
-															{order.name}
-														</ComboboxItem>
-													))}
-												</ComboboxList>
-											</ComboboxPopup>
-										</Combobox>
-									</div>
-									<Button
-										aria-label="Add order"
-										disabled={!newOrderId}
-										onClick={handleAddOrder}
-										size="icon"
-										type="button"
-										variant="outline"
-									>
-										<Plus />
-									</Button>
-								</div>
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Linked orders
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="p-0">
-								{linkedOrders.length === 0 ? (
-									<Alert variant="info">
-										<Info />
-										<AlertDescription>No orders linked yet.</AlertDescription>
-									</Alert>
-								) : (
-									<div className="flex w-full flex-col">
-										{linkedOrders.map((order, index) =>
-											order ? (
-												<div
-													className="flex w-full items-center justify-between rounded-lg border px-3 py-2"
-													key={order._id}
-												>
-													<span className="font-medium text-sm">
-														{order.name}
-													</span>
-													<Button
-														aria-label={`Remove ${order.name}`}
-														onClick={() => handleRemoveOrder(index)}
-														size="icon"
-														type="button"
-														variant="destructive-outline"
-													>
-														<X />
-													</Button>
-												</div>
-											) : null
-										)}
 									</div>
 								)}
 							</FramePanel>

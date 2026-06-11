@@ -19,13 +19,7 @@ type Task = Doc<'tasks'>;
 
 const ROW_HEIGHT = 42;
 
-export default function TaskRow({
-	task,
-	allOrders,
-}: {
-	task: Task;
-	allOrders: Doc<'orders'>[];
-}) {
+export default function TaskRow({ task }: { task: Task }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -68,12 +62,7 @@ export default function TaskRow({
 				</Menu>
 			</div>
 
-			<EditTask
-				allOrders={allOrders}
-				onOpenChange={setEditOpen}
-				open={editOpen}
-				task={task}
-			/>
+			<EditTask onOpenChange={setEditOpen} open={editOpen} task={task} />
 
 			<DeleteTask
 				onOpenChange={setDeleteOpen}
