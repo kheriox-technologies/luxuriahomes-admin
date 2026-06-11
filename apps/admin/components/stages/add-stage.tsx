@@ -50,13 +50,10 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 	const [open, setOpen] = useState(false);
 	const [newDepStageId, setNewDepStageId] = useState<string | null>(null);
 	const [newDepType, setNewDepType] = useState<'after' | 'alongWith'>('after');
-	const [newOrderId, setNewOrderId] = useState<string | null>(null);
 
 	const addStage = useMutation(api.stages.add.add);
 	const updateStage = useMutation(api.stages.update.update);
-	const updateOrder = useMutation(api.orders.update.update);
 	const stages = useQuery(api.stages.list.list, {});
-	const orders = useQuery(api.orders.list.list, {});
 
 	const form = useForm({
 		defaultValues: emptyStageFormValues,
@@ -81,20 +78,6 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 							type: d.type,
 						})),
 					});
-				}
-
-				for (const orderId of parsed.linkedOrderIds) {
-					const order = orders?.find((o) => (o._id as string) === orderId);
-					if (order) {
-						await updateOrder({
-							orderId: order._id,
-							name: order.name,
-							description: order.description,
-							stageId,
-							taskId: undefined,
-							materials: order.materials,
-						});
-					}
 				}
 
 				toastManager.add({ title: 'Stage added', type: 'success' });
@@ -139,40 +122,11 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 		);
 	}
 
-	function handleAddOrder() {
-		if (!newOrderId) {
-			return;
-		}
-		const current = form.getFieldValue('linkedOrderIds') ?? [];
-		if (current.includes(newOrderId)) {
-			return;
-		}
-		form.setFieldValue('linkedOrderIds', [...current, newOrderId]);
-		setNewOrderId(null);
-	}
-
-	function handleRemoveOrder(index: number) {
-		const current = form.getFieldValue('linkedOrderIds') ?? [];
-		form.setFieldValue(
-			'linkedOrderIds',
-			current.filter((_, i) => i !== index)
-		);
-	}
-
 	const currentDepIds =
 		form.getFieldValue('dependsOn')?.map((d) => d.stageId) ?? [];
 	const availableStages = (stages ?? []).filter(
 		(s) => !currentDepIds.includes(s._id)
 	);
-
-	const currentOrderIds = form.getFieldValue('linkedOrderIds') ?? [];
-	const availableOrders = (orders ?? []).filter(
-		(o) => !currentOrderIds.includes(o._id)
-	);
-
-	const linkedOrders = currentOrderIds
-		.map((id) => orders?.find((o) => o._id === id))
-		.filter(Boolean);
 
 	const currentDeps = form.getFieldValue('dependsOn') ?? [];
 	const stageNameById = new Map((stages ?? []).map((s) => [s._id, s.name]));
@@ -192,7 +146,6 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 					);
 					setNewDepStageId(null);
 					setNewDepType('after');
-					setNewOrderId(null);
 				} else {
 					form.reset();
 				}
@@ -382,90 +335,6 @@ export default function AddStage({ trigger }: { trigger?: ReactElement } = {}) {
 												</div>
 											</div>
 										))}
-									</div>
-								)}
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Link order
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel>
-								<div className="flex w-full gap-2">
-									<div className="flex-1">
-										<Combobox
-											itemToStringLabel={(val) =>
-												(orders ?? []).find((o) => (o._id as string) === val)
-													?.name ?? String(val ?? '')
-											}
-											onValueChange={(val) => setNewOrderId(val ?? null)}
-											value={newOrderId}
-										>
-											<ComboboxInput placeholder="Select order" />
-											<ComboboxPopup>
-												<ComboboxList>
-													<ComboboxEmpty>No orders available.</ComboboxEmpty>
-													{availableOrders.map((order) => (
-														<ComboboxItem key={order._id} value={order._id}>
-															{order.name}
-														</ComboboxItem>
-													))}
-												</ComboboxList>
-											</ComboboxPopup>
-										</Combobox>
-									</div>
-									<Button
-										aria-label="Add order"
-										disabled={!newOrderId}
-										onClick={handleAddOrder}
-										size="icon"
-										type="button"
-										variant="outline"
-									>
-										<Plus />
-									</Button>
-								</div>
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Linked orders
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="p-0">
-								{linkedOrders.length === 0 ? (
-									<Alert variant="info">
-										<Info />
-										<AlertDescription>No orders linked yet.</AlertDescription>
-									</Alert>
-								) : (
-									<div className="flex w-full flex-col">
-										{linkedOrders.map((order, index) =>
-											order ? (
-												<div
-													className="flex w-full items-center justify-between rounded-lg border px-3 py-2"
-													key={order._id}
-												>
-													<span className="font-medium text-sm">
-														{order.name}
-													</span>
-													<Button
-														aria-label={`Remove ${order.name}`}
-														onClick={() => handleRemoveOrder(index)}
-														size="icon"
-														type="button"
-														variant="destructive-outline"
-													>
-														<X />
-													</Button>
-												</div>
-											) : null
-										)}
 									</div>
 								)}
 							</FramePanel>

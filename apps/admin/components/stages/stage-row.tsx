@@ -20,13 +20,7 @@ type Stage = Doc<'stages'>;
 
 const ROW_HEIGHT = 42;
 
-export default function StageRow({
-	stage,
-	allOrders,
-}: {
-	stage: Stage;
-	allOrders: Doc<'orders'>[];
-}) {
+export default function StageRow({ stage }: { stage: Stage }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [addTaskOpen, setAddTaskOpen] = useState(false);
@@ -76,15 +70,9 @@ export default function StageRow({
 				</Menu>
 			</div>
 
-			<EditStage
-				allOrders={allOrders}
-				onOpenChange={setEditOpen}
-				open={editOpen}
-				stage={stage}
-			/>
+			<EditStage onOpenChange={setEditOpen} open={editOpen} stage={stage} />
 
 			<AddTask
-				allOrders={allOrders}
 				onOpenChange={setAddTaskOpen}
 				open={addTaskOpen}
 				stageId={stage._id}

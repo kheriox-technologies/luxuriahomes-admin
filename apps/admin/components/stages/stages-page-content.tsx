@@ -123,7 +123,6 @@ export default function StagesPageContent() {
 
 	const stages = useQuery(api.stages.list.list, {});
 	const tasks = useQuery(api.tasks.listAll.listAll, {});
-	const orders = useQuery(api.orders.list.list, {});
 
 	const filteredStages = useMemo(() => {
 		if (!stages) {
@@ -162,7 +161,7 @@ export default function StagesPageContent() {
 		[stagesWithTasks]
 	);
 
-	if (stages === undefined || tasks === undefined || orders === undefined) {
+	if (stages === undefined || tasks === undefined) {
 		return (
 			<div className="flex h-full min-h-0 w-full flex-col">
 				<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -236,9 +235,9 @@ export default function StagesPageContent() {
 							/>
 							{stagesWithTasks.map(({ stage, tasks: stageTasks }) => (
 								<div key={stage._id}>
-									<StageRow allOrders={orders} stage={stage} />
+									<StageRow stage={stage} />
 									{stageTasks.map((task) => (
-										<TaskRow allOrders={orders} key={task._id} task={task} />
+										<TaskRow key={task._id} task={task} />
 									))}
 								</div>
 							))}

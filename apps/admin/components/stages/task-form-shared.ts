@@ -10,7 +10,6 @@ export const taskFormSchema = z.object({
 	description: z.string().optional(),
 	duration: z.number().min(0, 'Duration must be 0 or greater'),
 	dependsOn: z.array(taskDependencySchema).default([]),
-	linkedOrderIds: z.array(z.string()).default([]),
 });
 
 export type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -21,7 +20,6 @@ export const emptyTaskFormValues: TaskFormValues = {
 	description: '',
 	duration: 1,
 	dependsOn: [],
-	linkedOrderIds: [],
 };
 
 export function taskFormFieldError(

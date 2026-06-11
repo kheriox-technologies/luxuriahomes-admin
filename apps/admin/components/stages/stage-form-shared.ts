@@ -9,7 +9,6 @@ export const stageFormSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required'),
 	description: z.string().optional(),
 	dependsOn: z.array(stageDependencySchema).default([]),
-	linkedOrderIds: z.array(z.string()).default([]),
 });
 
 export type StageFormValues = z.infer<typeof stageFormSchema>;
@@ -19,7 +18,6 @@ export const emptyStageFormValues: StageFormValues = {
 	name: '',
 	description: '',
 	dependsOn: [],
-	linkedOrderIds: [],
 };
 
 export function stageFormFieldError(

@@ -43,7 +43,7 @@ import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Info, Plus, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	emptyTaskFormValues,
 	taskFormFieldError,
@@ -57,62 +57,18 @@ type Task = Doc<'tasks'>;
 
 export default function EditTask({
 	task,
-	allOrders,
 	open,
 	onOpenChange,
 }: {
 	task: Task;
-	allOrders: Doc<'orders'>[];
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
 	const [newDepTaskId, setNewDepTaskId] = useState<string | null>(null);
 	const [newDepType, setNewDepType] = useState<'after' | 'alongWith'>('after');
-	const [newOrderId, setNewOrderId] = useState<string | null>(null);
 
 	const updateTask = useMutation(api.tasks.update.update);
-	const updateOrder = useMutation(api.orders.update.update);
 	const stageTasks = useQuery(api.tasks.list.list, { stageId: task.stageId });
-
-	const originalLinkedOrderIdsRef = useRef<string[]>([]);
-
-	async function syncLinkedOrders(
-		nextOrderIds: string[],
-		prevOrderIds: string[]
-	) {
-		const nextSet = new Set(nextOrderIds);
-		const prevSet = new Set(prevOrderIds);
-		for (const orderId of nextOrderIds) {
-			if (!prevSet.has(orderId)) {
-				const order = allOrders.find((o) => (o._id as string) === orderId);
-				if (order) {
-					await updateOrder({
-						orderId: order._id,
-						name: order.name,
-						description: order.description,
-						stageId: task.stageId,
-						taskId: task._id,
-						materials: order.materials,
-					});
-				}
-			}
-		}
-		for (const orderId of prevOrderIds) {
-			if (!nextSet.has(orderId)) {
-				const order = allOrders.find((o) => (o._id as string) === orderId);
-				if (order) {
-					await updateOrder({
-						orderId: order._id,
-						name: order.name,
-						description: order.description,
-						stageId: undefined,
-						taskId: undefined,
-						materials: order.materials,
-					});
-				}
-			}
-		}
-	}
 
 	const form = useForm({
 		defaultValues: emptyTaskFormValues,
@@ -132,10 +88,6 @@ export default function EditTask({
 						type: d.type,
 					})),
 				});
-				await syncLinkedOrders(
-					parsed.linkedOrderIds,
-					originalLinkedOrderIdsRef.current
-				);
 				toastManager.add({ title: 'Task updated', type: 'success' });
 				onOpenChange(false);
 			} catch (error) {
@@ -158,10 +110,6 @@ export default function EditTask({
 			form.reset();
 			return;
 		}
-		const ids = allOrders
-			.filter((o) => o.taskId === task._id)
-			.map((o) => o._id as string);
-		originalLinkedOrderIdsRef.current = ids;
 		form.reset(
 			{
 				name: task.name,
@@ -171,13 +119,11 @@ export default function EditTask({
 					taskId: d.taskId,
 					type: d.type,
 				})),
-				linkedOrderIds: ids,
 			},
 			{ keepDefaultValues: true }
 		);
 		setNewDepTaskId(null);
 		setNewDepType('after');
-		setNewOrderId(null);
 	}, [open]);
 
 	function handleAddDependency() {
@@ -204,40 +150,11 @@ export default function EditTask({
 		);
 	}
 
-	function handleAddOrder() {
-		if (!newOrderId) {
-			return;
-		}
-		const current = form.getFieldValue('linkedOrderIds') ?? [];
-		if (current.includes(newOrderId)) {
-			return;
-		}
-		form.setFieldValue('linkedOrderIds', [...current, newOrderId]);
-		setNewOrderId(null);
-	}
-
-	function handleRemoveOrder(index: number) {
-		const current = form.getFieldValue('linkedOrderIds') ?? [];
-		form.setFieldValue(
-			'linkedOrderIds',
-			current.filter((_, i) => i !== index)
-		);
-	}
-
 	const currentDepIds =
 		form.getFieldValue('dependsOn')?.map((d) => d.taskId) ?? [];
 	const availableTasks = (stageTasks ?? []).filter(
 		(t) => t._id !== task._id && !currentDepIds.includes(t._id)
 	);
-
-	const currentOrderIds = form.getFieldValue('linkedOrderIds') ?? [];
-	const availableOrders = allOrders.filter(
-		(o) => !currentOrderIds.includes(o._id)
-	);
-
-	const linkedOrders = currentOrderIds
-		.map((id) => allOrders.find((o) => o._id === id))
-		.filter(Boolean);
 
 	const currentDeps = form.getFieldValue('dependsOn') ?? [];
 	const taskNameById = new Map((stageTasks ?? []).map((t) => [t._id, t.name]));
@@ -454,90 +371,6 @@ export default function EditTask({
 												</div>
 											</div>
 										))}
-									</div>
-								)}
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Link order
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel>
-								<div className="flex w-full gap-2">
-									<div className="flex-1">
-										<Combobox
-											itemToStringLabel={(val) =>
-												allOrders.find((o) => (o._id as string) === val)
-													?.name ?? String(val ?? '')
-											}
-											onValueChange={(val) => setNewOrderId(val ?? null)}
-											value={newOrderId}
-										>
-											<ComboboxInput placeholder="Select order" />
-											<ComboboxPopup>
-												<ComboboxList>
-													<ComboboxEmpty>No orders available.</ComboboxEmpty>
-													{availableOrders.map((order) => (
-														<ComboboxItem key={order._id} value={order._id}>
-															{order.name}
-														</ComboboxItem>
-													))}
-												</ComboboxList>
-											</ComboboxPopup>
-										</Combobox>
-									</div>
-									<Button
-										aria-label="Add order"
-										disabled={!newOrderId}
-										onClick={handleAddOrder}
-										size="icon"
-										type="button"
-										variant="outline"
-									>
-										<Plus />
-									</Button>
-								</div>
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Linked orders
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="p-0">
-								{linkedOrders.length === 0 ? (
-									<Alert variant="info">
-										<Info />
-										<AlertDescription>No orders linked yet.</AlertDescription>
-									</Alert>
-								) : (
-									<div className="flex w-full flex-col">
-										{linkedOrders.map((order, index) =>
-											order ? (
-												<div
-													className="flex w-full items-center justify-between rounded-lg border px-3 py-2"
-													key={order._id}
-												>
-													<span className="font-medium text-sm">
-														{order.name}
-													</span>
-													<Button
-														aria-label={`Remove ${order.name}`}
-														onClick={() => handleRemoveOrder(index)}
-														size="icon"
-														type="button"
-														variant="destructive-outline"
-													>
-														<X />
-													</Button>
-												</div>
-											) : null
-										)}
 									</div>
 								)}
 							</FramePanel>
