@@ -117,6 +117,7 @@ import type * as projectInclusions_shared from "../projectInclusions/shared.js";
 import type * as projectInclusions_update from "../projectInclusions/update.js";
 import type * as projectOrders_add from "../projectOrders/add.js";
 import type * as projectOrders_appendNote from "../projectOrders/appendNote.js";
+import type * as projectOrders_backfillFromInclusions from "../projectOrders/backfillFromInclusions.js";
 import type * as projectOrders_deleteNote from "../projectOrders/deleteNote.js";
 import type * as projectOrders_get from "../projectOrders/get.js";
 import type * as projectOrders_list from "../projectOrders/list.js";
@@ -309,6 +310,7 @@ declare const fullApi: ApiFromModules<{
   "projectInclusions/update": typeof projectInclusions_update;
   "projectOrders/add": typeof projectOrders_add;
   "projectOrders/appendNote": typeof projectOrders_appendNote;
+  "projectOrders/backfillFromInclusions": typeof projectOrders_backfillFromInclusions;
   "projectOrders/deleteNote": typeof projectOrders_deleteNote;
   "projectOrders/get": typeof projectOrders_get;
   "projectOrders/list": typeof projectOrders_list;

@@ -305,6 +305,7 @@ export default defineSchema({
 		.searchIndex('search_material_items', { searchField: 'searchText' }),
 	projectOrders: defineTable({
 		projectId: v.id('projects'),
+		projectInclusionId: v.optional(v.id('projectInclusions')),
 		name: v.string(),
 		description: v.optional(v.string()),
 		vendor: v.string(),
@@ -315,6 +316,7 @@ export default defineSchema({
 		searchText: v.string(),
 	})
 		.index('by_project', ['projectId'])
+		.index('by_project_inclusion', ['projectInclusionId'])
 		.searchIndex('search_project_orders', {
 			searchField: 'searchText',
 			filterFields: ['projectId'],

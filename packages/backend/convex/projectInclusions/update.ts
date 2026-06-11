@@ -7,6 +7,7 @@ import {
 	parseOptionalDetail,
 	parseVendor,
 } from '../inclusionVariants/shared';
+import { buildProjectOrderSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
 import {
 	inclusionVariantClassValidator,
@@ -206,6 +207,41 @@ export const update = mutation({
 		applySearchTextPatch(existing, patch);
 
 		await ctx.db.patch(args.projectInclusionId, patch);
+
+		if (args.locations !== undefined) {
+			const linkedOrder = await ctx.db
+				.query('projectOrders')
+				.withIndex('by_project_inclusion', (q) =>
+					q.eq('projectInclusionId', args.projectInclusionId)
+				)
+				.unique();
+			if (linkedOrder !== null) {
+				const nextLocations =
+					args.locations === null ? undefined : args.locations;
+				const newQuantity = nextLocations
+					? nextLocations.reduce((sum, loc) => sum + (loc.quantity ?? 0), 0)
+					: 0;
+				const newUnit =
+					nextLocations?.find((loc) => loc.unit)?.unit ?? linkedOrder.unit;
+				const nextVendor =
+					(patch.vendor as string | undefined) ?? existing.vendor;
+				const nextTitle = (patch.title as string | undefined) ?? existing.title;
+				const nextColor = (patch.color as string | undefined) ?? existing.color;
+				const newDescription = nextColor || undefined;
+				const newSearchText = buildProjectOrderSearchText(
+					nextTitle,
+					nextVendor,
+					newDescription
+				);
+				await ctx.db.patch(linkedOrder._id, {
+					quantity: newQuantity,
+					unit: newUnit,
+					description: newDescription,
+					searchText: newSearchText,
+				});
+			}
+		}
+
 		return args.projectInclusionId;
 	},
 });
