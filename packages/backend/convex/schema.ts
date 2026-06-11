@@ -285,6 +285,7 @@ export default defineSchema({
 		name: v.string(),
 		description: v.optional(v.string()),
 		vendor: v.string(),
+		sku: v.optional(v.string()),
 		link: v.optional(v.string()),
 		itemCount: v.number(),
 		searchText: v.string(),
@@ -298,6 +299,7 @@ export default defineSchema({
 		vendor: v.string(),
 		unit: v.id('units'),
 		quantity: v.optional(v.number()),
+		sku: v.optional(v.string()),
 		link: v.optional(v.string()),
 		searchText: v.string(),
 	})
@@ -313,6 +315,7 @@ export default defineSchema({
 				description: v.optional(v.string()),
 				quantity: v.number(),
 				unit: v.string(),
+				sku: v.optional(v.string()),
 				link: v.optional(v.string()),
 			})
 		),

@@ -206,6 +206,19 @@ export function MaterialItemDraftFields({
 				/>
 			</Field>
 			<Field>
+				<FieldLabel htmlFor="item-draft-sku">
+					SKU{' '}
+					<span className="text-muted-foreground text-xs">(optional)</span>
+				</FieldLabel>
+				<Input
+					id="item-draft-sku"
+					nativeInput
+					onChange={(e) => setDraft((p) => ({ ...p, sku: e.target.value }))}
+					placeholder="e.g. ABC-123"
+					value={draft.sku ?? ''}
+				/>
+			</Field>
+			<Field>
 				<FieldLabel htmlFor="item-draft-link">
 					Link <span className="text-muted-foreground text-xs">(optional)</span>
 				</FieldLabel>

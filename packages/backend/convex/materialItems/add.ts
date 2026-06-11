@@ -16,6 +16,7 @@ export const add = mutation({
 		vendor: v.string(),
 		unit: v.id('units'),
 		quantity: v.optional(v.number()),
+		sku: v.optional(v.string()),
 		link: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
@@ -37,6 +38,7 @@ export const add = mutation({
 			throw new ConvexError({ code: 'NOT_FOUND', message: 'Unit not found' });
 		}
 		const description = args.description?.trim() || undefined;
+		const sku = args.sku?.trim() || undefined;
 		const link = args.link?.trim() || undefined;
 		const searchText = buildMaterialItemSearchText(
 			variant.name,
@@ -51,6 +53,7 @@ export const add = mutation({
 			vendor,
 			unit: args.unit,
 			quantity: args.quantity,
+			sku,
 			link,
 			searchText,
 		});

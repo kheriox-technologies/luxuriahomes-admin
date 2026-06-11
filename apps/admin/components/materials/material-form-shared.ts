@@ -20,6 +20,7 @@ export const materialVariantFormSchema = z
 		description: z.string().optional(),
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
+		sku: z.string().optional(),
 		link: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
@@ -41,6 +42,7 @@ export const emptyMaterialVariantFormValues: MaterialVariantFormValues = {
 	description: '',
 	vendor: '',
 	newVendorName: '',
+	sku: '',
 	link: '',
 };
 
@@ -58,6 +60,7 @@ export const materialItemDraftSchema = z
 				(v) => !Number.isNaN(Number(v)) && Number(v) > 0,
 				'Quantity must be a positive number'
 			),
+		sku: z.string().optional(),
 		link: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
@@ -79,6 +82,7 @@ export const emptyMaterialItemDraft: MaterialItemDraftValues = {
 	newVendorName: '',
 	unit: '',
 	quantity: '',
+	sku: '',
 	link: '',
 };
 

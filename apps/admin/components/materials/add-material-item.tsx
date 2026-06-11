@@ -69,6 +69,7 @@ export default function AddMaterialItem({
 				vendor: resolvedVendor,
 				unit: data.unit as never,
 				quantity: Number(data.quantity),
+				sku: data.sku?.trim() || undefined,
 				link: data.link?.trim() || undefined,
 			});
 			toastManager.add({ title: 'Item added', type: 'success' });
@@ -197,6 +198,21 @@ export default function AddMaterialItem({
 							step="any"
 							type="number"
 							value={draft.quantity}
+						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="add-item-sku">
+							SKU{' '}
+							<span className="text-muted-foreground text-xs">(optional)</span>
+						</FieldLabel>
+						<Input
+							id="add-item-sku"
+							nativeInput
+							onChange={(e) =>
+								setDraft((p) => ({ ...p, sku: e.target.value }))
+							}
+							placeholder="e.g. ABC-123"
+							value={draft.sku ?? ''}
 						/>
 					</Field>
 					<Field>

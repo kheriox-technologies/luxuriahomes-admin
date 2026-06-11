@@ -72,6 +72,7 @@ export default function EditOrder({
 				description: item.description ?? '',
 				quantity: String(item.quantity),
 				unit: item.unit,
+				sku: item.sku ?? '',
 				link: item.link ?? '',
 			})),
 			status: order.status as OrderStatus,
@@ -96,6 +97,7 @@ export default function EditOrder({
 						description: item.description?.trim() || undefined,
 						quantity: Number(item.quantity),
 						unit: item.unit,
+						sku: item.sku?.trim() || undefined,
 						link: item.link?.trim() || undefined,
 					})),
 					status: parsed.status,
@@ -126,6 +128,7 @@ export default function EditOrder({
 					description: item.description ?? '',
 					quantity: String(item.quantity),
 					unit: item.unit,
+					sku: item.sku ?? '',
 					link: item.link ?? '',
 				})),
 				status: order.status as OrderStatus,
@@ -396,6 +399,29 @@ export default function EditOrder({
 														}}
 													</form.Field>
 												</div>
+												<form.Field name={`items[${index}].sku`}>
+													{(field) => (
+														<Field>
+															<FieldLabel htmlFor={field.name}>
+																SKU{' '}
+																<span className="text-muted-foreground text-xs">
+																	(optional)
+																</span>
+															</FieldLabel>
+															<Input
+																id={field.name}
+																name={field.name}
+																nativeInput
+																onBlur={field.handleBlur}
+																onChange={(e) =>
+																	field.handleChange(e.target.value)
+																}
+																placeholder="e.g. ABC-123"
+																value={field.state.value ?? ''}
+															/>
+														</Field>
+													)}
+												</form.Field>
 												<form.Field name={`items[${index}].link`}>
 													{(field) => (
 														<Field>
