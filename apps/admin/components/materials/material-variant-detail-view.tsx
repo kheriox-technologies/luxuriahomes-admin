@@ -38,6 +38,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddMaterialItem from './add-material-item';
+import AddMaterialVariantToProject from './add-material-variant-to-project';
 import DeleteMaterialItem from './delete-material-item';
 import DeleteMaterialVariant from './delete-material-variant';
 import EditMaterialItem from './edit-material-item';
@@ -289,7 +290,16 @@ export default function MaterialVariantDetailView({
 						</Badge>
 					</>
 				}
-				rightSlot={<AddMaterialItem variantId={variantId} />}
+				rightSlot={
+					<div className="flex items-center gap-2">
+						<AddMaterialVariantToProject
+							unitAbbr={unit?.abbr ?? ''}
+							variantId={variantId}
+							variantName={variant.name}
+						/>
+						<AddMaterialItem variantId={variantId} />
+					</div>
+				}
 			/>
 
 			{(() => {

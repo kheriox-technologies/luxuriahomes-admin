@@ -73,6 +73,7 @@ import type * as materialItems_remove from "../materialItems/remove.js";
 import type * as materialItems_shared from "../materialItems/shared.js";
 import type * as materialItems_update from "../materialItems/update.js";
 import type * as materialVariants_add from "../materialVariants/add.js";
+import type * as materialVariants_addToProject from "../materialVariants/addToProject.js";
 import type * as materialVariants_get from "../materialVariants/get.js";
 import type * as materialVariants_listByMaterial from "../materialVariants/listByMaterial.js";
 import type * as materialVariants_remove from "../materialVariants/remove.js";
@@ -264,6 +265,7 @@ declare const fullApi: ApiFromModules<{
   "materialItems/shared": typeof materialItems_shared;
   "materialItems/update": typeof materialItems_update;
   "materialVariants/add": typeof materialVariants_add;
+  "materialVariants/addToProject": typeof materialVariants_addToProject;
   "materialVariants/get": typeof materialVariants_get;
   "materialVariants/listByMaterial": typeof materialVariants_listByMaterial;
   "materialVariants/remove": typeof materialVariants_remove;
