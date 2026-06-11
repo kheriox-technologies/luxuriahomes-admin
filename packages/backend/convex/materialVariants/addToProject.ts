@@ -58,6 +58,7 @@ export const addToProject = mutation({
 			link?: string;
 			name: string;
 			quantity: number;
+			sku?: string;
 			unit: string;
 		}
 
@@ -77,6 +78,7 @@ export const addToProject = mutation({
 			description: variant.description?.trim() || undefined,
 			quantity: args.quantity,
 			unit: materialUnit.abbr,
+			sku: variant.sku?.trim() || undefined,
 			link: variant.link?.trim() || undefined,
 		});
 
@@ -91,6 +93,7 @@ export const addToProject = mutation({
 				description: item.description?.trim() || undefined,
 				quantity: item.quantity * args.quantity,
 				unit: itemUnitAbbr,
+				sku: item.sku?.trim() || undefined,
 				link: item.link?.trim() || undefined,
 			});
 		}

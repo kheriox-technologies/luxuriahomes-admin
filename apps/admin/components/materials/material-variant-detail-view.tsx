@@ -172,6 +172,16 @@ export default function MaterialVariantDetailView({
 				},
 			},
 			{
+				id: 'sku',
+				header: 'SKU',
+				cell: ({ row }) =>
+					row.original.sku ? (
+						<span className="font-mono text-sm">{row.original.sku}</span>
+					) : (
+						<span className="text-muted-foreground">—</span>
+					),
+			},
+			{
 				accessorKey: 'description',
 				header: 'Description',
 				cell: ({ row }) =>

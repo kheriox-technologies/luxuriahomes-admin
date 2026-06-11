@@ -11,6 +11,7 @@ export const add = mutation({
 		name: v.string(),
 		description: v.optional(v.string()),
 		vendor: v.string(),
+		sku: v.optional(v.string()),
 		link: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
@@ -25,6 +26,7 @@ export const add = mutation({
 			});
 		}
 		const description = args.description?.trim() || undefined;
+		const sku = args.sku?.trim() || undefined;
 		const link = args.link?.trim() || undefined;
 		const searchText = buildMaterialVariantSearchText(
 			material.name,
@@ -37,6 +39,7 @@ export const add = mutation({
 			name,
 			description,
 			vendor,
+			sku,
 			link,
 			itemCount: 0,
 			searchText,

@@ -84,6 +84,7 @@ export default function AddMaterialVariant({
 					name: parsed.name,
 					description: parsed.description?.trim() || undefined,
 					vendor: resolvedVendor,
+					sku: parsed.sku?.trim() || undefined,
 					link: parsed.link?.trim() || undefined,
 				});
 
@@ -100,6 +101,7 @@ export default function AddMaterialVariant({
 						vendor: itemVendor,
 						unit: item.unit as never,
 						quantity: item.quantity ? Number(item.quantity) : undefined,
+						sku: item.sku?.trim() || undefined,
 						link: item.link?.trim() || undefined,
 					});
 				}
@@ -306,6 +308,27 @@ export default function AddMaterialVariant({
 													}
 												}}
 												placeholder="New vendor name"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="sku">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												SKU{' '}
+												<span className="text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="e.g. ABC-123"
 												value={field.state.value ?? ''}
 											/>
 										</Field>

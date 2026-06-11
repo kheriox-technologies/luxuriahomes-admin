@@ -41,6 +41,7 @@ export default function EditMaterialItem({
 		newVendorName: '',
 		unit: '',
 		quantity: '',
+		sku: '',
 		link: '',
 	});
 
@@ -58,6 +59,7 @@ export default function EditMaterialItem({
 				newVendorName: '',
 				unit: item.unit,
 				quantity: item.quantity?.toString() ?? '',
+				sku: item.sku ?? '',
 				link: item.link ?? '',
 			});
 		}
@@ -87,6 +89,7 @@ export default function EditMaterialItem({
 				vendor: resolvedVendor,
 				unit: data.unit as never,
 				quantity: Number(data.quantity),
+				sku: data.sku?.trim() || undefined,
 				link: data.link?.trim() || undefined,
 			});
 			toastManager.add({ title: 'Item updated', type: 'success' });
@@ -196,6 +199,19 @@ export default function EditMaterialItem({
 							step="any"
 							type="number"
 							value={draft.quantity}
+						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="edit-item-sku">
+							SKU{' '}
+							<span className="text-muted-foreground text-xs">(optional)</span>
+						</FieldLabel>
+						<Input
+							id="edit-item-sku"
+							nativeInput
+							onChange={(e) => setDraft((p) => ({ ...p, sku: e.target.value }))}
+							placeholder="e.g. ABC-123"
+							value={draft.sku ?? ''}
 						/>
 					</Field>
 					<Field>

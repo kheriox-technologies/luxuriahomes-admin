@@ -20,6 +20,7 @@ export const orderItemSchema = z.object({
 			'Quantity must be a positive number'
 		),
 	unit: z.string().trim().min(1, 'Unit is required'),
+	sku: z.string().optional(),
 	link: z.string().optional(),
 });
 
@@ -50,6 +51,7 @@ export const emptyOrderItem = {
 	description: '',
 	quantity: '',
 	unit: '',
+	sku: '',
 	link: '',
 };
 

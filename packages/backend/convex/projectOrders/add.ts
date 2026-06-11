@@ -16,6 +16,7 @@ export const add = mutation({
 				description: v.optional(v.string()),
 				quantity: v.number(),
 				unit: v.string(),
+				sku: v.optional(v.string()),
 				link: v.optional(v.string()),
 			})
 		),
@@ -31,6 +32,7 @@ export const add = mutation({
 			description: item.description?.trim() || undefined,
 			quantity: item.quantity,
 			unit: item.unit.trim(),
+			sku: item.sku?.trim() || undefined,
 			link: item.link?.trim() || undefined,
 		}));
 		const searchText = buildProjectOrderSearchText(vendor, items);
