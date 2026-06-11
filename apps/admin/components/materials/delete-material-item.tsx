@@ -10,40 +10,53 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
+	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
-export default function DeleteOrder({
-	orderId,
-	orderName,
-	open,
-	onOpenChange,
+export default function DeleteMaterialItem({
+	itemId,
+	itemName,
+	open: openProp,
+	onOpenChange: onOpenChangeProp,
+	trigger,
 }: {
-	orderId: Id<'projectOrders'>;
-	orderName: string;
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
+	itemId: Id<'materialItems'>;
+	itemName: string;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	trigger?: ReactElement;
 }) {
+	const [openInternal, setOpenInternal] = useState(false);
+	const isControlled = openProp !== undefined;
+	const open = isControlled ? (openProp ?? false) : openInternal;
+	const setOpen = (next: boolean) => {
+		if (isControlled) {
+			onOpenChangeProp?.(next);
+		} else {
+			setOpenInternal(next);
+		}
+	};
 	const [isDeleting, setIsDeleting] = useState(false);
-	const removeOrder = useMutation(api.projectOrders.remove.remove);
+	const removeItem = useMutation(api.materialItems.remove.remove);
 
 	const onDelete = async () => {
 		setIsDeleting(true);
 		try {
-			await removeOrder({ orderId });
-			toastManager.add({ title: 'Order deleted', type: 'success' });
-			onOpenChange(false);
+			await removeItem({ itemId });
+			toastManager.add({ title: 'Item deleted', type: 'success' });
+			setOpen(false);
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
-					'Could not delete order. Please try again in a moment.'
+					'Could not delete item. Please try again in a moment.'
 				),
-				title: 'Could not delete order',
+				title: 'Could not delete item',
 				type: 'error',
 			});
 		} finally {
@@ -52,12 +65,13 @@ export default function DeleteOrder({
 	};
 
 	return (
-		<AlertDialog onOpenChange={onOpenChange} open={open}>
+		<AlertDialog onOpenChange={setOpen} open={open}>
+			{trigger ? <AlertDialogTrigger render={trigger} /> : null}
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete order?</AlertDialogTitle>
+					<AlertDialogTitle>Delete item?</AlertDialogTitle>
 					<AlertDialogDescription>
-						{`This will permanently delete "${orderName}" along with all its notes and status history. This action cannot be undone.`}
+						{`This will permanently delete ${itemName}. This action cannot be undone.`}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -73,7 +87,7 @@ export default function DeleteOrder({
 						}}
 						variant="destructive"
 					>
-						Delete order
+						Delete item
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

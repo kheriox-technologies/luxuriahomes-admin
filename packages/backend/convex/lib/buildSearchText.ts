@@ -114,13 +114,6 @@ export function buildTaskSearchText(
 	return buildSearchText([name, description]);
 }
 
-export function buildOrderSearchText(
-	name: string,
-	description?: string
-): string {
-	return buildSearchText([name, description]);
-}
-
 export function buildLocationSearchText(
 	name: string,
 	description?: string
@@ -152,6 +145,32 @@ export function buildMaterialColorSearchText(
 
 export function buildDocumentFolderSearchText(name: string): string {
 	return buildSearchText([name]);
+}
+
+export function buildMaterialSearchText(
+	name: string,
+	description?: string,
+	unitAbbr?: string
+): string {
+	return buildSearchText([name, description, unitAbbr]);
+}
+
+export function buildMaterialVariantSearchText(
+	materialName: string,
+	variantName: string,
+	vendor: string,
+	description?: string
+): string {
+	return buildSearchText([materialName, variantName, vendor, description]);
+}
+
+export function buildMaterialItemSearchText(
+	variantName: string,
+	itemName: string,
+	vendor: string,
+	description?: string
+): string {
+	return buildSearchText([variantName, itemName, vendor, description]);
 }
 
 // Strips the domain from an email and replaces dots in the local part with spaces,
@@ -207,6 +226,14 @@ export function buildServiceProviderSearchText(
 		);
 	}
 	return buildSearchText(parts);
+}
+
+export function buildProjectOrderSearchText(
+	name: string,
+	vendor: string,
+	description?: string
+): string {
+	return buildSearchText([name, vendor, description]);
 }
 
 export function buildInclusionAggregateSearchText(

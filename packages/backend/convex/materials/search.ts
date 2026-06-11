@@ -9,16 +9,17 @@ export const search = query({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		if (args.query.trim().length === 0) {
+		const trimmed = args.query.trim();
+		if (trimmed.length === 0) {
 			throw new ConvexError({
 				code: 'INVALID_QUERY',
-				message: 'Search query is required',
+				message: 'Search query cannot be empty',
 			});
 		}
 		return await ctx.db
-			.query('orders')
-			.withSearchIndex('search_orders', (q) =>
-				q.search('searchText', args.query)
+			.query('materials')
+			.withSearchIndex('search_materials', (q) =>
+				q.search('searchText', trimmed)
 			)
 			.take(args.limit ?? 100);
 	},

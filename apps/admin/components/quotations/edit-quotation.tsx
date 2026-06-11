@@ -22,6 +22,7 @@ import {
 	FramePanel,
 	FrameTitle,
 } from '@workspace/ui/components/frame';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -93,6 +94,7 @@ export default function EditQuotation({
 			: (serviceProviders ?? []);
 
 	const updateQuotation = useMutation(api.quotations.update.update);
+	const addTrade = useMutation(api.trades.add.add);
 	const generateUploadUrl = useAction(
 		api.quotations.generateUploadUrl.generateUploadUrl
 	);
@@ -101,6 +103,7 @@ export default function EditQuotation({
 		defaultValues: {
 			projectId: initialProjectId as string,
 			tradeIds: initialTradeIds as string[],
+			newTradeName: '',
 			serviceProviderId: initialServiceProviderId as string,
 			price: String(initialPrice),
 			status: initialStatus,
@@ -110,10 +113,16 @@ export default function EditQuotation({
 		onSubmit: async ({ value }) => {
 			const parsed = quotationFormSchema.parse(value);
 			try {
+				let resolvedTradeIds = parsed.tradeIds as Id<'trades'>[];
+				const newName = parsed.newTradeName?.trim();
+				if (newName) {
+					const newTradeId = await addTrade({ name: newName });
+					resolvedTradeIds = [...resolvedTradeIds, newTradeId];
+				}
 				await updateQuotation({
 					quotationId,
 					projectId: parsed.projectId as Id<'projects'>,
-					tradeIds: parsed.tradeIds as Id<'trades'>[],
+					tradeIds: resolvedTradeIds,
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -313,6 +322,25 @@ export default function EditQuotation({
 											</Field>
 										);
 									}}
+								</form.Field>
+
+								<form.Field name="newTradeName">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Or create new trade
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="New trade name"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
 								</form.Field>
 
 								<form.Field name="serviceProviderId">

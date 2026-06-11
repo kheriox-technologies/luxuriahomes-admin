@@ -2,26 +2,17 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
-import { Alert, AlertDescription } from '@workspace/ui/components/alert';
-import { Badge } from '@workspace/ui/components/badge';
+import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
 	ComboboxEmpty,
-	ComboboxGroup,
-	ComboboxGroupLabel,
 	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
 } from '@workspace/ui/components/combobox';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
-import {
-	Frame,
-	FrameHeader,
-	FramePanel,
-	FrameTitle,
-} from '@workspace/ui/components/frame';
 import { Input } from '@workspace/ui/components/input';
 import {
 	Sheet,
@@ -33,40 +24,39 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from '@workspace/ui/components/sheet';
-import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Info, Plus, X } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
+import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyOrderFormValues,
+	ORDER_STATUSES,
 	orderFormFieldError,
 	orderFormSchema,
-} from '@/components/orders/order-form-shared';
-import { getConvexErrorMessage } from '@/lib/convex-errors';
+} from './order-form-shared';
 
 const FORM_ID = 'add-order-form';
 
-export default function AddOrder({ trigger }: { trigger?: ReactElement } = {}) {
+export default function AddOrder({
+	projectId,
+	trigger,
+}: {
+	projectId: Id<'projects'>;
+	trigger?: ReactElement;
+}) {
 	const [open, setOpen] = useState(false);
-	const [newMaterialName, setNewMaterialName] = useState('');
-	const [newMaterialUnits, setNewMaterialUnits] = useState('');
-	const addOrder = useMutation(api.orders.add.add);
+	const addOrder = useMutation(api.projectOrders.add.add);
+	const addVendor = useMutation(api.vendors.add.add);
+	const vendors = useQuery(api.vendors.list.list, {});
 	const units = useQuery(api.units.list.list, {});
-	const groupedUnits = useMemo(() => {
-		if (!units) {
-			return {} as Record<string, NonNullable<typeof units>>;
+	const unitItems = useMemo(() => (units ?? []).map((u) => u.abbr), [units]);
+	const unitLabelByAbbr = useMemo(() => {
+		const m = new Map<string, string>();
+		for (const u of units ?? []) {
+			m.set(u.abbr, `${u.label} (${u.abbr})`);
 		}
-		return units.reduce<Record<string, NonNullable<typeof units>>>(
-			(acc, unit) => {
-				if (!acc[unit.category]) {
-					acc[unit.category] = [];
-				}
-				acc[unit.category].push(unit);
-				return acc;
-			},
-			{}
-		);
+		return m;
 	}, [units]);
 
 	const form = useForm({
@@ -77,15 +67,22 @@ export default function AddOrder({ trigger }: { trigger?: ReactElement } = {}) {
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = orderFormSchema.parse(value);
+				const newVendorTrimmed = parsed.newVendorName?.trim();
+				const resolvedVendor = newVendorTrimmed || parsed.vendor.trim();
+				if (newVendorTrimmed) {
+					await addVendor({ name: newVendorTrimmed });
+				}
 				await addOrder({
+					projectId,
 					name: parsed.name,
-					description: parsed.description || undefined,
-					materials: parsed.materials.length > 0 ? parsed.materials : undefined,
+					description: parsed.description?.trim() || undefined,
+					vendor: resolvedVendor,
+					quantity: Number(parsed.quantity),
+					unit: parsed.unit,
+					link: parsed.link?.trim() || undefined,
+					status: parsed.status,
 				});
-				toastManager.add({
-					title: 'Order added',
-					type: 'success',
-				});
+				toastManager.add({ title: 'Order added', type: 'success' });
 				form.reset();
 				setOpen(false);
 			} catch (error) {
@@ -97,41 +94,15 @@ export default function AddOrder({ trigger }: { trigger?: ReactElement } = {}) {
 					title: 'Could not add order',
 					type: 'error',
 				});
-				form.reset();
-				setOpen(false);
 			}
 		},
 	});
 
-	function handleAddMaterial() {
-		const name = newMaterialName.trim();
-		const units = newMaterialUnits.trim();
-		if (!(name && units)) {
-			return;
-		}
-		const current = form.getFieldValue('materials') ?? [];
-		form.setFieldValue('materials', [...current, { name, units }]);
-		setNewMaterialName('');
-		setNewMaterialUnits('');
-	}
-
-	function handleRemoveMaterial(index: number) {
-		const current = form.getFieldValue('materials') ?? [];
-		form.setFieldValue(
-			'materials',
-			current.filter((_, i) => i !== index)
-		);
-	}
-
 	return (
 		<Sheet
-			onOpenChange={(nextOpen) => {
-				setOpen(nextOpen);
-				if (nextOpen) {
-					form.reset(emptyOrderFormValues, { keepDefaultValues: true });
-					setNewMaterialName('');
-					setNewMaterialUnits('');
-				} else {
+			onOpenChange={(next) => {
+				setOpen(next);
+				if (!next) {
 					form.reset();
 				}
 			}}
@@ -148,179 +119,232 @@ export default function AddOrder({ trigger }: { trigger?: ReactElement } = {}) {
 				<form
 					className="flex min-h-0 min-w-0 flex-1 flex-col"
 					id={FORM_ID}
-					onSubmit={(event) => {
-						event.preventDefault();
+					onSubmit={(e) => {
+						e.preventDefault();
 						form.handleSubmit().catch(() => {
 							/* TanStack Form handles validation */
 						});
 					}}
 				>
-					<SheetPanel className="flex flex-col gap-6">
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Order details
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="space-y-4">
-								<form.Field name="name">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Name</FieldLabel>
-												<Input
-													aria-invalid={invalid}
-													autoFocus
-													id={field.name}
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Order name"
-													value={field.state.value}
-												/>
-												{invalid ? (
-													<FieldError>
-														{orderFormFieldError(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
-								<form.Field name="description">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>
-												Description{' '}
-												<span className="text-muted-foreground">
-													(optional)
-												</span>
-											</FieldLabel>
-											<Textarea
+					<SheetPanel className="flex flex-col gap-4">
+						<form.Field name="name">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Name</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											autoFocus
+											id={field.name}
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="Order name"
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{orderFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="description">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Description{' '}
+										<span className="text-muted-foreground text-xs">
+											(optional)
+										</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="Short description"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="vendor">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
+										<VendorCombobox
+											id={field.name}
+											invalid={invalid}
+											onBlur={field.handleBlur}
+											onChange={(next) => {
+												field.handleChange(next);
+												if (next) {
+													form.setFieldValue('newVendorName', '');
+												}
+											}}
+											value={field.state.value}
+											vendors={vendors}
+										/>
+										{invalid ? (
+											<FieldError>
+												{orderFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="newVendorName">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Or add new vendor
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => {
+											field.handleChange(e.target.value);
+											if (e.target.value.trim()) {
+												form.setFieldValue('vendor', '');
+											}
+										}}
+										placeholder="New vendor name"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
+						</form.Field>
+						<div className="grid grid-cols-2 gap-4">
+							<form.Field name="quantity">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>Quantity</FieldLabel>
+											<Input
+												aria-invalid={invalid}
 												id={field.name}
+												min="0"
 												name={field.name}
+												nativeInput
 												onBlur={field.handleBlur}
 												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="Order description"
-												value={field.state.value ?? ''}
+												placeholder="0"
+												step="any"
+												type="number"
+												value={field.state.value}
 											/>
+											{invalid ? (
+												<FieldError>
+													{orderFormFieldError(field.state.meta.errors)}
+												</FieldError>
+											) : null}
 										</Field>
-									)}
-								</form.Field>
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Add material
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel>
-								<div className="flex w-full flex-col gap-2">
-									<Input
-										nativeInput
-										onChange={(e) => setNewMaterialName(e.target.value)}
-										placeholder="Material name"
-										value={newMaterialName}
-									/>
-									<div className="flex w-full gap-2">
-										<div className="flex-1">
-											<Combobox
-												onValueChange={(val) => setNewMaterialUnits(val ?? '')}
-												value={newMaterialUnits || null}
+									);
+								}}
+							</form.Field>
+							<form.Field name="unit">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>Unit</FieldLabel>
+											<Combobox<string>
+												disabled={units === undefined}
+												items={unitItems}
+												itemToStringLabel={(item) =>
+													unitLabelByAbbr.get(item) ?? item
+												}
+												onValueChange={(next) => field.handleChange(next ?? '')}
+												value={field.state.value || null}
 											>
-												<ComboboxInput placeholder="Select units" />
+												<ComboboxInput
+													aria-invalid={invalid}
+													id={field.name}
+													onBlur={field.handleBlur}
+													placeholder="Select a unit"
+												/>
 												<ComboboxPopup>
+													<ComboboxEmpty>No unit found.</ComboboxEmpty>
 													<ComboboxList>
-														<ComboboxEmpty>No units found.</ComboboxEmpty>
-														{Object.entries(groupedUnits).map(
-															([category, categoryUnits]) => (
-																<ComboboxGroup key={category}>
-																	<ComboboxGroupLabel>
-																		{category}
-																	</ComboboxGroupLabel>
-																	{categoryUnits.map((unit) => (
-																		<ComboboxItem
-																			key={unit._id}
-																			value={unit.abbr}
-																		>
-																			{unit.label} ({unit.abbr})
-																		</ComboboxItem>
-																	))}
-																</ComboboxGroup>
-															)
+														{(item: string) => (
+															<ComboboxItem key={item} value={item}>
+																{unitLabelByAbbr.get(item) ?? item}
+															</ComboboxItem>
 														)}
 													</ComboboxList>
 												</ComboboxPopup>
 											</Combobox>
-										</div>
-										<Button
-											aria-label="Add material"
-											onClick={handleAddMaterial}
-											size="icon"
-											type="button"
-											variant="outline"
-										>
-											<Plus />
-										</Button>
-									</div>
-								</div>
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader className="flex flex-row items-center py-3">
-								<FrameTitle className="min-w-0 truncate leading-none">
-									Materials
-								</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="p-0">
-								<form.Field name="materials">
-									{(field) => {
-										const materials = field.state.value ?? [];
-										return materials.length === 0 ? (
-											<Alert variant="info">
-												<Info />
-												<AlertDescription>
-													No materials added yet.
-												</AlertDescription>
-											</Alert>
-										) : (
-											<div className="flex w-full flex-col">
-												{materials.map((material, index) => (
-													<div
-														className="flex w-full items-center justify-between rounded-lg border px-3 py-2"
-														key={`${material.name}-${index}`}
-													>
-														<span className="font-medium text-sm">
-															{material.name}
-														</span>
-														<div className="flex items-center gap-2">
-															<Badge size="lg" variant="outline">
-																{material.units}
-															</Badge>
-															<Button
-																aria-label={`Remove ${material.name}`}
-																onClick={() => handleRemoveMaterial(index)}
-																size="icon"
-																type="button"
-																variant="destructive-outline"
-															>
-																<X />
-															</Button>
-														</div>
-													</div>
-												))}
-											</div>
-										);
-									}}
-								</form.Field>
-							</FramePanel>
-						</Frame>
+											{invalid ? (
+												<FieldError>
+													{orderFormFieldError(field.state.meta.errors)}
+												</FieldError>
+											) : null}
+										</Field>
+									);
+								}}
+							</form.Field>
+						</div>
+						<form.Field name="link">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Link{' '}
+										<span className="text-muted-foreground text-xs">
+											(optional)
+										</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="https://"
+										type="url"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="status">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>Status</FieldLabel>
+									<select
+										className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										id={field.name}
+										name={field.name}
+										onBlur={field.handleBlur}
+										onChange={(e) =>
+											field.handleChange(e.target.value as never)
+										}
+										value={field.state.value}
+									>
+										{ORDER_STATUSES.map((s) => (
+											<option key={s} value={s}>
+												{s}
+											</option>
+										))}
+									</select>
+								</Field>
+							)}
+						</form.Field>
 					</SheetPanel>
 				</form>
 				<SheetFooter>

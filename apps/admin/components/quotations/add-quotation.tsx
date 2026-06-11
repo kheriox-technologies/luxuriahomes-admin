@@ -22,6 +22,7 @@ import {
 	FramePanel,
 	FrameTitle,
 } from '@workspace/ui/components/frame';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -94,6 +95,7 @@ export default function AddQuotation({
 			: (serviceProviders ?? []);
 
 	const addQuotation = useMutation(api.quotations.add.add);
+	const addTrade = useMutation(api.trades.add.add);
 	const generateUploadUrl = useAction(
 		api.quotations.generateUploadUrl.generateUploadUrl
 	);
@@ -110,9 +112,15 @@ export default function AddQuotation({
 		onSubmit: async ({ value }) => {
 			const parsed = quotationFormSchema.parse(value);
 			try {
+				let resolvedTradeIds = parsed.tradeIds as Id<'trades'>[];
+				const newName = parsed.newTradeName?.trim();
+				if (newName) {
+					const newTradeId = await addTrade({ name: newName });
+					resolvedTradeIds = [...resolvedTradeIds, newTradeId];
+				}
 				await addQuotation({
 					projectId: parsed.projectId as Id<'projects'>,
-					tradeIds: parsed.tradeIds as Id<'trades'>[],
+					tradeIds: resolvedTradeIds,
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -327,6 +335,25 @@ export default function AddQuotation({
 											</Field>
 										);
 									}}
+								</form.Field>
+
+								<form.Field name="newTradeName">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Or create new trade
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="New trade name"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
 								</form.Field>
 
 								<form.Field name="serviceProviderId">

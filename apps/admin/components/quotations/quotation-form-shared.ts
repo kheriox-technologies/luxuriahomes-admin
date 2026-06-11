@@ -10,24 +10,36 @@ export const quotationStatusValues = [
 
 export type QuotationStatus = (typeof quotationStatusValues)[number];
 
-export const quotationFormSchema = z.object({
-	projectId: z.string().min(1, 'Project is required'),
-	tradeIds: z.array(z.string()).min(1, 'At least one trade is required'),
-	serviceProviderId: z.string().min(1, 'Service provider is required'),
-	price: z
-		.string()
-		.trim()
-		.min(1, 'Price is required')
-		.regex(MONEY_PATTERN, 'Enter a valid amount (up to 2 decimals)'),
-	status: z.enum(['Under Review', 'Approved', 'Rejected']),
-	s3Key: z.string().optional(),
-});
+export const quotationFormSchema = z
+	.object({
+		projectId: z.string().min(1, 'Project is required'),
+		tradeIds: z.array(z.string()),
+		newTradeName: z.string().optional(),
+		serviceProviderId: z.string().min(1, 'Service provider is required'),
+		price: z
+			.string()
+			.trim()
+			.min(1, 'Price is required')
+			.regex(MONEY_PATTERN, 'Enter a valid amount (up to 2 decimals)'),
+		status: z.enum(['Under Review', 'Approved', 'Rejected']),
+		s3Key: z.string().optional(),
+	})
+	.superRefine((data, ctx) => {
+		if (!(data.tradeIds.length > 0 || data.newTradeName?.trim())) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'At least one trade is required',
+				path: ['tradeIds'],
+			});
+		}
+	});
 
 export type QuotationFormValues = z.infer<typeof quotationFormSchema>;
 
 export const emptyQuotationFormValues: QuotationFormValues = {
 	projectId: '',
 	tradeIds: [],
+	newTradeName: '',
 	serviceProviderId: '',
 	price: '',
 	status: 'Under Review',

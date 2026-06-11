@@ -23,11 +23,11 @@ import { useQuery } from 'convex/react';
 import {
 	Building2,
 	ChevronDown,
-	ClipboardList,
 	DollarSign,
 	Layers,
 	List,
 	type LucideIcon,
+	Package,
 	SquaresIntersect,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -66,6 +66,12 @@ const items: SidebarItem[] = [
 		icon: SquaresIntersect,
 	},
 	{
+		title: 'Materials',
+		url: '/materials',
+		path: '/materials',
+		icon: Package,
+	},
+	{
 		title: 'Quotations',
 		url: '/quotations',
 		path: '/quotations',
@@ -96,12 +102,6 @@ const items: SidebarItem[] = [
 				path: '/service-providers',
 			},
 		],
-	},
-	{
-		title: 'Orders',
-		url: '/orders',
-		path: '/orders',
-		icon: ClipboardList,
 	},
 	{
 		title: 'Stages',
