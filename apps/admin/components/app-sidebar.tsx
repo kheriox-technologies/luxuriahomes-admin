@@ -28,6 +28,7 @@ import {
 	Layers,
 	List,
 	type LucideIcon,
+	Package,
 	SquaresIntersect,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -64,6 +65,12 @@ const items: SidebarItem[] = [
 		url: '/inclusions',
 		path: '/inclusions',
 		icon: SquaresIntersect,
+	},
+	{
+		title: 'Materials',
+		url: '/materials',
+		path: '/materials',
+		icon: Package,
 	},
 	{
 		title: 'Quotations',

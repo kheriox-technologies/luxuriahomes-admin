@@ -277,4 +277,35 @@ export default defineSchema({
 		addedBy: v.string(),
 		note: v.string(),
 	}).index('by_quotation', ['quotationId']),
+	materials: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		unit: v.id('units'),
+		variantCount: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_name', ['name'])
+		.searchIndex('search_materials', { searchField: 'searchText' }),
+	materialVariants: defineTable({
+		materialId: v.id('materials'),
+		name: v.string(),
+		description: v.optional(v.string()),
+		vendor: v.string(),
+		link: v.optional(v.string()),
+		itemCount: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_material', ['materialId'])
+		.searchIndex('search_material_variants', { searchField: 'searchText' }),
+	materialItems: defineTable({
+		materialVariantId: v.id('materialVariants'),
+		name: v.string(),
+		description: v.optional(v.string()),
+		vendor: v.string(),
+		unit: v.id('units'),
+		link: v.optional(v.string()),
+		searchText: v.string(),
+	})
+		.index('by_material_variant', ['materialVariantId'])
+		.searchIndex('search_material_items', { searchField: 'searchText' }),
 });

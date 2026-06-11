@@ -154,6 +154,32 @@ export function buildDocumentFolderSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
+export function buildMaterialSearchText(
+	name: string,
+	description?: string,
+	unitAbbr?: string
+): string {
+	return buildSearchText([name, description, unitAbbr]);
+}
+
+export function buildMaterialVariantSearchText(
+	materialName: string,
+	variantName: string,
+	vendor: string,
+	description?: string
+): string {
+	return buildSearchText([materialName, variantName, vendor, description]);
+}
+
+export function buildMaterialItemSearchText(
+	variantName: string,
+	itemName: string,
+	vendor: string,
+	description?: string
+): string {
+	return buildSearchText([variantName, itemName, vendor, description]);
+}
+
 // Strips the domain from an email and replaces dots in the local part with spaces,
 // preventing TLD tokens like "com" or "au" from polluting full-text search results.
 function normalizeEmailForSearch(email?: string): string | undefined {
