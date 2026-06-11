@@ -208,9 +208,7 @@ export default function AddMaterialItem({
 						<Input
 							id="add-item-sku"
 							nativeInput
-							onChange={(e) =>
-								setDraft((p) => ({ ...p, sku: e.target.value }))
-							}
+							onChange={(e) => setDraft((p) => ({ ...p, sku: e.target.value }))}
 							placeholder="e.g. ABC-123"
 							value={draft.sku ?? ''}
 						/>

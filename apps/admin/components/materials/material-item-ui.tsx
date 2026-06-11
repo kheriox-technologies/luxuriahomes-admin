@@ -207,8 +207,7 @@ export function MaterialItemDraftFields({
 			</Field>
 			<Field>
 				<FieldLabel htmlFor="item-draft-sku">
-					SKU{' '}
-					<span className="text-muted-foreground text-xs">(optional)</span>
+					SKU <span className="text-muted-foreground text-xs">(optional)</span>
 				</FieldLabel>
 				<Input
 					id="item-draft-sku"
