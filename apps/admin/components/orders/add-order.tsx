@@ -26,11 +26,14 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyOrderFormValues,
+	emptyOrderItem,
 	ORDER_STATUSES,
 	orderFormFieldError,
 	orderFormSchema,
@@ -74,12 +77,15 @@ export default function AddOrder({
 				}
 				await addOrder({
 					projectId,
-					name: parsed.name,
-					description: parsed.description?.trim() || undefined,
 					vendor: resolvedVendor,
-					quantity: Number(parsed.quantity),
-					unit: parsed.unit,
-					link: parsed.link?.trim() || undefined,
+					orderBy: parsed.orderBy?.getTime(),
+					items: parsed.items.map((item) => ({
+						name: item.name,
+						description: item.description?.trim() || undefined,
+						quantity: Number(item.quantity),
+						unit: item.unit,
+						link: item.link?.trim() || undefined,
+					})),
 					status: parsed.status,
 				});
 				toastManager.add({ title: 'Order added', type: 'success' });
@@ -127,54 +133,6 @@ export default function AddOrder({
 					}}
 				>
 					<SheetPanel className="flex flex-col gap-4">
-						<form.Field name="name">
-							{(field) => {
-								const invalid =
-									field.state.meta.isTouched && !field.state.meta.isValid;
-								return (
-									<Field data-invalid={invalid}>
-										<FieldLabel htmlFor={field.name}>Name</FieldLabel>
-										<Input
-											aria-invalid={invalid}
-											autoFocus
-											id={field.name}
-											name={field.name}
-											nativeInput
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="Order name"
-											value={field.state.value}
-										/>
-										{invalid ? (
-											<FieldError>
-												{orderFormFieldError(field.state.meta.errors)}
-											</FieldError>
-										) : null}
-									</Field>
-								);
-							}}
-						</form.Field>
-						<form.Field name="description">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Description{' '}
-										<span className="text-muted-foreground text-xs">
-											(optional)
-										</span>
-									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Short description"
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
-						</form.Field>
 						<form.Field name="vendor">
 							{(field) => {
 								const invalid =
@@ -227,101 +185,231 @@ export default function AddOrder({
 								</Field>
 							)}
 						</form.Field>
-						<div className="grid grid-cols-2 gap-4">
-							<form.Field name="quantity">
-								{(field) => {
-									const invalid =
-										field.state.meta.isTouched && !field.state.meta.isValid;
-									return (
-										<Field data-invalid={invalid}>
-											<FieldLabel htmlFor={field.name}>Quantity</FieldLabel>
-											<Input
-												aria-invalid={invalid}
-												id={field.name}
-												min="0"
-												name={field.name}
-												nativeInput
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="0"
-												step="any"
-												type="number"
-												value={field.state.value}
-											/>
-											{invalid ? (
-												<FieldError>
-													{orderFormFieldError(field.state.meta.errors)}
-												</FieldError>
-											) : null}
-										</Field>
-									);
-								}}
-							</form.Field>
-							<form.Field name="unit">
-								{(field) => {
-									const invalid =
-										field.state.meta.isTouched && !field.state.meta.isValid;
-									return (
-										<Field data-invalid={invalid}>
-											<FieldLabel htmlFor={field.name}>Unit</FieldLabel>
-											<Combobox<string>
-												disabled={units === undefined}
-												items={unitItems}
-												itemToStringLabel={(item) =>
-													unitLabelByAbbr.get(item) ?? item
-												}
-												onValueChange={(next) => field.handleChange(next ?? '')}
-												value={field.state.value || null}
-											>
-												<ComboboxInput
-													aria-invalid={invalid}
-													id={field.name}
-													onBlur={field.handleBlur}
-													placeholder="Select a unit"
-												/>
-												<ComboboxPopup>
-													<ComboboxEmpty>No unit found.</ComboboxEmpty>
-													<ComboboxList>
-														{(item: string) => (
-															<ComboboxItem key={item} value={item}>
-																{unitLabelByAbbr.get(item) ?? item}
-															</ComboboxItem>
-														)}
-													</ComboboxList>
-												</ComboboxPopup>
-											</Combobox>
-											{invalid ? (
-												<FieldError>
-													{orderFormFieldError(field.state.meta.errors)}
-												</FieldError>
-											) : null}
-										</Field>
-									);
-								}}
-							</form.Field>
-						</div>
-						<form.Field name="link">
+						<form.Field name="orderBy">
 							{(field) => (
 								<Field>
 									<FieldLabel htmlFor={field.name}>
-										Link{' '}
+										Order By{' '}
 										<span className="text-muted-foreground text-xs">
 											(optional)
 										</span>
 									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
+									<ProjectStartDatePicker
 										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="https://"
-										type="url"
-										value={field.state.value ?? ''}
+										onChange={(date) => field.handleChange(date)}
+										value={field.state.value}
 									/>
 								</Field>
 							)}
 						</form.Field>
+						<div className="flex flex-col gap-3">
+							<span className="font-medium text-sm">Items</span>
+							<form.Field mode="array" name="items">
+								{(itemsField) => (
+									<div className="flex flex-col gap-4">
+										{itemsField.state.value.map((_, index) => (
+											<div
+												className="relative flex flex-col gap-3 rounded-md border p-3"
+												// biome-ignore lint/suspicious/noArrayIndexKey: form array items have no stable ID
+												key={index}
+											>
+												{itemsField.state.value.length > 1 ? (
+													<button
+														aria-label="Remove item"
+														className="absolute top-2 right-2 text-muted-foreground hover:text-destructive"
+														onClick={() => itemsField.removeValue(index)}
+														type="button"
+													>
+														<Trash2 className="size-4" />
+													</button>
+												) : null}
+												<form.Field name={`items[${index}].name`}>
+													{(field) => {
+														const invalid =
+															field.state.meta.isTouched &&
+															!field.state.meta.isValid;
+														return (
+															<Field data-invalid={invalid}>
+																<FieldLabel htmlFor={field.name}>
+																	Name
+																</FieldLabel>
+																<Input
+																	aria-invalid={invalid}
+																	autoFocus={index === 0}
+																	id={field.name}
+																	name={field.name}
+																	nativeInput
+																	onBlur={field.handleBlur}
+																	onChange={(e) =>
+																		field.handleChange(e.target.value)
+																	}
+																	placeholder="Item name"
+																	value={field.state.value}
+																/>
+																{invalid ? (
+																	<FieldError>
+																		{orderFormFieldError(
+																			field.state.meta.errors
+																		)}
+																	</FieldError>
+																) : null}
+															</Field>
+														);
+													}}
+												</form.Field>
+												<form.Field name={`items[${index}].description`}>
+													{(field) => (
+														<Field>
+															<FieldLabel htmlFor={field.name}>
+																Description{' '}
+																<span className="text-muted-foreground text-xs">
+																	(optional)
+																</span>
+															</FieldLabel>
+															<Input
+																id={field.name}
+																name={field.name}
+																nativeInput
+																onBlur={field.handleBlur}
+																onChange={(e) =>
+																	field.handleChange(e.target.value)
+																}
+																placeholder="Short description"
+																value={field.state.value ?? ''}
+															/>
+														</Field>
+													)}
+												</form.Field>
+												<div className="grid grid-cols-2 gap-3">
+													<form.Field name={`items[${index}].quantity`}>
+														{(field) => {
+															const invalid =
+																field.state.meta.isTouched &&
+																!field.state.meta.isValid;
+															return (
+																<Field data-invalid={invalid}>
+																	<FieldLabel htmlFor={field.name}>
+																		Quantity
+																	</FieldLabel>
+																	<Input
+																		aria-invalid={invalid}
+																		id={field.name}
+																		min="0"
+																		name={field.name}
+																		nativeInput
+																		onBlur={field.handleBlur}
+																		onChange={(e) =>
+																			field.handleChange(e.target.value)
+																		}
+																		placeholder="0"
+																		step="any"
+																		type="number"
+																		value={field.state.value}
+																	/>
+																	{invalid ? (
+																		<FieldError>
+																			{orderFormFieldError(
+																				field.state.meta.errors
+																			)}
+																		</FieldError>
+																	) : null}
+																</Field>
+															);
+														}}
+													</form.Field>
+													<form.Field name={`items[${index}].unit`}>
+														{(field) => {
+															const invalid =
+																field.state.meta.isTouched &&
+																!field.state.meta.isValid;
+															return (
+																<Field data-invalid={invalid}>
+																	<FieldLabel htmlFor={field.name}>
+																		Unit
+																	</FieldLabel>
+																	<Combobox<string>
+																		disabled={units === undefined}
+																		items={unitItems}
+																		itemToStringLabel={(item) =>
+																			unitLabelByAbbr.get(item) ?? item
+																		}
+																		onValueChange={(next) =>
+																			field.handleChange(next ?? '')
+																		}
+																		value={field.state.value || null}
+																	>
+																		<ComboboxInput
+																			aria-invalid={invalid}
+																			id={field.name}
+																			onBlur={field.handleBlur}
+																			placeholder="Select a unit"
+																		/>
+																		<ComboboxPopup>
+																			<ComboboxEmpty>
+																				No unit found.
+																			</ComboboxEmpty>
+																			<ComboboxList>
+																				{(item: string) => (
+																					<ComboboxItem key={item} value={item}>
+																						{unitLabelByAbbr.get(item) ?? item}
+																					</ComboboxItem>
+																				)}
+																			</ComboboxList>
+																		</ComboboxPopup>
+																	</Combobox>
+																	{invalid ? (
+																		<FieldError>
+																			{orderFormFieldError(
+																				field.state.meta.errors
+																			)}
+																		</FieldError>
+																	) : null}
+																</Field>
+															);
+														}}
+													</form.Field>
+												</div>
+												<form.Field name={`items[${index}].link`}>
+													{(field) => (
+														<Field>
+															<FieldLabel htmlFor={field.name}>
+																Link{' '}
+																<span className="text-muted-foreground text-xs">
+																	(optional)
+																</span>
+															</FieldLabel>
+															<Input
+																id={field.name}
+																name={field.name}
+																nativeInput
+																onBlur={field.handleBlur}
+																onChange={(e) =>
+																	field.handleChange(e.target.value)
+																}
+																placeholder="https://"
+																type="url"
+																value={field.state.value ?? ''}
+															/>
+														</Field>
+													)}
+												</form.Field>
+											</div>
+										))}
+										<Button
+											onClick={() =>
+												itemsField.pushValue({ ...emptyOrderItem })
+											}
+											size="sm"
+											type="button"
+											variant="outline"
+										>
+											<PlusCircle className="size-4" />
+											Add Item
+										</Button>
+									</div>
+								)}
+							</form.Field>
+						</div>
 						<form.Field name="status">
 							{(field) => (
 								<Field>

@@ -8,30 +8,36 @@ import { addedByFromIdentity, getOrderOrThrow } from './shared';
 export const update = mutation({
 	args: {
 		orderId: v.id('projectOrders'),
-		name: v.string(),
-		description: v.optional(v.string()),
 		vendor: v.string(),
-		quantity: v.number(),
-		unit: v.string(),
-		link: v.optional(v.string()),
+		orderBy: v.optional(v.number()),
+		items: v.array(
+			v.object({
+				name: v.string(),
+				description: v.optional(v.string()),
+				quantity: v.number(),
+				unit: v.string(),
+				link: v.optional(v.string()),
+			})
+		),
 		status: projectOrderStatusValidator,
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
 		const existing = await getOrderOrThrow(ctx, args.orderId);
-		const name = args.name.trim();
 		const vendor = args.vendor.trim();
-		const description = args.description?.trim() || undefined;
-		const link = args.link?.trim() || undefined;
-		const searchText = buildProjectOrderSearchText(name, vendor, description);
+		const items = args.items.map((item) => ({
+			name: item.name.trim(),
+			description: item.description?.trim() || undefined,
+			quantity: item.quantity,
+			unit: item.unit.trim(),
+			link: item.link?.trim() || undefined,
+		}));
+		const searchText = buildProjectOrderSearchText(vendor, items);
 		await ctx.db.patch(args.orderId, {
-			name,
-			description,
 			vendor,
-			quantity: args.quantity,
-			unit: args.unit.trim(),
-			link,
+			orderBy: args.orderBy,
+			items,
 			status: args.status,
 			searchText,
 		});

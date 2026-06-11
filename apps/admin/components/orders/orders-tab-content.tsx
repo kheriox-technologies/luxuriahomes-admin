@@ -69,7 +69,7 @@ function OrderActionsCell({ row }: { row: ProjectOrder }) {
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}
 				orderId={row._id as Id<'projectOrders'>}
-				orderName={row.name}
+				orderName={row.vendor}
 			/>
 			<OrderNotesDialog
 				onOpenChange={setNotesOpen}
@@ -114,14 +114,13 @@ function OrderActionsCell({ row }: { row: ProjectOrder }) {
 	);
 }
 
-function OrderNameCell({ row }: { row: ProjectOrder }) {
+function OrderVendorCell({ row }: { row: ProjectOrder }) {
 	const [notesOpen, setNotesOpen] = useState(false);
 	return (
 		<div className="flex flex-col gap-1">
-			<span className="font-medium">{row.name}</span>
-			{row.description ? (
-				<span className="text-muted-foreground text-xs">{row.description}</span>
-			) : null}
+			<div className="flex items-center gap-2">
+				<span className="font-medium">{row.vendor}</span>
+			</div>
 			{row.noteCount > 0 ? (
 				<>
 					<OrderNotesDialog
@@ -144,41 +143,54 @@ function OrderNameCell({ row }: { row: ProjectOrder }) {
 	);
 }
 
+function formatOrderByDate(timestamp: number): string {
+	return new Date(timestamp).toLocaleDateString('en-AU', {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric',
+	});
+}
+
 function buildColumns(): ColumnDef<ProjectOrder>[] {
 	return [
 		{
-			id: 'name',
-			header: 'Name',
-			cell: ({ row }) => <OrderNameCell row={row.original} />,
-		},
-		{
 			id: 'vendor',
 			header: 'Vendor',
+			cell: ({ row }) => <OrderVendorCell row={row.original} />,
+		},
+		{
+			id: 'items',
+			header: 'Items',
 			cell: ({ row }) => (
-				<div className="flex items-center gap-2">
-					<span className="text-muted-foreground text-sm">
-						{row.original.vendor}
-					</span>
-					{row.original.link ? (
-						<a
-							aria-label="View link"
-							href={row.original.link}
-							rel="noopener noreferrer"
-							target="_blank"
-						>
-							<ExternalLink className="size-3.5 text-muted-foreground" />
-						</a>
-					) : null}
+				<div className="flex flex-col gap-0.5">
+					{row.original.items.map((item) => (
+						<div className="flex items-center gap-1.5" key={item.name}>
+							<span className="text-sm">{item.name}</span>
+							{item.link ? (
+								<a
+									aria-label="View item link"
+									href={item.link}
+									rel="noopener noreferrer"
+									target="_blank"
+								>
+									<ExternalLink className="size-3 text-muted-foreground" />
+								</a>
+							) : null}
+							<span className="text-muted-foreground text-xs">
+								({item.quantity} {item.unit})
+							</span>
+						</div>
+					))}
 				</div>
 			),
 		},
 		{
-			id: 'quantity',
-			header: 'Quantity',
-			size: 120,
+			id: 'orderBy',
+			header: 'Order By',
+			size: 130,
 			cell: ({ row }) => (
-				<span className="text-sm">
-					{row.original.quantity} {row.original.unit}
+				<span className="text-muted-foreground text-sm">
+					{row.original.orderBy ? formatOrderByDate(row.original.orderBy) : '—'}
 				</span>
 			),
 		},

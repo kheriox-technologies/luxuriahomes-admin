@@ -32,6 +32,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { FolderInput } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 type Project = Doc<'projects'>;
@@ -64,6 +65,7 @@ export default function AddMaterialVariantToProject({
 	const [selectedProjectId, setSelectedProjectId] = useState('');
 	const [showProjectError, setShowProjectError] = useState(false);
 	const [quantity, setQuantity] = useState('');
+	const [orderBy, setOrderBy] = useState<Date | undefined>(undefined);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const projects = useQuery(api.projects.list.list, {});
@@ -118,6 +120,7 @@ export default function AddMaterialVariantToProject({
 				projectId: selectedProject,
 				variantId,
 				quantity: parsedQuantity,
+				orderBy: orderBy?.getTime(),
 			});
 			toastManager.add({
 				description: `${variantName} was added to ${projectNameById.get(selectedProject) ?? 'the selected project'}.`,
@@ -144,6 +147,7 @@ export default function AddMaterialVariantToProject({
 		setSelectedProjectId('');
 		setShowProjectError(false);
 		setQuantity('');
+		setOrderBy(undefined);
 		setIsSubmitting(false);
 	};
 
@@ -238,6 +242,16 @@ export default function AddMaterialVariantToProject({
 								</InputGroupAddon>
 							) : null}
 						</InputGroup>
+					</Field>
+					<Field>
+						<FieldLabel>
+							Order By{' '}
+							<span className="text-muted-foreground text-xs">(optional)</span>
+						</FieldLabel>
+						<ProjectStartDatePicker
+							onChange={(date) => setOrderBy(date)}
+							value={orderBy}
+						/>
 					</Field>
 				</div>
 				<DialogFooter>

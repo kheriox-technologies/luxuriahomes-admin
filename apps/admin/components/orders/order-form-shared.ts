@@ -9,21 +9,28 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+export const orderItemSchema = z.object({
+	name: z.string().trim().min(1, 'Item name is required'),
+	description: z.string().optional(),
+	quantity: z
+		.string()
+		.min(1, 'Quantity is required')
+		.refine(
+			(v) => !Number.isNaN(Number(v)) && Number(v) > 0,
+			'Quantity must be a positive number'
+		),
+	unit: z.string().trim().min(1, 'Unit is required'),
+	link: z.string().optional(),
+});
+
+export type OrderItemFormValues = z.infer<typeof orderItemSchema>;
+
 export const orderFormSchema = z
 	.object({
-		name: z.string().trim().min(1, 'Name is required'),
-		description: z.string().optional(),
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
-		quantity: z
-			.string()
-			.min(1, 'Quantity is required')
-			.refine(
-				(v) => !Number.isNaN(Number(v)) && Number(v) > 0,
-				'Quantity must be a positive number'
-			),
-		unit: z.string().trim().min(1, 'Unit is required'),
-		link: z.string().optional(),
+		orderBy: z.date().optional(),
+		items: z.array(orderItemSchema).min(1, 'At least one item is required'),
 		status: z.enum(['Pending', 'Ordered', 'In Transit', 'Delivered']),
 	})
 	.superRefine((data, ctx) => {
@@ -38,14 +45,19 @@ export const orderFormSchema = z
 
 export type OrderFormValues = z.infer<typeof orderFormSchema>;
 
-export const emptyOrderFormValues: OrderFormValues = {
+export const emptyOrderItem = {
 	name: '',
 	description: '',
-	vendor: '',
-	newVendorName: '',
 	quantity: '',
 	unit: '',
 	link: '',
+};
+
+export const emptyOrderFormValues: OrderFormValues = {
+	vendor: '',
+	newVendorName: '',
+	orderBy: undefined,
+	items: [{ ...emptyOrderItem }],
 	status: 'Pending',
 };
 
