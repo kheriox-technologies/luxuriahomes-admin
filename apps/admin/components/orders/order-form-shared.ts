@@ -31,6 +31,7 @@ export const orderFormSchema = z
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
 		orderBy: z.date().optional(),
+		deliveryDurationDays: z.number().int().positive().optional(),
 		items: z.array(orderItemSchema).min(1, 'At least one item is required'),
 		status: z.enum(['Pending', 'Ordered', 'In Transit', 'Delivered']),
 	})
@@ -59,6 +60,7 @@ export const emptyOrderFormValues: OrderFormValues = {
 	vendor: '',
 	newVendorName: '',
 	orderBy: undefined,
+	deliveryDurationDays: undefined,
 	items: [{ ...emptyOrderItem }],
 	status: 'Pending',
 };
