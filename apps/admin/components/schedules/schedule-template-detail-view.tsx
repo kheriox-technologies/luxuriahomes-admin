@@ -3,8 +3,15 @@
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { useQuery } from 'convex/react';
-import { useMemo, useState } from 'react';
+import { SearchIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
 import GanttPanel, { type ViewMode } from './gantt-panel';
@@ -26,6 +33,13 @@ export default function ScheduleTemplateDetailView({
 	});
 
 	const [viewMode, setViewMode] = useState<ViewMode>('days');
+	const [search, setSearch] = useState('');
+	const [debouncedSearch, setDebouncedSearch] = useState('');
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
+		return () => window.clearTimeout(id);
+	}, [search]);
 
 	const { stageLayouts, taskLayouts } = useMemo(
 		() => computeLayouts(stages ?? [], tasks ?? []),
@@ -69,12 +83,6 @@ export default function ScheduleTemplateDetailView({
 			<PageHeading
 				backLink="/schedules"
 				heading={scheduleTemplate.name}
-				headingActions={
-					<AddStage
-						scheduleTemplateId={scheduleTemplateId}
-						stages={stages ?? []}
-					/>
-				}
 				metaSlot={
 					projectDuration > 0 ? (
 						<Badge size="lg" variant="outline">
@@ -82,11 +90,34 @@ export default function ScheduleTemplateDetailView({
 						</Badge>
 					) : null
 				}
+				rightSlot={
+					<div className="flex items-center gap-2">
+						<InputGroup className="w-48">
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>
+									<SearchIcon aria-hidden />
+								</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-label="Search stages and tasks"
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder="Search…"
+								type="search"
+								value={search}
+							/>
+						</InputGroup>
+						<AddStage
+							scheduleTemplateId={scheduleTemplateId}
+							stages={stages ?? []}
+						/>
+					</div>
+				}
 			/>
 			<div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
 				<GanttPanel
 					onViewModeChange={setViewMode}
 					scheduleTemplateId={scheduleTemplateId}
+					search={debouncedSearch.trim()}
 					stageLayouts={stageLayouts}
 					stages={stages ?? []}
 					taskLayouts={taskLayouts}

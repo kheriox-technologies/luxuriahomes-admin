@@ -18,9 +18,11 @@ import { TASK_ROW_HEIGHT } from './schedule-row-heights';
 export default function TaskRow({
 	task,
 	tasks,
+	onNameClick,
 }: {
 	task: Doc<'scheduleTasks'>;
 	tasks: Doc<'scheduleTasks'>[];
+	onNameClick?: () => void;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -31,7 +33,13 @@ export default function TaskRow({
 				className="flex items-center justify-between border-border/50 border-b pr-3 pl-8"
 				style={{ height: TASK_ROW_HEIGHT }}
 			>
-				<span className="truncate text-sm">{task.name}</span>
+				<button
+					className="min-w-0 truncate text-left text-sm hover:underline"
+					onClick={onNameClick}
+					type="button"
+				>
+					{task.name}
+				</button>
 				<div className="flex shrink-0 items-center gap-1">
 					<span className="text-muted-foreground text-xs">
 						{task.durationDays}d

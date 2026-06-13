@@ -93,6 +93,7 @@ export default function GanttPanel({
 	scheduleTemplateId,
 	viewMode,
 	onViewModeChange,
+	search,
 }: {
 	stages: Doc<'scheduleStages'>[];
 	tasks: Doc<'scheduleTasks'>[];
@@ -101,6 +102,7 @@ export default function GanttPanel({
 	scheduleTemplateId: Id<'scheduleTemplates'>;
 	viewMode: ViewMode;
 	onViewModeChange: (mode: ViewMode) => void;
+	search?: string;
 }) {
 	const [collapsedStages, setCollapsedStages] = useState<Set<string>>(
 		new Set()
@@ -168,6 +170,55 @@ export default function GanttPanel({
 		return map;
 	}, [stages, tasks]);
 
+	const { displayedStages, getDisplayedTasks, forceExpandedStageIds } =
+		useMemo(() => {
+			const lowerSearch = search?.toLowerCase() ?? '';
+			if (!lowerSearch) {
+				return {
+					displayedStages: stages,
+					getDisplayedTasks: (stageId: string) =>
+						tasksByStage.get(stageId) ?? [],
+					forceExpandedStageIds: new Set<string>(),
+				};
+			}
+			const matches = (name: string) =>
+				name.toLowerCase().includes(lowerSearch);
+			const forceExpanded = new Set<string>();
+			const filteredData: Array<{
+				stage: Doc<'scheduleStages'>;
+				tasks: Doc<'scheduleTasks'>[];
+			}> = [];
+			for (const stage of stages) {
+				const allTasks = tasksByStage.get(stage._id) ?? [];
+				const stageNameMatches = matches(stage.name);
+				const matchingTasks = allTasks.filter((t) => matches(t.name));
+				if (!stageNameMatches && matchingTasks.length === 0) {
+					continue;
+				}
+				filteredData.push({
+					stage,
+					tasks: stageNameMatches ? allTasks : matchingTasks,
+				});
+				if (matchingTasks.length > 0) {
+					forceExpanded.add(stage._id);
+				}
+			}
+			const stageDataMap = new Map<string, Doc<'scheduleTasks'>[]>(
+				filteredData.map(({ stage, tasks: t }) => [stage._id, t])
+			);
+			return {
+				displayedStages: filteredData.map(({ stage }) => stage),
+				getDisplayedTasks: (stageId: string) => stageDataMap.get(stageId) ?? [],
+				forceExpandedStageIds: forceExpanded,
+			};
+		}, [search, stages, tasksByStage]);
+
+	const isExpanded = useCallback(
+		(stageId: string) =>
+			forceExpandedStageIds.has(stageId) || !collapsedStages.has(stageId),
+		[forceExpandedStageIds, collapsedStages]
+	);
+
 	const totalDays = useMemo(() => {
 		let max = MIN_DAYS;
 		for (const [, layout] of taskLayouts) {
@@ -196,6 +247,23 @@ export default function GanttPanel({
 	}, [viewMode]);
 
 	const gridWidth = totalDays * pixelsPerDay;
+
+	const scrollToBar = useCallback(
+		(startOffset: number, durationDays: number) => {
+			if (!rightRef.current) {
+				return;
+			}
+			const barLeft = startOffset * pixelsPerDay;
+			const barWidth = durationDays * pixelsPerDay;
+			const containerWidth = rightRef.current.clientWidth;
+			const targetLeft = barLeft - (containerWidth - barWidth) / 2;
+			rightRef.current.scrollTo({
+				left: Math.max(0, targetLeft),
+				behavior: 'smooth',
+			});
+		},
+		[pixelsPerDay]
+	);
 
 	const columns = useMemo<GanttColumn[]>(() => {
 		if (viewMode === 'weeks') {
@@ -282,25 +350,53 @@ export default function GanttPanel({
 							style={{ height: STAGE_ROW_HEIGHT }}
 						/>
 
-						{stages.map((stage) => {
-							const stageTasks = tasksByStage.get(stage._id) ?? [];
+						{displayedStages.map((stage) => {
+							const stageTasks = getDisplayedTasks(stage._id);
+							const stageLayout = stageLayouts.get(stage._id);
 							return (
 								<div key={stage._id}>
 									{/* StageRow owns its own height, bg-muted/40, and border-b */}
 									<StageRow
-										isCollapsed={collapsedStages.has(stage._id)}
+										isCollapsed={!isExpanded(stage._id)}
+										onNameClick={
+											stageLayout
+												? () =>
+														scrollToBar(
+															stageLayout.startOffset,
+															stageLayout.endOffset -
+																stageLayout.startOffset +
+																1
+														)
+												: undefined
+										}
 										onToggleCollapse={() => toggleStage(stage._id)}
 										scheduleTemplateId={scheduleTemplateId}
 										stage={stage}
-										stageLayout={stageLayouts.get(stage._id)}
+										stageLayout={stageLayout}
 										stages={stages}
 										tasks={stageTasks}
 									/>
-									{!collapsedStages.has(stage._id) &&
-										stageTasks.map((task) => (
-											/* TaskRow owns its own height and border-b */
-											<TaskRow key={task._id} task={task} tasks={stageTasks} />
-										))}
+									{isExpanded(stage._id) &&
+										stageTasks.map((task) => {
+											const taskLayout = taskLayouts.get(task._id);
+											return (
+												/* TaskRow owns its own height and border-b */
+												<TaskRow
+													key={task._id}
+													onNameClick={
+														taskLayout
+															? () =>
+																	scrollToBar(
+																		taskLayout.startOffset,
+																		taskLayout.durationDays
+																	)
+															: undefined
+													}
+													task={task}
+													tasks={stageTasks}
+												/>
+											);
+										})}
 								</div>
 							);
 						})}
@@ -341,9 +437,9 @@ export default function GanttPanel({
 							</div>
 
 							{/* Grid rows — one per stage, then per task */}
-							{stages.map((stage, stageIndex) => {
+							{displayedStages.map((stage, stageIndex) => {
 								const stageLayout = stageLayouts.get(stage._id);
-								const stageTasks = tasksByStage.get(stage._id) ?? [];
+								const stageTasks = getDisplayedTasks(stage._id);
 								const isEven = stageIndex % 2 === 0;
 
 								return (
@@ -391,7 +487,7 @@ export default function GanttPanel({
 										</div>
 
 										{/* Task bars */}
-										{!collapsedStages.has(stage._id) &&
+										{isExpanded(stage._id) &&
 											stageTasks.map((task) => {
 												const taskLayout = taskLayouts.get(task._id);
 												return (

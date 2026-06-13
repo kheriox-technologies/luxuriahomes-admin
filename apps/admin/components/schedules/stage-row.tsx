@@ -32,6 +32,7 @@ export default function StageRow({
 	stageLayout,
 	isCollapsed,
 	onToggleCollapse,
+	onNameClick,
 }: {
 	stage: Doc<'scheduleStages'>;
 	stages: Doc<'scheduleStages'>[];
@@ -40,6 +41,7 @@ export default function StageRow({
 	stageLayout: StageLayout | undefined;
 	isCollapsed: boolean;
 	onToggleCollapse: () => void;
+	onNameClick?: () => void;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -65,7 +67,13 @@ export default function StageRow({
 							<ChevronDown className="size-4" />
 						)}
 					</Button>
-					<span className="truncate font-medium text-sm">{stage.name}</span>
+					<button
+						className="min-w-0 truncate text-left font-medium text-sm hover:underline"
+						onClick={onNameClick}
+						type="button"
+					>
+						{stage.name}
+					</button>
 				</div>
 				<div className="flex shrink-0 items-center gap-1">
 					<span className="text-muted-foreground text-xs">
