@@ -4,10 +4,10 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { useQuery } from 'convex/react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
-import GanttPanel from './gantt-panel';
+import GanttPanel, { type ViewMode } from './gantt-panel';
 import { computeLayouts } from './schedule-dependency-algorithm';
 
 export default function ScheduleTemplateDetailView({
@@ -25,6 +25,8 @@ export default function ScheduleTemplateDetailView({
 		scheduleTemplateId,
 	});
 
+	const [viewMode, setViewMode] = useState<ViewMode>('days');
+
 	const { stageLayouts, taskLayouts } = useMemo(
 		() => computeLayouts(stages ?? [], tasks ?? []),
 		[stages, tasks]
@@ -39,6 +41,16 @@ export default function ScheduleTemplateDetailView({
 		}
 		return max;
 	}, [stageLayouts]);
+
+	const durationLabel = useMemo(() => {
+		if (viewMode === 'weeks') {
+			return `${Math.ceil(projectDuration / 7)} Weeks`;
+		}
+		if (viewMode === 'months') {
+			return `${Math.ceil(projectDuration / 30)} Months`;
+		}
+		return `${projectDuration} Days`;
+	}, [viewMode, projectDuration]);
 
 	if (scheduleTemplate === undefined) {
 		return <div className="text-muted-foreground text-sm">Loading…</div>;
@@ -66,18 +78,20 @@ export default function ScheduleTemplateDetailView({
 				metaSlot={
 					projectDuration > 0 ? (
 						<Badge size="lg" variant="outline">
-							{projectDuration} Days
+							{durationLabel}
 						</Badge>
 					) : null
 				}
 			/>
 			<div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
 				<GanttPanel
+					onViewModeChange={setViewMode}
 					scheduleTemplateId={scheduleTemplateId}
 					stageLayouts={stageLayouts}
 					stages={stages ?? []}
 					taskLayouts={taskLayouts}
 					tasks={tasks ?? []}
+					viewMode={viewMode}
 				/>
 			</div>
 		</div>

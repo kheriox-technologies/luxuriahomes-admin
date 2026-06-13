@@ -3,6 +3,10 @@
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
+	ToggleGroup,
+	ToggleGroupItem,
+} from '@workspace/ui/components/toggle-group';
+import {
 	Tooltip,
 	TooltipPopup,
 	TooltipProvider,
@@ -15,9 +19,20 @@ import { STAGE_ROW_HEIGHT, TASK_ROW_HEIGHT } from './schedule-row-heights';
 import StageRow from './stage-row';
 import TaskRow from './task-row';
 
+export type ViewMode = 'days' | 'weeks' | 'months';
+
 const DAY_WIDTH = 44;
+const WEEK_COLUMN_WIDTH = 80;
+const MONTH_COLUMN_WIDTH = 120;
 const MIN_DAYS = 20;
 const STAGE_LIST_WIDTH = 280;
+
+interface GanttColumn {
+	dayStart: number;
+	label: string;
+	subLabel?: string;
+	widthDays: number;
+}
 
 function getDayLabel(
 	today: Date,
@@ -31,18 +46,61 @@ function getDayLabel(
 	};
 }
 
+function getWeekColumns(today: Date, totalDays: number): GanttColumn[] {
+	const cols: GanttColumn[] = [];
+	let d = 0;
+	while (d < totalDays) {
+		const widthDays = Math.min(7, totalDays - d);
+		const date = new Date(today);
+		date.setDate(date.getDate() + d);
+		const label = date.toLocaleDateString('en-AU', {
+			day: 'numeric',
+			month: 'short',
+		});
+		cols.push({ dayStart: d, widthDays, label });
+		d += 7;
+	}
+	return cols;
+}
+
+function getMonthColumns(today: Date, totalDays: number): GanttColumn[] {
+	const cols: GanttColumn[] = [];
+	let d = 0;
+	while (d < totalDays) {
+		const date = new Date(today);
+		date.setDate(date.getDate() + d);
+		const year = date.getFullYear();
+		const month = date.getMonth();
+		const daysInMonth = new Date(year, month + 1, 0).getDate();
+		const dayOfMonth = date.getDate();
+		const remainingInMonth = daysInMonth - dayOfMonth + 1;
+		const widthDays = Math.min(remainingInMonth, totalDays - d);
+		const label = date.toLocaleDateString('en-AU', {
+			month: 'short',
+			year: 'numeric',
+		});
+		cols.push({ dayStart: d, widthDays, label });
+		d += remainingInMonth;
+	}
+	return cols;
+}
+
 export default function GanttPanel({
 	stages,
 	tasks,
 	stageLayouts,
 	taskLayouts,
 	scheduleTemplateId,
+	viewMode,
+	onViewModeChange,
 }: {
 	stages: Doc<'scheduleStages'>[];
 	tasks: Doc<'scheduleTasks'>[];
 	stageLayouts: Map<string, StageLayout>;
 	taskLayouts: Map<string, TaskLayout>;
 	scheduleTemplateId: Id<'scheduleTemplates'>;
+	viewMode: ViewMode;
+	onViewModeChange: (mode: ViewMode) => void;
 }) {
 	const [collapsedStages, setCollapsedStages] = useState<Set<string>>(
 		new Set()
@@ -127,11 +185,30 @@ export default function GanttPanel({
 		return Math.max(max + 2, MIN_DAYS);
 	}, [taskLayouts, stageLayouts]);
 
-	const gridWidth = totalDays * DAY_WIDTH;
-	const dayOffsets = useMemo(
-		() => Array.from({ length: totalDays }, (_, i) => i),
-		[totalDays]
-	);
+	const pixelsPerDay = useMemo(() => {
+		if (viewMode === 'weeks') {
+			return WEEK_COLUMN_WIDTH / 7;
+		}
+		if (viewMode === 'months') {
+			return MONTH_COLUMN_WIDTH / 30;
+		}
+		return DAY_WIDTH;
+	}, [viewMode]);
+
+	const gridWidth = totalDays * pixelsPerDay;
+
+	const columns = useMemo<GanttColumn[]>(() => {
+		if (viewMode === 'weeks') {
+			return getWeekColumns(today, totalDays);
+		}
+		if (viewMode === 'months') {
+			return getMonthColumns(today, totalDays);
+		}
+		return Array.from({ length: totalDays }, (_, i) => {
+			const { day, month } = getDayLabel(today, i);
+			return { dayStart: i, widthDays: 1, label: day, subLabel: month };
+		});
+	}, [viewMode, today, totalDays]);
 
 	if (stages.length === 0) {
 		return (
@@ -152,6 +229,21 @@ export default function GanttPanel({
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 				{/* Toolbar */}
 				<div className="flex shrink-0 items-center justify-end gap-2 border-b px-3 py-2">
+					<ToggleGroup
+						aria-label="Calendar view mode"
+						onValueChange={(val) => {
+							if (val.length > 0) {
+								onViewModeChange(val[0] as ViewMode);
+							}
+						}}
+						size="sm"
+						value={[viewMode]}
+						variant="outline"
+					>
+						<ToggleGroupItem value="days">Days</ToggleGroupItem>
+						<ToggleGroupItem value="weeks">Weeks</ToggleGroupItem>
+						<ToggleGroupItem value="months">Months</ToggleGroupItem>
+					</ToggleGroup>
 					<Button onClick={expandAll} size="sm" type="button" variant="outline">
 						<ChevronsDownIcon />
 						Expand All
@@ -230,21 +322,22 @@ export default function GanttPanel({
 								className="sticky top-0 z-10 flex border-b bg-background"
 								style={{ height: STAGE_ROW_HEIGHT }}
 							>
-								{dayOffsets.map((day) => {
-									const { day: dayNum, month } = getDayLabel(today, day);
-									return (
-										<div
-											className="flex shrink-0 flex-col items-center justify-center border-r text-muted-foreground text-xs"
-											key={day}
-											style={{ width: DAY_WIDTH }}
-										>
-											<span className="font-medium leading-tight">
-												{dayNum}
+								{columns.map((col) => (
+									<div
+										className="flex shrink-0 flex-col items-center justify-center border-r text-muted-foreground text-xs"
+										key={col.dayStart}
+										style={{ width: col.widthDays * pixelsPerDay }}
+									>
+										<span className="font-medium leading-tight">
+											{col.label}
+										</span>
+										{col.subLabel && (
+											<span className="leading-tight opacity-70">
+												{col.subLabel}
 											</span>
-											<span className="leading-tight opacity-70">{month}</span>
-										</div>
-									);
-								})}
+										)}
+									</div>
+								))}
 							</div>
 
 							{/* Grid rows — one per stage, then per task */}
@@ -260,11 +353,14 @@ export default function GanttPanel({
 											className={`relative border-b ${isEven ? 'bg-muted/20' : ''}`}
 											style={{ height: STAGE_ROW_HEIGHT, width: gridWidth }}
 										>
-											{dayOffsets.map((day) => (
+											{columns.map((col) => (
 												<div
 													className="absolute inset-y-0 border-border/40 border-r"
-													key={day}
-													style={{ left: day * DAY_WIDTH, width: DAY_WIDTH }}
+													key={col.dayStart}
+													style={{
+														left: col.dayStart * pixelsPerDay,
+														width: col.widthDays * pixelsPerDay,
+													}}
 												/>
 											))}
 											{stageLayout &&
@@ -274,12 +370,12 @@ export default function GanttPanel({
 														className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-emerald-500/70"
 														style={{
 															height: 8,
-															left: stageLayout.startOffset * DAY_WIDTH,
+															left: stageLayout.startOffset * pixelsPerDay,
 															width:
 																(stageLayout.endOffset -
 																	stageLayout.startOffset +
 																	1) *
-																DAY_WIDTH,
+																pixelsPerDay,
 														}}
 													/>
 													<TooltipPopup>
@@ -307,13 +403,13 @@ export default function GanttPanel({
 															width: gridWidth,
 														}}
 													>
-														{dayOffsets.map((day) => (
+														{columns.map((col) => (
 															<div
 																className="absolute inset-y-0 border-border/40 border-r"
-																key={day}
+																key={col.dayStart}
 																style={{
-																	left: day * DAY_WIDTH,
-																	width: DAY_WIDTH,
+																	left: col.dayStart * pixelsPerDay,
+																	width: col.widthDays * pixelsPerDay,
 																}}
 															/>
 														))}
@@ -323,8 +419,9 @@ export default function GanttPanel({
 																	className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-blue-500/70"
 																	style={{
 																		height: 16,
-																		left: taskLayout.startOffset * DAY_WIDTH,
-																		width: taskLayout.durationDays * DAY_WIDTH,
+																		left: taskLayout.startOffset * pixelsPerDay,
+																		width:
+																			taskLayout.durationDays * pixelsPerDay,
 																	}}
 																/>
 																<TooltipPopup>
