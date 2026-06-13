@@ -114,6 +114,13 @@ export function buildTradeSearchText(
 	return buildSearchText([name, description]);
 }
 
+export function buildScheduleTemplateSearchText(
+	name: string,
+	description?: string
+): string {
+	return buildSearchText([name, description]);
+}
+
 export function buildVendorSearchText(
 	name: string,
 	description?: string,

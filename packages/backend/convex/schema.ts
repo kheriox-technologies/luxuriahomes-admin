@@ -45,6 +45,11 @@ export const projectInclusionOrderStatusValidator = v.union(
 	v.literal('Delivered')
 );
 
+export const scheduleDependencyTypeValidator = v.union(
+	v.literal('startAfter'),
+	v.literal('startWith')
+);
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -173,6 +178,32 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_trades', { searchField: 'searchText' }),
+	scheduleTemplates: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		searchText: v.string(),
+	}).searchIndex('search_schedule_templates', { searchField: 'searchText' }),
+	scheduleStages: defineTable({
+		scheduleTemplateId: v.id('scheduleTemplates'),
+		name: v.string(),
+		order: v.number(),
+		dependencyStageId: v.optional(v.id('scheduleStages')),
+		dependencyType: v.optional(scheduleDependencyTypeValidator),
+	})
+		.index('by_schedule_template', ['scheduleTemplateId'])
+		.index('by_schedule_template_order', ['scheduleTemplateId', 'order']),
+	scheduleTasks: defineTable({
+		scheduleTemplateId: v.id('scheduleTemplates'),
+		stageId: v.id('scheduleStages'),
+		name: v.string(),
+		durationDays: v.number(),
+		order: v.number(),
+		dependencyTaskId: v.optional(v.id('scheduleTasks')),
+		dependencyType: v.optional(scheduleDependencyTypeValidator),
+	})
+		.index('by_stage', ['stageId'])
+		.index('by_schedule_template', ['scheduleTemplateId'])
+		.index('by_stage_order', ['stageId', 'order']),
 	vendors: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

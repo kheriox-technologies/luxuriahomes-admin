@@ -22,6 +22,7 @@ import {
 import { useQuery } from 'convex/react';
 import {
 	Building2,
+	CalendarDays,
 	ChevronDown,
 	DollarSign,
 	List,
@@ -75,6 +76,12 @@ const items: SidebarItem[] = [
 		url: '/quotations',
 		path: '/quotations',
 		icon: DollarSign,
+	},
+	{
+		title: 'Schedules',
+		url: '/schedules',
+		path: '/schedules',
+		icon: CalendarDays,
 	},
 	{
 		title: 'Lists',
