@@ -1,7 +1,18 @@
 'use client';
 
+import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
+import {
+	AlertDialog,
+	AlertDialogClose,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
+import { toastManager } from '@workspace/ui/components/toast';
 import {
 	ToggleGroup,
 	ToggleGroupItem,
@@ -12,6 +23,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '@workspace/ui/components/tooltip';
+import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { StageLayout, TaskLayout } from './schedule-dependency-algorithm';
@@ -26,12 +38,86 @@ const WEEK_COLUMN_WIDTH = 80;
 const MONTH_COLUMN_WIDTH = 120;
 const MIN_DAYS = 20;
 const STAGE_LIST_WIDTH = 280;
+const GRID_LEFT_PADDING = 24;
 
 interface GanttColumn {
 	dayStart: number;
 	label: string;
 	subLabel?: string;
 	widthDays: number;
+}
+
+interface ArrowDef {
+	dependentStageId?: Id<'scheduleStages'>;
+	dependentTaskId?: Id<'scheduleTasks'>;
+	depType: 'startAfter' | 'startWith';
+	fromName: string;
+	fromX: number;
+	fromY: number;
+	itemType: 'task' | 'stage';
+	key: string;
+	toName: string;
+	toX: number;
+	toY: number;
+}
+
+function buildArrowPath(
+	fromX: number,
+	fromY: number,
+	toX: number,
+	toY: number,
+	depType: 'startAfter' | 'startWith'
+): string {
+	const JOG = 20;
+	const CORNER_R = 4;
+
+	if (depType === 'startWith') {
+		// 2-corner path: jog left, go down, arrive at toX from the left (→)
+		const midX = Math.min(fromX, toX) - JOG;
+		const dy = toY >= fromY ? 1 : -1;
+		const r = Math.min(CORNER_R, Math.abs(toY - fromY) / 2);
+		if (r < 1) {
+			return `M ${fromX} ${fromY} H ${midX} V ${toY} H ${toX}`;
+		}
+		return [
+			`M ${fromX} ${fromY}`,
+			`H ${midX + r}`,
+			`Q ${midX} ${fromY} ${midX} ${fromY + dy * r}`,
+			`V ${toY - dy * r}`,
+			`Q ${midX} ${toY} ${midX + r} ${toY}`,
+			`H ${toX}`,
+		].join(' ');
+	}
+
+	// startAfter: 4-corner Z/S path so the arrowhead arrives pointing RIGHT (→)
+	// Route: right from fromX → down to midY → left past toX → down to toY → right to toX
+	const midXr = fromX + JOG; // right jog past predecessor's end
+	const midXl = toX - JOG; // left jog before dependent's start
+	const midY = (fromY + toY) / 2;
+	const dy = toY >= fromY ? 1 : -1;
+	// dxH: direction of the middle horizontal segment
+	const dxH = midXl >= midXr ? 1 : -1;
+	const vertSpan = Math.abs(toY - fromY);
+	const horizSpan = Math.abs(midXl - midXr);
+
+	if (vertSpan < 4 || horizSpan < 2) {
+		return `M ${fromX} ${fromY} H ${midXr} V ${toY} H ${toX}`;
+	}
+
+	const r = Math.min(CORNER_R, vertSpan / 4, horizSpan / 2);
+
+	return [
+		`M ${fromX} ${fromY}`,
+		`H ${midXr - r}`,
+		`Q ${midXr} ${fromY} ${midXr} ${fromY + dy * r}`, // corner 1: right → down
+		`V ${midY - dy * r}`,
+		`Q ${midXr} ${midY} ${midXr + dxH * r} ${midY}`, // corner 2: down → horizontal
+		`H ${midXl - dxH * r}`,
+		`Q ${midXl} ${midY} ${midXl} ${midY + dy * r}`, // corner 3: horizontal → down
+		`V ${toY - dy * r}`,
+		`Q ${midXl} ${toY} ${midXl + r} ${toY}`, // corner 4: down → right
+		`H ${toX}`,
+	].join(' ');
 }
 
 function getDayLabel(
@@ -106,6 +192,15 @@ export default function GanttPanel({
 }) {
 	const [collapsedStages, setCollapsedStages] = useState<Set<string>>(
 		new Set()
+	);
+	const [deletingArrow, setDeletingArrow] = useState<ArrowDef | null>(null);
+	const [isDeleting, setIsDeleting] = useState(false);
+
+	const clearTaskDependency = useMutation(
+		api.scheduleTasks.clearDependency.clearDependency
+	);
+	const clearStageDependency = useMutation(
+		api.scheduleStages.clearDependency.clearDependency
 	);
 
 	const leftRef = useRef<HTMLDivElement>(null);
@@ -246,14 +341,14 @@ export default function GanttPanel({
 		return DAY_WIDTH;
 	}, [viewMode]);
 
-	const gridWidth = totalDays * pixelsPerDay;
+	const gridWidth = GRID_LEFT_PADDING + totalDays * pixelsPerDay;
 
 	const scrollToBar = useCallback(
 		(startOffset: number, durationDays: number) => {
 			if (!rightRef.current) {
 				return;
 			}
-			const barLeft = startOffset * pixelsPerDay;
+			const barLeft = GRID_LEFT_PADDING + startOffset * pixelsPerDay;
 			const barWidth = durationDays * pixelsPerDay;
 			const containerWidth = rightRef.current.clientWidth;
 			const targetLeft = barLeft - (containerWidth - barWidth) / 2;
@@ -277,6 +372,133 @@ export default function GanttPanel({
 			return { dayStart: i, widthDays: 1, label: day, subLabel: month };
 		});
 	}, [viewMode, today, totalDays]);
+
+	const rowYMap = useMemo(() => {
+		const map = new Map<string, number>();
+		let y = 0;
+		for (const stage of displayedStages) {
+			map.set(stage._id, y + STAGE_ROW_HEIGHT / 2);
+			y += STAGE_ROW_HEIGHT;
+			if (isExpanded(stage._id)) {
+				for (const task of getDisplayedTasks(stage._id)) {
+					map.set(task._id, y + TASK_ROW_HEIGHT / 2);
+					y += TASK_ROW_HEIGHT;
+				}
+			}
+		}
+		return map;
+	}, [displayedStages, getDisplayedTasks, isExpanded]);
+
+	const totalRowHeight = useMemo(() => {
+		let h = 0;
+		for (const stage of displayedStages) {
+			h += STAGE_ROW_HEIGHT;
+			if (isExpanded(stage._id)) {
+				h += getDisplayedTasks(stage._id).length * TASK_ROW_HEIGHT;
+			}
+		}
+		return h;
+	}, [displayedStages, getDisplayedTasks, isExpanded]);
+
+	const arrows = useMemo<ArrowDef[]>(() => {
+		const result: ArrowDef[] = [];
+		const taskNameMap = new Map(tasks.map((t) => [t._id, t.name]));
+		const stageNameMap = new Map(stages.map((s) => [s._id, s.name]));
+
+		for (const task of tasks) {
+			if (!(task.dependencyTaskId && task.dependencyType)) {
+				continue;
+			}
+			const predLayout = taskLayouts.get(task.dependencyTaskId);
+			const myLayout = taskLayouts.get(task._id);
+			if (!(predLayout && myLayout)) {
+				continue;
+			}
+			const fromY = rowYMap.get(task.dependencyTaskId);
+			const toY = rowYMap.get(task._id);
+			if (fromY === undefined || toY === undefined) {
+				continue;
+			}
+			const fromX =
+				task.dependencyType === 'startAfter'
+					? GRID_LEFT_PADDING +
+						(predLayout.startOffset + predLayout.durationDays) * pixelsPerDay
+					: GRID_LEFT_PADDING + predLayout.startOffset * pixelsPerDay;
+			const toX = GRID_LEFT_PADDING + myLayout.startOffset * pixelsPerDay;
+			result.push({
+				key: `task-${task._id}`,
+				fromX,
+				fromY,
+				toX,
+				toY,
+				depType: task.dependencyType,
+				fromName: taskNameMap.get(task.dependencyTaskId) ?? '',
+				toName: task.name,
+				itemType: 'task',
+				dependentTaskId: task._id,
+			});
+		}
+
+		for (const stage of stages) {
+			if (!(stage.dependencyStageId && stage.dependencyType)) {
+				continue;
+			}
+			const predLayout = stageLayouts.get(stage.dependencyStageId);
+			const myLayout = stageLayouts.get(stage._id);
+			if (!(predLayout && myLayout)) {
+				continue;
+			}
+			const fromY = rowYMap.get(stage.dependencyStageId);
+			const toY = rowYMap.get(stage._id);
+			if (fromY === undefined || toY === undefined) {
+				continue;
+			}
+			const fromX =
+				stage.dependencyType === 'startAfter'
+					? GRID_LEFT_PADDING + (predLayout.endOffset + 1) * pixelsPerDay
+					: GRID_LEFT_PADDING + predLayout.startOffset * pixelsPerDay;
+			const toX = GRID_LEFT_PADDING + myLayout.startOffset * pixelsPerDay;
+			result.push({
+				key: `stage-${stage._id}`,
+				fromX,
+				fromY,
+				toX,
+				toY,
+				depType: stage.dependencyType,
+				fromName: stageNameMap.get(stage.dependencyStageId) ?? '',
+				toName: stage.name,
+				itemType: 'stage',
+				dependentStageId: stage._id,
+			});
+		}
+
+		return result;
+	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, pixelsPerDay]);
+
+	const onDeleteDependency = useCallback(async () => {
+		if (!deletingArrow) {
+			return;
+		}
+		setIsDeleting(true);
+		try {
+			if (deletingArrow.itemType === 'task' && deletingArrow.dependentTaskId) {
+				await clearTaskDependency({ taskId: deletingArrow.dependentTaskId });
+			} else if (deletingArrow.dependentStageId) {
+				await clearStageDependency({
+					stageId: deletingArrow.dependentStageId,
+				});
+			}
+			setDeletingArrow(null);
+		} catch {
+			toastManager.add({
+				title: 'Could not remove dependency',
+				description: 'Please try again in a moment.',
+				type: 'error',
+			});
+		} finally {
+			setIsDeleting(false);
+		}
+	}, [deletingArrow, clearTaskDependency, clearStageDependency]);
 
 	if (stages.length === 0) {
 		return (
@@ -412,12 +634,17 @@ export default function GanttPanel({
 						onScroll={onRightScroll}
 						ref={rightRef}
 					>
-						<div style={{ width: gridWidth }}>
+						<div className="relative" style={{ width: gridWidth }}>
 							{/* Day label header — sticks to the top of the right panel */}
 							<div
 								className="sticky top-0 z-10 flex border-b bg-background"
 								style={{ height: STAGE_ROW_HEIGHT }}
 							>
+								{/* Left padding cell before first column */}
+								<div
+									className="shrink-0"
+									style={{ width: GRID_LEFT_PADDING }}
+								/>
 								{columns.map((col) => (
 									<div
 										className="flex shrink-0 flex-col items-center justify-center border-r text-muted-foreground text-xs"
@@ -454,7 +681,8 @@ export default function GanttPanel({
 													className="absolute inset-y-0 border-border/40 border-r"
 													key={col.dayStart}
 													style={{
-														left: col.dayStart * pixelsPerDay,
+														left:
+															GRID_LEFT_PADDING + col.dayStart * pixelsPerDay,
 														width: col.widthDays * pixelsPerDay,
 													}}
 												/>
@@ -465,8 +693,10 @@ export default function GanttPanel({
 													<TooltipTrigger
 														className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-emerald-500/70"
 														style={{
-															height: 8,
-															left: stageLayout.startOffset * pixelsPerDay,
+															height: 16,
+															left:
+																GRID_LEFT_PADDING +
+																stageLayout.startOffset * pixelsPerDay,
 															width:
 																(stageLayout.endOffset -
 																	stageLayout.startOffset +
@@ -504,7 +734,9 @@ export default function GanttPanel({
 																className="absolute inset-y-0 border-border/40 border-r"
 																key={col.dayStart}
 																style={{
-																	left: col.dayStart * pixelsPerDay,
+																	left:
+																		GRID_LEFT_PADDING +
+																		col.dayStart * pixelsPerDay,
 																	width: col.widthDays * pixelsPerDay,
 																}}
 															/>
@@ -515,7 +747,9 @@ export default function GanttPanel({
 																	className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-blue-500/70"
 																	style={{
 																		height: 16,
-																		left: taskLayout.startOffset * pixelsPerDay,
+																		left:
+																			GRID_LEFT_PADDING +
+																			taskLayout.startOffset * pixelsPerDay,
 																		width:
 																			taskLayout.durationDays * pixelsPerDay,
 																	}}
@@ -535,10 +769,111 @@ export default function GanttPanel({
 									</div>
 								);
 							})}
+
+							{/* Dependency arrows SVG overlay */}
+							{arrows.length > 0 && (
+								<svg
+									aria-hidden="true"
+									style={{
+										height: totalRowHeight,
+										left: 0,
+										overflow: 'visible',
+										pointerEvents: 'none',
+										position: 'absolute',
+										top: STAGE_ROW_HEIGHT,
+										width: gridWidth,
+										zIndex: 5,
+									}}
+								>
+									<defs>
+										<marker
+											id="dep-arrowhead"
+											markerHeight="6"
+											markerWidth="6"
+											orient="auto"
+											refX="5"
+											refY="3"
+										>
+											<path d="M 0 0 L 6 3 L 0 6 z" fill="#94a3b8" />
+										</marker>
+									</defs>
+									{arrows.map((arrow) => {
+										const d = buildArrowPath(
+											arrow.fromX,
+											arrow.fromY,
+											arrow.toX,
+											arrow.toY,
+											arrow.depType
+										);
+										return (
+											// biome-ignore lint/a11y/noAriaHiddenOnFocusable: g element is inside an aria-hidden SVG and is not keyboard-focusable
+											<g
+												aria-hidden="true"
+												key={arrow.key}
+												onDoubleClick={() => setDeletingArrow(arrow)}
+												style={{ cursor: 'pointer', pointerEvents: 'all' }}
+											>
+												<path
+													d={d}
+													fill="none"
+													markerEnd="url(#dep-arrowhead)"
+													stroke="#94a3b8"
+													strokeWidth={1.5}
+												/>
+												{/* Wider invisible hit area for easier double-click */}
+												<path
+													d={d}
+													fill="none"
+													stroke="transparent"
+													strokeWidth={12}
+												/>
+											</g>
+										);
+									})}
+								</svg>
+							)}
 						</div>
 					</div>
 				</div>
 			</div>
+
+			<AlertDialog
+				onOpenChange={(open) => {
+					if (!open) {
+						setDeletingArrow(null);
+					}
+				}}
+				open={deletingArrow !== null}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Remove dependency?</AlertDialogTitle>
+						<AlertDialogDescription>
+							{deletingArrow
+								? `Remove the dependency from "${deletingArrow.fromName}" to "${deletingArrow.toName}".`
+								: ''}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogClose
+							render={<Button type="button" variant="outline" />}
+						>
+							Cancel
+						</AlertDialogClose>
+						<Button
+							loading={isDeleting}
+							onClick={() => {
+								onDeleteDependency().catch(() => {
+									/* handled in onDeleteDependency */
+								});
+							}}
+							variant="destructive"
+						>
+							Remove dependency
+						</Button>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</TooltipProvider>
 	);
 }
