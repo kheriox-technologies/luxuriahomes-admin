@@ -8,7 +8,10 @@ import { STAGE_ROW_HEIGHT, TASK_ROW_HEIGHT } from './schedule-row-heights';
 const DAY_WIDTH = 44;
 const MIN_DAYS = 20;
 
-function getDayLabel(today: Date, offset: number): { day: string; month: string } {
+function getDayLabel(
+	today: Date,
+	offset: number
+): { day: string; month: string } {
 	const d = new Date(today);
 	d.setDate(d.getDate() + offset);
 	return {
