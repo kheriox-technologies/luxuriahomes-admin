@@ -25,7 +25,7 @@ import {
 } from '@workspace/ui/components/tooltip';
 import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StageLayout, TaskLayout } from './schedule-dependency-algorithm';
 import { STAGE_ROW_HEIGHT, TASK_ROW_HEIGHT } from './schedule-row-heights';
 import StageRow from './stage-row';
@@ -200,6 +200,10 @@ export default function GanttPanel({
 	);
 	const [deletingArrow, setDeletingArrow] = useState<ArrowDef | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [leftPanelWidth, setLeftPanelWidth] = useState(STAGE_LIST_WIDTH);
+	const isDragging = useRef(false);
+	const dragStartX = useRef(0);
+	const dragStartWidth = useRef(0);
 
 	const clearTaskDependency = useMutation(
 		api.scheduleTasks.clearDependency.clearDependency
@@ -249,6 +253,37 @@ export default function GanttPanel({
 	const collapseAll = useCallback(() => {
 		setCollapsedStages(new Set(stages.map((s) => s._id)));
 	}, [stages]);
+
+	const onResizeMouseDown = useCallback(
+		(e: React.MouseEvent) => {
+			e.preventDefault();
+			isDragging.current = true;
+			dragStartX.current = e.clientX;
+			dragStartWidth.current = leftPanelWidth;
+		},
+		[leftPanelWidth]
+	);
+
+	useEffect(() => {
+		const onMouseMove = (e: MouseEvent) => {
+			if (!isDragging.current) {
+				return;
+			}
+			const delta = e.clientX - dragStartX.current;
+			setLeftPanelWidth(
+				Math.max(STAGE_LIST_WIDTH, dragStartWidth.current + delta)
+			);
+		};
+		const onMouseUp = () => {
+			isDragging.current = false;
+		};
+		window.addEventListener('mousemove', onMouseMove);
+		window.addEventListener('mouseup', onMouseUp);
+		return () => {
+			window.removeEventListener('mousemove', onMouseMove);
+			window.removeEventListener('mouseup', onMouseUp);
+		};
+	}, []);
 
 	const today = useMemo(() => {
 		const d = new Date();
@@ -566,10 +601,10 @@ export default function GanttPanel({
 					 * bg-background gives task rows (which are transparent) their bg.
 					 */}
 					<div
-						className="shrink-0 overflow-y-auto overflow-x-hidden border-r bg-background [&::-webkit-scrollbar]:hidden"
+						className="shrink-0 overflow-y-auto overflow-x-hidden bg-background [&::-webkit-scrollbar]:hidden"
 						onScroll={onLeftScroll}
 						ref={leftRef}
-						style={{ scrollbarWidth: 'none', width: STAGE_LIST_WIDTH }}
+						style={{ scrollbarWidth: 'none', width: leftPanelWidth }}
 					>
 						{/* Corner cell matches day-header height */}
 						<div
@@ -628,6 +663,16 @@ export default function GanttPanel({
 							);
 						})}
 					</div>
+
+					{/* Resize handle */}
+					<button
+						aria-label="Resize panel"
+						className="group relative z-20 w-px shrink-0 cursor-col-resize border-r bg-transparent p-0"
+						onMouseDown={onResizeMouseDown}
+						type="button"
+					>
+						<span className="absolute inset-y-0 -right-1 -left-1 group-hover:bg-primary/20" />
+					</button>
 
 					{/*
 					 * Right panel — dates grid.
