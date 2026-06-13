@@ -2,14 +2,13 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import { Badge } from '@workspace/ui/components/badge';
 import { useQuery } from 'convex/react';
-import { CalendarDays } from 'lucide-react';
 import { useMemo } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
 import GanttPanel from './gantt-panel';
 import { computeLayouts } from './schedule-dependency-algorithm';
-import StageListPanel from './stage-list-panel';
 
 export default function ScheduleTemplateDetailView({
 	scheduleTemplateId,
@@ -31,6 +30,16 @@ export default function ScheduleTemplateDetailView({
 		[stages, tasks]
 	);
 
+	const projectDuration = useMemo(() => {
+		let max = 0;
+		for (const [, layout] of stageLayouts) {
+			if (layout.endOffset + 1 > max) {
+				max = layout.endOffset + 1;
+			}
+		}
+		return max;
+	}, [stageLayouts]);
+
 	if (scheduleTemplate === undefined) {
 		return <div className="text-muted-foreground text-sm">Loading…</div>;
 	}
@@ -44,10 +53,9 @@ export default function ScheduleTemplateDetailView({
 	}
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-4">
+		<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 			<PageHeading
 				backLink="/schedules"
-				description={scheduleTemplate.description}
 				heading={scheduleTemplate.name}
 				headingActions={
 					<AddStage
@@ -55,15 +63,17 @@ export default function ScheduleTemplateDetailView({
 						stages={stages ?? []}
 					/>
 				}
-				icon={CalendarDays}
+				metaSlot={
+					projectDuration > 0 ? (
+						<Badge size="lg" variant="outline">
+							{projectDuration} Days
+						</Badge>
+					) : null
+				}
 			/>
 			<div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
-				<StageListPanel
-					scheduleTemplateId={scheduleTemplateId}
-					stages={stages ?? []}
-					tasks={tasks ?? []}
-				/>
 				<GanttPanel
+					scheduleTemplateId={scheduleTemplateId}
 					stageLayouts={stageLayouts}
 					stages={stages ?? []}
 					taskLayouts={taskLayouts}

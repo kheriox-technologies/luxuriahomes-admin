@@ -164,6 +164,7 @@ import type * as scheduleTemplates_get from "../scheduleTemplates/get.js";
 import type * as scheduleTemplates_list from "../scheduleTemplates/list.js";
 import type * as scheduleTemplates_remove from "../scheduleTemplates/remove.js";
 import type * as scheduleTemplates_search from "../scheduleTemplates/search.js";
+import type * as scheduleTemplates_seed from "../scheduleTemplates/seed.js";
 import type * as scheduleTemplates_shared from "../scheduleTemplates/shared.js";
 import type * as scheduleTemplates_update from "../scheduleTemplates/update.js";
 import type * as serviceProviders_add from "../serviceProviders/add.js";
@@ -357,6 +358,7 @@ declare const fullApi: ApiFromModules<{
   "scheduleTemplates/list": typeof scheduleTemplates_list;
   "scheduleTemplates/remove": typeof scheduleTemplates_remove;
   "scheduleTemplates/search": typeof scheduleTemplates_search;
+  "scheduleTemplates/seed": typeof scheduleTemplates_seed;
   "scheduleTemplates/shared": typeof scheduleTemplates_shared;
   "scheduleTemplates/update": typeof scheduleTemplates_update;
   "serviceProviders/add": typeof serviceProviders_add;

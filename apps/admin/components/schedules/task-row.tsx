@@ -2,8 +2,14 @@
 
 import type { Doc } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
-import { Pencil, Trash2 } from 'lucide-react';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
+import { EllipsisVertical, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import DeleteTask from './delete-task';
 import EditTask from './edit-task';
@@ -25,33 +31,40 @@ export default function TaskRow({
 				className="flex items-center justify-between border-border/50 border-b pr-3 pl-8"
 				style={{ height: TASK_ROW_HEIGHT }}
 			>
-				<div className="flex min-w-0 flex-col">
-					<span className="truncate text-sm">{task.name}</span>
+				<span className="truncate text-sm">{task.name}</span>
+				<div className="flex shrink-0 items-center gap-1">
 					<span className="text-muted-foreground text-xs">
 						{task.durationDays}d
 					</span>
+					<Menu>
+						<MenuTrigger
+							render={
+								<Button
+									aria-label="Task actions"
+									size="icon-sm"
+									type="button"
+									variant="ghost"
+								/>
+							}
+						>
+							<EllipsisVertical className="size-4" />
+						</MenuTrigger>
+						<MenuPopup align="end">
+							<MenuItem onClick={() => setEditOpen(true)}>
+								<Pencil />
+								Edit Task
+							</MenuItem>
+							<MenuSeparator />
+							<MenuItem
+								onClick={() => setDeleteOpen(true)}
+								variant="destructive"
+							>
+								<Trash2 />
+								Delete Task
+							</MenuItem>
+						</MenuPopup>
+					</Menu>
 				</div>
-				<Group>
-					<Button
-						aria-label="Edit task"
-						onClick={() => setEditOpen(true)}
-						size="icon-sm"
-						type="button"
-						variant="ghost"
-					>
-						<Pencil className="size-3.5" />
-					</Button>
-					<GroupSeparator />
-					<Button
-						aria-label="Delete task"
-						onClick={() => setDeleteOpen(true)}
-						size="icon-sm"
-						type="button"
-						variant="ghost"
-					>
-						<Trash2 className="size-3.5" />
-					</Button>
-				</Group>
 			</div>
 			<EditTask
 				onOpenChange={setEditOpen}

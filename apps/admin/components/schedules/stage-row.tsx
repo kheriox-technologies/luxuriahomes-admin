@@ -9,24 +9,37 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
-import { EllipsisVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+	ChevronDown,
+	ChevronRight,
+	EllipsisVertical,
+	Pencil,
+	Plus,
+	Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import AddTask from './add-task';
 import DeleteStage from './delete-stage';
 import EditStage from './edit-stage';
+import type { StageLayout } from './schedule-dependency-algorithm';
 import { STAGE_ROW_HEIGHT } from './schedule-row-heights';
-import TaskRow from './task-row';
 
 export default function StageRow({
 	stage,
 	stages,
 	tasks,
 	scheduleTemplateId,
+	stageLayout,
+	isCollapsed,
+	onToggleCollapse,
 }: {
 	stage: Doc<'scheduleStages'>;
 	stages: Doc<'scheduleStages'>[];
 	tasks: Doc<'scheduleTasks'>[];
 	scheduleTemplateId: Id<'scheduleTemplates'>;
+	stageLayout: StageLayout | undefined;
+	isCollapsed: boolean;
+	onToggleCollapse: () => void;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -38,40 +51,63 @@ export default function StageRow({
 				className="flex items-center justify-between border-b bg-muted/40 px-3"
 				style={{ height: STAGE_ROW_HEIGHT }}
 			>
-				<span className="truncate font-medium text-sm">{stage.name}</span>
-				<Menu>
-					<MenuTrigger
-						render={
-							<Button
-								aria-label="Stage actions"
-								size="icon-sm"
-								type="button"
-								variant="ghost"
-							/>
-						}
+				<div className="flex min-w-0 flex-1 items-center gap-1">
+					<Button
+						aria-label={isCollapsed ? 'Expand stage' : 'Collapse stage'}
+						onClick={onToggleCollapse}
+						size="icon-sm"
+						type="button"
+						variant="ghost"
 					>
-						<EllipsisVertical className="size-4" />
-					</MenuTrigger>
-					<MenuPopup align="end">
-						<MenuItem onClick={() => setAddTaskOpen(true)}>
-							<Plus />
-							Add Task
-						</MenuItem>
-						<MenuSeparator />
-						<MenuItem onClick={() => setEditOpen(true)}>
-							<Pencil />
-							Edit Stage
-						</MenuItem>
-						<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
-							<Trash2 />
-							Delete Stage
-						</MenuItem>
-					</MenuPopup>
-				</Menu>
+						{isCollapsed ? (
+							<ChevronRight className="size-4" />
+						) : (
+							<ChevronDown className="size-4" />
+						)}
+					</Button>
+					<span className="truncate font-medium text-sm">{stage.name}</span>
+				</div>
+				<div className="flex shrink-0 items-center gap-1">
+					<span className="text-muted-foreground text-xs">
+						{tasks.length > 0 && stageLayout
+							? stageLayout.endOffset - stageLayout.startOffset + 1
+							: 1}
+						d
+					</span>
+					<Menu>
+						<MenuTrigger
+							render={
+								<Button
+									aria-label="Stage actions"
+									size="icon-sm"
+									type="button"
+									variant="ghost"
+								/>
+							}
+						>
+							<EllipsisVertical className="size-4" />
+						</MenuTrigger>
+						<MenuPopup align="end">
+							<MenuItem onClick={() => setAddTaskOpen(true)}>
+								<Plus />
+								Add Task
+							</MenuItem>
+							<MenuSeparator />
+							<MenuItem onClick={() => setEditOpen(true)}>
+								<Pencil />
+								Edit Stage
+							</MenuItem>
+							<MenuItem
+								onClick={() => setDeleteOpen(true)}
+								variant="destructive"
+							>
+								<Trash2 />
+								Delete Stage
+							</MenuItem>
+						</MenuPopup>
+					</Menu>
+				</div>
 			</div>
-			{tasks.map((task) => (
-				<TaskRow key={task._id} task={task} tasks={tasks} />
-			))}
 			<EditStage
 				onOpenChange={setEditOpen}
 				open={editOpen}
