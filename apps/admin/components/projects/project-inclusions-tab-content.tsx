@@ -48,6 +48,7 @@ import {
 	FramePanel,
 	FrameTitle,
 } from '@workspace/ui/components/frame';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -104,7 +105,6 @@ import {
 } from 'react';
 import { signCdnUrls } from '@/actions/cdn';
 import LocationCombobox from '@/components/inclusions/location-combobox';
-import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
@@ -960,13 +960,17 @@ function ProjectInclusionsTableInFrame({
 	projectId: Id<'projects'>;
 	pendingOrderItems: PendingOrderItem[];
 	onAddToOrder: (inclusion: ProjectInclusion) => void;
-	onCreateVendorGroupOrder: (inclusions: ProjectInclusion[]) => Promise<void>;
+	onCreateVendorGroupOrder: (
+		inclusions: ProjectInclusion[],
+		deliveryDurationDays?: number
+	) => Promise<void>;
 }) {
 	const showPricing = mode === 'builder';
 	const [bulkLoading, setBulkLoading] = useState(false);
 	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 	const [vendorOrderLoading, setVendorOrderLoading] = useState(false);
 	const [vendorOrderConfirmOpen, setVendorOrderConfirmOpen] = useState(false);
+	const [vendorOrderDuration, setVendorOrderDuration] = useState('');
 	const [signedImageUrls, setSignedImageUrls] = useState<
 		Record<string, string>
 	>({});
@@ -1038,11 +1042,15 @@ function ProjectInclusionsTableInFrame({
 	const showCreateOrderButton =
 		isVendorGroup && allApproved && unorderedInclusions.length > 0;
 
-	const handleVendorGroupOrder = async (inclusions: ProjectInclusion[]) => {
+	const handleVendorGroupOrder = async (
+		inclusions: ProjectInclusion[],
+		deliveryDurationDays?: number
+	) => {
 		setVendorOrderLoading(true);
 		try {
-			await onCreateVendorGroupOrder(inclusions);
+			await onCreateVendorGroupOrder(inclusions, deliveryDurationDays);
 			setVendorOrderConfirmOpen(false);
+			setVendorOrderDuration('');
 		} catch {
 			/* Error handled in onCreateVendorGroupOrder */
 		} finally {
@@ -1064,12 +1072,17 @@ function ProjectInclusionsTableInFrame({
 					<Badge className="shrink-0" size="lg" variant="purple">
 						{formatSignedAud(section.totalVariationPrice)}
 					</Badge>
-					{showCreateOrderButton && alreadyOrderedInclusions.length > 0 ? (
-						<AlertDialog
-							onOpenChange={setVendorOrderConfirmOpen}
+					{showCreateOrderButton ? (
+						<Dialog
+							onOpenChange={(open) => {
+								setVendorOrderConfirmOpen(open);
+								if (!open) {
+									setVendorOrderDuration('');
+								}
+							}}
 							open={vendorOrderConfirmOpen}
 						>
-							<AlertDialogTrigger
+							<DialogTrigger
 								render={
 									<Button
 										loading={vendorOrderLoading}
@@ -1080,32 +1093,63 @@ function ProjectInclusionsTableInFrame({
 							>
 								<ShoppingCart />
 								Create Order
-							</AlertDialogTrigger>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>
-										Some items already ordered
-									</AlertDialogTitle>
-									<AlertDialogDescription>
-										The following items are already part of an order and will be
-										skipped:
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<ul className="px-6 pb-2 text-sm">
-									{alreadyOrderedInclusions.map((inc) => (
-										<li key={inc._id}>{inc.title}</li>
-									))}
-								</ul>
-								<AlertDialogFooter>
-									<AlertDialogClose
+							</DialogTrigger>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Create Order</DialogTitle>
+									{alreadyOrderedInclusions.length > 0 ? (
+										<DialogDescription>
+											The following items are already part of an order and will
+											be skipped:
+										</DialogDescription>
+									) : null}
+								</DialogHeader>
+								{alreadyOrderedInclusions.length > 0 ? (
+									<ul className="px-6 pb-2 text-sm">
+										{alreadyOrderedInclusions.map((inc) => (
+											<li key={inc._id}>{inc.title}</li>
+										))}
+									</ul>
+								) : null}
+								<div className="flex flex-col gap-1.5 px-6 pb-2">
+									<label
+										className="font-medium text-sm"
+										htmlFor="vendor-order-duration"
+									>
+										Delivery Duration (Days){' '}
+										<span className="font-normal text-muted-foreground text-xs">
+											(optional)
+										</span>
+									</label>
+									<Input
+										id="vendor-order-duration"
+										min="1"
+										nativeInput
+										onChange={(e) => setVendorOrderDuration(e.target.value)}
+										placeholder="e.g. 14"
+										type="number"
+										value={vendorOrderDuration}
+									/>
+								</div>
+								<DialogFooter>
+									<DialogClose
 										render={<Button type="button" variant="outline" />}
 									>
 										Cancel
-									</AlertDialogClose>
+									</DialogClose>
 									<Button
 										loading={vendorOrderLoading}
 										onClick={() => {
-											handleVendorGroupOrder(unorderedInclusions).catch(() => {
+											const duration =
+												vendorOrderDuration !== ''
+													? Math.floor(Number(vendorOrderDuration))
+													: undefined;
+											handleVendorGroupOrder(
+												alreadyOrderedInclusions.length > 0
+													? unorderedInclusions
+													: section.inclusions,
+												duration
+											).catch(() => {
 												/* handled */
 											});
 										}}
@@ -1113,24 +1157,9 @@ function ProjectInclusionsTableInFrame({
 									>
 										Create Order
 									</Button>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-					) : null}
-					{showCreateOrderButton && alreadyOrderedInclusions.length === 0 ? (
-						<Button
-							loading={vendorOrderLoading}
-							onClick={() => {
-								handleVendorGroupOrder(section.inclusions).catch(() => {
-									/* handled */
-								});
-							}}
-							type="button"
-							variant="outline"
-						>
-							<ShoppingCart />
-							Create Order
-						</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
 					) : null}
 					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
 						<AlertDialogTrigger
@@ -1376,11 +1405,11 @@ function NewOrderBuilderCard({
 }: {
 	items: PendingOrderItem[];
 	onRemove: (inclusionId: Id<'projectInclusions'>) => void;
-	onCreateOrder: (orderBy: Date | undefined) => void;
+	onCreateOrder: (deliveryDurationDays: number | undefined) => void;
 	onCancel: () => void;
 	isCreating: boolean;
 }) {
-	const [orderBy, setOrderBy] = useState<Date | undefined>(undefined);
+	const [deliveryDurationDays, setDeliveryDurationDays] = useState('');
 
 	if (items.length === 0) {
 		return null;
@@ -1397,17 +1426,20 @@ function NewOrderBuilderCard({
 					</FrameDescription>
 				</div>
 				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<div className="w-44 shrink-0">
-						<ProjectStartDatePicker
-							onChange={setOrderBy}
-							placeholder="Order by"
-							value={orderBy}
+					<div className="w-52 shrink-0">
+						<Input
+							min="1"
+							nativeInput
+							onChange={(e) => setDeliveryDurationDays(e.target.value)}
+							placeholder="Duration (days)"
+							type="number"
+							value={deliveryDurationDays}
 						/>
 					</div>
 					<Button
 						disabled={isCreating}
 						onClick={() => {
-							setOrderBy(undefined);
+							setDeliveryDurationDays('');
 							onCancel();
 						}}
 						type="button"
@@ -1417,7 +1449,13 @@ function NewOrderBuilderCard({
 					</Button>
 					<Button
 						loading={isCreating}
-						onClick={() => onCreateOrder(orderBy)}
+						onClick={() =>
+							onCreateOrder(
+								deliveryDurationDays !== ''
+									? Math.floor(Number(deliveryDurationDays))
+									: undefined
+							)
+						}
 						type="button"
 					>
 						Create Order
@@ -1669,7 +1707,7 @@ export default function ProjectInclusionsTabContent({
 	);
 
 	const handleCreateOrder = useCallback(
-		async (orderBy: Date | undefined) => {
+		async (deliveryDurationDays: number | undefined) => {
 			if (pendingOrderItems.length === 0) {
 				return;
 			}
@@ -1694,7 +1732,7 @@ export default function ProjectInclusionsTabContent({
 				await addOrder({
 					projectId,
 					vendor,
-					orderBy: orderBy?.getTime(),
+					deliveryDurationDays,
 					items,
 					status: 'Pending',
 					inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
@@ -1718,7 +1756,10 @@ export default function ProjectInclusionsTabContent({
 	);
 
 	const handleCreateVendorGroupOrder = useCallback(
-		async (groupInclusions: ProjectInclusion[]) => {
+		async (
+			groupInclusions: ProjectInclusion[],
+			deliveryDurationDays?: number
+		) => {
 			if (groupInclusions.length === 0) {
 				return;
 			}
@@ -1739,6 +1780,7 @@ export default function ProjectInclusionsTabContent({
 			await addOrder({
 				projectId,
 				vendor,
+				deliveryDurationDays,
 				items,
 				status: 'Pending',
 				inclusionIds: groupInclusions.map((inc) => inc._id),
@@ -1912,8 +1954,8 @@ export default function ProjectInclusionsTabContent({
 				isCreating={isCreatingOrder}
 				items={pendingOrderItems}
 				onCancel={() => setPendingOrderItems([])}
-				onCreateOrder={(orderBy) => {
-					handleCreateOrder(orderBy).catch(() => {
+				onCreateOrder={(deliveryDurationDays) => {
+					handleCreateOrder(deliveryDurationDays).catch(() => {
 						/* handled in handleCreateOrder */
 					});
 				}}

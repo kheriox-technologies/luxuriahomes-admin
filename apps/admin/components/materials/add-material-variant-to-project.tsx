@@ -22,6 +22,7 @@ import {
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -32,7 +33,6 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { FolderInput } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 type Project = Doc<'projects'>;
@@ -65,7 +65,7 @@ export default function AddMaterialVariantToProject({
 	const [selectedProjectId, setSelectedProjectId] = useState('');
 	const [showProjectError, setShowProjectError] = useState(false);
 	const [quantity, setQuantity] = useState('');
-	const [orderBy, setOrderBy] = useState<Date | undefined>(undefined);
+	const [deliveryDurationDays, setDeliveryDurationDays] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const projects = useQuery(api.projects.list.list, {});
@@ -120,7 +120,10 @@ export default function AddMaterialVariantToProject({
 				projectId: selectedProject,
 				variantId,
 				quantity: parsedQuantity,
-				orderBy: orderBy?.getTime(),
+				deliveryDurationDays:
+					deliveryDurationDays !== ''
+						? Math.floor(Number(deliveryDurationDays))
+						: undefined,
 			});
 			toastManager.add({
 				description: `${variantName} was added to ${projectNameById.get(selectedProject) ?? 'the selected project'}.`,
@@ -147,7 +150,7 @@ export default function AddMaterialVariantToProject({
 		setSelectedProjectId('');
 		setShowProjectError(false);
 		setQuantity('');
-		setOrderBy(undefined);
+		setDeliveryDurationDays('');
 		setIsSubmitting(false);
 	};
 
@@ -244,13 +247,18 @@ export default function AddMaterialVariantToProject({
 						</InputGroup>
 					</Field>
 					<Field>
-						<FieldLabel>
-							Order By{' '}
+						<FieldLabel htmlFor="add-to-project-delivery-duration">
+							Delivery Duration (Days){' '}
 							<span className="text-muted-foreground text-xs">(optional)</span>
 						</FieldLabel>
-						<ProjectStartDatePicker
-							onChange={(date) => setOrderBy(date)}
-							value={orderBy}
+						<Input
+							id="add-to-project-delivery-duration"
+							min="1"
+							nativeInput
+							onChange={(e) => setDeliveryDurationDays(e.target.value)}
+							placeholder="e.g. 14"
+							type="number"
+							value={deliveryDurationDays}
 						/>
 					</Field>
 				</div>

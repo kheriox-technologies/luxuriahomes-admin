@@ -259,6 +259,30 @@ function buildColumns(
 			),
 		},
 		{
+			id: 'deliveryDurationDays',
+			header: 'Duration (Days)',
+			size: 130,
+			cell: ({ row }) => (
+				<span className="text-muted-foreground text-sm">
+					{row.original.deliveryDurationDays != null
+						? `${row.original.deliveryDurationDays}d`
+						: '—'}
+				</span>
+			),
+		},
+		{
+			id: 'deliverBy',
+			header: 'Deliver By',
+			size: 130,
+			cell: ({ row }) => (
+				<span className="text-muted-foreground text-sm">
+					{row.original.deliverBy
+						? formatOrderByDate(row.original.deliverBy)
+						: '—'}
+				</span>
+			),
+		},
+		{
 			id: 'status',
 			header: 'Status',
 			size: 140,
