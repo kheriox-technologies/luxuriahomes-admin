@@ -93,8 +93,8 @@ function buildArrowPath(
 	// Route: right from fromX → down to midY → left past toX → down to toY → right to toX
 	const midXr = fromX + JOG; // right jog past predecessor's end
 	const midXl = toX - JOG; // left jog before dependent's start
-	const midY = (fromY + toY) / 2;
 	const dy = toY >= fromY ? 1 : -1;
+	const midY = toY - dy * JOG; // horizontal leg sits JOG px before the dependent bar
 	// dxH: direction of the middle horizontal segment
 	const dxH = midXl >= midXr ? 1 : -1;
 	const vertSpan = Math.abs(toY - fromY);
@@ -104,7 +104,12 @@ function buildArrowPath(
 		return `M ${fromX} ${fromY} H ${midXr} V ${toY} H ${toX}`;
 	}
 
-	const r = Math.min(CORNER_R, vertSpan / 4, horizSpan / 2);
+	const r = Math.min(
+		CORNER_R,
+		Math.abs(midY - fromY) / 2,
+		JOG / 2,
+		horizSpan / 2
+	);
 
 	return [
 		`M ${fromX} ${fromY}`,
