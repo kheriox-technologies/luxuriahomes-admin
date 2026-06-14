@@ -189,24 +189,37 @@ function getMonthColumns(today: Date, totalDays: number): GanttColumn[] {
 	return cols;
 }
 
+function isWeekendCalOffset(calOffset: number, today: Date): boolean {
+	const d = new Date(today);
+	d.setDate(d.getDate() + Math.floor(calOffset));
+	const dow = d.getDay();
+	return dow === 0 || dow === 6;
+}
+
 function computeTaskOffsetDays(
 	task: Doc<'scheduleTasks'>,
 	newBizStart: number,
-	taskLayouts: Map<string, TaskLayout>,
-	stageLayouts: Map<string, StageLayout>
+	taskLayouts: Map<string, TaskLayout>
 ): number {
-	if (task.dependencyTaskId) {
+	const currentBizStart = taskLayouts.get(task._id)?.startOffset ?? newBizStart;
+	return (task.offsetDays ?? 0) + (newBizStart - currentBizStart);
+}
+
+function isValidTaskDragPosition(
+	task: Doc<'scheduleTasks'>,
+	newBizStart: number,
+	taskLayouts: Map<string, TaskLayout>
+): boolean {
+	if (task.dependencyTaskId && task.dependencyType) {
 		const pred = taskLayouts.get(task.dependencyTaskId);
 		if (!pred) {
-			return 0;
+			return true;
 		}
-		if (task.dependencyType === 'startWith') {
-			return newBizStart - pred.startOffset;
-		}
-		return newBizStart - (pred.startOffset + pred.durationDays);
+		return task.dependencyType === 'startAfter'
+			? newBizStart >= pred.startOffset + pred.durationDays
+			: newBizStart >= pred.startOffset;
 	}
-	const stageStart = stageLayouts.get(task.stageId)?.startOffset ?? 0;
-	return newBizStart - stageStart;
+	return newBizStart >= 0;
 }
 
 function computeStageOffsetDays(
@@ -214,17 +227,26 @@ function computeStageOffsetDays(
 	newBizStart: number,
 	stageLayouts: Map<string, StageLayout>
 ): number {
-	if (stage.dependencyStageId) {
+	const currentBizStart =
+		stageLayouts.get(stage._id)?.startOffset ?? newBizStart;
+	return (stage.offsetDays ?? 0) + (newBizStart - currentBizStart);
+}
+
+function isValidStageDragPosition(
+	stage: Doc<'scheduleStages'>,
+	newBizStart: number,
+	stageLayouts: Map<string, StageLayout>
+): boolean {
+	if (stage.dependencyStageId && stage.dependencyType) {
 		const dep = stageLayouts.get(stage.dependencyStageId);
 		if (!dep) {
-			return 0;
+			return true;
 		}
-		if (stage.dependencyType === 'startWith') {
-			return newBizStart - dep.startOffset;
-		}
-		return newBizStart - (dep.endOffset + 1);
+		return stage.dependencyType === 'startAfter'
+			? newBizStart >= dep.endOffset + 1
+			: newBizStart >= dep.startOffset;
 	}
-	return newBizStart;
+	return newBizStart >= 0;
 }
 
 export default function GanttPanel({
@@ -280,6 +302,12 @@ export default function GanttPanel({
 		id: string;
 		startOffset: number;
 	} | null>(null);
+	const [stageReversionTicks, setStageReversionTicks] = useState<
+		Map<string, number>
+	>(new Map());
+	const [taskReversionTicks, setTaskReversionTicks] = useState<
+		Map<string, number>
+	>(new Map());
 
 	const leftRef = useRef<HTMLDivElement>(null);
 	const rightRef = useRef<HTMLDivElement>(null);
@@ -877,7 +905,7 @@ export default function GanttPanel({
 																dragAxis="x"
 																dragGrid={[pixelsPerDay, 1]}
 																enableResizing={false}
-																key={`${stage._id}-${stageLayout.startOffset}-${stageLayout.endOffset}`}
+																key={`${stage._id}-${stageLayout.startOffset}-${stageLayout.endOffset}-${stageReversionTicks.get(stage._id) ?? 0}`}
 																onDrag={(_e, d) => {
 																	const newCalStart =
 																		(d.x - GRID_LEFT_PADDING) / pixelsPerDay;
@@ -905,9 +933,24 @@ export default function GanttPanel({
 																		stageLayouts
 																	);
 																	setDragMovePreview(null);
+																	if (
+																		!isValidStageDragPosition(
+																			stage,
+																			newBizStart,
+																			stageLayouts
+																		)
+																	) {
+																		setStageReversionTicks((prev) =>
+																			new Map(prev).set(
+																				stage._id,
+																				(prev.get(stage._id) ?? 0) + 1
+																			)
+																		);
+																		return;
+																	}
 																	updateStageOffset({
 																		stageId: stage._id,
-																		offsetDays: Math.max(0, newOffsetDays),
+																		offsetDays: newOffsetDays,
 																	}).catch(() => {
 																		// Convex reactive queries revert the UI automatically
 																	});
@@ -1033,7 +1076,7 @@ export default function GanttPanel({
 																			dragAxis="x"
 																			dragGrid={[pixelsPerDay, 1]}
 																			enableResizing={{ right: true }}
-																			key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}`}
+																			key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}-${taskReversionTicks.get(task._id) ?? 0}`}
 																			minWidth={pixelsPerDay}
 																			onDrag={(_e, d) => {
 																				const newCalStart =
@@ -1062,16 +1105,31 @@ export default function GanttPanel({
 																					computeTaskOffsetDays(
 																						task,
 																						newBizStart,
-																						taskLayouts,
-																						stageLayouts
+																						taskLayouts
 																					);
 																				setDragMovePreview(null);
+																				if (
+																					isWeekendCalOffset(
+																						newCalStart,
+																						today
+																					) ||
+																					!isValidTaskDragPosition(
+																						task,
+																						newBizStart,
+																						taskLayouts
+																					)
+																				) {
+																					setTaskReversionTicks((prev) =>
+																						new Map(prev).set(
+																							task._id,
+																							(prev.get(task._id) ?? 0) + 1
+																						)
+																					);
+																					return;
+																				}
 																				updateTaskOffset({
 																					taskId: task._id,
-																					offsetDays: Math.max(
-																						0,
-																						newOffsetDays
-																					),
+																					offsetDays: newOffsetDays,
 																				}).catch(() => {
 																					// Convex reactive queries revert the UI automatically
 																				});
