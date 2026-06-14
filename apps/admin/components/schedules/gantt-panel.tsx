@@ -34,15 +34,18 @@ import TaskRow from './task-row';
 
 export type ViewMode = 'days' | 'weeks' | 'months';
 
-const DAY_WIDTH = 44;
-const WEEK_COLUMN_WIDTH = 80;
-const MONTH_COLUMN_WIDTH = 120;
+const DAY_WIDTH = 50;
+const WEEK_COLUMN_WIDTH = 100;
+const MONTH_COLUMN_WIDTH = 150;
+const DATE_HEADER_HEIGHT = 52;
 const MIN_DAYS = 20;
 const STAGE_LIST_WIDTH = 280;
 const GRID_LEFT_PADDING = 24;
 
 interface GanttColumn {
+	dayName?: string;
 	dayStart: number;
+	isWeekend?: boolean;
 	label: string;
 	subLabel?: string;
 	widthDays: number;
@@ -129,11 +132,14 @@ function buildArrowPath(
 function getDayLabel(
 	today: Date,
 	offset: number
-): { day: string; month: string } {
+): { day: string; dayName: string; isWeekend: boolean; month: string } {
 	const d = new Date(today);
 	d.setDate(d.getDate() + offset);
+	const dow = d.getDay();
 	return {
 		day: d.toLocaleDateString('en-AU', { day: 'numeric' }),
+		dayName: d.toLocaleDateString('en-AU', { weekday: 'short' }),
+		isWeekend: dow === 0 || dow === 6,
 		month: d.toLocaleDateString('en-AU', { month: 'short' }),
 	};
 }
@@ -421,8 +427,15 @@ export default function GanttPanel({
 			return getMonthColumns(today, totalDays);
 		}
 		return Array.from({ length: totalDays }, (_, i) => {
-			const { day, month } = getDayLabel(today, i);
-			return { dayStart: i, widthDays: 1, label: day, subLabel: month };
+			const { day, dayName, month, isWeekend } = getDayLabel(today, i);
+			return {
+				dayName,
+				dayStart: i,
+				isWeekend,
+				label: day,
+				subLabel: month,
+				widthDays: 1,
+			};
 		});
 	}, [viewMode, today, totalDays]);
 
@@ -622,7 +635,7 @@ export default function GanttPanel({
 						{/* Corner cell matches day-header height */}
 						<div
 							className="sticky top-0 z-10 border-b bg-background"
-							style={{ height: STAGE_ROW_HEIGHT }}
+							style={{ height: DATE_HEADER_HEIGHT }}
 						/>
 
 						{displayedStages.map((stage) => {
@@ -701,7 +714,7 @@ export default function GanttPanel({
 							{/* Day label header — sticks to the top of the right panel */}
 							<div
 								className="sticky top-0 z-10 flex border-b bg-background"
-								style={{ height: STAGE_ROW_HEIGHT }}
+								style={{ height: DATE_HEADER_HEIGHT }}
 							>
 								{/* Left padding cell before first column */}
 								<div
@@ -710,15 +723,20 @@ export default function GanttPanel({
 								/>
 								{columns.map((col) => (
 									<div
-										className="flex shrink-0 flex-col items-center justify-center border-r text-muted-foreground text-xs"
+										className={`flex shrink-0 flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isWeekend ? 'bg-foreground/5' : ''}`}
 										key={col.dayStart}
 										style={{ width: col.widthDays * pixelsPerDay }}
 									>
-										<span className="font-medium leading-tight">
+										{col.dayName && (
+											<span className="text-[10px] leading-none opacity-60">
+												{col.dayName}
+											</span>
+										)}
+										<span className="font-medium leading-none">
 											{col.label}
 										</span>
 										{col.subLabel && (
-											<span className="leading-tight opacity-70">
+											<span className="text-[10px] leading-none opacity-70">
 												{col.subLabel}
 											</span>
 										)}
@@ -741,7 +759,7 @@ export default function GanttPanel({
 										>
 											{columns.map((col) => (
 												<div
-													className="absolute inset-y-0 border-border/40 border-r"
+													className={`absolute inset-y-0 border-border/40 border-r ${col.isWeekend ? 'bg-foreground/5' : ''}`}
 													key={col.dayStart}
 													style={{
 														left:
@@ -801,7 +819,7 @@ export default function GanttPanel({
 													>
 														{columns.map((col) => (
 															<div
-																className="absolute inset-y-0 border-border/40 border-r"
+																className={`absolute inset-y-0 border-border/40 border-r ${col.isWeekend ? 'bg-foreground/5' : ''}`}
 																key={col.dayStart}
 																style={{
 																	left:
@@ -859,7 +877,7 @@ export default function GanttPanel({
 										overflow: 'visible',
 										pointerEvents: 'none',
 										position: 'absolute',
-										top: STAGE_ROW_HEIGHT,
+										top: DATE_HEADER_HEIGHT,
 										width: gridWidth,
 										zIndex: 5,
 									}}
