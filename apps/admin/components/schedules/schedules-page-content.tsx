@@ -52,7 +52,10 @@ const columns: ColumnDef<ScheduleTemplate>[] = [
 		header: '',
 		size: 100,
 		cell: ({ row }) => (
-			<div className="flex justify-end">
+			// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper, not interactive
+			// biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation wrapper, not interactive
+			// biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation wrapper, not interactive
+			<div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
 				<Group>
 					<EditScheduleTemplate
 						initialDescription={row.original.description}

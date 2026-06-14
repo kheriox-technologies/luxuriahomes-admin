@@ -27,6 +27,7 @@ import {
 import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { businessDayToCalendarOffset } from './schedule-calendar-utils';
 import type { StageLayout, TaskLayout } from './schedule-dependency-algorithm';
 import { STAGE_ROW_HEIGHT, TASK_ROW_HEIGHT } from './schedule-row-heights';
 import StageRow from './stage-row';
@@ -181,24 +182,6 @@ function getMonthColumns(today: Date, totalDays: number): GanttColumn[] {
 		d += remainingInMonth;
 	}
 	return cols;
-}
-
-function businessDayToCalendarOffset(bizDay: number, today: Date): number {
-	const d = new Date(today);
-	let calOffset = 0;
-	while (d.getDay() === 0 || d.getDay() === 6) {
-		d.setDate(d.getDate() + 1);
-		calOffset++;
-	}
-	let remaining = bizDay;
-	while (remaining > 0) {
-		d.setDate(d.getDate() + 1);
-		calOffset++;
-		if (d.getDay() !== 0 && d.getDay() !== 6) {
-			remaining--;
-		}
-	}
-	return calOffset;
 }
 
 export default function GanttPanel({

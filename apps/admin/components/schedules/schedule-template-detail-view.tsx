@@ -15,6 +15,10 @@ import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
 import GanttPanel, { type ViewMode } from './gantt-panel';
+import {
+	businessDayToCalendarOffset,
+	MONDAY_ANCHOR,
+} from './schedule-calendar-utils';
 import { computeLayouts } from './schedule-dependency-algorithm';
 
 export default function ScheduleTemplateDetailView({
@@ -47,13 +51,23 @@ export default function ScheduleTemplateDetailView({
 	);
 
 	const projectDuration = useMemo(() => {
-		let max = 0;
+		let minStart = Number.POSITIVE_INFINITY;
+		let maxEnd = -1;
 		for (const [, layout] of stageLayouts) {
-			if (layout.endOffset + 1 > max) {
-				max = layout.endOffset + 1;
+			if (layout.startOffset < minStart) {
+				minStart = layout.startOffset;
+			}
+			if (layout.endOffset > maxEnd) {
+				maxEnd = layout.endOffset;
 			}
 		}
-		return max;
+		if (maxEnd < 0) {
+			return 0;
+		}
+		const start = Number.isFinite(minStart) ? minStart : 0;
+		const calStart = businessDayToCalendarOffset(start, MONDAY_ANCHOR);
+		const calEnd = businessDayToCalendarOffset(maxEnd, MONDAY_ANCHOR);
+		return calEnd - calStart + 1;
 	}, [stageLayouts]);
 
 	const durationLabel = useMemo(() => {
