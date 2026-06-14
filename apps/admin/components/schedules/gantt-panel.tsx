@@ -12,17 +12,18 @@ import {
 	AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
+import {
+	Popover,
+	PopoverDescription,
+	PopoverPopup,
+	PopoverTitle,
+	PopoverTrigger,
+} from '@workspace/ui/components/popover';
 import { toastManager } from '@workspace/ui/components/toast';
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from '@workspace/ui/components/toggle-group';
-import {
-	Tooltip,
-	TooltipPopup,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@workspace/ui/components/tooltip';
 import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -291,6 +292,18 @@ export default function GanttPanel({
 		return d;
 	}, []);
 
+	const formatOffset = useCallback(
+		(offset: number): string => {
+			const d = new Date(today);
+			d.setDate(d.getDate() + offset);
+			const day = d.getDate();
+			const month = d.toLocaleString('en-GB', { month: 'short' });
+			const year = d.getFullYear();
+			return `${day} ${month}, ${year}`;
+		},
+		[today]
+	);
+
 	const tasksByStage = useMemo(() => {
 		const map = new Map<string, Doc<'scheduleTasks'>[]>();
 		for (const stage of stages) {
@@ -551,7 +564,7 @@ export default function GanttPanel({
 	}
 
 	return (
-		<TooltipProvider>
+		<>
 			{/*
 			 * min-w-0 prevents this flex-1 child from expanding past the parent's
 			 * width. Without it the right panel's gridWidth inflates the whole panel.
@@ -739,8 +752,8 @@ export default function GanttPanel({
 											))}
 											{stageLayout &&
 											stageLayout.endOffset >= stageLayout.startOffset ? (
-												<Tooltip>
-													<TooltipTrigger
+												<Popover>
+													<PopoverTrigger
 														className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-emerald-500/70"
 														style={{
 															height: 16,
@@ -754,15 +767,22 @@ export default function GanttPanel({
 																pixelsPerDay,
 														}}
 													/>
-													<TooltipPopup>
-														<span className="font-medium">{stage.name}</span>
-														{' · '}
-														{stageLayout.endOffset -
-															stageLayout.startOffset +
-															1}
-														d
-													</TooltipPopup>
-												</Tooltip>
+													<PopoverPopup side="top">
+														<PopoverTitle>
+															{stage.name}
+															{' · '}
+															{stageLayout.endOffset -
+																stageLayout.startOffset +
+																1}
+															d
+														</PopoverTitle>
+														<PopoverDescription>
+															{formatOffset(stageLayout.startOffset)}
+															{' → '}
+															{formatOffset(stageLayout.endOffset)}
+														</PopoverDescription>
+													</PopoverPopup>
+												</Popover>
 											) : null}
 										</div>
 
@@ -792,8 +812,8 @@ export default function GanttPanel({
 															/>
 														))}
 														{taskLayout ? (
-															<Tooltip>
-																<TooltipTrigger
+															<Popover>
+																<PopoverTrigger
 																	className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-blue-500/70"
 																	style={{
 																		height: 16,
@@ -804,14 +824,23 @@ export default function GanttPanel({
 																			taskLayout.durationDays * pixelsPerDay,
 																	}}
 																/>
-																<TooltipPopup>
-																	<span className="font-medium">
+																<PopoverPopup side="top">
+																	<PopoverTitle>
 																		{task.name}
-																	</span>
-																	{' · '}
-																	{taskLayout.durationDays}d
-																</TooltipPopup>
-															</Tooltip>
+																		{' · '}
+																		{taskLayout.durationDays}d
+																	</PopoverTitle>
+																	<PopoverDescription>
+																		{formatOffset(taskLayout.startOffset)}
+																		{' → '}
+																		{formatOffset(
+																			taskLayout.startOffset +
+																				taskLayout.durationDays -
+																				1
+																		)}
+																	</PopoverDescription>
+																</PopoverPopup>
+															</Popover>
 														) : null}
 													</div>
 												);
@@ -924,6 +953,6 @@ export default function GanttPanel({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</TooltipProvider>
+		</>
 	);
 }
