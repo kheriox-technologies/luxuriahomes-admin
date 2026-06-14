@@ -772,7 +772,7 @@ export default function GanttPanel({
 											stageLayout.endOffset >= stageLayout.startOffset ? (
 												<Popover>
 													<PopoverTrigger
-														className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-purple-500/70"
+														className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-sm bg-purple-500/70"
 														style={{
 															height: 16,
 															left:
@@ -784,7 +784,43 @@ export default function GanttPanel({
 																	1) *
 																pixelsPerDay,
 														}}
-													/>
+													>
+														{columns
+															.filter(
+																(col) =>
+																	col.isWeekend &&
+																	col.dayStart < stageLayout.endOffset + 1 &&
+																	col.dayStart + col.widthDays >
+																		stageLayout.startOffset
+															)
+															.map((col) => {
+																const overlapStart = Math.max(
+																	col.dayStart,
+																	stageLayout.startOffset
+																);
+																const overlapEnd = Math.min(
+																	col.dayStart + col.widthDays,
+																	stageLayout.endOffset + 1
+																);
+																return (
+																	<div
+																		className="absolute inset-y-0"
+																		key={col.dayStart}
+																		style={{
+																			left:
+																				(overlapStart -
+																					stageLayout.startOffset) *
+																				pixelsPerDay,
+																			width:
+																				(overlapEnd - overlapStart) *
+																				pixelsPerDay,
+																			background:
+																				'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																		}}
+																	/>
+																);
+															})}
+													</PopoverTrigger>
 													<PopoverPopup side="top">
 														<PopoverTitle>
 															{stage.name}
@@ -832,7 +868,7 @@ export default function GanttPanel({
 														{taskLayout ? (
 															<Popover>
 																<PopoverTrigger
-																	className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-blue-500/70"
+																	className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-sm bg-blue-500/70"
 																	style={{
 																		height: 16,
 																		left:
@@ -841,7 +877,46 @@ export default function GanttPanel({
 																		width:
 																			taskLayout.durationDays * pixelsPerDay,
 																	}}
-																/>
+																>
+																	{columns
+																		.filter(
+																			(col) =>
+																				col.isWeekend &&
+																				col.dayStart <
+																					taskLayout.startOffset +
+																						taskLayout.durationDays &&
+																				col.dayStart + col.widthDays >
+																					taskLayout.startOffset
+																		)
+																		.map((col) => {
+																			const overlapStart = Math.max(
+																				col.dayStart,
+																				taskLayout.startOffset
+																			);
+																			const overlapEnd = Math.min(
+																				col.dayStart + col.widthDays,
+																				taskLayout.startOffset +
+																					taskLayout.durationDays
+																			);
+																			return (
+																				<div
+																					className="absolute inset-y-0"
+																					key={col.dayStart}
+																					style={{
+																						left:
+																							(overlapStart -
+																								taskLayout.startOffset) *
+																							pixelsPerDay,
+																						width:
+																							(overlapEnd - overlapStart) *
+																							pixelsPerDay,
+																						background:
+																							'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																					}}
+																				/>
+																			);
+																		})}
+																</PopoverTrigger>
 																<PopoverPopup side="top">
 																	<PopoverTitle>
 																		{task.name}
