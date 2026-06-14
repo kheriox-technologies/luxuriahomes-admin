@@ -772,7 +772,7 @@ export default function GanttPanel({
 											stageLayout.endOffset >= stageLayout.startOffset ? (
 												<Popover>
 													<PopoverTrigger
-														className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-emerald-500/70"
+														className="absolute top-1/2 -translate-y-1/2 rounded-sm bg-purple-500/70"
 														style={{
 															height: 16,
 															left:
