@@ -23,6 +23,15 @@ export function businessDayToCalendarOffset(
 // 2024-01-01 is a Monday.
 export const MONDAY_ANCHOR = new Date(2024, 0, 1);
 
+// Inverse of businessDayToCalendarOffset: given a pixel-derived calendar offset,
+// return the 0-indexed business day count from the anchor.
+export function calendarOffsetToBusinessDayOffset(
+	calOffset: number,
+	today: Date
+): number {
+	return countBusinessDaysInRange(0, Math.floor(calOffset), today) - 1;
+}
+
 export function countBusinessDaysInRange(
 	calStart: number,
 	calEnd: number,

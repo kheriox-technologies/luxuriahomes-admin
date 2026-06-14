@@ -155,6 +155,7 @@ import type * as scheduleStages_listByTemplate from "../scheduleStages/listByTem
 import type * as scheduleStages_remove from "../scheduleStages/remove.js";
 import type * as scheduleStages_shared from "../scheduleStages/shared.js";
 import type * as scheduleStages_update from "../scheduleStages/update.js";
+import type * as scheduleStages_updateOffset from "../scheduleStages/updateOffset.js";
 import type * as scheduleTasks_add from "../scheduleTasks/add.js";
 import type * as scheduleTasks_backfillOffsetDays from "../scheduleTasks/backfillOffsetDays.js";
 import type * as scheduleTasks_clearDependency from "../scheduleTasks/clearDependency.js";
@@ -164,6 +165,7 @@ import type * as scheduleTasks_remove from "../scheduleTasks/remove.js";
 import type * as scheduleTasks_shared from "../scheduleTasks/shared.js";
 import type * as scheduleTasks_update from "../scheduleTasks/update.js";
 import type * as scheduleTasks_updateDuration from "../scheduleTasks/updateDuration.js";
+import type * as scheduleTasks_updateOffset from "../scheduleTasks/updateOffset.js";
 import type * as scheduleTemplates_add from "../scheduleTemplates/add.js";
 import type * as scheduleTemplates_get from "../scheduleTemplates/get.js";
 import type * as scheduleTemplates_list from "../scheduleTemplates/list.js";
@@ -354,6 +356,7 @@ declare const fullApi: ApiFromModules<{
   "scheduleStages/remove": typeof scheduleStages_remove;
   "scheduleStages/shared": typeof scheduleStages_shared;
   "scheduleStages/update": typeof scheduleStages_update;
+  "scheduleStages/updateOffset": typeof scheduleStages_updateOffset;
   "scheduleTasks/add": typeof scheduleTasks_add;
   "scheduleTasks/backfillOffsetDays": typeof scheduleTasks_backfillOffsetDays;
   "scheduleTasks/clearDependency": typeof scheduleTasks_clearDependency;
@@ -363,6 +366,7 @@ declare const fullApi: ApiFromModules<{
   "scheduleTasks/shared": typeof scheduleTasks_shared;
   "scheduleTasks/update": typeof scheduleTasks_update;
   "scheduleTasks/updateDuration": typeof scheduleTasks_updateDuration;
+  "scheduleTasks/updateOffset": typeof scheduleTasks_updateOffset;
   "scheduleTemplates/add": typeof scheduleTemplates_add;
   "scheduleTemplates/get": typeof scheduleTemplates_get;
   "scheduleTemplates/list": typeof scheduleTemplates_list;
