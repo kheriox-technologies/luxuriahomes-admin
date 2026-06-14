@@ -54,6 +54,7 @@ export default function EditTask({
 					taskId: task._id,
 					name: parsed.name,
 					durationDays: parsed.durationDays,
+					offsetDays: parsed.offsetDays,
 					dependencyTaskId: parsed.dependencyTaskId
 						? (parsed.dependencyTaskId as Id<'scheduleTasks'>)
 						: undefined,
@@ -84,6 +85,7 @@ export default function EditTask({
 				{
 					name: task.name,
 					durationDays: task.durationDays,
+					offsetDays: task.offsetDays ?? 0,
 					dependencyTaskId: task.dependencyTaskId ?? '',
 					dependencyType: task.dependencyType ?? 'startAfter',
 				},
@@ -210,6 +212,38 @@ export default function EditTask({
 								) : null
 							}
 						</form.Subscribe>
+						<form.Field name="offsetDays">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Offset (days)</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											id={field.name}
+											min="0"
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) =>
+												field.handleChange(
+													e.target.value === '' ? 0 : Number(e.target.value)
+												)
+											}
+											placeholder="0"
+											type="number"
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{taskFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
 					</DialogPanel>
 				</form>
 				<DialogFooter>

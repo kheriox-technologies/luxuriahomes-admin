@@ -2,6 +2,7 @@ export interface StageInput {
 	_id: string;
 	dependencyStageId?: string;
 	dependencyType?: 'startAfter' | 'startWith';
+	offsetDays?: number;
 	order: number;
 }
 
@@ -10,6 +11,7 @@ export interface TaskInput {
 	dependencyTaskId?: string;
 	dependencyType?: 'startAfter' | 'startWith';
 	durationDays: number;
+	offsetDays?: number;
 	order: number;
 	stageId: string;
 }
@@ -98,6 +100,7 @@ export function computeLayouts(
 		const sorted = topologicalSort(stageTasks, (t) => t.dependencyTaskId);
 		const offsets = new Map<string, number>();
 		for (const task of sorted) {
+			const offset = task.offsetDays ?? 0;
 			if (task.dependencyTaskId && offsets.has(task.dependencyTaskId)) {
 				const depOffset = offsets.get(task.dependencyTaskId) ?? 0;
 				const depTask = stageTasks.find((t) => t._id === task.dependencyTaskId);
@@ -105,11 +108,11 @@ export function computeLayouts(
 				offsets.set(
 					task._id,
 					task.dependencyType === 'startWith'
-						? depOffset
-						: depOffset + depDuration
+						? depOffset + offset
+						: depOffset + depDuration + offset
 				);
 			} else {
-				offsets.set(task._id, 0);
+				offsets.set(task._id, offset);
 			}
 		}
 		for (const [id, offset] of offsets) {
@@ -138,15 +141,18 @@ export function computeLayouts(
 	const sortedStages = topologicalSort(stages, (s) => s.dependencyStageId);
 	const stageAbsoluteStart = new Map<string, number>();
 	for (const stage of sortedStages) {
+		const offset = stage.offsetDays ?? 0;
 		if (stage.dependencyStageId) {
 			const depStart = stageAbsoluteStart.get(stage.dependencyStageId) ?? 0;
 			const depDuration = stageDuration.get(stage.dependencyStageId) ?? 0;
 			stageAbsoluteStart.set(
 				stage._id,
-				stage.dependencyType === 'startWith' ? depStart : depStart + depDuration
+				stage.dependencyType === 'startWith'
+					? depStart + offset
+					: depStart + depDuration + offset
 			);
 		} else {
-			stageAbsoluteStart.set(stage._id, 0);
+			stageAbsoluteStart.set(stage._id, offset);
 		}
 	}
 

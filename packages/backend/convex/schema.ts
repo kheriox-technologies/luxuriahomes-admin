@@ -189,6 +189,7 @@ export default defineSchema({
 		order: v.number(),
 		dependencyStageId: v.optional(v.id('scheduleStages')),
 		dependencyType: v.optional(scheduleDependencyTypeValidator),
+		offsetDays: v.optional(v.number()),
 	})
 		.index('by_schedule_template', ['scheduleTemplateId'])
 		.index('by_schedule_template_order', ['scheduleTemplateId', 'order']),
@@ -200,6 +201,7 @@ export default defineSchema({
 		order: v.number(),
 		dependencyTaskId: v.optional(v.id('scheduleTasks')),
 		dependencyType: v.optional(scheduleDependencyTypeValidator),
+		offsetDays: v.optional(v.number()),
 	})
 		.index('by_stage', ['stageId'])
 		.index('by_schedule_template', ['scheduleTemplateId'])

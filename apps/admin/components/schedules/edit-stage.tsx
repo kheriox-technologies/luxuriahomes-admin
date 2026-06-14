@@ -53,6 +53,7 @@ export default function EditStage({
 				await updateStage({
 					stageId: stage._id,
 					name: parsed.name,
+					offsetDays: parsed.offsetDays,
 					dependencyStageId: parsed.dependencyStageId
 						? (parsed.dependencyStageId as Id<'scheduleStages'>)
 						: undefined,
@@ -82,6 +83,7 @@ export default function EditStage({
 			form.reset(
 				{
 					name: stage.name,
+					offsetDays: stage.offsetDays ?? 0,
 					dependencyStageId: stage.dependencyStageId ?? '',
 					dependencyType: stage.dependencyType ?? 'startAfter',
 				},
@@ -174,6 +176,38 @@ export default function EditStage({
 								) : null
 							}
 						</form.Subscribe>
+						<form.Field name="offsetDays">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Offset (days)</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											id={field.name}
+											min="0"
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) =>
+												field.handleChange(
+													e.target.value === '' ? 0 : Number(e.target.value)
+												)
+											}
+											placeholder="0"
+											type="number"
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{stageFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
 					</DialogPanel>
 				</form>
 				<DialogFooter>

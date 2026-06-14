@@ -6,6 +6,10 @@ export const scheduleTaskFormSchema = z.object({
 		.number()
 		.int('Duration must be a whole number')
 		.min(1, 'Duration must be at least 1 day'),
+	offsetDays: z
+		.number()
+		.int('Must be a whole number')
+		.min(0, 'Cannot be negative'),
 	dependencyTaskId: z.string().optional(),
 	dependencyType: z.enum(['startAfter', 'startWith']).optional(),
 });
@@ -15,6 +19,7 @@ export type ScheduleTaskFormValues = z.infer<typeof scheduleTaskFormSchema>;
 export const emptyScheduleTaskFormValues: ScheduleTaskFormValues = {
 	name: '',
 	durationDays: 1,
+	offsetDays: 0,
 	dependencyTaskId: undefined,
 	dependencyType: 'startAfter',
 };

@@ -14,6 +14,7 @@ export const add = mutation({
 		dependencyType: v.optional(
 			v.union(v.literal('startAfter'), v.literal('startWith'))
 		),
+		offsetDays: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -50,6 +51,7 @@ export const add = mutation({
 			dependencyType: args.dependencyTaskId
 				? (args.dependencyType ?? 'startAfter')
 				: undefined,
+			offsetDays: args.offsetDays ?? 0,
 		});
 	},
 });
