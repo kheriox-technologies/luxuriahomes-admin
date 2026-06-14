@@ -1,5 +1,23 @@
 'use client';
 
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import {
+	closestCenter,
+	DndContext,
+	DragOverlay,
+	KeyboardSensor,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from '@dnd-kit/core';
+import {
+	arrayMove,
+	SortableContext,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import {
@@ -251,6 +269,115 @@ function isValidStageDragPosition(
 	return newBizStart >= 0;
 }
 
+function SortableStageWrapper({
+	stage,
+	isDndEnabled,
+	children,
+	...rowProps
+}: {
+	stage: Doc<'scheduleStages'>;
+	isDndEnabled: boolean;
+	children: React.ReactNode;
+} & Omit<React.ComponentProps<typeof StageRow>, 'stage' | 'dragHandleProps'>) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: stage._id, disabled: !isDndEnabled });
+	const style = transform
+		? {
+				transform: CSS.Transform.toString(transform),
+				transition,
+				opacity: isDragging ? 0.4 : undefined,
+			}
+		: undefined;
+	return (
+		<div ref={setNodeRef} style={style}>
+			<StageRow
+				{...rowProps}
+				dragHandleProps={
+					isDndEnabled ? { ...attributes, ...listeners } : undefined
+				}
+				stage={stage}
+			/>
+			{children}
+		</div>
+	);
+}
+
+function SortableTaskWrapper({
+	task,
+	isDndEnabled,
+	...rowProps
+}: {
+	task: Doc<'scheduleTasks'>;
+	isDndEnabled: boolean;
+} & Omit<React.ComponentProps<typeof TaskRow>, 'task' | 'dragHandleProps'>) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: task._id, disabled: !isDndEnabled });
+	const style = transform
+		? {
+				transform: CSS.Transform.toString(transform),
+				transition,
+				opacity: isDragging ? 0.4 : undefined,
+			}
+		: undefined;
+	return (
+		<div ref={setNodeRef} style={style}>
+			<TaskRow
+				{...rowProps}
+				dragHandleProps={
+					isDndEnabled ? { ...attributes, ...listeners } : undefined
+				}
+				task={task}
+			/>
+		</div>
+	);
+}
+
+function DragOverlayContent({
+	activeId,
+	stages,
+	tasks,
+}: {
+	activeId: string;
+	stages: Doc<'scheduleStages'>[];
+	tasks: Doc<'scheduleTasks'>[];
+}) {
+	const stage = stages.find((s) => s._id === activeId);
+	if (stage) {
+		return (
+			<div
+				className="flex cursor-grabbing items-center border-b bg-muted/40 px-3 font-medium text-sm shadow-md"
+				style={{ height: STAGE_ROW_HEIGHT }}
+			>
+				{stage.name}
+			</div>
+		);
+	}
+	const task = tasks.find((t) => t._id === activeId);
+	if (task) {
+		return (
+			<div
+				className="flex cursor-grabbing items-center border-b bg-background pl-8 text-sm shadow-md"
+				style={{ height: TASK_ROW_HEIGHT }}
+			>
+				{task.name}
+			</div>
+		);
+	}
+	return null;
+}
+
 export default function GanttPanel({
 	stages,
 	tasks,
@@ -277,7 +404,7 @@ export default function GanttPanel({
 	const [deletingArrow, setDeletingArrow] = useState<ArrowDef | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [leftPanelWidth, setLeftPanelWidth] = useState(STAGE_LIST_WIDTH);
-	const isDragging = useRef(false);
+	const isPanelResizing = useRef(false);
 	const dragStartX = useRef(0);
 	const dragStartWidth = useRef(0);
 
@@ -295,6 +422,17 @@ export default function GanttPanel({
 	);
 	const updateStageOffset = useMutation(
 		api.scheduleStages.updateOffset.updateOffset
+	);
+	const reorderStages = useMutation(api.scheduleStages.reorder.reorder);
+	const reorderTasks = useMutation(api.scheduleTasks.reorder.reorder);
+
+	const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		})
 	);
 
 	const [resizePreview, setResizePreview] = useState<{
@@ -357,7 +495,7 @@ export default function GanttPanel({
 	const onResizeMouseDown = useCallback(
 		(e: React.MouseEvent) => {
 			e.preventDefault();
-			isDragging.current = true;
+			isPanelResizing.current = true;
 			dragStartX.current = e.clientX;
 			dragStartWidth.current = leftPanelWidth;
 		},
@@ -366,7 +504,7 @@ export default function GanttPanel({
 
 	useEffect(() => {
 		const onMouseMove = (e: MouseEvent) => {
-			if (isDragging.current) {
+			if (isPanelResizing.current) {
 				const delta = e.clientX - dragStartX.current;
 				setLeftPanelWidth(
 					Math.max(STAGE_LIST_WIDTH, dragStartWidth.current + delta)
@@ -374,7 +512,7 @@ export default function GanttPanel({
 			}
 		};
 		const onMouseUp = () => {
-			isDragging.current = false;
+			isPanelResizing.current = false;
 		};
 		window.addEventListener('mousemove', onMouseMove);
 		window.addEventListener('mouseup', onMouseUp);
@@ -416,6 +554,75 @@ export default function GanttPanel({
 		}
 		return map;
 	}, [stages, tasks]);
+
+	const stageIdSet = useMemo(
+		() => new Set(stages.map((s) => s._id as string)),
+		[stages]
+	);
+
+	const taskStageMap = useMemo(() => {
+		const map = new Map<string, string>();
+		for (const task of tasks) {
+			map.set(task._id as string, task.stageId as string);
+		}
+		return map;
+	}, [tasks]);
+
+	const isDndEnabled = !(isReadOnly || search);
+
+	const handleDragStart = useCallback((event: DragStartEvent) => {
+		setActiveDragId(event.active.id as string);
+	}, []);
+
+	const handleDragEnd = useCallback(
+		(event: DragEndEvent) => {
+			setActiveDragId(null);
+			const { active, over } = event;
+			if (!over || active.id === over.id) {
+				return;
+			}
+			const activeId = active.id as string;
+			const overId = over.id as string;
+
+			if (stageIdSet.has(activeId)) {
+				const oldIndex = stages.findIndex((s) => s._id === activeId);
+				const newIndex = stages.findIndex((s) => s._id === overId);
+				if (oldIndex === -1 || newIndex === -1) {
+					return;
+				}
+				const reordered = arrayMove(stages, oldIndex, newIndex);
+				reorderStages({
+					scheduleTemplateId,
+					stageIds: reordered.map((s) => s._id),
+				});
+			} else {
+				const stageId = taskStageMap.get(activeId);
+				if (!stageId) {
+					return;
+				}
+				const stageTasks = tasksByStage.get(stageId) ?? [];
+				const oldIndex = stageTasks.findIndex((t) => t._id === activeId);
+				const newIndex = stageTasks.findIndex((t) => t._id === overId);
+				if (oldIndex === -1 || newIndex === -1) {
+					return;
+				}
+				const reordered = arrayMove(stageTasks, oldIndex, newIndex);
+				reorderTasks({
+					stageId: stageId as Id<'scheduleStages'>,
+					taskIds: reordered.map((t) => t._id),
+				});
+			}
+		},
+		[
+			stages,
+			stageIdSet,
+			taskStageMap,
+			tasksByStage,
+			scheduleTemplateId,
+			reorderStages,
+			reorderTasks,
+		]
+	);
 
 	const { displayedStages, getDisplayedTasks, forceExpandedStageIds } =
 		useMemo(() => {
@@ -770,56 +977,82 @@ export default function GanttPanel({
 							style={{ height: DATE_HEADER_HEIGHT }}
 						/>
 
-						{displayedStages.map((stage) => {
-							const stageTasks = getDisplayedTasks(stage._id);
-							const stageLayout = stageLayouts.get(stage._id);
-							return (
-								<div key={stage._id}>
-									{/* StageRow owns its own height, bg-muted/40, and border-b */}
-									<StageRow
-										isCollapsed={!isExpanded(stage._id)}
-										onNameClick={
-											stageLayout
-												? () =>
-														scrollToBar(
-															stageLayout.startOffset,
-															stageLayout.endOffset -
-																stageLayout.startOffset +
-																1
-														)
-												: undefined
-										}
-										onToggleCollapse={() => toggleStage(stage._id)}
-										scheduleTemplateId={scheduleTemplateId}
-										stage={stage}
-										stageLayout={stageLayout}
+						<DndContext
+							collisionDetection={closestCenter}
+							onDragEnd={handleDragEnd}
+							onDragStart={handleDragStart}
+							sensors={sensors}
+						>
+							<SortableContext
+								items={isDndEnabled ? displayedStages.map((s) => s._id) : []}
+								strategy={verticalListSortingStrategy}
+							>
+								{displayedStages.map((stage) => {
+									const stageTasks = getDisplayedTasks(stage._id);
+									const stageLayout = stageLayouts.get(stage._id);
+									return (
+										<SortableStageWrapper
+											isCollapsed={!isExpanded(stage._id)}
+											isDndEnabled={isDndEnabled}
+											key={stage._id}
+											onNameClick={
+												stageLayout
+													? () =>
+															scrollToBar(
+																stageLayout.startOffset,
+																stageLayout.endOffset -
+																	stageLayout.startOffset +
+																	1
+															)
+													: undefined
+											}
+											onToggleCollapse={() => toggleStage(stage._id)}
+											scheduleTemplateId={scheduleTemplateId}
+											stage={stage}
+											stageLayout={stageLayout}
+											stages={stages}
+											tasks={stageTasks}
+										>
+											<SortableContext
+												items={isDndEnabled ? stageTasks.map((t) => t._id) : []}
+												strategy={verticalListSortingStrategy}
+											>
+												{isExpanded(stage._id) &&
+													stageTasks.map((task) => {
+														const taskLayout = taskLayouts.get(task._id);
+														return (
+															<SortableTaskWrapper
+																isDndEnabled={isDndEnabled}
+																key={task._id}
+																onNameClick={
+																	taskLayout
+																		? () =>
+																				scrollToBar(
+																					taskLayout.startOffset,
+																					taskLayout.durationDays
+																				)
+																		: undefined
+																}
+																task={task}
+																tasks={stageTasks}
+															/>
+														);
+													})}
+											</SortableContext>
+										</SortableStageWrapper>
+									);
+								})}
+							</SortableContext>
+							<DragOverlay>
+								{activeDragId ? (
+									<DragOverlayContent
+										activeId={activeDragId}
 										stages={stages}
-										tasks={stageTasks}
+										tasks={tasks}
 									/>
-									{isExpanded(stage._id) &&
-										stageTasks.map((task) => {
-											const taskLayout = taskLayouts.get(task._id);
-											return (
-												/* TaskRow owns its own height and border-b */
-												<TaskRow
-													key={task._id}
-													onNameClick={
-														taskLayout
-															? () =>
-																	scrollToBar(
-																		taskLayout.startOffset,
-																		taskLayout.durationDays
-																	)
-															: undefined
-													}
-													task={task}
-													tasks={stageTasks}
-												/>
-											);
-										})}
-								</div>
-							);
-						})}
+								) : null}
+							</DragOverlay>
+						</DndContext>
 					</div>
 
 					{/* Resize handle */}

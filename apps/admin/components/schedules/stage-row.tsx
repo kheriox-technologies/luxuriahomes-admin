@@ -13,6 +13,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	EllipsisVertical,
+	GripVertical,
 	Pencil,
 	Plus,
 	Trash2,
@@ -33,6 +34,7 @@ export default function StageRow({
 	isCollapsed,
 	onToggleCollapse,
 	onNameClick,
+	dragHandleProps,
 }: {
 	stage: Doc<'scheduleStages'>;
 	stages: Doc<'scheduleStages'>[];
@@ -42,6 +44,7 @@ export default function StageRow({
 	isCollapsed: boolean;
 	onToggleCollapse: () => void;
 	onNameClick?: () => void;
+	dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -54,6 +57,16 @@ export default function StageRow({
 				style={{ height: STAGE_ROW_HEIGHT }}
 			>
 				<div className="flex min-w-0 flex-1 items-center gap-1">
+					{dragHandleProps && (
+						<button
+							aria-label="Drag to reorder stage"
+							className="cursor-grab touch-none text-muted-foreground active:cursor-grabbing"
+							type="button"
+							{...dragHandleProps}
+						>
+							<GripVertical className="size-4" />
+						</button>
+					)}
 					<Button
 						aria-label={isCollapsed ? 'Expand stage' : 'Collapse stage'}
 						onClick={onToggleCollapse}
@@ -68,7 +81,7 @@ export default function StageRow({
 						)}
 					</Button>
 					<button
-						className="min-w-0 truncate text-left font-medium text-sm hover:underline"
+						className="min-w-0 flex-1 truncate text-left font-medium text-sm hover:underline"
 						onClick={onNameClick}
 						type="button"
 					>
