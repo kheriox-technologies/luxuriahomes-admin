@@ -163,6 +163,7 @@ import type * as scheduleTasks_listByTemplate from "../scheduleTasks/listByTempl
 import type * as scheduleTasks_remove from "../scheduleTasks/remove.js";
 import type * as scheduleTasks_shared from "../scheduleTasks/shared.js";
 import type * as scheduleTasks_update from "../scheduleTasks/update.js";
+import type * as scheduleTasks_updateDuration from "../scheduleTasks/updateDuration.js";
 import type * as scheduleTemplates_add from "../scheduleTemplates/add.js";
 import type * as scheduleTemplates_get from "../scheduleTemplates/get.js";
 import type * as scheduleTemplates_list from "../scheduleTemplates/list.js";
@@ -361,6 +362,7 @@ declare const fullApi: ApiFromModules<{
   "scheduleTasks/remove": typeof scheduleTasks_remove;
   "scheduleTasks/shared": typeof scheduleTasks_shared;
   "scheduleTasks/update": typeof scheduleTasks_update;
+  "scheduleTasks/updateDuration": typeof scheduleTasks_updateDuration;
   "scheduleTemplates/add": typeof scheduleTemplates_add;
   "scheduleTemplates/get": typeof scheduleTemplates_get;
   "scheduleTemplates/list": typeof scheduleTemplates_list;

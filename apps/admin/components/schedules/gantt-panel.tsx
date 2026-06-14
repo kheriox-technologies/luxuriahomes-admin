@@ -27,7 +27,11 @@ import {
 import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { businessDayToCalendarOffset } from './schedule-calendar-utils';
+import { Rnd } from 'react-rnd';
+import {
+	businessDayToCalendarOffset,
+	countBusinessDaysInRange,
+} from './schedule-calendar-utils';
 import type { StageLayout, TaskLayout } from './schedule-dependency-algorithm';
 import { STAGE_ROW_HEIGHT, TASK_ROW_HEIGHT } from './schedule-row-heights';
 import StageRow from './stage-row';
@@ -219,6 +223,14 @@ export default function GanttPanel({
 	const clearStageDependency = useMutation(
 		api.scheduleStages.clearDependency.clearDependency
 	);
+	const updateTaskDuration = useMutation(
+		api.scheduleTasks.updateDuration.updateDuration
+	);
+
+	const [resizePreview, setResizePreview] = useState<{
+		taskId: string;
+		durationDays: number;
+	} | null>(null);
 
 	const leftRef = useRef<HTMLDivElement>(null);
 	const rightRef = useRef<HTMLDivElement>(null);
@@ -274,13 +286,12 @@ export default function GanttPanel({
 
 	useEffect(() => {
 		const onMouseMove = (e: MouseEvent) => {
-			if (!isDragging.current) {
-				return;
+			if (isDragging.current) {
+				const delta = e.clientX - dragStartX.current;
+				setLeftPanelWidth(
+					Math.max(STAGE_LIST_WIDTH, dragStartWidth.current + delta)
+				);
 			}
-			const delta = e.clientX - dragStartX.current;
-			setLeftPanelWidth(
-				Math.max(STAGE_LIST_WIDTH, dragStartWidth.current + delta)
-			);
 		};
 		const onMouseUp = () => {
 			isDragging.current = false;
@@ -904,98 +915,146 @@ export default function GanttPanel({
 																}}
 															/>
 														))}
-														{taskLayout ? (
-															<Popover>
-																<PopoverTrigger
-																	className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-sm bg-blue-500/70"
-																	style={(() => {
-																		const calStart =
-																			businessDayToCalendarOffset(
-																				taskLayout.startOffset,
-																				today
-																			);
-																		const calEnd = businessDayToCalendarOffset(
-																			taskLayout.startOffset +
-																				taskLayout.durationDays -
-																				1,
-																			today
-																		);
-																		return {
-																			height: 16,
-																			left:
-																				GRID_LEFT_PADDING +
-																				calStart * pixelsPerDay,
-																			width:
-																				(calEnd - calStart + 1) * pixelsPerDay,
-																		};
-																	})()}
-																>
-																	{(() => {
-																		const calStart =
-																			businessDayToCalendarOffset(
-																				taskLayout.startOffset,
-																				today
-																			);
-																		const calEnd = businessDayToCalendarOffset(
-																			taskLayout.startOffset +
-																				taskLayout.durationDays -
-																				1,
-																			today
-																		);
-																		return columns
-																			.filter(
-																				(col) =>
-																					col.isWeekend &&
-																					col.dayStart < calEnd + 1 &&
-																					col.dayStart + col.widthDays >
-																						calStart
-																			)
-																			.map((col) => {
-																				const overlapStart = Math.max(
-																					col.dayStart,
-																					calStart
+														{taskLayout
+															? (() => {
+																	const calStart = businessDayToCalendarOffset(
+																		taskLayout.startOffset,
+																		today
+																	);
+																	const calEnd = businessDayToCalendarOffset(
+																		taskLayout.startOffset +
+																			taskLayout.durationDays -
+																			1,
+																		today
+																	);
+																	const barWidth =
+																		(calEnd - calStart + 1) * pixelsPerDay;
+																	const barLeft =
+																		GRID_LEFT_PADDING + calStart * pixelsPerDay;
+																	const displayDays =
+																		resizePreview?.taskId === task._id
+																			? resizePreview.durationDays
+																			: taskLayout.durationDays;
+																	return (
+																		<Rnd
+																			default={{
+																				x: barLeft,
+																				y: (TASK_ROW_HEIGHT - 16) / 2,
+																				width: barWidth,
+																				height: 16,
+																			}}
+																			disableDragging
+																			enableResizing={{ right: true }}
+																			key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}`}
+																			minWidth={pixelsPerDay}
+																			onResize={(_e, _direction, ref) => {
+																				const newCalWidth = Math.round(
+																					ref.offsetWidth / pixelsPerDay
 																				);
-																				const overlapEnd = Math.min(
-																					col.dayStart + col.widthDays,
-																					calEnd + 1
+																				const newBizDays =
+																					countBusinessDaysInRange(
+																						calStart,
+																						calStart + newCalWidth - 1,
+																						today
+																					);
+																				setResizePreview({
+																					taskId: task._id,
+																					durationDays: Math.max(1, newBizDays),
+																				});
+																			}}
+																			onResizeStop={(_e, _direction, ref) => {
+																				const newCalWidth = Math.round(
+																					ref.offsetWidth / pixelsPerDay
 																				);
-																				return (
-																					<div
-																						className="absolute inset-y-0"
-																						key={col.dayStart}
-																						style={{
-																							left:
-																								(overlapStart - calStart) *
-																								pixelsPerDay,
-																							width:
-																								(overlapEnd - overlapStart) *
-																								pixelsPerDay,
-																							background:
-																								'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																						}}
-																					/>
-																				);
-																			});
-																	})()}
-																</PopoverTrigger>
-																<PopoverPopup side="top">
-																	<PopoverTitle>
-																		{task.name}
-																		{' · '}
-																		{taskLayout.durationDays}d
-																	</PopoverTitle>
-																	<PopoverDescription>
-																		{formatOffset(taskLayout.startOffset)}
-																		{' → '}
-																		{formatOffset(
-																			taskLayout.startOffset +
-																				taskLayout.durationDays -
-																				1
-																		)}
-																	</PopoverDescription>
-																</PopoverPopup>
-															</Popover>
-														) : null}
+																				const newBizDays =
+																					countBusinessDaysInRange(
+																						calStart,
+																						calStart + newCalWidth - 1,
+																						today
+																					);
+																				setResizePreview(null);
+																				updateTaskDuration({
+																					taskId: task._id,
+																					durationDays: Math.max(1, newBizDays),
+																				}).catch(() => {
+																					// Convex reactive queries revert the UI automatically
+																				});
+																			}}
+																			resizeGrid={[pixelsPerDay, 1]}
+																			resizeHandleStyles={{
+																				right: {
+																					cursor: 'ew-resize',
+																					height: 24,
+																					right: -6,
+																					top: -4,
+																					width: 12,
+																					zIndex: 10,
+																				},
+																			}}
+																			style={{ position: 'absolute' }}
+																		>
+																			<Popover>
+																				<PopoverTrigger className="absolute inset-0 overflow-hidden rounded-sm bg-blue-500/70">
+																					{columns
+																						.filter(
+																							(col) =>
+																								col.isWeekend &&
+																								col.dayStart < calEnd + 1 &&
+																								col.dayStart + col.widthDays >
+																									calStart
+																						)
+																						.map((col) => {
+																							const overlapStart = Math.max(
+																								col.dayStart,
+																								calStart
+																							);
+																							const overlapEnd = Math.min(
+																								col.dayStart + col.widthDays,
+																								calEnd + 1
+																							);
+																							return (
+																								<div
+																									className="absolute inset-y-0"
+																									key={col.dayStart}
+																									style={{
+																										left:
+																											(overlapStart -
+																												calStart) *
+																											pixelsPerDay,
+																										width:
+																											(overlapEnd -
+																												overlapStart) *
+																											pixelsPerDay,
+																										background:
+																											'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																									}}
+																								/>
+																							);
+																						})}
+																				</PopoverTrigger>
+																				<PopoverPopup side="top">
+																					<PopoverTitle>
+																						{task.name}
+																						{' · '}
+																						{displayDays}d
+																					</PopoverTitle>
+																					<PopoverDescription>
+																						{formatOffset(
+																							taskLayout.startOffset
+																						)}
+																						{' → '}
+																						{formatOffset(
+																							taskLayout.startOffset +
+																								taskLayout.durationDays -
+																								1
+																						)}
+																					</PopoverDescription>
+																				</PopoverPopup>
+																			</Popover>
+																		</Rnd>
+																	);
+																})()
+															: null}
 													</div>
 												);
 											})}
