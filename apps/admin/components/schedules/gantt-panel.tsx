@@ -12,6 +12,7 @@ import {
 	AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
+import { Label } from '@workspace/ui/components/label';
 import {
 	Popover,
 	PopoverDescription,
@@ -19,6 +20,7 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from '@workspace/ui/components/popover';
+import { Switch } from '@workspace/ui/components/switch';
 import { toastManager } from '@workspace/ui/components/toast';
 import {
 	ToggleGroup,
@@ -268,6 +270,7 @@ export default function GanttPanel({
 	onViewModeChange: (mode: ViewMode) => void;
 	search?: string;
 }) {
+	const [isReadOnly, setIsReadOnly] = useState(true);
 	const [collapsedStages, setCollapsedStages] = useState<Set<string>>(
 		new Set()
 	);
@@ -698,35 +701,50 @@ export default function GanttPanel({
 			 */}
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 				{/* Toolbar */}
-				<div className="flex shrink-0 items-center justify-end gap-2 border-b px-3 py-2">
-					<ToggleGroup
-						aria-label="Calendar view mode"
-						onValueChange={(val) => {
-							if (val.length > 0) {
-								onViewModeChange(val[0] as ViewMode);
-							}
-						}}
-						size="sm"
-						value={[viewMode]}
-						variant="outline"
-					>
-						<ToggleGroupItem value="days">Days</ToggleGroupItem>
-						<ToggleGroupItem value="weeks">Weeks</ToggleGroupItem>
-						<ToggleGroupItem value="months">Months</ToggleGroupItem>
-					</ToggleGroup>
-					<Button onClick={expandAll} size="sm" type="button" variant="outline">
-						<ChevronsDownIcon />
-						Expand All
-					</Button>
-					<Button
-						onClick={collapseAll}
-						size="sm"
-						type="button"
-						variant="outline"
-					>
-						<ChevronsUpIcon />
-						Collapse All
-					</Button>
+				<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
+					<div className="flex items-center gap-2">
+						<Switch
+							checked={isReadOnly}
+							id="read-only-toggle"
+							onCheckedChange={setIsReadOnly}
+						/>
+						<Label htmlFor="read-only-toggle">Read Only</Label>
+					</div>
+					<div className="flex items-center gap-2">
+						<ToggleGroup
+							aria-label="Calendar view mode"
+							onValueChange={(val) => {
+								if (val.length > 0) {
+									onViewModeChange(val[0] as ViewMode);
+								}
+							}}
+							size="sm"
+							value={[viewMode]}
+							variant="outline"
+						>
+							<ToggleGroupItem value="days">Days</ToggleGroupItem>
+							<ToggleGroupItem value="weeks">Weeks</ToggleGroupItem>
+							<ToggleGroupItem value="months">Months</ToggleGroupItem>
+						</ToggleGroup>
+						<Button
+							onClick={expandAll}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<ChevronsDownIcon />
+							Expand All
+						</Button>
+						<Button
+							onClick={collapseAll}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<ChevronsUpIcon />
+							Collapse All
+						</Button>
+					</div>
 				</div>
 
 				{/*
@@ -902,6 +920,7 @@ export default function GanttPanel({
 																	width: (calEnd - calStart + 1) * pixelsPerDay,
 																	height: 16,
 																}}
+																disableDragging={isReadOnly}
 																dragAxis="x"
 																dragGrid={[pixelsPerDay, 1]}
 																enableResizing={false}
@@ -958,7 +977,9 @@ export default function GanttPanel({
 																style={{ position: 'absolute' }}
 															>
 																<Popover>
-																	<PopoverTrigger className="absolute inset-0 cursor-grab overflow-hidden rounded-sm bg-purple-500/70 active:cursor-grabbing">
+																	<PopoverTrigger
+																		className={`absolute inset-0 overflow-hidden rounded-sm bg-purple-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+																	>
 																		{columns
 																			.filter(
 																				(col) =>
@@ -1073,9 +1094,12 @@ export default function GanttPanel({
 																				width: barWidth,
 																				height: 16,
 																			}}
+																			disableDragging={isReadOnly}
 																			dragAxis="x"
 																			dragGrid={[pixelsPerDay, 1]}
-																			enableResizing={{ right: true }}
+																			enableResizing={
+																				isReadOnly ? false : { right: true }
+																			}
 																			key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}-${taskReversionTicks.get(task._id) ?? 0}`}
 																			minWidth={pixelsPerDay}
 																			onDrag={(_e, d) => {
@@ -1181,7 +1205,9 @@ export default function GanttPanel({
 																			style={{ position: 'absolute' }}
 																		>
 																			<Popover>
-																				<PopoverTrigger className="absolute inset-0 cursor-grab overflow-hidden rounded-sm bg-blue-500/70 active:cursor-grabbing">
+																				<PopoverTrigger
+																					className={`absolute inset-0 overflow-hidden rounded-sm bg-blue-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+																				>
 																					{columns
 																						.filter(
 																							(col) =>
