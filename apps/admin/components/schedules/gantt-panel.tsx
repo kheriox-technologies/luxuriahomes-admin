@@ -183,6 +183,24 @@ function getMonthColumns(today: Date, totalDays: number): GanttColumn[] {
 	return cols;
 }
 
+function businessDayToCalendarOffset(bizDay: number, today: Date): number {
+	const d = new Date(today);
+	let calOffset = 0;
+	while (d.getDay() === 0 || d.getDay() === 6) {
+		d.setDate(d.getDate() + 1);
+		calOffset++;
+	}
+	let remaining = bizDay;
+	while (remaining > 0) {
+		d.setDate(d.getDate() + 1);
+		calOffset++;
+		if (d.getDay() !== 0 && d.getDay() !== 6) {
+			remaining--;
+		}
+	}
+	return calOffset;
+}
+
 export default function GanttPanel({
 	stages,
 	tasks,
@@ -300,8 +318,9 @@ export default function GanttPanel({
 
 	const formatOffset = useCallback(
 		(offset: number): string => {
+			const calOffset = businessDayToCalendarOffset(offset, today);
 			const d = new Date(today);
-			d.setDate(d.getDate() + offset);
+			d.setDate(d.getDate() + calOffset);
 			const day = d.getDate();
 			const month = d.toLocaleString('en-GB', { month: 'short' });
 			const year = d.getFullYear();
@@ -376,19 +395,23 @@ export default function GanttPanel({
 	const totalDays = useMemo(() => {
 		let max = MIN_DAYS;
 		for (const [, layout] of taskLayouts) {
-			const end = layout.startOffset + layout.durationDays;
-			if (end > max) {
-				max = end;
+			const calEnd =
+				businessDayToCalendarOffset(
+					layout.startOffset + layout.durationDays - 1,
+					today
+				) + 1;
+			if (calEnd > max) {
+				max = calEnd;
 			}
 		}
 		for (const [, layout] of stageLayouts) {
-			const end = layout.endOffset + 1;
-			if (end > max) {
-				max = end;
+			const calEnd = businessDayToCalendarOffset(layout.endOffset, today) + 1;
+			if (calEnd > max) {
+				max = calEnd;
 			}
 		}
 		return Math.max(max + 2, MIN_DAYS);
-	}, [taskLayouts, stageLayouts]);
+	}, [taskLayouts, stageLayouts, today]);
 
 	const pixelsPerDay = useMemo(() => {
 		if (viewMode === 'weeks') {
@@ -403,12 +426,17 @@ export default function GanttPanel({
 	const gridWidth = GRID_LEFT_PADDING + totalDays * pixelsPerDay;
 
 	const scrollToBar = useCallback(
-		(startOffset: number, durationDays: number) => {
+		(startBizDay: number, durationBizDays: number) => {
 			if (!rightRef.current) {
 				return;
 			}
-			const barLeft = GRID_LEFT_PADDING + startOffset * pixelsPerDay;
-			const barWidth = durationDays * pixelsPerDay;
+			const calStart = businessDayToCalendarOffset(startBizDay, today);
+			const calEnd = businessDayToCalendarOffset(
+				startBizDay + durationBizDays - 1,
+				today
+			);
+			const barLeft = GRID_LEFT_PADDING + calStart * pixelsPerDay;
+			const barWidth = (calEnd - calStart + 1) * pixelsPerDay;
 			const containerWidth = rightRef.current.clientWidth;
 			const targetLeft = barLeft - (containerWidth - barWidth) / 2;
 			rightRef.current.scrollTo({
@@ -416,7 +444,7 @@ export default function GanttPanel({
 				behavior: 'smooth',
 			});
 		},
-		[pixelsPerDay]
+		[pixelsPerDay, today]
 	);
 
 	const columns = useMemo<GanttColumn[]>(() => {
@@ -488,9 +516,18 @@ export default function GanttPanel({
 			const fromX =
 				task.dependencyType === 'startAfter'
 					? GRID_LEFT_PADDING +
-						(predLayout.startOffset + predLayout.durationDays) * pixelsPerDay
-					: GRID_LEFT_PADDING + predLayout.startOffset * pixelsPerDay;
-			const toX = GRID_LEFT_PADDING + myLayout.startOffset * pixelsPerDay;
+						(businessDayToCalendarOffset(
+							predLayout.startOffset + predLayout.durationDays - 1,
+							today
+						) +
+							1) *
+							pixelsPerDay
+					: GRID_LEFT_PADDING +
+						businessDayToCalendarOffset(predLayout.startOffset, today) *
+							pixelsPerDay;
+			const toX =
+				GRID_LEFT_PADDING +
+				businessDayToCalendarOffset(myLayout.startOffset, today) * pixelsPerDay;
 			result.push({
 				key: `task-${task._id}`,
 				fromX,
@@ -521,9 +558,15 @@ export default function GanttPanel({
 			}
 			const fromX =
 				stage.dependencyType === 'startAfter'
-					? GRID_LEFT_PADDING + (predLayout.endOffset + 1) * pixelsPerDay
-					: GRID_LEFT_PADDING + predLayout.startOffset * pixelsPerDay;
-			const toX = GRID_LEFT_PADDING + myLayout.startOffset * pixelsPerDay;
+					? GRID_LEFT_PADDING +
+						(businessDayToCalendarOffset(predLayout.endOffset, today) + 1) *
+							pixelsPerDay
+					: GRID_LEFT_PADDING +
+						businessDayToCalendarOffset(predLayout.startOffset, today) *
+							pixelsPerDay;
+			const toX =
+				GRID_LEFT_PADDING +
+				businessDayToCalendarOffset(myLayout.startOffset, today) * pixelsPerDay;
 			result.push({
 				key: `stage-${stage._id}`,
 				fromX,
@@ -539,7 +582,7 @@ export default function GanttPanel({
 		}
 
 		return result;
-	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, pixelsPerDay]);
+	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, pixelsPerDay, today]);
 
 	const onDeleteDependency = useCallback(async () => {
 		if (!deletingArrow) {
@@ -773,53 +816,66 @@ export default function GanttPanel({
 												<Popover>
 													<PopoverTrigger
 														className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-sm bg-purple-500/70"
-														style={{
-															height: 16,
-															left:
-																GRID_LEFT_PADDING +
-																stageLayout.startOffset * pixelsPerDay,
-															width:
-																(stageLayout.endOffset -
-																	stageLayout.startOffset +
-																	1) *
-																pixelsPerDay,
-														}}
+														style={(() => {
+															const calStart = businessDayToCalendarOffset(
+																stageLayout.startOffset,
+																today
+															);
+															const calEnd = businessDayToCalendarOffset(
+																stageLayout.endOffset,
+																today
+															);
+															return {
+																height: 16,
+																left:
+																	GRID_LEFT_PADDING + calStart * pixelsPerDay,
+																width: (calEnd - calStart + 1) * pixelsPerDay,
+															};
+														})()}
 													>
-														{columns
-															.filter(
-																(col) =>
-																	col.isWeekend &&
-																	col.dayStart < stageLayout.endOffset + 1 &&
-																	col.dayStart + col.widthDays >
-																		stageLayout.startOffset
-															)
-															.map((col) => {
-																const overlapStart = Math.max(
-																	col.dayStart,
-																	stageLayout.startOffset
-																);
-																const overlapEnd = Math.min(
-																	col.dayStart + col.widthDays,
-																	stageLayout.endOffset + 1
-																);
-																return (
-																	<div
-																		className="absolute inset-y-0"
-																		key={col.dayStart}
-																		style={{
-																			left:
-																				(overlapStart -
-																					stageLayout.startOffset) *
-																				pixelsPerDay,
-																			width:
-																				(overlapEnd - overlapStart) *
-																				pixelsPerDay,
-																			background:
-																				'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																		}}
-																	/>
-																);
-															})}
+														{(() => {
+															const calStart = businessDayToCalendarOffset(
+																stageLayout.startOffset,
+																today
+															);
+															const calEnd = businessDayToCalendarOffset(
+																stageLayout.endOffset,
+																today
+															);
+															return columns
+																.filter(
+																	(col) =>
+																		col.isWeekend &&
+																		col.dayStart < calEnd + 1 &&
+																		col.dayStart + col.widthDays > calStart
+																)
+																.map((col) => {
+																	const overlapStart = Math.max(
+																		col.dayStart,
+																		calStart
+																	);
+																	const overlapEnd = Math.min(
+																		col.dayStart + col.widthDays,
+																		calEnd + 1
+																	);
+																	return (
+																		<div
+																			className="absolute inset-y-0"
+																			key={col.dayStart}
+																			style={{
+																				left:
+																					(overlapStart - calStart) *
+																					pixelsPerDay,
+																				width:
+																					(overlapEnd - overlapStart) *
+																					pixelsPerDay,
+																				background:
+																					'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																			}}
+																		/>
+																	);
+																});
+														})()}
 													</PopoverTrigger>
 													<PopoverPopup side="top">
 														<PopoverTitle>
@@ -869,53 +925,75 @@ export default function GanttPanel({
 															<Popover>
 																<PopoverTrigger
 																	className="absolute top-1/2 -translate-y-1/2 overflow-hidden rounded-sm bg-blue-500/70"
-																	style={{
-																		height: 16,
-																		left:
-																			GRID_LEFT_PADDING +
-																			taskLayout.startOffset * pixelsPerDay,
-																		width:
-																			taskLayout.durationDays * pixelsPerDay,
-																	}}
+																	style={(() => {
+																		const calStart =
+																			businessDayToCalendarOffset(
+																				taskLayout.startOffset,
+																				today
+																			);
+																		const calEnd = businessDayToCalendarOffset(
+																			taskLayout.startOffset +
+																				taskLayout.durationDays -
+																				1,
+																			today
+																		);
+																		return {
+																			height: 16,
+																			left:
+																				GRID_LEFT_PADDING +
+																				calStart * pixelsPerDay,
+																			width:
+																				(calEnd - calStart + 1) * pixelsPerDay,
+																		};
+																	})()}
 																>
-																	{columns
-																		.filter(
-																			(col) =>
-																				col.isWeekend &&
-																				col.dayStart <
-																					taskLayout.startOffset +
-																						taskLayout.durationDays &&
-																				col.dayStart + col.widthDays >
-																					taskLayout.startOffset
-																		)
-																		.map((col) => {
-																			const overlapStart = Math.max(
-																				col.dayStart,
-																				taskLayout.startOffset
+																	{(() => {
+																		const calStart =
+																			businessDayToCalendarOffset(
+																				taskLayout.startOffset,
+																				today
 																			);
-																			const overlapEnd = Math.min(
-																				col.dayStart + col.widthDays,
-																				taskLayout.startOffset +
-																					taskLayout.durationDays
-																			);
-																			return (
-																				<div
-																					className="absolute inset-y-0"
-																					key={col.dayStart}
-																					style={{
-																						left:
-																							(overlapStart -
-																								taskLayout.startOffset) *
-																							pixelsPerDay,
-																						width:
-																							(overlapEnd - overlapStart) *
-																							pixelsPerDay,
-																						background:
-																							'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																					}}
-																				/>
-																			);
-																		})}
+																		const calEnd = businessDayToCalendarOffset(
+																			taskLayout.startOffset +
+																				taskLayout.durationDays -
+																				1,
+																			today
+																		);
+																		return columns
+																			.filter(
+																				(col) =>
+																					col.isWeekend &&
+																					col.dayStart < calEnd + 1 &&
+																					col.dayStart + col.widthDays >
+																						calStart
+																			)
+																			.map((col) => {
+																				const overlapStart = Math.max(
+																					col.dayStart,
+																					calStart
+																				);
+																				const overlapEnd = Math.min(
+																					col.dayStart + col.widthDays,
+																					calEnd + 1
+																				);
+																				return (
+																					<div
+																						className="absolute inset-y-0"
+																						key={col.dayStart}
+																						style={{
+																							left:
+																								(overlapStart - calStart) *
+																								pixelsPerDay,
+																							width:
+																								(overlapEnd - overlapStart) *
+																								pixelsPerDay,
+																							background:
+																								'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																						}}
+																					/>
+																				);
+																			});
+																	})()}
 																</PopoverTrigger>
 																<PopoverPopup side="top">
 																	<PopoverTitle>
