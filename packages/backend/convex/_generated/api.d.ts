@@ -87,6 +87,8 @@ import type * as materials_remove from "../materials/remove.js";
 import type * as materials_search from "../materials/search.js";
 import type * as materials_shared from "../materials/shared.js";
 import type * as materials_update from "../materials/update.js";
+import type * as migration_exportScheduleTemplates from "../migration/exportScheduleTemplates.js";
+import type * as migration_importScheduleTemplate from "../migration/importScheduleTemplate.js";
 import type * as permissions_getEffectiveForRoles from "../permissions/getEffectiveForRoles.js";
 import type * as permissions_list from "../permissions/list.js";
 import type * as permissions_listRoleNames from "../permissions/listRoleNames.js";
@@ -292,6 +294,8 @@ declare const fullApi: ApiFromModules<{
   "materials/search": typeof materials_search;
   "materials/shared": typeof materials_shared;
   "materials/update": typeof materials_update;
+  "migration/exportScheduleTemplates": typeof migration_exportScheduleTemplates;
+  "migration/importScheduleTemplate": typeof migration_importScheduleTemplate;
   "permissions/getEffectiveForRoles": typeof permissions_getEffectiveForRoles;
   "permissions/list": typeof permissions_list;
   "permissions/listRoleNames": typeof permissions_listRoleNames;

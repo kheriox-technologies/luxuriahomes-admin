@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@workspace/config": "workspace:*",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3"
   },
   "exports": {
