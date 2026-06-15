@@ -449,6 +449,7 @@ export default function GanttPanel({
 	const [taskReversionTicks, setTaskReversionTicks] = useState<
 		Map<string, number>
 	>(new Map());
+	const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
 	const leftRef = useRef<HTMLDivElement>(null);
 	const rightRef = useRef<HTMLDivElement>(null);
@@ -997,13 +998,18 @@ export default function GanttPanel({
 											key={stage._id}
 											onNameClick={
 												stageLayout
-													? () =>
+													? () => {
 															scrollToBar(
 																stageLayout.startOffset,
 																stageLayout.endOffset -
 																	stageLayout.startOffset +
 																	1
-															)
+															);
+															setTimeout(
+																() => setOpenPopoverId(stage._id),
+																400
+															);
+														}
 													: undefined
 											}
 											onToggleCollapse={() => toggleStage(stage._id)}
@@ -1026,11 +1032,16 @@ export default function GanttPanel({
 																key={task._id}
 																onNameClick={
 																	taskLayout
-																		? () =>
+																		? () => {
 																				scrollToBar(
 																					taskLayout.startOffset,
 																					taskLayout.durationDays
-																				)
+																				);
+																				setTimeout(
+																					() => setOpenPopoverId(task._id),
+																					400
+																				);
+																			}
 																		: undefined
 																}
 																task={task}
@@ -1209,7 +1220,12 @@ export default function GanttPanel({
 																}}
 																style={{ position: 'absolute' }}
 															>
-																<Popover>
+																<Popover
+																	onOpenChange={(open) =>
+																		setOpenPopoverId(open ? stage._id : null)
+																	}
+																	open={openPopoverId === stage._id}
+																>
 																	<PopoverTrigger
 																		className={`absolute inset-0 overflow-hidden rounded-sm bg-purple-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
 																	>
@@ -1437,7 +1453,14 @@ export default function GanttPanel({
 																			}}
 																			style={{ position: 'absolute' }}
 																		>
-																			<Popover>
+																			<Popover
+																				onOpenChange={(open) =>
+																					setOpenPopoverId(
+																						open ? task._id : null
+																					)
+																				}
+																				open={openPopoverId === task._id}
+																			>
 																				<PopoverTrigger
 																					className={`absolute inset-0 overflow-hidden rounded-sm bg-blue-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
 																				>
