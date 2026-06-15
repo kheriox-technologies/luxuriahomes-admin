@@ -14,7 +14,7 @@ import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
-import GanttPanel, { type ViewMode } from './gantt-panel';
+import GanttPanel from './gantt-panel';
 import {
 	businessDayToCalendarOffset,
 	MONDAY_ANCHOR,
@@ -36,7 +36,6 @@ export default function ScheduleTemplateDetailView({
 		scheduleTemplateId,
 	});
 
-	const [viewMode, setViewMode] = useState<ViewMode>('days');
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -70,15 +69,7 @@ export default function ScheduleTemplateDetailView({
 		return calEnd - calStart + 1;
 	}, [stageLayouts]);
 
-	const durationLabel = useMemo(() => {
-		if (viewMode === 'weeks') {
-			return `${Math.ceil(projectDuration / 7)} Weeks`;
-		}
-		if (viewMode === 'months') {
-			return `${Math.ceil(projectDuration / 30)} Months`;
-		}
-		return `${projectDuration} Days`;
-	}, [viewMode, projectDuration]);
+	const durationLabel = `${projectDuration} Days`;
 
 	if (scheduleTemplate === undefined) {
 		return <div className="text-muted-foreground text-sm">Loading…</div>;
@@ -129,14 +120,12 @@ export default function ScheduleTemplateDetailView({
 			/>
 			<div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
 				<GanttPanel
-					onViewModeChange={setViewMode}
 					scheduleTemplateId={scheduleTemplateId}
 					search={debouncedSearch.trim()}
 					stageLayouts={stageLayouts}
 					stages={stages ?? []}
 					taskLayouts={taskLayouts}
 					tasks={tasks ?? []}
-					viewMode={viewMode}
 				/>
 			</div>
 		</div>
