@@ -25,6 +25,8 @@ export const update = mutation({
 		orderId: v.id('projectOrders'),
 		vendor: v.string(),
 		orderBy: v.optional(v.number()),
+		deliveryDurationDays: v.optional(v.number()),
+		deliverBy: v.optional(v.number()),
 		items: v.array(
 			v.object({
 				name: v.string(),
@@ -54,6 +56,8 @@ export const update = mutation({
 		await ctx.db.patch(args.orderId, {
 			vendor,
 			orderBy: args.orderBy,
+			deliveryDurationDays: args.deliveryDurationDays,
+			deliverBy: args.deliverBy,
 			items,
 			status: args.status,
 			searchText,
