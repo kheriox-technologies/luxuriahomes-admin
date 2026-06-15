@@ -40,10 +40,6 @@ import {
 } from '@workspace/ui/components/popover';
 import { Switch } from '@workspace/ui/components/switch';
 import { toastManager } from '@workspace/ui/components/toast';
-import {
-	ToggleGroup,
-	ToggleGroupItem,
-} from '@workspace/ui/components/toggle-group';
 import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -58,11 +54,7 @@ import { STAGE_ROW_HEIGHT, TASK_ROW_HEIGHT } from './schedule-row-heights';
 import StageRow from './stage-row';
 import TaskRow from './task-row';
 
-export type ViewMode = 'days' | 'weeks' | 'months';
-
 const DAY_WIDTH = 50;
-const WEEK_COLUMN_WIDTH = 100;
-const MONTH_COLUMN_WIDTH = 150;
 const DATE_HEADER_HEIGHT = 52;
 const MIN_DAYS = 20;
 const STAGE_LIST_WIDTH = 280;
@@ -168,45 +160,6 @@ function getDayLabel(
 		isWeekend: dow === 0 || dow === 6,
 		month: d.toLocaleDateString('en-AU', { month: 'short' }),
 	};
-}
-
-function getWeekColumns(today: Date, totalDays: number): GanttColumn[] {
-	const cols: GanttColumn[] = [];
-	let d = 0;
-	while (d < totalDays) {
-		const widthDays = Math.min(7, totalDays - d);
-		const date = new Date(today);
-		date.setDate(date.getDate() + d);
-		const label = date.toLocaleDateString('en-AU', {
-			day: 'numeric',
-			month: 'short',
-		});
-		cols.push({ dayStart: d, widthDays, label });
-		d += 7;
-	}
-	return cols;
-}
-
-function getMonthColumns(today: Date, totalDays: number): GanttColumn[] {
-	const cols: GanttColumn[] = [];
-	let d = 0;
-	while (d < totalDays) {
-		const date = new Date(today);
-		date.setDate(date.getDate() + d);
-		const year = date.getFullYear();
-		const month = date.getMonth();
-		const daysInMonth = new Date(year, month + 1, 0).getDate();
-		const dayOfMonth = date.getDate();
-		const remainingInMonth = daysInMonth - dayOfMonth + 1;
-		const widthDays = Math.min(remainingInMonth, totalDays - d);
-		const label = date.toLocaleDateString('en-AU', {
-			month: 'short',
-			year: 'numeric',
-		});
-		cols.push({ dayStart: d, widthDays, label });
-		d += remainingInMonth;
-	}
-	return cols;
 }
 
 function isWeekendCalOffset(calOffset: number, today: Date): boolean {
@@ -384,8 +337,6 @@ export default function GanttPanel({
 	stageLayouts,
 	taskLayouts,
 	scheduleTemplateId,
-	viewMode,
-	onViewModeChange,
 	search,
 }: {
 	stages: Doc<'scheduleStages'>[];
@@ -393,8 +344,6 @@ export default function GanttPanel({
 	stageLayouts: Map<string, StageLayout>;
 	taskLayouts: Map<string, TaskLayout>;
 	scheduleTemplateId: Id<'scheduleTemplates'>;
-	viewMode: ViewMode;
-	onViewModeChange: (mode: ViewMode) => void;
 	search?: string;
 }) {
 	const [isReadOnly, setIsReadOnly] = useState(true);
@@ -695,15 +644,7 @@ export default function GanttPanel({
 		return Math.max(max + 2, MIN_DAYS);
 	}, [taskLayouts, stageLayouts, today]);
 
-	const pixelsPerDay = useMemo(() => {
-		if (viewMode === 'weeks') {
-			return WEEK_COLUMN_WIDTH / 7;
-		}
-		if (viewMode === 'months') {
-			return MONTH_COLUMN_WIDTH / 30;
-		}
-		return DAY_WIDTH;
-	}, [viewMode]);
+	const pixelsPerDay = DAY_WIDTH;
 
 	const gridWidth = GRID_LEFT_PADDING + totalDays * pixelsPerDay;
 
@@ -726,16 +667,10 @@ export default function GanttPanel({
 				behavior: 'smooth',
 			});
 		},
-		[pixelsPerDay, today]
+		[today]
 	);
 
 	const columns = useMemo<GanttColumn[]>(() => {
-		if (viewMode === 'weeks') {
-			return getWeekColumns(today, totalDays);
-		}
-		if (viewMode === 'months') {
-			return getMonthColumns(today, totalDays);
-		}
 		return Array.from({ length: totalDays }, (_, i) => {
 			const { day, dayName, month, isWeekend } = getDayLabel(today, i);
 			return {
@@ -747,7 +682,7 @@ export default function GanttPanel({
 				widthDays: 1,
 			};
 		});
-	}, [viewMode, today, totalDays]);
+	}, [today, totalDays]);
 
 	const rowYMap = useMemo(() => {
 		const map = new Map<string, number>();
@@ -864,7 +799,7 @@ export default function GanttPanel({
 		}
 
 		return result;
-	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, pixelsPerDay, today]);
+	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, today]);
 
 	const onDeleteDependency = useCallback(async () => {
 		if (!deletingArrow) {
@@ -919,21 +854,6 @@ export default function GanttPanel({
 						<Label htmlFor="read-only-toggle">Read Only</Label>
 					</div>
 					<div className="flex items-center gap-2">
-						<ToggleGroup
-							aria-label="Calendar view mode"
-							onValueChange={(val) => {
-								if (val.length > 0) {
-									onViewModeChange(val[0] as ViewMode);
-								}
-							}}
-							size="sm"
-							value={[viewMode]}
-							variant="outline"
-						>
-							<ToggleGroupItem value="days">Days</ToggleGroupItem>
-							<ToggleGroupItem value="weeks">Weeks</ToggleGroupItem>
-							<ToggleGroupItem value="months">Months</ToggleGroupItem>
-						</ToggleGroup>
 						<Button
 							onClick={expandAll}
 							size="sm"
