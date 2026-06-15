@@ -1,7 +1,7 @@
 'use client';
 
 import type { Doc, Id } from '@workspace/backend/dataModel';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import StageRow from './stage-row';
 
 export default function StageListPanel({
@@ -13,6 +13,22 @@ export default function StageListPanel({
 	tasks: Doc<'scheduleTasks'>[];
 	scheduleTemplateId: Id<'scheduleTemplates'>;
 }) {
+	const [collapsedStages, setCollapsedStages] = useState<Set<string>>(
+		new Set()
+	);
+
+	const toggleCollapse = useCallback((stageId: string) => {
+		setCollapsedStages((prev) => {
+			const next = new Set(prev);
+			if (next.has(stageId)) {
+				next.delete(stageId);
+			} else {
+				next.add(stageId);
+			}
+			return next;
+		});
+	}, []);
+
 	const tasksByStage = useMemo(() => {
 		const map = new Map<string, Doc<'scheduleTasks'>[]>();
 		for (const stage of stages) {
@@ -41,9 +57,12 @@ export default function StageListPanel({
 		<div className="w-[280px] shrink-0 overflow-y-auto border-r">
 			{stages.map((stage) => (
 				<StageRow
+					isCollapsed={collapsedStages.has(stage._id)}
 					key={stage._id}
+					onToggleCollapse={() => toggleCollapse(stage._id)}
 					scheduleTemplateId={scheduleTemplateId}
 					stage={stage}
+					stageLayout={undefined}
 					stages={stages}
 					tasks={tasksByStage.get(stage._id) ?? []}
 				/>
