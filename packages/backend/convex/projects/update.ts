@@ -3,6 +3,10 @@ import { mutation } from '../_generated/server';
 import { buildProjectSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
 import {
+	addBusinessDaysToTimestamp,
+	businessDaysBetweenTimestamps,
+} from '../projectTasks/shared';
+import {
 	assertAustralianAddress,
 	australianAddressValidator,
 	projectClientValidator,
@@ -59,22 +63,22 @@ export const update = mutation({
 		}
 
 		// When start date changes and a schedule exists, shift all stage/task dates
+		// by the same number of business days (skips weekends, preserving weekday alignment).
 		if (
 			startDate !== undefined &&
 			oldStartDate !== undefined &&
 			startDate !== oldStartDate
 		) {
-			const MS_PER_DAY = 86_400_000;
-			const diffDays = Math.round((startDate - oldStartDate) / MS_PER_DAY);
-			if (diffDays !== 0) {
+			const bizDiff = businessDaysBetweenTimestamps(oldStartDate, startDate);
+			if (bizDiff !== 0) {
 				const stages = await ctx.db
 					.query('projectStages')
 					.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
 					.collect();
 				for (const stage of stages) {
 					await ctx.db.patch(stage._id, {
-						startDate: stage.startDate + diffDays * MS_PER_DAY,
-						endDate: stage.endDate + diffDays * MS_PER_DAY,
+						startDate: addBusinessDaysToTimestamp(stage.startDate, bizDiff),
+						endDate: addBusinessDaysToTimestamp(stage.endDate, bizDiff),
 					});
 				}
 				const tasks = await ctx.db
@@ -82,9 +86,16 @@ export const update = mutation({
 					.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
 					.collect();
 				for (const task of tasks) {
+					const newTaskStart = addBusinessDaysToTimestamp(
+						task.startDate,
+						bizDiff
+					);
 					await ctx.db.patch(task._id, {
-						startDate: task.startDate + diffDays * MS_PER_DAY,
-						endDate: task.endDate + diffDays * MS_PER_DAY,
+						startDate: newTaskStart,
+						endDate: addBusinessDaysToTimestamp(
+							newTaskStart,
+							task.durationDays - 1
+						),
 					});
 				}
 			}

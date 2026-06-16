@@ -31,6 +31,7 @@ import {
 } from '@workspace/ui/components/alert-dialog';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Label } from '@workspace/ui/components/label';
 import {
 	Popover,
@@ -42,7 +43,13 @@ import {
 import { Switch } from '@workspace/ui/components/switch';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { CalendarCheck, ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
+import {
+	CalendarCheck,
+	ChevronFirst,
+	ChevronLast,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import {
@@ -50,11 +57,11 @@ import {
 	TASK_ROW_HEIGHT,
 } from '@/components/schedules/schedule-row-heights';
 import {
+	addBusinessDays,
 	addCalendarDays,
 	countBusinessDaysBetween,
 	dateToCalOffset,
 	formatProjectDate,
-	snapToWeekday,
 	startOfDay,
 } from './project-schedule-date-utils';
 import ProjectStageRow from './project-stage-row';
@@ -484,6 +491,34 @@ export default function ProjectGanttPanel({
 		});
 	}, [today, anchor]);
 
+	const scrollToStart = useCallback(() => {
+		if (!rightRef.current || stages.length === 0) {
+			return;
+		}
+		const minStart = Math.min(...stages.map((s) => s.startDate));
+		const offset = dateToCalOffset(new Date(minStart), anchor);
+		rightRef.current.scrollTo({
+			left: Math.max(0, GRID_LEFT_PADDING + offset * pixelsPerDay - 24),
+			behavior: 'smooth',
+		});
+	}, [stages, anchor]);
+
+	const scrollToEnd = useCallback(() => {
+		if (!rightRef.current || stages.length === 0) {
+			return;
+		}
+		const maxEnd = Math.max(...stages.map((s) => s.endDate));
+		const offset = dateToCalOffset(new Date(maxEnd), anchor);
+		const containerWidth = rightRef.current.clientWidth;
+		rightRef.current.scrollTo({
+			left: Math.max(
+				0,
+				GRID_LEFT_PADDING + (offset + 1) * pixelsPerDay - containerWidth + 24
+			),
+			behavior: 'smooth',
+		});
+	}, [stages, anchor]);
+
 	const onResizeMouseDown = useCallback(
 		(e: React.MouseEvent) => {
 			e.preventDefault();
@@ -830,15 +865,37 @@ export default function ProjectGanttPanel({
 						<Label htmlFor="project-read-only-toggle">Read Only</Label>
 					</div>
 					<div className="flex items-center gap-2">
-						<Button
-							onClick={scrollToToday}
-							size="sm"
-							type="button"
-							variant="outline"
-						>
-							<CalendarCheck />
-							Today
-						</Button>
+						<Group>
+							<Button
+								aria-label="Scroll to start"
+								onClick={scrollToStart}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<ChevronFirst />
+							</Button>
+							<GroupSeparator />
+							<Button
+								onClick={scrollToToday}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<CalendarCheck />
+								Today
+							</Button>
+							<GroupSeparator />
+							<Button
+								aria-label="Scroll to end"
+								onClick={scrollToEnd}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<ChevronLast />
+							</Button>
+						</Group>
 						<Button
 							onClick={expandAll}
 							size="sm"
@@ -1038,31 +1095,37 @@ export default function ProjectGanttPanel({
 														const newStartOff = Math.round(
 															(d.x - GRID_LEFT_PADDING) / pixelsPerDay
 														);
-														const newStartDate = addCalendarDays(
+														const rawDate = addCalendarDays(
 															anchor,
 															newStartOff
 														);
-														const snapped = snapToWeekday(newStartDate);
-														const durationCalDays = dateToCalOffset(
-															new Date(stage.endDate),
-															new Date(stage.startDate)
-														);
-														const newEndDate = addCalendarDays(
-															snapped,
-															durationCalDays
-														);
-														updateStageDates({
-															stageId: stage._id,
-															startDate: snapped.getTime(),
-															endDate: newEndDate.getTime(),
-														}).catch(() => {
+														const revert = () =>
 															setStageReversionTicks((prev) =>
 																new Map(prev).set(
 																	stage._id,
 																	(prev.get(stage._id) ?? 0) + 1
 																)
 															);
-														});
+														// Reject weekend drops immediately
+														if (
+															rawDate.getDay() === 0 ||
+															rawDate.getDay() === 6
+														) {
+															revert();
+															return;
+														}
+														const durationCalDays = dateToCalOffset(
+															new Date(stage.endDate),
+															new Date(stage.startDate)
+														);
+														updateStageDates({
+															stageId: stage._id,
+															startDate: rawDate.getTime(),
+															endDate: addCalendarDays(
+																rawDate,
+																durationCalDays
+															).getTime(),
+														}).catch(revert);
 													}}
 													style={{ position: 'absolute' }}
 												>
@@ -1188,43 +1251,35 @@ export default function ProjectGanttPanel({
 																const newStartOff = Math.round(
 																	(d.x - GRID_LEFT_PADDING) / pixelsPerDay
 																);
-																const newStartDate = addCalendarDays(
+																const rawDate = addCalendarDays(
 																	anchor,
 																	newStartOff
 																);
-																const snapped = snapToWeekday(newStartDate);
-																if (
-																	snapped.getDay() === 0 ||
-																	snapped.getDay() === 6
-																) {
+																const revert = () =>
 																	setTaskReversionTicks((prev) =>
 																		new Map(prev).set(
 																			task._id,
 																			(prev.get(task._id) ?? 0) + 1
 																		)
 																	);
+																// Reject weekend drops — revert the bar immediately
+																if (
+																	rawDate.getDay() === 0 ||
+																	rawDate.getDay() === 6
+																) {
+																	revert();
 																	return;
 																}
-																const newEndDate = addCalendarDays(
-																	snapped,
-																	taskEndOff - taskStartOff
-																);
+																// Preserve durationDays in business days
 																updateTaskDates({
 																	taskId: task._id,
-																	startDate: snapped.getTime(),
-																	endDate: newEndDate.getTime(),
-																	durationDays: countBusinessDaysBetween(
-																		snapped,
-																		newEndDate
-																	),
-																}).catch(() => {
-																	setTaskReversionTicks((prev) =>
-																		new Map(prev).set(
-																			task._id,
-																			(prev.get(task._id) ?? 0) + 1
-																		)
-																	);
-																});
+																	startDate: rawDate.getTime(),
+																	endDate: addBusinessDays(
+																		rawDate,
+																		task.durationDays - 1
+																	).getTime(),
+																	durationDays: task.durationDays,
+																}).catch(revert);
 															}}
 															onResize={(_e, _direction, ref) => {
 																const newCalWidth = Math.round(
@@ -1249,7 +1304,8 @@ export default function ProjectGanttPanel({
 																const newCalWidth = Math.round(
 																	ref.offsetWidth / pixelsPerDay
 																);
-																const newEndDate = addCalendarDays(
+																// Count business days within the dragged width
+																const tentativeEnd = addCalendarDays(
 																	new Date(task.startDate),
 																	Math.max(0, newCalWidth - 1)
 																);
@@ -1257,8 +1313,13 @@ export default function ProjectGanttPanel({
 																	1,
 																	countBusinessDaysBetween(
 																		new Date(task.startDate),
-																		newEndDate
+																		tentativeEnd
 																	)
+																);
+																// Derive end date from business days — always a weekday
+																const newEndDate = addBusinessDays(
+																	new Date(task.startDate),
+																	newDuration - 1
 																);
 																setResizePreview(null);
 																updateTaskDates({
