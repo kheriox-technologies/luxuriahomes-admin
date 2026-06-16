@@ -1114,16 +1114,20 @@ export default function ProjectGanttPanel({
 															revert();
 															return;
 														}
-														const durationCalDays = dateToCalOffset(
-															new Date(stage.endDate),
-															new Date(stage.startDate)
+														// Preserve business-day duration so the end always lands on a weekday
+														const bizDuration = Math.max(
+															0,
+															countBusinessDaysBetween(
+																new Date(stage.startDate),
+																new Date(stage.endDate)
+															) - 1
 														);
 														updateStageDates({
 															stageId: stage._id,
 															startDate: rawDate.getTime(),
-															endDate: addCalendarDays(
+															endDate: addBusinessDays(
 																rawDate,
-																durationCalDays
+																bizDuration
 															).getTime(),
 														}).catch(revert);
 													}}

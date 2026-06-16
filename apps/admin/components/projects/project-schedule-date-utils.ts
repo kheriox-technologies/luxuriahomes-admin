@@ -51,9 +51,12 @@ export function templateOffsetToDate(
 }
 
 export function startOfDay(date: Date): Date {
-	const d = new Date(date);
-	d.setHours(0, 0, 0, 0);
-	return d;
+	// Use the local year/month/day but anchor to midnight UTC so that
+	// server-side addBusinessDaysToTimestamp (which uses UTC getDay())
+	// and client-side getDay() both agree on the calendar day.
+	return new Date(
+		Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+	);
 }
 
 export interface ProjectStageDate {
