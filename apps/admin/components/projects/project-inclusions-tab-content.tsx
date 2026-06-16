@@ -106,7 +106,7 @@ import {
 import { signCdnUrls } from '@/actions/cdn';
 import LocationCombobox from '@/components/inclusions/location-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
-import { fetchUrlAsDataUrl } from '@/lib/pdf/pdf-assets';
+import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
@@ -1810,7 +1810,7 @@ export default function ProjectInclusionsTabContent({
 				const signedUrls = await signCdnUrls(allImageKeys);
 				await Promise.all(
 					Object.entries(signedUrls).map(async ([key, url]) => {
-						const dataUrl = await fetchUrlAsDataUrl(url);
+						const dataUrl = await fetchUrlAsJpegDataUrl(url);
 						if (dataUrl) {
 							pdfImageDataUrls[key] = dataUrl;
 						}
