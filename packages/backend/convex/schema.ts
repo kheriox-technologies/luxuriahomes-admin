@@ -50,6 +50,12 @@ export const scheduleDependencyTypeValidator = v.union(
 	v.literal('startWith')
 );
 
+export const projectScheduleStatusValidator = v.union(
+	v.literal('Pending'),
+	v.literal('In Progress'),
+	v.literal('Complete')
+);
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -343,4 +349,33 @@ export default defineSchema({
 		addedBy: v.string(),
 		note: v.string(),
 	}).index('by_order', ['orderId']),
+	projectStages: defineTable({
+		projectId: v.id('projects'),
+		name: v.string(),
+		order: v.number(),
+		dependencyStageId: v.optional(v.id('projectStages')),
+		dependencyType: v.optional(scheduleDependencyTypeValidator),
+		offsetDays: v.optional(v.number()),
+		startDate: v.number(),
+		endDate: v.number(),
+		status: projectScheduleStatusValidator,
+	})
+		.index('by_project', ['projectId'])
+		.index('by_project_order', ['projectId', 'order']),
+	projectTasks: defineTable({
+		projectId: v.id('projects'),
+		stageId: v.id('projectStages'),
+		name: v.string(),
+		durationDays: v.number(),
+		order: v.number(),
+		dependencyTaskId: v.optional(v.id('projectTasks')),
+		dependencyType: v.optional(scheduleDependencyTypeValidator),
+		offsetDays: v.optional(v.number()),
+		startDate: v.number(),
+		endDate: v.number(),
+		status: projectScheduleStatusValidator,
+	})
+		.index('by_project', ['projectId'])
+		.index('by_stage', ['stageId'])
+		.index('by_stage_order', ['stageId', 'order']),
 });
