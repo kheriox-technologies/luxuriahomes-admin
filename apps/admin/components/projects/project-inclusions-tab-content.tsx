@@ -1826,6 +1826,8 @@ export default function ProjectInclusionsTabContent({
 						code: inclusion.code,
 						vendor: inclusion.vendor,
 						models: inclusion.models,
+						color: inclusion.color,
+						locations: inclusion.locations?.map((l) => ({ name: l.name })),
 						details: inclusion.details,
 						status: inclusion.status,
 						class: inclusion.class,

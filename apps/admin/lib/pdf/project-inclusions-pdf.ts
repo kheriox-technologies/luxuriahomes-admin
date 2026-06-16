@@ -35,8 +35,10 @@ export interface ProjectPdfInclusion {
 	_id: string;
 	class: 'Standard' | 'Gold' | 'Platinum';
 	code: string;
+	color?: string;
 	details?: string;
 	image?: string;
+	locations?: { name: string }[];
 	models: string[];
 	status?: 'Under Review' | 'Approved';
 	title: string;
@@ -118,6 +120,8 @@ function buildDocDefinition(
 			[
 				{ text: 'Title', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Vendor & details', bold: true, fillColor: '#f3f4f6' },
+				{ text: 'Color', bold: true, fillColor: '#f3f4f6' },
+				{ text: 'Location', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Status', bold: true, fillColor: '#f3f4f6' },
 				{
 					text: 'Variation',
@@ -146,6 +150,8 @@ function buildDocDefinition(
 			body.push([
 				`${inclusion.title}\n${inclusion.code}`,
 				vendorDetails || '—',
+				inclusion.color ?? '—',
+				inclusion.locations?.map((l) => l.name).join(', ') || '—',
 				inclusion.status ?? 'Under Review',
 				{ text: variation, alignment: 'right' },
 				inclusionImageTableCell(inclusionImageDataUrls.get(inclusion._id)),
@@ -156,9 +162,11 @@ function buildDocDefinition(
 			{
 				text: `Total variation (${section.categoryName})`,
 				bold: true,
-				colSpan: 3,
+				colSpan: 5,
 				alignment: 'right',
 			},
+			{},
+			{},
 			{},
 			{},
 			{
@@ -179,7 +187,7 @@ function buildDocDefinition(
 			{
 				table: {
 					headerRows: 1,
-					widths: ['24%', '32%', '12%', '12%', '20%'],
+					widths: ['18%', '22%', '8%', '12%', '10%', '10%', '20%'],
 					body,
 				},
 				fontSize: 9,
