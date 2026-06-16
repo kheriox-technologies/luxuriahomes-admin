@@ -8,6 +8,16 @@
  * @module
  */
 
+import type * as companyDocuments_create from "../companyDocuments/create.js";
+import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
+import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
+import type * as companyDocuments_generateUploadUrl from "../companyDocuments/generateUploadUrl.js";
+import type * as companyDocuments_listContents from "../companyDocuments/listContents.js";
+import type * as companyDocuments_move from "../companyDocuments/move.js";
+import type * as companyDocuments_remove from "../companyDocuments/remove.js";
+import type * as companyDocuments_rename from "../companyDocuments/rename.js";
+import type * as companyDocuments_renameFolder from "../companyDocuments/renameFolder.js";
+import type * as companyDocuments_shared from "../companyDocuments/shared.js";
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
@@ -130,6 +140,23 @@ import type * as projectOrders_update from "../projectOrders/update.js";
 import type * as projectServiceProviders_add from "../projectServiceProviders/add.js";
 import type * as projectServiceProviders_listByProject from "../projectServiceProviders/listByProject.js";
 import type * as projectServiceProviders_remove from "../projectServiceProviders/remove.js";
+import type * as projectStages_add from "../projectStages/add.js";
+import type * as projectStages_clearDependency from "../projectStages/clearDependency.js";
+import type * as projectStages_listByProject from "../projectStages/listByProject.js";
+import type * as projectStages_remove from "../projectStages/remove.js";
+import type * as projectStages_reorder from "../projectStages/reorder.js";
+import type * as projectStages_shared from "../projectStages/shared.js";
+import type * as projectStages_update from "../projectStages/update.js";
+import type * as projectStages_updateDates from "../projectStages/updateDates.js";
+import type * as projectTasks_add from "../projectTasks/add.js";
+import type * as projectTasks_clearDependency from "../projectTasks/clearDependency.js";
+import type * as projectTasks_listByProject from "../projectTasks/listByProject.js";
+import type * as projectTasks_listByStage from "../projectTasks/listByStage.js";
+import type * as projectTasks_remove from "../projectTasks/remove.js";
+import type * as projectTasks_reorder from "../projectTasks/reorder.js";
+import type * as projectTasks_shared from "../projectTasks/shared.js";
+import type * as projectTasks_update from "../projectTasks/update.js";
+import type * as projectTasks_updateDates from "../projectTasks/updateDates.js";
 import type * as projects_add from "../projects/add.js";
 import type * as projects_get from "../projects/get.js";
 import type * as projects_list from "../projects/list.js";
@@ -173,6 +200,7 @@ import type * as scheduleTasks_update from "../scheduleTasks/update.js";
 import type * as scheduleTasks_updateDuration from "../scheduleTasks/updateDuration.js";
 import type * as scheduleTasks_updateOffset from "../scheduleTasks/updateOffset.js";
 import type * as scheduleTemplates_add from "../scheduleTemplates/add.js";
+import type * as scheduleTemplates_applyToProject from "../scheduleTemplates/applyToProject.js";
 import type * as scheduleTemplates_get from "../scheduleTemplates/get.js";
 import type * as scheduleTemplates_list from "../scheduleTemplates/list.js";
 import type * as scheduleTemplates_remove from "../scheduleTemplates/remove.js";
@@ -215,6 +243,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "companyDocuments/create": typeof companyDocuments_create;
+  "companyDocuments/createFolder": typeof companyDocuments_createFolder;
+  "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;
+  "companyDocuments/generateUploadUrl": typeof companyDocuments_generateUploadUrl;
+  "companyDocuments/listContents": typeof companyDocuments_listContents;
+  "companyDocuments/move": typeof companyDocuments_move;
+  "companyDocuments/remove": typeof companyDocuments_remove;
+  "companyDocuments/rename": typeof companyDocuments_rename;
+  "companyDocuments/renameFolder": typeof companyDocuments_renameFolder;
+  "companyDocuments/shared": typeof companyDocuments_shared;
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/get": typeof documentFolders_get;
   "documentFolders/list": typeof documentFolders_list;
@@ -337,6 +375,23 @@ declare const fullApi: ApiFromModules<{
   "projectServiceProviders/add": typeof projectServiceProviders_add;
   "projectServiceProviders/listByProject": typeof projectServiceProviders_listByProject;
   "projectServiceProviders/remove": typeof projectServiceProviders_remove;
+  "projectStages/add": typeof projectStages_add;
+  "projectStages/clearDependency": typeof projectStages_clearDependency;
+  "projectStages/listByProject": typeof projectStages_listByProject;
+  "projectStages/remove": typeof projectStages_remove;
+  "projectStages/reorder": typeof projectStages_reorder;
+  "projectStages/shared": typeof projectStages_shared;
+  "projectStages/update": typeof projectStages_update;
+  "projectStages/updateDates": typeof projectStages_updateDates;
+  "projectTasks/add": typeof projectTasks_add;
+  "projectTasks/clearDependency": typeof projectTasks_clearDependency;
+  "projectTasks/listByProject": typeof projectTasks_listByProject;
+  "projectTasks/listByStage": typeof projectTasks_listByStage;
+  "projectTasks/remove": typeof projectTasks_remove;
+  "projectTasks/reorder": typeof projectTasks_reorder;
+  "projectTasks/shared": typeof projectTasks_shared;
+  "projectTasks/update": typeof projectTasks_update;
+  "projectTasks/updateDates": typeof projectTasks_updateDates;
   "projects/add": typeof projects_add;
   "projects/get": typeof projects_get;
   "projects/list": typeof projects_list;
@@ -380,6 +435,7 @@ declare const fullApi: ApiFromModules<{
   "scheduleTasks/updateDuration": typeof scheduleTasks_updateDuration;
   "scheduleTasks/updateOffset": typeof scheduleTasks_updateOffset;
   "scheduleTemplates/add": typeof scheduleTemplates_add;
+  "scheduleTemplates/applyToProject": typeof scheduleTemplates_applyToProject;
   "scheduleTemplates/get": typeof scheduleTemplates_get;
   "scheduleTemplates/list": typeof scheduleTemplates_list;
   "scheduleTemplates/remove": typeof scheduleTemplates_remove;

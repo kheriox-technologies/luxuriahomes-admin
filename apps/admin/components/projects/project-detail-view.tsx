@@ -123,7 +123,7 @@ export default function ProjectDetailView({
 					</Badge>
 				)}
 			</div>
-			<ProjectDetailsTabs clients={project.clients} projectId={projectId} />
+			<ProjectDetailsTabs clients={project.clients} project={project} />
 		</div>
 	);
 }

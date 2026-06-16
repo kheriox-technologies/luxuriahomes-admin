@@ -44,3 +44,35 @@ export async function signCdnUrls(
 	}
 	return result;
 }
+
+export async function fetchCdnImagesAsDataUrls(
+	s3Keys: string[]
+): Promise<Record<string, string>> {
+	const { userId } = await auth();
+	if (!userId) {
+		throw new Error('Unauthorized');
+	}
+	const result: Record<string, string> = {};
+	await Promise.all(
+		s3Keys.map(async (key) => {
+			try {
+				const url = buildSignedUrl(key);
+				const response = await fetch(url);
+				if (!response.ok) {
+					return;
+				}
+				const buffer = await response.arrayBuffer();
+				if (!buffer.byteLength) {
+					return;
+				}
+				const contentType =
+					response.headers.get('content-type') ?? 'image/jpeg';
+				const base64 = Buffer.from(buffer).toString('base64');
+				result[key] = `data:${contentType};base64,${base64}`;
+			} catch {
+				// skip images that fail to fetch
+			}
+		})
+	);
+	return result;
+}

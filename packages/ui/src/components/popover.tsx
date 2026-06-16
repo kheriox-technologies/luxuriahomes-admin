@@ -33,6 +33,7 @@ function PopoverPopup({
   alignOffset = 0,
   tooltipStyle = false,
   anchor,
+  arrow = false,
   ...props
 }: PopoverPrimitive.Popup.Props & {
   side?: PopoverPrimitive.Positioner.Props["side"];
@@ -41,6 +42,7 @@ function PopoverPopup({
   alignOffset?: PopoverPrimitive.Positioner.Props["alignOffset"];
   tooltipStyle?: boolean;
   anchor?: PopoverPrimitive.Positioner.Props["anchor"];
+  arrow?: boolean;
 }) {
   return (
     <PopoverPrimitive.Portal>
@@ -74,6 +76,25 @@ function PopoverPopup({
           >
             {children}
           </PopoverPrimitive.Viewport>
+          {arrow && (
+            <PopoverPrimitive.Arrow className="group absolute data-[side=top]:-bottom-1.5 data-[side=bottom]:-top-1.5 data-[side=left]:-right-1.5 data-[side=right]:-left-1.5">
+              <svg
+                className="group-data-[side=bottom]:rotate-180 group-data-[side=left]:rotate-90 group-data-[side=right]:-rotate-90"
+                fill="none"
+                height="6"
+                viewBox="0 0 12 6"
+                width="12"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  className="fill-popover stroke-border"
+                  d="M0 0L6 6L12 0"
+                  strokeLinejoin="round"
+                  strokeWidth="1"
+                />
+              </svg>
+            </PopoverPrimitive.Arrow>
+          )}
         </PopoverPrimitive.Popup>
       </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>

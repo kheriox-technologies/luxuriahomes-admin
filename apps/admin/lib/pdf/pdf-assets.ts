@@ -53,11 +53,3 @@ export async function fetchUrlAsDataUrl(url: string): Promise<string | null> {
 		return null;
 	}
 }
-
-export const PDF_PLACEHOLDERS = {
-	companyAddress: 'Company Address Placeholder',
-	companyContactLine1: 'Contact Name Placeholder',
-	companyContactLine2: 'Email Placeholder | Phone Placeholder',
-	builderEmail: 'Builder Email Placeholder',
-	builderPhone: 'Builder Phone Placeholder',
-} as const;

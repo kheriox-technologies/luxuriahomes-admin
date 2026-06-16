@@ -25,6 +25,7 @@ import {
 	CalendarDays,
 	ChevronDown,
 	DollarSign,
+	FileText,
 	List,
 	type LucideIcon,
 	Package,
@@ -82,6 +83,12 @@ const items: SidebarItem[] = [
 		url: '/schedules',
 		path: '/schedules',
 		icon: CalendarDays,
+	},
+	{
+		title: 'Documents',
+		url: '/documents',
+		path: '/documents',
+		icon: FileText,
 	},
 	{
 		title: 'Lists',

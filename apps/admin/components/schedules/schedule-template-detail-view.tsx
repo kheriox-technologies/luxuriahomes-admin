@@ -14,6 +14,7 @@ import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
+import AddTemplateToProject from './add-template-to-project';
 import GanttPanel from './gantt-panel';
 import {
 	businessDayToCalendarOffset,
@@ -111,6 +112,11 @@ export default function ScheduleTemplateDetailView({
 								value={search}
 							/>
 						</InputGroup>
+						<AddTemplateToProject
+							scheduleTemplateId={scheduleTemplateId}
+							stages={stages ?? []}
+							tasks={tasks ?? []}
+						/>
 						<AddStage
 							scheduleTemplateId={scheduleTemplateId}
 							stages={stages ?? []}

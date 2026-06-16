@@ -1,6 +1,5 @@
 'use client';
 
-import type { Id } from '@workspace/backend/dataModel';
 import {
 	AlertDialog,
 	AlertDialogClose,
@@ -80,14 +79,13 @@ import {
 import { signCdnUrl } from '@/actions/cdn';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
-// Structural interfaces matching both projectDocuments and projectQuotations shapes
+// Structural interfaces matching both projectDocuments and companyDocuments shapes
 interface FileItem {
 	_id: string;
 	folderPath: string;
 	kebabName: string;
 	mimeType?: string;
 	name: string;
-	projectId: Id<'projects'>;
 	s3Key: string;
 	size?: number;
 	uploadedAt: number;
@@ -98,23 +96,15 @@ interface FolderItem {
 	name: string;
 	parentPath: string;
 	path: string;
-	projectId: Id<'projects'>;
 }
 
-// Loose-typed query ref — accepts both documents and quotations listContents functions
-type ListContentsQuery = FunctionReference<
-	'query',
-	'public',
-	{ projectId: Id<'projects'>; folderPath: string },
-	// biome-ignore lint/suspicious/noExplicitAny: return type differs per namespace; cast at use site
-	any
->;
+// biome-ignore lint/suspicious/noExplicitAny: return type and args differ per namespace; cast at use site
+type ListContentsQuery = FunctionReference<'query', 'public', any, any>;
 
 export interface FileManagerUploadArgs {
 	contentType: string;
 	fileName: string;
 	folderPath: string;
-	projectId: Id<'projects'>;
 }
 
 export interface FileManagerCreateArgs {
@@ -122,20 +112,16 @@ export interface FileManagerCreateArgs {
 	kebabName: string;
 	mimeType?: string;
 	name: string;
-	projectId: Id<'projects'>;
 	s3Key: string;
 	size?: number;
 }
 
 export interface ProjectFileManagerTabContentProps {
+	buildQueryArgs: (folderPath: string) => Record<string, unknown>;
 	emptyTitle?: string;
 	listContentsQuery: ListContentsQuery;
 	onCreateFile: (args: FileManagerCreateArgs) => Promise<void>;
-	onCreateFolder: (args: {
-		projectId: Id<'projects'>;
-		name: string;
-		parentPath: string;
-	}) => Promise<void>;
+	onCreateFolder: (args: { name: string; parentPath: string }) => Promise<void>;
 	onDeleteFolder: (folderId: string) => Promise<void>;
 	onGenerateUploadUrl: (
 		args: FileManagerUploadArgs
@@ -144,7 +130,6 @@ export interface ProjectFileManagerTabContentProps {
 	onRemoveFile: (fileId: string) => Promise<void>;
 	onRenameFile: (fileId: string, newName: string) => Promise<void>;
 	onRenameFolder: (folderId: string, newName: string) => Promise<void>;
-	projectId: Id<'projects'>;
 	rootLabel?: string;
 }
 
@@ -220,13 +205,11 @@ function getOpenUrl(mimeType: string | undefined, signedUrl: string): string {
 function CreateFolderDialog({
 	open,
 	onOpenChange,
-	projectId,
 	currentPath,
 	onCreateFolder,
 }: {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
-	projectId: Id<'projects'>;
 	currentPath: string;
 	onCreateFolder: ProjectFileManagerTabContentProps['onCreateFolder'];
 }) {
@@ -241,7 +224,6 @@ function CreateFolderDialog({
 		setLoading(true);
 		try {
 			await onCreateFolder({
-				projectId,
 				name: trimmed,
 				parentPath: currentPath,
 			});
@@ -323,14 +305,12 @@ interface PendingUpload {
 function UploadFilesDialog({
 	open,
 	onOpenChange,
-	projectId,
 	currentPath,
 	onGenerateUploadUrl,
 	onCreateFile,
 }: {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
-	projectId: Id<'projects'>;
 	currentPath: string;
 	onGenerateUploadUrl: ProjectFileManagerTabContentProps['onGenerateUploadUrl'];
 	onCreateFile: ProjectFileManagerTabContentProps['onCreateFile'];
@@ -394,7 +374,6 @@ function UploadFilesDialog({
 
 			try {
 				const { uploadUrl, s3Key, kebabName } = await onGenerateUploadUrl({
-					projectId,
 					folderPath: currentPath,
 					fileName: entry.file.name,
 					contentType: entry.file.type || 'application/octet-stream',
@@ -409,7 +388,6 @@ function UploadFilesDialog({
 				});
 
 				await onCreateFile({
-					projectId,
 					name: entry.file.name,
 					kebabName,
 					s3Key,
@@ -638,7 +616,7 @@ function RenameDialog({
 // ---------- Move Dialog ----------
 
 function MoveFolderPicker({
-	projectId,
+	buildQueryArgs,
 	selected,
 	onSelect,
 	currentFolderPath,
@@ -646,7 +624,7 @@ function MoveFolderPicker({
 	parentPath = '',
 	depth = 0,
 }: {
-	projectId: Id<'projects'>;
+	buildQueryArgs: ProjectFileManagerTabContentProps['buildQueryArgs'];
 	selected: string;
 	onSelect: (path: string) => void;
 	currentFolderPath: string;
@@ -654,10 +632,8 @@ function MoveFolderPicker({
 	parentPath?: string;
 	depth?: number;
 }) {
-	const raw = useQuery(listContentsQuery, {
-		projectId,
-		folderPath: parentPath,
-	});
+	// biome-ignore lint/suspicious/noExplicitAny: args shape varies by namespace
+	const raw = useQuery(listContentsQuery, buildQueryArgs(parentPath) as any);
 	const contents = raw as { folders: FolderItem[] } | undefined;
 
 	return (
@@ -687,12 +663,12 @@ function MoveFolderPicker({
 						<span>{folder.name}</span>
 					</button>
 					<MoveFolderPicker
+						buildQueryArgs={buildQueryArgs}
 						currentFolderPath={currentFolderPath}
 						depth={depth + 1}
 						listContentsQuery={listContentsQuery}
 						onSelect={onSelect}
 						parentPath={folder.path}
-						projectId={projectId}
 						selected={selected}
 					/>
 				</li>
@@ -705,14 +681,14 @@ function MoveDialog({
 	open,
 	onOpenChange,
 	item,
-	projectId,
+	buildQueryArgs,
 	listContentsQuery,
 	onMove,
 }: {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	item: FileItem;
-	projectId: Id<'projects'>;
+	buildQueryArgs: ProjectFileManagerTabContentProps['buildQueryArgs'];
 	listContentsQuery: ListContentsQuery;
 	onMove: (targetFolderPath: string) => Promise<void>;
 }) {
@@ -741,10 +717,10 @@ function MoveDialog({
 				</DialogHeader>
 				<div className="px-6 pb-2">
 					<MoveFolderPicker
+						buildQueryArgs={buildQueryArgs}
 						currentFolderPath={item.folderPath}
 						listContentsQuery={listContentsQuery}
 						onSelect={setSelected}
-						projectId={projectId}
 						selected={selected}
 					/>
 				</div>
@@ -886,14 +862,14 @@ function DeleteFolderDialog({
 
 function FileRowActions({
 	item,
-	projectId,
+	buildQueryArgs,
 	listContentsQuery,
 	onRenameFile,
 	onMoveFile,
 	onRemoveFile,
 }: {
 	item: FileItem;
-	projectId: Id<'projects'>;
+	buildQueryArgs: ProjectFileManagerTabContentProps['buildQueryArgs'];
 	listContentsQuery: ListContentsQuery;
 	onRenameFile: ProjectFileManagerTabContentProps['onRenameFile'];
 	onMoveFile: ProjectFileManagerTabContentProps['onMoveFile'];
@@ -988,12 +964,12 @@ function FileRowActions({
 				title="Rename file"
 			/>
 			<MoveDialog
+				buildQueryArgs={buildQueryArgs}
 				item={item}
 				listContentsQuery={listContentsQuery}
 				onMove={onMove}
 				onOpenChange={setMoveOpen}
 				open={moveOpen}
-				projectId={projectId}
 			/>
 			<DeleteFileDialog
 				item={item}
@@ -1141,7 +1117,7 @@ function FileManagerBreadcrumb({
 // ---------- Main Component ----------
 
 export function ProjectFileManagerTabContent({
-	projectId,
+	buildQueryArgs,
 	listContentsQuery,
 	onGenerateUploadUrl,
 	onCreateFile,
@@ -1182,10 +1158,8 @@ export function ProjectFileManagerTabContent({
 		}
 	};
 
-	const raw = useQuery(listContentsQuery, {
-		projectId,
-		folderPath: currentPath,
-	});
+	// biome-ignore lint/suspicious/noExplicitAny: args shape varies by namespace
+	const raw = useQuery(listContentsQuery, buildQueryArgs(currentPath) as any);
 	const contents = raw as
 		| { folders: FolderItem[]; documents: FileItem[] }
 		| undefined;
@@ -1281,12 +1255,12 @@ export function ProjectFileManagerTabContent({
 								>
 									<div className="flex justify-end">
 										<FileRowActions
+											buildQueryArgs={buildQueryArgs}
 											item={doc}
 											listContentsQuery={listContentsQuery}
 											onMoveFile={onMoveFile}
 											onRemoveFile={onRemoveFile}
 											onRenameFile={onRenameFile}
-											projectId={projectId}
 										/>
 									</div>
 								</TableCell>
@@ -1330,7 +1304,6 @@ export function ProjectFileManagerTabContent({
 				onCreateFolder={onCreateFolder}
 				onOpenChange={setCreateFolderOpen}
 				open={createFolderOpen}
-				projectId={projectId}
 			/>
 			<UploadFilesDialog
 				currentPath={currentPath}
@@ -1338,7 +1311,6 @@ export function ProjectFileManagerTabContent({
 				onGenerateUploadUrl={onGenerateUploadUrl}
 				onOpenChange={setUploadOpen}
 				open={uploadOpen}
-				projectId={projectId}
 			/>
 		</div>
 	);

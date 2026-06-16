@@ -1,8 +1,5 @@
-import {
-	fetchUrlAsDataUrl,
-	getProjectInclusionsPdfLogoDataUrl,
-	PDF_PLACEHOLDERS,
-} from '@/lib/pdf/pdf-assets';
+import { env } from '@workspace/env/admin';
+import { getProjectInclusionsPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
 
 const audFormatter = new Intl.NumberFormat('en-AU', {
 	style: 'currency',
@@ -38,8 +35,10 @@ export interface ProjectPdfInclusion {
 	_id: string;
 	class: 'Standard' | 'Gold' | 'Platinum';
 	code: string;
+	color?: string;
 	details?: string;
 	image?: string;
+	locations?: { name: string }[];
 	models: string[];
 	status?: 'Under Review' | 'Approved';
 	title: string;
@@ -69,24 +68,18 @@ function formatClientName(client: ProjectPdfClient): string {
 	return `${client.firstName} ${client.lastName}`.trim();
 }
 
-async function resolveInclusionImageDataUrls(
+function resolveInclusionImageDataUrls(
 	sections: ProjectPdfSection[]
-): Promise<Map<string, string>> {
+): Map<string, string> {
 	const out = new Map<string, string>();
-	await Promise.all(
-		sections.flatMap((section) =>
-			section.inclusions.map(async (inclusion) => {
-				const url = inclusion.image?.trim();
-				if (!url) {
-					return;
-				}
-				const dataUrl = await fetchUrlAsDataUrl(url);
-				if (dataUrl) {
-					out.set(inclusion._id, dataUrl);
-				}
-			})
-		)
-	);
+	for (const section of sections) {
+		for (const inclusion of section.inclusions) {
+			const dataUrl = inclusion.image?.trim();
+			if (dataUrl) {
+				out.set(inclusion._id, dataUrl);
+			}
+		}
+	}
 	return out;
 }
 
@@ -100,7 +93,7 @@ function inclusionImageTableCell(
 		stack: [
 			{
 				image: imageDataUrl,
-				width: 52,
+				width: 104,
 				alignment: 'center',
 			},
 		],
@@ -127,6 +120,8 @@ function buildDocDefinition(
 			[
 				{ text: 'Title', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Vendor & details', bold: true, fillColor: '#f3f4f6' },
+				{ text: 'Color', bold: true, fillColor: '#f3f4f6' },
+				{ text: 'Location', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Status', bold: true, fillColor: '#f3f4f6' },
 				{
 					text: 'Variation',
@@ -155,6 +150,8 @@ function buildDocDefinition(
 			body.push([
 				`${inclusion.title}\n${inclusion.code}`,
 				vendorDetails || '—',
+				inclusion.color ?? '—',
+				inclusion.locations?.map((l) => l.name).join(', ') || '—',
 				inclusion.status ?? 'Under Review',
 				{ text: variation, alignment: 'right' },
 				inclusionImageTableCell(inclusionImageDataUrls.get(inclusion._id)),
@@ -165,9 +162,11 @@ function buildDocDefinition(
 			{
 				text: `Total variation (${section.categoryName})`,
 				bold: true,
-				colSpan: 3,
+				colSpan: 5,
 				alignment: 'right',
 			},
+			{},
+			{},
 			{},
 			{},
 			{
@@ -188,7 +187,7 @@ function buildDocDefinition(
 			{
 				table: {
 					headerRows: 1,
-					widths: ['24%', '32%', '12%', '12%', '20%'],
+					widths: ['18%', '22%', '8%', '12%', '10%', '10%', '20%'],
 					body,
 				},
 				fontSize: 9,
@@ -298,9 +297,9 @@ function buildDocDefinition(
 			return {
 				margin: [36, 0, 36, 14],
 				columns: [
-					{ text: PDF_PLACEHOLDERS.builderEmail, fontSize: 9 },
+					{ text: env.NEXT_PUBLIC_CONTACT_EMAIL, fontSize: 9 },
 					{
-						text: PDF_PLACEHOLDERS.builderPhone,
+						text: env.NEXT_PUBLIC_CONTACT_PHONE,
 						fontSize: 9,
 						alignment: 'right',
 					},
@@ -372,13 +371,13 @@ function buildDocDefinition(
 				stack: [
 					{ image: logoDataUrl, width: 180, margin: [0, 0, 0, 32] },
 					{
-						text: PDF_PLACEHOLDERS.companyAddress,
+						text: env.NEXT_PUBLIC_CONTACT_ADDRESS.replace(/\\n/g, '\n'),
 						fontSize: 14,
 						margin: [0, 0, 0, 18],
 					},
-					{ text: PDF_PLACEHOLDERS.companyContactLine1, fontSize: 12 },
+					{ text: env.NEXT_PUBLIC_CONTACT_EMAIL, fontSize: 12 },
 					{
-						text: PDF_PLACEHOLDERS.companyContactLine2,
+						text: env.NEXT_PUBLIC_CONTACT_PHONE,
 						fontSize: 12,
 						margin: [0, 8, 0, 0],
 					},
@@ -491,7 +490,7 @@ export async function openProjectInclusionsPdfInNewTab(
 
 	configurePdfMakeFonts(pdfMake as PdfMakeBrowser, vfs);
 
-	const inclusionImageDataUrls = await resolveInclusionImageDataUrls(
+	const inclusionImageDataUrls = resolveInclusionImageDataUrls(
 		options.sections
 	);
 	const docDefinition = buildDocDefinition(

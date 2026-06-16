@@ -1,6 +1,6 @@
 'use client';
 
-import type { Doc, Id } from '@workspace/backend/dataModel';
+import type { Doc } from '@workspace/backend/dataModel';
 import {
 	Tabs,
 	TabsList,
@@ -8,6 +8,7 @@ import {
 	TabsTab,
 } from '@workspace/ui/components/tabs';
 import {
+	CalendarDays,
 	ClipboardList,
 	DollarSign,
 	FileText,
@@ -22,20 +23,21 @@ import ProjectClientsTabContent from '@/components/projects/project-clients-tab-
 import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
 import ProjectQuotationsTabContent from '@/components/projects/project-quotations-tab-content';
+import ProjectScheduleTabContent from '@/components/projects/project-schedule-tab-content';
 import ProjectServiceProvidersTabContent from '@/components/projects/project-service-providers-tab-content';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
 
 export default function ProjectDetailsTabs({
 	clients,
-	projectId,
+	project,
 }: {
 	clients: ProjectClient[];
-	projectId: Id<'projects'>;
+	project: Doc<'projects'>;
 }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const activeTab = searchParams.get('tab') ?? 'clients';
+	const activeTab = searchParams.get('tab') ?? 'schedule';
 	const orderIdFilter = searchParams.get('orderId') ?? '';
 
 	const onTabChange = useCallback(
@@ -57,10 +59,10 @@ export default function ProjectDetailsTabs({
 			<TabsList className="w-full rounded-none border-b bg-muted/50 **:data-[slot=tab-indicator]:bg-primary">
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
-					value="clients"
+					value="schedule"
 				>
-					<Users />
-					Clients
+					<CalendarDays />
+					Schedule
 				</TabsTab>
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
@@ -97,26 +99,39 @@ export default function ProjectDetailsTabs({
 					<ClipboardList />
 					Orders
 				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="clients"
+				>
+					<Users />
+					Clients
+				</TabsTab>
 			</TabsList>
+			<TabsPanel
+				className="flex min-h-0 flex-1 overflow-hidden p-0"
+				value="schedule"
+			>
+				<ProjectScheduleTabContent project={project} />
+			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="clients">
 				<ProjectClientsTabContent clients={clients} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="inclusions">
-				<ProjectInclusionsTabContent projectId={projectId} />
+				<ProjectInclusionsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="documents">
-				<ProjectDocumentsTabContent projectId={projectId} />
+				<ProjectDocumentsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="quotations">
-				<ProjectQuotationsTabContent projectId={projectId} />
+				<ProjectQuotationsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="contacts">
-				<ProjectServiceProvidersTabContent projectId={projectId} />
+				<ProjectServiceProvidersTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="orders">
 				<ProjectOrdersTabContent
 					orderIdFilter={orderIdFilter}
-					projectId={projectId}
+					projectId={project._id}
 				/>
 			</TabsPanel>
 		</Tabs>
