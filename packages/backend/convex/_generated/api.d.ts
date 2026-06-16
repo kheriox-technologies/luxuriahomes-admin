@@ -8,6 +8,16 @@
  * @module
  */
 
+import type * as companyDocuments_create from "../companyDocuments/create.js";
+import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
+import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
+import type * as companyDocuments_generateUploadUrl from "../companyDocuments/generateUploadUrl.js";
+import type * as companyDocuments_listContents from "../companyDocuments/listContents.js";
+import type * as companyDocuments_move from "../companyDocuments/move.js";
+import type * as companyDocuments_remove from "../companyDocuments/remove.js";
+import type * as companyDocuments_rename from "../companyDocuments/rename.js";
+import type * as companyDocuments_renameFolder from "../companyDocuments/renameFolder.js";
+import type * as companyDocuments_shared from "../companyDocuments/shared.js";
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
@@ -233,6 +243,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "companyDocuments/create": typeof companyDocuments_create;
+  "companyDocuments/createFolder": typeof companyDocuments_createFolder;
+  "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;
+  "companyDocuments/generateUploadUrl": typeof companyDocuments_generateUploadUrl;
+  "companyDocuments/listContents": typeof companyDocuments_listContents;
+  "companyDocuments/move": typeof companyDocuments_move;
+  "companyDocuments/remove": typeof companyDocuments_remove;
+  "companyDocuments/rename": typeof companyDocuments_rename;
+  "companyDocuments/renameFolder": typeof companyDocuments_renameFolder;
+  "companyDocuments/shared": typeof companyDocuments_shared;
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/get": typeof documentFolders_get;
   "documentFolders/list": typeof documentFolders_list;

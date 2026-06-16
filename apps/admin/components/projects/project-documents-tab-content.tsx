@@ -29,20 +29,23 @@ export default function ProjectDocumentsTabContent({
 
 	return (
 		<ProjectFileManagerTabContent
+			buildQueryArgs={(folderPath) => ({ projectId, folderPath })}
 			emptyTitle="No documents yet"
 			listContentsQuery={api.projectDocuments.listContents.listContents}
 			onCreateFile={async (args) => {
-				await createDocument(args);
+				await createDocument({ ...args, projectId });
 			}}
-			onCreateFolder={async (args) => {
-				await createFolder(args);
+			onCreateFolder={async ({ name, parentPath }) => {
+				await createFolder({ projectId, name, parentPath });
 			}}
 			onDeleteFolder={async (folderId) => {
 				await deleteFolderAction({
 					folderId: folderId as Id<'projectDocumentFolders'>,
 				});
 			}}
-			onGenerateUploadUrl={async (args) => generateUploadUrl(args)}
+			onGenerateUploadUrl={async (args) =>
+				generateUploadUrl({ ...args, projectId })
+			}
 			onMoveFile={async (fileId, targetFolderPath) => {
 				await moveDocument({
 					documentId: fileId as Id<'projectDocuments'>,
@@ -66,7 +69,6 @@ export default function ProjectDocumentsTabContent({
 					newName,
 				});
 			}}
-			projectId={projectId}
 			rootLabel="Documents"
 		/>
 	);
