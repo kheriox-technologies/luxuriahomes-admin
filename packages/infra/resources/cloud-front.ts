@@ -154,6 +154,21 @@ export const createCDNDistributions = (input: CDNInput): void => {
 		signingProtocol: 'sigv4',
 	});
 
+	const cdnCorsPolicy = new cloudfront.ResponseHeadersPolicy(
+		'cdn-cors-policy',
+		{
+			name: `${cloudFrontNamePrefix}-cdn-cors-policy`,
+			corsConfig: {
+				accessControlAllowCredentials: false,
+				accessControlAllowHeaders: { items: ['*'] },
+				accessControlAllowMethods: { items: ['GET', 'HEAD', 'OPTIONS'] },
+				accessControlAllowOrigins: { items: ['*'] },
+				accessControlMaxAgeSec: 3600,
+				originOverride: true,
+			},
+		}
+	);
+
 	// CDN Distribution — signed URLs required (trustedKeyGroups enforces this)
 	const cdnDistribution = new cloudfront.Distribution('cdn-distribution', {
 		origins: [
@@ -176,6 +191,7 @@ export const createCDNDistributions = (input: CDNInput): void => {
 			},
 			viewerProtocolPolicy: 'redirect-to-https',
 			trustedKeyGroups: [cdnKeyGroup.id],
+			responseHeadersPolicyId: cdnCorsPolicy.id,
 			minTtl: 0,
 			defaultTtl: 3600,
 			maxTtl: 86_400,

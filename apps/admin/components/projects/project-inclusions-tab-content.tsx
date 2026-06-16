@@ -103,9 +103,10 @@ import {
 	useMemo,
 	useState,
 } from 'react';
-import { fetchCdnImagesAsDataUrls, signCdnUrls } from '@/actions/cdn';
+import { signCdnUrls } from '@/actions/cdn';
 import LocationCombobox from '@/components/inclusions/location-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import { fetchUrlAsDataUrl } from '@/lib/pdf/pdf-assets';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
@@ -1804,10 +1805,18 @@ export default function ProjectInclusionsTabContent({
 				.flatMap((s) => s.inclusions)
 				.map((inc) => inc.image)
 				.filter((img): img is string => Boolean(img));
-			const pdfImageDataUrls =
-				allImageKeys.length > 0
-					? await fetchCdnImagesAsDataUrls(allImageKeys)
-					: {};
+			const pdfImageDataUrls: Record<string, string> = {};
+			if (allImageKeys.length > 0) {
+				const signedUrls = await signCdnUrls(allImageKeys);
+				await Promise.all(
+					Object.entries(signedUrls).map(async ([key, url]) => {
+						const dataUrl = await fetchUrlAsDataUrl(url);
+						if (dataUrl) {
+							pdfImageDataUrls[key] = dataUrl;
+						}
+					})
+				);
+			}
 			await openProjectInclusionsPdfInNewTab({
 				projectName: project.name,
 				projectAddress: project.address,
