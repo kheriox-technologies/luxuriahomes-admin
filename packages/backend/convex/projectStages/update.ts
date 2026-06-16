@@ -39,6 +39,8 @@ export const update = mutation({
 			}
 		}
 
+		const newStatus = args.status ?? stage.status;
+
 		await ctx.db.patch(args.stageId, {
 			name,
 			dependencyStageId: args.dependencyStageId,
@@ -48,7 +50,17 @@ export const update = mutation({
 			offsetDays: args.offsetDays ?? 0,
 			startDate: args.startDate,
 			endDate: args.endDate,
-			status: args.status ?? stage.status,
+			status: newStatus,
 		});
+
+		if (args.status !== undefined) {
+			const tasks = await ctx.db
+				.query('projectTasks')
+				.withIndex('by_stage', (q) => q.eq('stageId', args.stageId))
+				.collect();
+			for (const task of tasks) {
+				await ctx.db.patch(task._id, { status: args.status });
+			}
+		}
 	},
 });

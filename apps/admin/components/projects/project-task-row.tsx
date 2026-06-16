@@ -60,6 +60,9 @@ export default function ProjectTaskRow({
 					<span className="text-muted-foreground text-xs">
 						{task.durationDays}d
 					</span>
+					<span
+						className={`size-2 shrink-0 rounded-full ${{ Complete: 'bg-green-500', 'In Progress': 'bg-amber-400', Pending: 'bg-muted-foreground/40' }[task.status]}`}
+					/>
 					<Menu>
 						<MenuTrigger
 							render={

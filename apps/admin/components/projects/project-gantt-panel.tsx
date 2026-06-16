@@ -188,14 +188,14 @@ function getColumnBg(col: ProjectGanttColumn): string {
 	return '';
 }
 
-function getStatusVariant(status: string): 'warning' | 'success' | 'default' {
+function getStatusVariant(status: string): 'warning' | 'success' | 'secondary' {
 	if (status === 'In Progress') {
 		return 'warning';
 	}
 	if (status === 'Complete') {
 		return 'success';
 	}
-	return 'default';
+	return 'secondary';
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -1176,7 +1176,7 @@ export default function ProjectGanttPanel({
 																	);
 																})}
 														</PopoverTrigger>
-														<PopoverPopup side="top">
+														<PopoverPopup arrow side="top" sideOffset={10}>
 															<PopoverTitle className="flex items-center justify-between gap-2">
 																<span>{stage.name}</span>
 																<StatusBadge status={stage.status} />
@@ -1396,7 +1396,7 @@ export default function ProjectGanttPanel({
 																			);
 																		})}
 																</PopoverTrigger>
-																<PopoverPopup side="top">
+																<PopoverPopup arrow side="top" sideOffset={10}>
 																	<PopoverTitle className="flex items-center justify-between gap-2">
 																		<span>
 																			{task.name}

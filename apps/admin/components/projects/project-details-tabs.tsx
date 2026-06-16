@@ -66,13 +66,6 @@ export default function ProjectDetailsTabs({
 				</TabsTab>
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
-					value="clients"
-				>
-					<Users />
-					Clients
-				</TabsTab>
-				<TabsTab
-					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="inclusions"
 				>
 					<SquaresIntersect />
@@ -105,6 +98,13 @@ export default function ProjectDetailsTabs({
 				>
 					<ClipboardList />
 					Orders
+				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="clients"
+				>
+					<Users />
+					Clients
 				</TabsTab>
 			</TabsList>
 			<TabsPanel

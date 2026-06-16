@@ -92,6 +92,9 @@ export default function ProjectStageRow({
 							: 0}
 						d
 					</span>
+					<span
+						className={`size-2 shrink-0 rounded-full ${{ Complete: 'bg-green-500', 'In Progress': 'bg-amber-400', Pending: 'bg-muted-foreground/40' }[stage.status]}`}
+					/>
 					<Menu>
 						<MenuTrigger
 							render={
