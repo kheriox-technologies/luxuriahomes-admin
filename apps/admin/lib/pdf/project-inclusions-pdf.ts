@@ -498,5 +498,18 @@ export async function openProjectInclusionsPdfInNewTab(
 		options,
 		inclusionImageDataUrls
 	);
-	pdfMake.createPdf(docDefinition as never).open();
+
+	// Use getBlob() instead of open() so errors thrown during PDF generation
+	// propagate to the caller rather than silently leaving a blank tab open.
+	const pdf = pdfMake.createPdf(docDefinition as never) as unknown as {
+		getBlob: () => Promise<Blob>;
+	};
+	const blob = await pdf.getBlob();
+	const blobUrl = URL.createObjectURL(blob);
+	const win = window.open(blobUrl, '_blank');
+	// Revoke after 60 s — enough time for the browser to load the PDF.
+	setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+	if (!win) {
+		throw new Error('Could not open PDF — please allow popups for this site.');
+	}
 }

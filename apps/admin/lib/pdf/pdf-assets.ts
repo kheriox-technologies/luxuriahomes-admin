@@ -53,3 +53,39 @@ export async function fetchUrlAsDataUrl(url: string): Promise<string | null> {
 		return null;
 	}
 }
+
+/**
+ * Fetches a remote image and converts it to a JPEG data URL via Canvas.
+ * pdfmake (pdfkit) only supports JPEG and PNG — this normalises any browser-supported
+ * format (WEBP, AVIF, etc.) to JPEG so PDF generation doesn't silently fail.
+ * Returns null on fetch or conversion failure.
+ */
+export async function fetchUrlAsJpegDataUrl(
+	url: string
+): Promise<string | null> {
+	const dataUrl = await fetchUrlAsDataUrl(url);
+	if (!dataUrl) {
+		return null;
+	}
+	return new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => {
+			try {
+				const canvas = document.createElement('canvas');
+				canvas.width = img.naturalWidth;
+				canvas.height = img.naturalHeight;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) {
+					resolve(null);
+					return;
+				}
+				ctx.drawImage(img, 0, 0);
+				resolve(canvas.toDataURL('image/jpeg', 0.85));
+			} catch {
+				resolve(null);
+			}
+		};
+		img.onerror = () => resolve(null);
+		img.src = dataUrl;
+	});
+}
