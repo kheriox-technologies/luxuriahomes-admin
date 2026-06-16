@@ -103,7 +103,7 @@ import {
 	useMemo,
 	useState,
 } from 'react';
-import { signCdnUrls } from '@/actions/cdn';
+import { fetchCdnImagesAsDataUrls, signCdnUrls } from '@/actions/cdn';
 import LocationCombobox from '@/components/inclusions/location-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
@@ -1800,6 +1800,14 @@ export default function ProjectInclusionsTabContent({
 			return;
 		}
 		try {
+			const allImageKeys = categorySections
+				.flatMap((s) => s.inclusions)
+				.map((inc) => inc.image)
+				.filter((img): img is string => Boolean(img));
+			const pdfImageDataUrls =
+				allImageKeys.length > 0
+					? await fetchCdnImagesAsDataUrls(allImageKeys)
+					: {};
 			await openProjectInclusionsPdfInNewTab({
 				projectName: project.name,
 				projectAddress: project.address,
@@ -1822,7 +1830,7 @@ export default function ProjectInclusionsTabContent({
 						status: inclusion.status,
 						class: inclusion.class,
 						variationPrice: inclusion.variationPrice,
-						image: inclusion.image,
+						image: pdfImageDataUrls[inclusion.image ?? ''],
 					})),
 					totalVariationSalePrice: section.totalVariationPrice,
 				})),
