@@ -1,22 +1,6 @@
 import { env } from '@workspace/env/admin';
 import { getProjectInclusionsPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
 
-const audFormatter = new Intl.NumberFormat('en-AU', {
-	style: 'currency',
-	currency: 'AUD',
-});
-
-function formatAud(amount: number): string {
-	return audFormatter.format(amount);
-}
-
-function formatSignedAud(amount: number): string {
-	if (amount === 0) {
-		return '$0.00';
-	}
-	return `${amount > 0 ? '+' : '-'} ${formatAud(Math.abs(amount))}`;
-}
-
 interface PdfProjectAddress {
 	postcode: string;
 	state: string;
@@ -109,13 +93,8 @@ function buildDocDefinition(
 ) {
 	const projectAddressLine = formatAddressLine(options.projectAddress);
 	const sectionsContent: unknown[] = [];
-	let totalInclusions = 0;
-	let totalVariationAmount = 0;
 
 	for (const section of options.sections) {
-		totalInclusions += section.inclusions.length;
-		totalVariationAmount += section.totalVariationSalePrice;
-
 		const body: unknown[][] = [
 			[
 				{ text: 'Title', bold: true, fillColor: '#f3f4f6' },
@@ -123,22 +102,11 @@ function buildDocDefinition(
 				{ text: 'Color', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Location', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Status', bold: true, fillColor: '#f3f4f6' },
-				{
-					text: 'Variation',
-					bold: true,
-					fillColor: '#f3f4f6',
-					alignment: 'right',
-				},
 				{ text: 'Image', bold: true, fillColor: '#f3f4f6' },
 			],
 		];
 
 		for (const inclusion of section.inclusions) {
-			const variation =
-				inclusion.class === 'Standard'
-					? '—'
-					: formatSignedAud(inclusion.variationPrice ?? 0);
-
 			const vendorDetails = [
 				inclusion.vendor,
 				inclusion.models.join(', '),
@@ -153,29 +121,9 @@ function buildDocDefinition(
 				inclusion.color ?? '—',
 				inclusion.locations?.map((l) => l.name).join(', ') || '—',
 				inclusion.status ?? 'Under Review',
-				{ text: variation, alignment: 'right' },
 				inclusionImageTableCell(inclusionImageDataUrls.get(inclusion._id)),
 			]);
 		}
-
-		body.push([
-			{
-				text: `Total variation (${section.categoryName})`,
-				bold: true,
-				colSpan: 5,
-				alignment: 'right',
-			},
-			{},
-			{},
-			{},
-			{},
-			{
-				text: formatSignedAud(section.totalVariationSalePrice),
-				bold: true,
-				alignment: 'right',
-			},
-			'',
-		]);
 
 		sectionsContent.push(
 			{
@@ -187,7 +135,8 @@ function buildDocDefinition(
 			{
 				table: {
 					headerRows: 1,
-					widths: ['18%', '22%', '8%', '12%', '10%', '10%', '20%'],
+					dontBreakRows: true,
+					widths: ['20%', '24%', '9%', '13%', '10%', '24%'],
 					body,
 				},
 				fontSize: 9,
@@ -197,74 +146,55 @@ function buildDocDefinition(
 		);
 	}
 
-	sectionsContent.push(
-		{
-			text: 'Summary',
-			fontSize: 14,
-			bold: true,
-			margin: [0, 6, 0, 8],
-		},
-		{
-			stack: [
-				{ text: `Total inclusions: ${totalInclusions}`, fontSize: 11 },
-				{
-					text: `Total variation amount: ${formatSignedAud(totalVariationAmount)}`,
-					fontSize: 11,
-					margin: [0, 4, 0, 0] as [number, number, number, number],
-				},
-			],
-			margin: [0, 0, 0, 16],
-		},
-		{
-			unbreakable: true,
-			stack: [
-				{
-					text: 'Client signatures',
-					fontSize: 13,
-					bold: true,
-					margin: [0, 2, 0, 12],
-				},
-				options.clients.length === 0
-					? {
-							text: 'No clients',
-							color: '#6b7280',
-							italics: true,
-						}
-					: {
-							columnGap: 28,
-							columns: options.clients.map((client) => ({
-								width: '*' as const,
-								unbreakable: true,
-								stack: [
-									{
-										text: formatClientName(client) || 'Client',
-										bold: true,
-										margin: [0, 0, 0, 22],
-									},
-									{
-										canvas: [
-											{
-												type: 'line',
-												x1: 0,
-												y1: 0,
-												x2: 220,
-												y2: 0,
-												lineWidth: 1,
-											},
-										],
-									},
-									{
-										text: 'Signature',
-										fontSize: 9,
-										color: '#6b7280',
-										margin: [0, 6, 0, 0],
-									},
-								],
-							})),
-						},
-			],
-		}
-	);
+	sectionsContent.push({
+		unbreakable: true,
+		stack: [
+			{
+				text: 'Client signatures',
+				fontSize: 13,
+				bold: true,
+				margin: [0, 2, 0, 12],
+			},
+			options.clients.length === 0
+				? {
+						text: 'No clients',
+						color: '#6b7280',
+						italics: true,
+					}
+				: {
+						columnGap: 28,
+						columns: options.clients.map((client) => ({
+							width: '*' as const,
+							unbreakable: true,
+							stack: [
+								{
+									text: formatClientName(client) || 'Client',
+									bold: true,
+									margin: [0, 0, 0, 22],
+								},
+								{
+									canvas: [
+										{
+											type: 'line',
+											x1: 0,
+											y1: 0,
+											x2: 220,
+											y2: 0,
+											lineWidth: 1,
+										},
+									],
+								},
+								{
+									text: 'Signature',
+									fontSize: 9,
+									color: '#6b7280',
+									margin: [0, 6, 0, 0],
+								},
+							],
+						})),
+					},
+		],
+	});
 
 	// pdfmake header height equals `pageMargins.top`; keep it large enough for logo + address.
 	const pageMarginTop = 100;
