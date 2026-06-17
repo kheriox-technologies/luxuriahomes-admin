@@ -28,11 +28,19 @@ const taskInputValidator = v.object({
 	endDate: v.number(),
 });
 
+const orderTaskInputValidator = v.object({
+	templateOrderTaskId: v.string(),
+	templateTaskId: v.string(),
+	name: v.string(),
+	durationDays: v.number(),
+});
+
 export const applyToProject = mutation({
 	args: {
 		projectId: v.id('projects'),
 		stages: v.array(stageInputValidator),
 		tasks: v.array(taskInputValidator),
+		orderTasks: v.optional(v.array(orderTaskInputValidator)),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -116,6 +124,25 @@ export const applyToProject = mutation({
 					});
 				}
 			}
+		}
+
+		// Insert order tasks using the task ID map
+		for (const ot of args.orderTasks ?? []) {
+			const projectTaskId = taskIdMap.get(ot.templateTaskId);
+			if (!projectTaskId) {
+				continue;
+			}
+			const projectTask = await ctx.db.get(projectTaskId as Id<'projectTasks'>);
+			if (!projectTask) {
+				continue;
+			}
+			await ctx.db.insert('projectOrderTasks', {
+				projectId: args.projectId,
+				stageId: projectTask.stageId,
+				parentTaskId: projectTaskId as Id<'projectTasks'>,
+				name: ot.name,
+				durationDays: ot.durationDays,
+			});
 		}
 	},
 });

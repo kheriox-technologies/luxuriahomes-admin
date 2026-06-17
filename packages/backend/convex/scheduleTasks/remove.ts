@@ -25,6 +25,15 @@ export const remove = mutation({
 			}
 		}
 
+		// Delete any order task attached to this task
+		const orderTask = await ctx.db
+			.query('scheduleOrderTasks')
+			.withIndex('by_parent_task', (q) => q.eq('parentTaskId', args.taskId))
+			.first();
+		if (orderTask) {
+			await ctx.db.delete(orderTask._id);
+		}
+
 		await ctx.db.delete(args.taskId);
 		return args.taskId;
 	},

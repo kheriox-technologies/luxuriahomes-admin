@@ -1,7 +1,7 @@
 import { env } from '@workspace/env/admin';
 import { getProjectInclusionsPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
 
-interface PdfProjectAddress {
+export interface PdfProjectAddress {
 	postcode: string;
 	state: string;
 	street: string;
@@ -31,9 +31,9 @@ export interface ProjectPdfInclusion {
 }
 
 export interface ProjectPdfSection {
-	categoryId: string;
-	categoryName: string;
 	inclusions: ProjectPdfInclusion[];
+	sectionId: string;
+	sectionName: string;
 	totalVariationSalePrice: number;
 }
 
@@ -86,10 +86,17 @@ function inclusionImageTableCell(
 	};
 }
 
+interface GroupPdfOptions {
+	hideClientSection: boolean;
+	hideSectionHeadings: boolean;
+	titleOverride: string;
+}
+
 function buildDocDefinition(
 	logoDataUrl: string,
 	options: OpenProjectInclusionsPdfOptions,
-	inclusionImageDataUrls: Map<string, string>
+	inclusionImageDataUrls: Map<string, string>,
+	groupOptions?: GroupPdfOptions
 ) {
 	const projectAddressLine = formatAddressLine(options.projectAddress);
 	const sectionsContent: unknown[] = [];
@@ -125,76 +132,78 @@ function buildDocDefinition(
 			]);
 		}
 
-		sectionsContent.push(
-			{
-				text: section.categoryName,
+		if (!groupOptions?.hideSectionHeadings) {
+			sectionsContent.push({
+				text: section.sectionName,
 				fontSize: 14,
 				bold: true,
 				margin: [0, 0, 0, 8],
+			});
+		}
+		sectionsContent.push({
+			table: {
+				headerRows: 1,
+				dontBreakRows: true,
+				widths: ['20%', '24%', '9%', '13%', '10%', '24%'],
+				body,
 			},
-			{
-				table: {
-					headerRows: 1,
-					dontBreakRows: true,
-					widths: ['20%', '24%', '9%', '13%', '10%', '24%'],
-					body,
-				},
-				fontSize: 9,
-				layout: 'lightHorizontalLines',
-				margin: [0, 0, 0, 16],
-			}
-		);
+			fontSize: 9,
+			layout: 'lightHorizontalLines',
+			margin: [0, 0, 0, 16],
+		});
 	}
 
-	sectionsContent.push({
-		unbreakable: true,
-		stack: [
-			{
-				text: 'Client signatures',
-				fontSize: 13,
-				bold: true,
-				margin: [0, 2, 0, 12],
-			},
-			options.clients.length === 0
-				? {
-						text: 'No clients',
-						color: '#6b7280',
-						italics: true,
-					}
-				: {
-						columnGap: 28,
-						columns: options.clients.map((client) => ({
-							width: '*' as const,
-							unbreakable: true,
-							stack: [
-								{
-									text: formatClientName(client) || 'Client',
-									bold: true,
-									margin: [0, 0, 0, 22],
-								},
-								{
-									canvas: [
-										{
-											type: 'line',
-											x1: 0,
-											y1: 0,
-											x2: 220,
-											y2: 0,
-											lineWidth: 1,
-										},
-									],
-								},
-								{
-									text: 'Signature',
-									fontSize: 9,
-									color: '#6b7280',
-									margin: [0, 6, 0, 0],
-								},
-							],
-						})),
-					},
-		],
-	});
+	if (!groupOptions?.hideClientSection) {
+		sectionsContent.push({
+			unbreakable: true,
+			stack: [
+				{
+					text: 'Client signatures',
+					fontSize: 13,
+					bold: true,
+					margin: [0, 2, 0, 12],
+				},
+				options.clients.length === 0
+					? {
+							text: 'No clients',
+							color: '#6b7280',
+							italics: true,
+						}
+					: {
+							columnGap: 28,
+							columns: options.clients.map((client) => ({
+								width: '*' as const,
+								unbreakable: true,
+								stack: [
+									{
+										text: formatClientName(client) || 'Client',
+										bold: true,
+										margin: [0, 0, 0, 22],
+									},
+									{
+										canvas: [
+											{
+												type: 'line',
+												x1: 0,
+												y1: 0,
+												x2: 220,
+												y2: 0,
+												lineWidth: 1,
+											},
+										],
+									},
+									{
+										text: 'Signature',
+										fontSize: 9,
+										color: '#6b7280',
+										margin: [0, 6, 0, 0],
+									},
+								],
+							})),
+						},
+			],
+		});
+	}
 
 	// pdfmake header height equals `pageMargins.top`; keep it large enough for logo + address.
 	const pageMarginTop = 100;
@@ -244,7 +253,7 @@ function buildDocDefinition(
 				stack: [
 					{ image: logoDataUrl, width: 180, margin: [0, 0, 0, 28] },
 					{
-						text: 'Schedule Of Finishes',
+						text: groupOptions?.titleOverride ?? 'Schedule Of Finishes',
 						fontSize: 24,
 						bold: true,
 						margin: [0, 0, 0, 12],
@@ -252,38 +261,52 @@ function buildDocDefinition(
 					{
 						text: projectAddressLine,
 						fontSize: 11,
-						margin: [0, 0, 0, 28],
+						margin: [0, 0, 0, groupOptions?.hideClientSection ? 0 : 28],
 					},
-					options.clients.length === 0
-						? {
-								text: 'No client details available',
-								italics: true,
-								color: '#6b7280',
-								fontSize: 11,
-							}
-						: {
-								columns: options.clients.map((client) => ({
-									width: '*' as const,
-									stack: [
-										{
-											text: formatClientName(client),
-											bold: true,
-											fontSize: 12,
+					...(groupOptions?.hideClientSection
+						? []
+						: [
+								options.clients.length === 0
+									? {
+											text: 'No client details available',
+											italics: true,
+											color: '#6b7280',
+											fontSize: 11,
+										}
+									: {
+											columns: options.clients.map((client) => ({
+												width: '*' as const,
+												stack: [
+													{
+														text: formatClientName(client),
+														bold: true,
+														fontSize: 12,
+													},
+													{
+														text: client.email || 'Email: -',
+														fontSize: 10,
+														margin: [0, 4, 0, 0] as [
+															number,
+															number,
+															number,
+															number,
+														],
+													},
+													{
+														text: client.phone || 'Phone: -',
+														fontSize: 10,
+														margin: [0, 2, 0, 0] as [
+															number,
+															number,
+															number,
+															number,
+														],
+													},
+												],
+											})),
+											columnGap: 24,
 										},
-										{
-											text: client.email || 'Email: -',
-											fontSize: 10,
-											margin: [0, 4, 0, 0] as [number, number, number, number],
-										},
-										{
-											text: client.phone || 'Phone: -',
-											fontSize: 10,
-											margin: [0, 2, 0, 0] as [number, number, number, number],
-										},
-									],
-								})),
-								columnGap: 24,
-							},
+							]),
 				],
 			},
 			{
@@ -426,7 +449,8 @@ export async function openProjectInclusionsPdfInNewTab(
 	const docDefinition = buildDocDefinition(
 		logoDataUrl,
 		options,
-		inclusionImageDataUrls
+		inclusionImageDataUrls,
+		undefined
 	);
 
 	// Use getBlob() instead of open() so errors thrown during PDF generation
@@ -438,6 +462,67 @@ export async function openProjectInclusionsPdfInNewTab(
 	const blobUrl = URL.createObjectURL(blob);
 	const win = window.open(blobUrl, '_blank');
 	// Revoke after 60 s — enough time for the browser to load the PDF.
+	setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+	if (!win) {
+		throw new Error('Could not open PDF — please allow popups for this site.');
+	}
+}
+
+export interface OpenGroupInclusionsPdfOptions {
+	groupName: string;
+	inclusions: ProjectPdfInclusion[];
+	projectAddress: PdfProjectAddress;
+}
+
+export async function openGroupInclusionsPdfInNewTab(
+	options: OpenGroupInclusionsPdfOptions
+): Promise<void> {
+	const [{ default: pdfMake }, vfsModule, logoDataUrl] = await Promise.all([
+		import('pdfmake/build/pdfmake'),
+		import('pdfmake/build/vfs_fonts'),
+		getProjectInclusionsPdfLogoDataUrl(),
+	]);
+
+	const vfs = mergeVirtualFontFilesFromModule(vfsModule);
+	if (
+		Object.keys(vfs).length === 0 ||
+		typeof vfs[ROBOTO_VFS_FILES.normal] !== 'string' ||
+		vfs[ROBOTO_VFS_FILES.normal] === ''
+	) {
+		throw new Error('Could not initialize PDF fonts.');
+	}
+
+	configurePdfMakeFonts(pdfMake as PdfMakeBrowser, vfs);
+
+	const section = {
+		sectionId: options.groupName,
+		sectionName: options.groupName,
+		inclusions: options.inclusions,
+		totalVariationSalePrice: 0,
+	};
+	const inclusionImageDataUrls = resolveInclusionImageDataUrls([section]);
+	const docDefinition = buildDocDefinition(
+		logoDataUrl,
+		{
+			clients: [],
+			projectAddress: options.projectAddress,
+			projectName: options.groupName,
+			sections: [section],
+		},
+		inclusionImageDataUrls,
+		{
+			titleOverride: options.groupName,
+			hideClientSection: true,
+			hideSectionHeadings: true,
+		}
+	);
+
+	const pdf = pdfMake.createPdf(docDefinition as never) as unknown as {
+		getBlob: () => Promise<Blob>;
+	};
+	const blob = await pdf.getBlob();
+	const blobUrl = URL.createObjectURL(blob);
+	const win = window.open(blobUrl, '_blank');
 	setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 	if (!win) {
 		throw new Error('Could not open PDF — please allow popups for this site.');

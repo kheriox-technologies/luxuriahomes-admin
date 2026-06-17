@@ -30,6 +30,15 @@ export const remove = mutation({
 			}
 		}
 
+		// Delete any order task attached to this task
+		const orderTask = await ctx.db
+			.query('projectOrderTasks')
+			.withIndex('by_parent_task', (q) => q.eq('parentTaskId', args.taskId))
+			.first();
+		if (orderTask) {
+			await ctx.db.delete(orderTask._id);
+		}
+
 		await ctx.db.delete(args.taskId);
 		await recalcStageDates(ctx, stageId);
 		await recalcStageStatus(ctx, stageId);

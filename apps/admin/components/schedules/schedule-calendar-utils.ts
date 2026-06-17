@@ -32,6 +32,31 @@ export function calendarOffsetToBusinessDayOffset(
 	return countBusinessDaysInRange(0, Math.floor(calOffset), today) - 1;
 }
 
+export function businessDayToCalendarOffsetSigned(
+	bizDay: number,
+	today: Date
+): number {
+	if (bizDay >= 0) {
+		return businessDayToCalendarOffset(bizDay, today);
+	}
+	const d = new Date(today);
+	let calOffset = 0;
+	// Move to current business day (skip if today is a weekend)
+	while (d.getDay() === 0 || d.getDay() === 6) {
+		d.setDate(d.getDate() - 1);
+		calOffset--;
+	}
+	let remaining = -bizDay;
+	while (remaining > 0) {
+		d.setDate(d.getDate() - 1);
+		calOffset--;
+		if (d.getDay() !== 0 && d.getDay() !== 6) {
+			remaining--;
+		}
+	}
+	return calOffset;
+}
+
 export function countBusinessDaysInRange(
 	calStart: number,
 	calEnd: number,

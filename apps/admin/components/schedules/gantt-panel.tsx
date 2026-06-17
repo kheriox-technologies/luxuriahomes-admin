@@ -45,6 +45,7 @@ import { useMutation } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
+import AddOrderTask from './add-order-task';
 import {
 	businessDayToCalendarOffset,
 	calendarOffsetToBusinessDayOffset,
@@ -58,7 +59,7 @@ import TaskRow from './task-row';
 const DAY_WIDTH = 50;
 const DATE_HEADER_HEIGHT = 52;
 const MIN_DAYS = 20;
-const STAGE_LIST_WIDTH = 280;
+const STAGE_LIST_WIDTH = 320;
 const GRID_LEFT_PADDING = 24;
 
 interface GanttColumn {
@@ -346,6 +347,7 @@ function DragOverlayContent({
 export default function GanttPanel({
 	stages,
 	tasks,
+	orderTasks,
 	stageLayouts,
 	taskLayouts,
 	scheduleTemplateId,
@@ -353,6 +355,7 @@ export default function GanttPanel({
 }: {
 	stages: Doc<'scheduleStages'>[];
 	tasks: Doc<'scheduleTasks'>[];
+	orderTasks: Doc<'scheduleOrderTasks'>[];
 	stageLayouts: Map<string, StageLayout>;
 	taskLayouts: Map<string, TaskLayout>;
 	scheduleTemplateId: Id<'scheduleTemplates'>;
@@ -386,7 +389,6 @@ export default function GanttPanel({
 	);
 	const reorderStages = useMutation(api.scheduleStages.reorder.reorder);
 	const reorderTasks = useMutation(api.scheduleTasks.reorder.reorder);
-
 	const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
 	const sensors = useSensors(
@@ -412,6 +414,9 @@ export default function GanttPanel({
 	>(new Map());
 	const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 	const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('day');
+	const [addOrderTaskTarget, setAddOrderTaskTarget] = useState<string | null>(
+		null
+	);
 
 	const leftRef = useRef<HTMLDivElement>(null);
 	const rightRef = useRef<HTMLDivElement>(null);
@@ -517,6 +522,14 @@ export default function GanttPanel({
 		}
 		return map;
 	}, [stages, tasks]);
+
+	const orderTasksByParent = useMemo(() => {
+		const map = new Map<string, Doc<'scheduleOrderTasks'>>();
+		for (const ot of orderTasks) {
+			map.set(ot.parentTaskId, ot);
+		}
+		return map;
+	}, [orderTasks]);
 
 	const stageIdSet = useMemo(
 		() => new Set(stages.map((s) => s._id as string)),
@@ -782,7 +795,9 @@ export default function GanttPanel({
 		for (const stage of displayedStages) {
 			h += STAGE_ROW_HEIGHT;
 			if (isExpanded(stage._id)) {
-				h += getDisplayedTasks(stage._id).length * TASK_ROW_HEIGHT;
+				for (const _task of getDisplayedTasks(stage._id)) {
+					h += TASK_ROW_HEIGHT;
+				}
 			}
 		}
 		return h;
@@ -1086,27 +1101,31 @@ export default function GanttPanel({
 												{isExpanded(stage._id) &&
 													stageTasks.map((task) => {
 														const taskLayout = taskLayouts.get(task._id);
+														const orderTask = orderTasksByParent.get(task._id);
 														return (
-															<SortableTaskWrapper
-																isDndEnabled={isDndEnabled}
-																key={task._id}
-																onNameClick={
-																	taskLayout
-																		? () => {
-																				scrollToBar(
-																					taskLayout.startOffset,
-																					taskLayout.durationDays
-																				);
-																				setTimeout(
-																					() => setOpenPopoverId(task._id),
-																					400
-																				);
-																			}
-																		: undefined
-																}
-																task={task}
-																tasks={stageTasks}
-															/>
+															<div key={task._id}>
+																<SortableTaskWrapper
+																	isDndEnabled={isDndEnabled}
+																	onNameClick={
+																		taskLayout
+																			? () => {
+																					scrollToBar(
+																						taskLayout.startOffset,
+																						taskLayout.durationDays
+																					);
+																					setTimeout(
+																						() => setOpenPopoverId(task._id),
+																						400
+																					);
+																				}
+																			: undefined
+																	}
+																	orderTask={orderTask}
+																	scheduleTemplateId={scheduleTemplateId}
+																	task={task}
+																	tasks={stageTasks}
+																/>
+															</div>
 														);
 													})}
 											</SortableContext>
@@ -1213,7 +1232,10 @@ export default function GanttPanel({
 											{/* Today column */}
 											<div
 												className="absolute inset-y-0 bg-primary/10"
-												style={{ left: GRID_LEFT_PADDING, width: pixelsPerDay }}
+												style={{
+													left: GRID_LEFT_PADDING,
+													width: pixelsPerDay,
+												}}
 											/>
 											{headerColumns.map((col) => (
 												<div
@@ -1378,10 +1400,11 @@ export default function GanttPanel({
 												: null}
 										</div>
 
-										{/* Task bars */}
+										{/* Task bar rows */}
 										{isExpanded(stage._id) &&
 											stageTasks.map((task) => {
 												const taskLayout = taskLayouts.get(task._id);
+												const orderTask = orderTasksByParent.get(task._id);
 												return (
 													<div
 														className={`relative border-b ${isEven ? 'bg-muted/20' : ''}`}
@@ -1410,7 +1433,7 @@ export default function GanttPanel({
 														<div
 															className="absolute inset-y-0 bg-primary/10"
 															style={{
-																left: GRID_LEFT_PADDING,
+																left: GRID_LEFT_PADDING + 0,
 																width: pixelsPerDay,
 															}}
 														/>
@@ -1627,6 +1650,13 @@ export default function GanttPanel({
 																									1
 																							)}
 																						</PopoverDescription>
+																						{orderTask && (
+																							<PopoverDescription>
+																								Order: {orderTask.name}
+																								{' · '}
+																								{orderTask.durationDays}d
+																							</PopoverDescription>
+																						)}
 																					</PopoverPopup>
 																				</Popover>
 																			</Rnd>
@@ -1718,6 +1748,28 @@ export default function GanttPanel({
 					</div>
 				</div>
 			</div>
+
+			{addOrderTaskTarget ? (
+				<AddOrderTask
+					onOpenChange={(open) => {
+						if (!open) {
+							setAddOrderTaskTarget(null);
+						}
+					}}
+					open={!!addOrderTaskTarget}
+					preselectedTaskId={addOrderTaskTarget}
+					scheduleTemplateId={scheduleTemplateId}
+					stageId={
+						tasks.find((t) => t._id === addOrderTaskTarget)
+							?.stageId as Id<'scheduleStages'>
+					}
+					stageTasks={tasks.filter(
+						(t) =>
+							t.stageId ===
+							tasks.find((ot) => ot._id === addOrderTaskTarget)?.stageId
+					)}
+				/>
+			) : null}
 
 			<AlertDialog
 				onOpenChange={(open) => {

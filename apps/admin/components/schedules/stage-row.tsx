@@ -16,9 +16,11 @@ import {
 	GripVertical,
 	Pencil,
 	Plus,
+	ShoppingCart,
 	Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
+import AddOrderTask from './add-order-task';
 import AddTask from './add-task';
 import DeleteStage from './delete-stage';
 import EditStage from './edit-stage';
@@ -49,6 +51,7 @@ export default function StageRow({
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [addTaskOpen, setAddTaskOpen] = useState(false);
+	const [addOrderTaskOpen, setAddOrderTaskOpen] = useState(false);
 
 	return (
 		<>
@@ -113,6 +116,10 @@ export default function StageRow({
 								<Plus />
 								Add Task
 							</MenuItem>
+							<MenuItem onClick={() => setAddOrderTaskOpen(true)}>
+								<ShoppingCart />
+								Add Order Task
+							</MenuItem>
 							<MenuSeparator />
 							<MenuItem onClick={() => setEditOpen(true)}>
 								<Pencil />
@@ -146,6 +153,13 @@ export default function StageRow({
 				open={addTaskOpen}
 				scheduleTemplateId={scheduleTemplateId}
 				stageId={stage._id}
+			/>
+			<AddOrderTask
+				onOpenChange={setAddOrderTaskOpen}
+				open={addOrderTaskOpen}
+				scheduleTemplateId={scheduleTemplateId}
+				stageId={stage._id}
+				stageTasks={tasks}
 			/>
 		</>
 	);
