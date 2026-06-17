@@ -21,7 +21,7 @@ const AuthenticatedLayout = async ({ children }: AuthenticatedLayoutProps) => {
 		redirect('/error?error=arbitrary_octopus');
 	}
 	return (
-		<main className="flex min-h-screen w-full flex-col">
+		<main className="flex h-full w-full flex-col">
 			<AuthGuard>
 				<SidebarProvider>
 					<AppSidebar />
@@ -39,7 +39,9 @@ const AuthenticatedLayout = async ({ children }: AuthenticatedLayoutProps) => {
 									<UserButton />
 								</div>
 							</div>
-							<div className="flex flex-1 p-4">{children}</div>
+							<div className="flex min-h-0 flex-1 overflow-auto p-4">
+								{children}
+							</div>
 							<div className="mt-auto flex flex-col border-t p-2">
 								<Footer />
 							</div>

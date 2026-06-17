@@ -64,6 +64,7 @@ const GRID_LEFT_PADDING = 24;
 interface GanttColumn {
 	dayName?: string;
 	dayStart: number;
+	isToday?: boolean;
 	isWeekend?: boolean;
 	label: string;
 	subLabel?: string;
@@ -146,6 +147,16 @@ function buildArrowPath(
 		`Q ${midXl} ${toY} ${midXl + r} ${toY}`, // corner 4: down → right
 		`H ${toX}`,
 	].join(' ');
+}
+
+function getHeaderColClass(col: GanttColumn): string {
+	if (col.isToday) {
+		return 'font-semibold text-primary';
+	}
+	if (col.isWeekend) {
+		return 'bg-foreground/5';
+	}
+	return '';
 }
 
 function getDayLabel(
@@ -683,6 +694,7 @@ export default function GanttPanel({
 			return {
 				dayName,
 				dayStart: i,
+				isToday: i === 0,
 				isWeekend,
 				label: day,
 				subLabel: month,
@@ -708,6 +720,7 @@ export default function GanttPanel({
 				cols.push({
 					dayStart,
 					widthDays: 7,
+					isToday: dayStart <= 0 && dayStart + 7 > 0,
 					label: startDate.toLocaleDateString('en-AU', {
 						day: 'numeric',
 						month: 'short',
@@ -738,6 +751,7 @@ export default function GanttPanel({
 			cols.push({
 				dayStart,
 				widthDays: daysRemaining,
+				isToday: dayStart <= 0 && dayStart + daysRemaining > 0,
 				label: d.toLocaleDateString('en-AU', { month: 'long' }),
 				subLabel: String(d.getFullYear()),
 				isWeekend: false,
@@ -773,6 +787,38 @@ export default function GanttPanel({
 		}
 		return h;
 	}, [displayedStages, getDisplayedTasks, isExpanded]);
+
+	const scrollToFirstStageInColumn = useCallback(
+		(colDayStart: number, colWidthDays: number) => {
+			if (!rightRef.current) {
+				return;
+			}
+			const colEnd = colDayStart + colWidthDays - 1;
+			for (const stage of displayedStages) {
+				const layout = stageLayouts.get(stage._id);
+				if (!layout) {
+					continue;
+				}
+				const calStart = businessDayToCalendarOffset(layout.startOffset, today);
+				const calEnd = businessDayToCalendarOffset(layout.endOffset, today);
+				if (calStart <= colEnd && calEnd >= colDayStart) {
+					const rowY = rowYMap.get(stage._id);
+					if (rowY === undefined) {
+						continue;
+					}
+					const scrollTop = Math.max(0, rowY - STAGE_ROW_HEIGHT / 2);
+					isSyncing.current = true;
+					rightRef.current.scrollTo({ top: scrollTop, behavior: 'smooth' });
+					leftRef.current?.scrollTo({ top: scrollTop, behavior: 'smooth' });
+					setTimeout(() => {
+						isSyncing.current = false;
+					}, 500);
+					return;
+				}
+			}
+		},
+		[displayedStages, stageLayouts, today, rowYMap]
+	);
 
 	const arrows = useMemo<ArrowDef[]>(() => {
 		const result: ArrowDef[] = [];
@@ -1107,13 +1153,17 @@ export default function GanttPanel({
 								style={{ height: DATE_HEADER_HEIGHT }}
 							>
 								{headerColumns.map((col) => (
-									<div
-										className={`absolute inset-y-0 flex flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isWeekend ? 'bg-foreground/5' : ''}`}
+									<button
+										className={`absolute inset-y-0 flex cursor-pointer flex-col items-center justify-center gap-0.5 border-r bg-transparent text-muted-foreground text-xs hover:bg-accent/40 ${getHeaderColClass(col)}`}
 										key={col.dayStart}
+										onClick={() =>
+											scrollToFirstStageInColumn(col.dayStart, col.widthDays)
+										}
 										style={{
 											left: GRID_LEFT_PADDING + col.dayStart * pixelsPerDay,
 											width: col.widthDays * pixelsPerDay,
 										}}
+										type="button"
 									>
 										{col.dayName && (
 											<span className="text-[10px] leading-none opacity-60">
@@ -1128,7 +1178,7 @@ export default function GanttPanel({
 												{col.subLabel}
 											</span>
 										)}
-									</div>
+									</button>
 								))}
 							</div>
 
@@ -1160,6 +1210,11 @@ export default function GanttPanel({
 															}}
 														/>
 													))}
+											{/* Today column */}
+											<div
+												className="absolute inset-y-0 bg-primary/10"
+												style={{ left: GRID_LEFT_PADDING, width: pixelsPerDay }}
+											/>
 											{headerColumns.map((col) => (
 												<div
 													className="absolute inset-y-0 border-border/40 border-r"
@@ -1351,6 +1406,14 @@ export default function GanttPanel({
 																		}}
 																	/>
 																))}
+														{/* Today column */}
+														<div
+															className="absolute inset-y-0 bg-primary/10"
+															style={{
+																left: GRID_LEFT_PADDING,
+																width: pixelsPerDay,
+															}}
+														/>
 														{headerColumns.map((col) => (
 															<div
 																className="absolute inset-y-0 border-border/40 border-r"

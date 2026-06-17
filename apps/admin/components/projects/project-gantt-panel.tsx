@@ -426,6 +426,7 @@ export default function ProjectGanttPanel({
 		pixelsPerDay = 5;
 	}
 	const gridWidth = GRID_LEFT_PADDING + totalDays * pixelsPerDay;
+	const todayCalOffset = dateToCalOffset(today, anchor);
 
 	const dayColumns = useMemo<ProjectGanttColumn[]>(() => {
 		const todayStr = today.toDateString();
@@ -775,6 +776,36 @@ export default function ProjectGanttPanel({
 		return h;
 	}, [displayedStages, getDisplayedTasks, isExpanded]);
 
+	const scrollToFirstStageInColumn = useCallback(
+		(colDayIndex: number, colWidthDays: number) => {
+			if (!rightRef.current) {
+				return;
+			}
+			const colStartMs = addCalendarDays(anchor, colDayIndex).getTime();
+			const colEndMs = addCalendarDays(
+				anchor,
+				colDayIndex + colWidthDays - 1
+			).getTime();
+			for (const stage of displayedStages) {
+				if (stage.startDate <= colEndMs && stage.endDate >= colStartMs) {
+					const rowY = rowYMap.get(stage._id);
+					if (rowY === undefined) {
+						continue;
+					}
+					const scrollTop = Math.max(0, rowY - STAGE_ROW_HEIGHT / 2);
+					isSyncing.current = true;
+					rightRef.current.scrollTo({ top: scrollTop, behavior: 'smooth' });
+					leftRef.current?.scrollTo({ top: scrollTop, behavior: 'smooth' });
+					setTimeout(() => {
+						isSyncing.current = false;
+					}, 500);
+					return;
+				}
+			}
+		},
+		[displayedStages, anchor, rowYMap]
+	);
+
 	const arrows = useMemo<ArrowDef[]>(() => {
 		const result: ArrowDef[] = [];
 		const taskNameMap = new Map(tasks.map((t) => [t._id, t.name]));
@@ -1115,13 +1146,17 @@ export default function ProjectGanttPanel({
 								style={{ height: DATE_HEADER_HEIGHT }}
 							>
 								{headerColumns.map((col) => (
-									<div
-										className={`absolute inset-y-0 flex flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isToday ? 'bg-primary/10 font-semibold text-primary' : ''}`}
+									<button
+										className={`absolute inset-y-0 flex cursor-pointer flex-col items-center justify-center gap-0.5 border-r bg-transparent text-muted-foreground text-xs hover:bg-accent/40 ${col.isToday ? 'bg-primary/10 font-semibold text-primary' : ''}`}
 										key={col.dayIndex}
+										onClick={() =>
+											scrollToFirstStageInColumn(col.dayIndex, col.widthDays)
+										}
 										style={{
 											left: GRID_LEFT_PADDING + col.dayIndex * pixelsPerDay,
 											width: col.widthDays * pixelsPerDay,
 										}}
+										type="button"
 									>
 										{col.dayName && (
 											<span className="text-[10px] leading-none opacity-60">
@@ -1136,7 +1171,7 @@ export default function ProjectGanttPanel({
 												{col.monthLabel}
 											</span>
 										)}
-									</div>
+									</button>
 								))}
 							</div>
 
@@ -1183,9 +1218,20 @@ export default function ProjectGanttPanel({
 															}}
 														/>
 													))}
+											{/* Today column */}
+											{todayCalOffset >= 0 && todayCalOffset < totalDays && (
+												<div
+													className="absolute inset-y-0 bg-primary/10"
+													style={{
+														left:
+															GRID_LEFT_PADDING + todayCalOffset * pixelsPerDay,
+														width: pixelsPerDay,
+													}}
+												/>
+											)}
 											{headerColumns.map((col) => (
 												<div
-													className={`absolute inset-y-0 border-border/40 border-r${col.isToday ? 'bg-primary/10' : ''}`}
+													className="absolute inset-y-0 border-border/40 border-r"
 													key={col.dayIndex}
 													style={{
 														left:
@@ -1403,9 +1449,22 @@ export default function ProjectGanttPanel({
 																		}}
 																	/>
 																))}
+														{/* Today column */}
+														{todayCalOffset >= 0 &&
+															todayCalOffset < totalDays && (
+																<div
+																	className="absolute inset-y-0 bg-primary/10"
+																	style={{
+																		left:
+																			GRID_LEFT_PADDING +
+																			todayCalOffset * pixelsPerDay,
+																		width: pixelsPerDay,
+																	}}
+																/>
+															)}
 														{headerColumns.map((col) => (
 															<div
-																className={`absolute inset-y-0 border-border/40 border-r${col.isToday ? 'bg-primary/10' : ''}`}
+																className="absolute inset-y-0 border-border/40 border-r"
 																key={col.dayIndex}
 																style={{
 																	left:
