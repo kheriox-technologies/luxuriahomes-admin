@@ -1,5 +1,6 @@
 'use client';
 
+import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -9,6 +10,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { useMutation } from 'convex/react';
 import { EllipsisVertical, GripVertical, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { TASK_ROW_HEIGHT } from '@/components/schedules/schedule-row-heights';
@@ -30,6 +32,7 @@ export default function ProjectTaskRow({
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const updateStatus = useMutation(api.projectTasks.updateStatus.updateStatus);
 
 	return (
 		<>
@@ -77,6 +80,34 @@ export default function ProjectTaskRow({
 							<EllipsisVertical className="size-4" />
 						</MenuTrigger>
 						<MenuPopup align="end">
+							{task.status !== 'Pending' && (
+								<MenuItem
+									onClick={() =>
+										updateStatus({ taskId: task._id, status: 'Pending' })
+									}
+								>
+									Mark Pending
+								</MenuItem>
+							)}
+							{task.status !== 'In Progress' && (
+								<MenuItem
+									onClick={() =>
+										updateStatus({ taskId: task._id, status: 'In Progress' })
+									}
+								>
+									Mark In Progress
+								</MenuItem>
+							)}
+							{task.status !== 'Complete' && (
+								<MenuItem
+									onClick={() =>
+										updateStatus({ taskId: task._id, status: 'Complete' })
+									}
+								>
+									Mark Complete
+								</MenuItem>
+							)}
+							<MenuSeparator />
 							<MenuItem onClick={() => setEditOpen(true)}>
 								<Pencil />
 								Edit Task

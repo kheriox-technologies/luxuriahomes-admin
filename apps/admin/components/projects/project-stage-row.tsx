@@ -1,5 +1,6 @@
 'use client';
 
+import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -9,6 +10,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { useMutation } from 'convex/react';
 import {
 	ChevronDown,
 	ChevronRight,
@@ -46,6 +48,7 @@ export default function ProjectStageRow({
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [addTaskOpen, setAddTaskOpen] = useState(false);
+	const updateStatus = useMutation(api.projectStages.updateStatus.updateStatus);
 
 	return (
 		<>
@@ -113,6 +116,37 @@ export default function ProjectStageRow({
 								<Plus />
 								Add Task
 							</MenuItem>
+							<MenuSeparator />
+							{stage.status !== 'Pending' && (
+								<MenuItem
+									onClick={() =>
+										updateStatus({ stageId: stage._id, status: 'Pending' })
+									}
+								>
+									Mark Pending
+								</MenuItem>
+							)}
+							{stage.status !== 'In Progress' && (
+								<MenuItem
+									onClick={() =>
+										updateStatus({
+											stageId: stage._id,
+											status: 'In Progress',
+										})
+									}
+								>
+									Mark In Progress
+								</MenuItem>
+							)}
+							{stage.status !== 'Complete' && (
+								<MenuItem
+									onClick={() =>
+										updateStatus({ stageId: stage._id, status: 'Complete' })
+									}
+								>
+									Mark Complete
+								</MenuItem>
+							)}
 							<MenuSeparator />
 							<MenuItem onClick={() => setEditOpen(true)}>
 								<Pencil />

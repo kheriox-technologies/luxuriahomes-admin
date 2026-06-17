@@ -1076,135 +1076,154 @@ export default function GanttPanel({
 															today
 														);
 														return (
-															<Rnd
-																default={{
-																	x:
-																		GRID_LEFT_PADDING + calStart * pixelsPerDay,
-																	y: STAGE_ROW_HEIGHT / 2 - 8,
-																	width: (calEnd - calStart + 1) * pixelsPerDay,
-																	height: 16,
-																}}
-																disableDragging={isReadOnly}
-																dragAxis="x"
-																dragGrid={[pixelsPerDay, 1]}
-																enableResizing={false}
-																key={`${stage._id}-${stageLayout.startOffset}-${stageLayout.endOffset}-${stageReversionTicks.get(stage._id) ?? 0}`}
-																onDrag={(_e, d) => {
-																	const newCalStart =
-																		(d.x - GRID_LEFT_PADDING) / pixelsPerDay;
-																	const newBizStart =
-																		calendarOffsetToBusinessDayOffset(
-																			newCalStart,
-																			today
-																		);
-																	setDragMovePreview({
-																		id: stage._id,
-																		startOffset: newBizStart,
-																	});
-																}}
-																onDragStop={(_e, d) => {
-																	const newCalStart =
-																		(d.x - GRID_LEFT_PADDING) / pixelsPerDay;
-																	const newBizStart =
-																		calendarOffsetToBusinessDayOffset(
-																			newCalStart,
-																			today
-																		);
-																	const newOffsetDays = computeStageOffsetDays(
-																		stage,
-																		newBizStart,
-																		stageLayouts
-																	);
-																	setDragMovePreview(null);
-																	if (
-																		!isValidStageDragPosition(
-																			stage,
-																			newBizStart,
-																			stageLayouts
-																		)
-																	) {
-																		setStageReversionTicks((prev) =>
-																			new Map(prev).set(
-																				stage._id,
-																				(prev.get(stage._id) ?? 0) + 1
+															<>
+																<Rnd
+																	default={{
+																		x:
+																			GRID_LEFT_PADDING +
+																			calStart * pixelsPerDay,
+																		y: STAGE_ROW_HEIGHT / 2 - 8,
+																		width:
+																			(calEnd - calStart + 1) * pixelsPerDay,
+																		height: 16,
+																	}}
+																	disableDragging={isReadOnly}
+																	dragAxis="x"
+																	dragGrid={[pixelsPerDay, 1]}
+																	enableResizing={false}
+																	key={`${stage._id}-${stageLayout.startOffset}-${stageLayout.endOffset}-${stageReversionTicks.get(stage._id) ?? 0}`}
+																	onDrag={(_e, d) => {
+																		const newCalStart =
+																			(d.x - GRID_LEFT_PADDING) / pixelsPerDay;
+																		const newBizStart =
+																			calendarOffsetToBusinessDayOffset(
+																				newCalStart,
+																				today
+																			);
+																		setDragMovePreview({
+																			id: stage._id,
+																			startOffset: newBizStart,
+																		});
+																	}}
+																	onDragStop={(_e, d) => {
+																		const newCalStart =
+																			(d.x - GRID_LEFT_PADDING) / pixelsPerDay;
+																		const newBizStart =
+																			calendarOffsetToBusinessDayOffset(
+																				newCalStart,
+																				today
+																			);
+																		const newOffsetDays =
+																			computeStageOffsetDays(
+																				stage,
+																				newBizStart,
+																				stageLayouts
+																			);
+																		setDragMovePreview(null);
+																		if (
+																			!isValidStageDragPosition(
+																				stage,
+																				newBizStart,
+																				stageLayouts
 																			)
-																		);
-																		return;
-																	}
-																	updateStageOffset({
-																		stageId: stage._id,
-																		offsetDays: newOffsetDays,
-																	}).catch(() => {
-																		// Convex reactive queries revert the UI automatically
-																	});
-																}}
-																style={{ position: 'absolute' }}
-															>
-																<Popover
-																	onOpenChange={(open) =>
-																		setOpenPopoverId(open ? stage._id : null)
-																	}
-																	open={openPopoverId === stage._id}
+																		) {
+																			setStageReversionTicks((prev) =>
+																				new Map(prev).set(
+																					stage._id,
+																					(prev.get(stage._id) ?? 0) + 1
+																				)
+																			);
+																			return;
+																		}
+																		updateStageOffset({
+																			stageId: stage._id,
+																			offsetDays: newOffsetDays,
+																		}).catch(() => {
+																			// Convex reactive queries revert the UI automatically
+																		});
+																	}}
+																	style={{ position: 'absolute' }}
 																>
-																	<PopoverTrigger
-																		className={`absolute inset-0 overflow-hidden rounded-sm bg-purple-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+																	<Popover
+																		onOpenChange={(open) =>
+																			setOpenPopoverId(open ? stage._id : null)
+																		}
+																		open={openPopoverId === stage._id}
 																	>
-																		{columns
-																			.filter(
-																				(col) =>
-																					col.isWeekend &&
-																					col.dayStart < calEnd + 1 &&
-																					col.dayStart + col.widthDays >
+																		<PopoverTrigger
+																			className={`absolute inset-0 overflow-hidden rounded-sm bg-purple-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+																		>
+																			{columns
+																				.filter(
+																					(col) =>
+																						col.isWeekend &&
+																						col.dayStart < calEnd + 1 &&
+																						col.dayStart + col.widthDays >
+																							calStart
+																				)
+																				.map((col) => {
+																					const overlapStart = Math.max(
+																						col.dayStart,
 																						calStart
-																			)
-																			.map((col) => {
-																				const overlapStart = Math.max(
-																					col.dayStart,
-																					calStart
-																				);
-																				const overlapEnd = Math.min(
-																					col.dayStart + col.widthDays,
-																					calEnd + 1
-																				);
-																				return (
-																					<div
-																						className="absolute inset-y-0"
-																						key={col.dayStart}
-																						style={{
-																							left:
-																								(overlapStart - calStart) *
-																								pixelsPerDay,
-																							width:
-																								(overlapEnd - overlapStart) *
-																								pixelsPerDay,
-																							background:
-																								'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																						}}
-																					/>
-																				);
-																			})}
-																	</PopoverTrigger>
-																	<PopoverPopup side="top">
-																		<PopoverTitle>
-																			{stage.name}
-																			{' · '}
-																			{stageLayout.endOffset -
-																				stageLayout.startOffset +
-																				1}
-																			d
-																		</PopoverTitle>
-																		<PopoverDescription>
-																			{formatOffset(
-																				dragMovePreview?.id === stage._id
-																					? dragMovePreview.startOffset
-																					: stageLayout.startOffset
-																			)}
-																			{' → '}
-																			{formatOffset(stageLayout.endOffset)}
-																		</PopoverDescription>
-																	</PopoverPopup>
-																</Popover>
-															</Rnd>
+																					);
+																					const overlapEnd = Math.min(
+																						col.dayStart + col.widthDays,
+																						calEnd + 1
+																					);
+																					return (
+																						<div
+																							className="absolute inset-y-0"
+																							key={col.dayStart}
+																							style={{
+																								left:
+																									(overlapStart - calStart) *
+																									pixelsPerDay,
+																								width:
+																									(overlapEnd - overlapStart) *
+																									pixelsPerDay,
+																								background:
+																									'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																							}}
+																						/>
+																					);
+																				})}
+																		</PopoverTrigger>
+																		<PopoverPopup side="top">
+																			<PopoverTitle>
+																				{stage.name}
+																				{' · '}
+																				{stageLayout.endOffset -
+																					stageLayout.startOffset +
+																					1}
+																				d
+																			</PopoverTitle>
+																			<PopoverDescription>
+																				{formatOffset(
+																					dragMovePreview?.id === stage._id
+																						? dragMovePreview.startOffset
+																						: stageLayout.startOffset
+																				)}
+																				{' → '}
+																				{formatOffset(stageLayout.endOffset)}
+																			</PopoverDescription>
+																		</PopoverPopup>
+																	</Popover>
+																</Rnd>
+																<span
+																	className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-background/90 px-1 text-muted-foreground text-xs"
+																	style={{
+																		left:
+																			GRID_LEFT_PADDING +
+																			(calEnd + 1) * pixelsPerDay +
+																			12,
+																		top: '50%',
+																		transform: 'translateY(-50%)',
+																		zIndex: 6,
+																	}}
+																>
+																	{stage.name}
+																</span>
+															</>
 														);
 													})()
 												: null}
@@ -1256,195 +1275,215 @@ export default function GanttPanel({
 																			? resizePreview.durationDays
 																			: taskLayout.durationDays;
 																	return (
-																		<Rnd
-																			default={{
-																				x: barLeft,
-																				y: (TASK_ROW_HEIGHT - 16) / 2,
-																				width: barWidth,
-																				height: 16,
-																			}}
-																			disableDragging={isReadOnly}
-																			dragAxis="x"
-																			dragGrid={[pixelsPerDay, 1]}
-																			enableResizing={
-																				isReadOnly ? false : { right: true }
-																			}
-																			key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}-${taskReversionTicks.get(task._id) ?? 0}`}
-																			minWidth={pixelsPerDay}
-																			onDrag={(_e, d) => {
-																				const newCalStart =
-																					(d.x - GRID_LEFT_PADDING) /
-																					pixelsPerDay;
-																				const newBizStart =
-																					calendarOffsetToBusinessDayOffset(
-																						newCalStart,
-																						today
-																					);
-																				setDragMovePreview({
-																					id: task._id,
-																					startOffset: newBizStart,
-																				});
-																			}}
-																			onDragStop={(_e, d) => {
-																				const newCalStart =
-																					(d.x - GRID_LEFT_PADDING) /
-																					pixelsPerDay;
-																				const newBizStart =
-																					calendarOffsetToBusinessDayOffset(
-																						newCalStart,
-																						today
-																					);
-																				const newOffsetDays =
-																					computeTaskOffsetDays(
-																						task,
-																						newBizStart,
-																						taskLayouts
-																					);
-																				setDragMovePreview(null);
-																				if (
-																					isWeekendCalOffset(
-																						newCalStart,
-																						today
-																					) ||
-																					!isValidTaskDragPosition(
-																						task,
-																						newBizStart,
-																						taskLayouts
-																					)
-																				) {
-																					setTaskReversionTicks((prev) =>
-																						new Map(prev).set(
-																							task._id,
-																							(prev.get(task._id) ?? 0) + 1
+																		<>
+																			<Rnd
+																				default={{
+																					x: barLeft,
+																					y: (TASK_ROW_HEIGHT - 16) / 2,
+																					width: barWidth,
+																					height: 16,
+																				}}
+																				disableDragging={isReadOnly}
+																				dragAxis="x"
+																				dragGrid={[pixelsPerDay, 1]}
+																				enableResizing={
+																					isReadOnly ? false : { right: true }
+																				}
+																				key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}-${taskReversionTicks.get(task._id) ?? 0}`}
+																				minWidth={pixelsPerDay}
+																				onDrag={(_e, d) => {
+																					const newCalStart =
+																						(d.x - GRID_LEFT_PADDING) /
+																						pixelsPerDay;
+																					const newBizStart =
+																						calendarOffsetToBusinessDayOffset(
+																							newCalStart,
+																							today
+																						);
+																					setDragMovePreview({
+																						id: task._id,
+																						startOffset: newBizStart,
+																					});
+																				}}
+																				onDragStop={(_e, d) => {
+																					const newCalStart =
+																						(d.x - GRID_LEFT_PADDING) /
+																						pixelsPerDay;
+																					const newBizStart =
+																						calendarOffsetToBusinessDayOffset(
+																							newCalStart,
+																							today
+																						);
+																					const newOffsetDays =
+																						computeTaskOffsetDays(
+																							task,
+																							newBizStart,
+																							taskLayouts
+																						);
+																					setDragMovePreview(null);
+																					if (
+																						isWeekendCalOffset(
+																							newCalStart,
+																							today
+																						) ||
+																						!isValidTaskDragPosition(
+																							task,
+																							newBizStart,
+																							taskLayouts
 																						)
+																					) {
+																						setTaskReversionTicks((prev) =>
+																							new Map(prev).set(
+																								task._id,
+																								(prev.get(task._id) ?? 0) + 1
+																							)
+																						);
+																						return;
+																					}
+																					updateTaskOffset({
+																						taskId: task._id,
+																						offsetDays: newOffsetDays,
+																					}).catch(() => {
+																						// Convex reactive queries revert the UI automatically
+																					});
+																				}}
+																				onResize={(_e, _direction, ref) => {
+																					const newCalWidth = Math.round(
+																						ref.offsetWidth / pixelsPerDay
 																					);
-																					return;
-																				}
-																				updateTaskOffset({
-																					taskId: task._id,
-																					offsetDays: newOffsetDays,
-																				}).catch(() => {
-																					// Convex reactive queries revert the UI automatically
-																				});
-																			}}
-																			onResize={(_e, _direction, ref) => {
-																				const newCalWidth = Math.round(
-																					ref.offsetWidth / pixelsPerDay
-																				);
-																				const newBizDays =
-																					countBusinessDaysInRange(
-																						calStart,
-																						calStart + newCalWidth - 1,
-																						today
+																					const newBizDays =
+																						countBusinessDaysInRange(
+																							calStart,
+																							calStart + newCalWidth - 1,
+																							today
+																						);
+																					setResizePreview({
+																						taskId: task._id,
+																						durationDays: Math.max(
+																							1,
+																							newBizDays
+																						),
+																					});
+																				}}
+																				onResizeStop={(_e, _direction, ref) => {
+																					const newCalWidth = Math.round(
+																						ref.offsetWidth / pixelsPerDay
 																					);
-																				setResizePreview({
-																					taskId: task._id,
-																					durationDays: Math.max(1, newBizDays),
-																				});
-																			}}
-																			onResizeStop={(_e, _direction, ref) => {
-																				const newCalWidth = Math.round(
-																					ref.offsetWidth / pixelsPerDay
-																				);
-																				const newBizDays =
-																					countBusinessDaysInRange(
-																						calStart,
-																						calStart + newCalWidth - 1,
-																						today
-																					);
-																				setResizePreview(null);
-																				updateTaskDuration({
-																					taskId: task._id,
-																					durationDays: Math.max(1, newBizDays),
-																				}).catch(() => {
-																					// Convex reactive queries revert the UI automatically
-																				});
-																			}}
-																			resizeGrid={[pixelsPerDay, 1]}
-																			resizeHandleStyles={{
-																				right: {
-																					cursor: 'ew-resize',
-																					height: 24,
-																					right: -6,
-																					top: -4,
-																					width: 12,
-																					zIndex: 10,
-																				},
-																			}}
-																			style={{ position: 'absolute' }}
-																		>
-																			<Popover
-																				onOpenChange={(open) =>
-																					setOpenPopoverId(
-																						open ? task._id : null
-																					)
-																				}
-																				open={openPopoverId === task._id}
+																					const newBizDays =
+																						countBusinessDaysInRange(
+																							calStart,
+																							calStart + newCalWidth - 1,
+																							today
+																						);
+																					setResizePreview(null);
+																					updateTaskDuration({
+																						taskId: task._id,
+																						durationDays: Math.max(
+																							1,
+																							newBizDays
+																						),
+																					}).catch(() => {
+																						// Convex reactive queries revert the UI automatically
+																					});
+																				}}
+																				resizeGrid={[pixelsPerDay, 1]}
+																				resizeHandleStyles={{
+																					right: {
+																						cursor: 'ew-resize',
+																						height: 24,
+																						right: -6,
+																						top: -4,
+																						width: 12,
+																						zIndex: 10,
+																					},
+																				}}
+																				style={{ position: 'absolute' }}
 																			>
-																				<PopoverTrigger
-																					className={`absolute inset-0 overflow-hidden rounded-sm bg-blue-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
-																				>
-																					{columns
-																						.filter(
-																							(col) =>
-																								col.isWeekend &&
-																								col.dayStart < calEnd + 1 &&
-																								col.dayStart + col.widthDays >
-																									calStart
+																				<Popover
+																					onOpenChange={(open) =>
+																						setOpenPopoverId(
+																							open ? task._id : null
 																						)
-																						.map((col) => {
-																							const overlapStart = Math.max(
-																								col.dayStart,
-																								calStart
-																							);
-																							const overlapEnd = Math.min(
-																								col.dayStart + col.widthDays,
-																								calEnd + 1
-																							);
-																							return (
-																								<div
-																									className="absolute inset-y-0"
-																									key={col.dayStart}
-																									style={{
-																										left:
-																											(overlapStart -
-																												calStart) *
-																											pixelsPerDay,
-																										width:
-																											(overlapEnd -
-																												overlapStart) *
-																											pixelsPerDay,
-																										background:
-																											'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																									}}
-																								/>
-																							);
-																						})}
-																				</PopoverTrigger>
-																				<PopoverPopup side="top">
-																					<PopoverTitle>
-																						{task.name}
-																						{' · '}
-																						{displayDays}d
-																					</PopoverTitle>
-																					<PopoverDescription>
-																						{formatOffset(
-																							dragMovePreview?.id === task._id
-																								? dragMovePreview.startOffset
-																								: taskLayout.startOffset
-																						)}
-																						{' → '}
-																						{formatOffset(
-																							(dragMovePreview?.id === task._id
-																								? dragMovePreview.startOffset
-																								: taskLayout.startOffset) +
-																								taskLayout.durationDays -
-																								1
-																						)}
-																					</PopoverDescription>
-																				</PopoverPopup>
-																			</Popover>
-																		</Rnd>
+																					}
+																					open={openPopoverId === task._id}
+																				>
+																					<PopoverTrigger
+																						className={`absolute inset-0 overflow-hidden rounded-sm bg-blue-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+																					>
+																						{columns
+																							.filter(
+																								(col) =>
+																									col.isWeekend &&
+																									col.dayStart < calEnd + 1 &&
+																									col.dayStart + col.widthDays >
+																										calStart
+																							)
+																							.map((col) => {
+																								const overlapStart = Math.max(
+																									col.dayStart,
+																									calStart
+																								);
+																								const overlapEnd = Math.min(
+																									col.dayStart + col.widthDays,
+																									calEnd + 1
+																								);
+																								return (
+																									<div
+																										className="absolute inset-y-0"
+																										key={col.dayStart}
+																										style={{
+																											left:
+																												(overlapStart -
+																													calStart) *
+																												pixelsPerDay,
+																											width:
+																												(overlapEnd -
+																													overlapStart) *
+																												pixelsPerDay,
+																											background:
+																												'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																										}}
+																									/>
+																								);
+																							})}
+																					</PopoverTrigger>
+																					<PopoverPopup side="top">
+																						<PopoverTitle>
+																							{task.name}
+																							{' · '}
+																							{displayDays}d
+																						</PopoverTitle>
+																						<PopoverDescription>
+																							{formatOffset(
+																								dragMovePreview?.id === task._id
+																									? dragMovePreview.startOffset
+																									: taskLayout.startOffset
+																							)}
+																							{' → '}
+																							{formatOffset(
+																								(dragMovePreview?.id ===
+																								task._id
+																									? dragMovePreview.startOffset
+																									: taskLayout.startOffset) +
+																									taskLayout.durationDays -
+																									1
+																							)}
+																						</PopoverDescription>
+																					</PopoverPopup>
+																				</Popover>
+																			</Rnd>
+																			<span
+																				className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-background/90 px-1 text-muted-foreground text-xs"
+																				style={{
+																					left: barLeft + barWidth + 12,
+																					top: '50%',
+																					transform: 'translateY(-50%)',
+																					zIndex: 6,
+																				}}
+																			>
+																				{task.name}
+																			</span>
+																		</>
 																	);
 																})()
 															: null}
