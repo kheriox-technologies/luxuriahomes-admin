@@ -357,6 +357,12 @@ export default function ProjectGanttPanel({
 	);
 	const reorderStages = useMutation(api.projectStages.reorder.reorder);
 	const reorderTasks = useMutation(api.projectTasks.reorder.reorder);
+	const updateTaskStatus = useMutation(
+		api.projectTasks.updateStatus.updateStatus
+	);
+	const updateStageStatus = useMutation(
+		api.projectStages.updateStatus.updateStatus
+	);
 
 	const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -1079,116 +1085,176 @@ export default function ProjectGanttPanel({
 												/>
 											))}
 											{stage.endDate >= stage.startDate ? (
-												<Rnd
-													default={{
-														x: stageBarLeft,
-														y: STAGE_ROW_HEIGHT / 2 - 8,
-														width: stageBarWidth,
-														height: 16,
-													}}
-													disableDragging={isReadOnly}
-													dragAxis="x"
-													dragGrid={[pixelsPerDay, 1]}
-													enableResizing={false}
-													key={`${stage._id}-${stage.startDate}-${stage.endDate}-${stageReversionTicks.get(stage._id) ?? 0}`}
-													onDragStop={(_e, d) => {
-														const newStartOff = Math.round(
-															(d.x - GRID_LEFT_PADDING) / pixelsPerDay
-														);
-														const rawDate = addCalendarDays(
-															anchor,
-															newStartOff
-														);
-														const revert = () =>
-															setStageReversionTicks((prev) =>
-																new Map(prev).set(
-																	stage._id,
-																	(prev.get(stage._id) ?? 0) + 1
-																)
+												<>
+													<Rnd
+														default={{
+															x: stageBarLeft,
+															y: STAGE_ROW_HEIGHT / 2 - 8,
+															width: stageBarWidth,
+															height: 16,
+														}}
+														disableDragging={isReadOnly}
+														dragAxis="x"
+														dragGrid={[pixelsPerDay, 1]}
+														enableResizing={false}
+														key={`${stage._id}-${stage.startDate}-${stage.endDate}-${stageReversionTicks.get(stage._id) ?? 0}`}
+														onDragStop={(_e, d) => {
+															const newStartOff = Math.round(
+																(d.x - GRID_LEFT_PADDING) / pixelsPerDay
 															);
-														// Reject weekend drops immediately
-														if (
-															rawDate.getDay() === 0 ||
-															rawDate.getDay() === 6
-														) {
-															revert();
-															return;
-														}
-														// Preserve business-day duration so the end always lands on a weekday
-														const bizDuration = Math.max(
-															0,
-															countBusinessDaysBetween(
-																new Date(stage.startDate),
-																new Date(stage.endDate)
-															) - 1
-														);
-														updateStageDates({
-															stageId: stage._id,
-															startDate: rawDate.getTime(),
-															endDate: addBusinessDays(
-																rawDate,
-																bizDuration
-															).getTime(),
-														}).catch(revert);
-													}}
-													style={{ position: 'absolute' }}
-												>
-													<Popover
-														onOpenChange={(open) =>
-															setOpenPopoverId(open ? stage._id : null)
-														}
-														open={openPopoverId === stage._id}
+															const rawDate = addCalendarDays(
+																anchor,
+																newStartOff
+															);
+															const revert = () =>
+																setStageReversionTicks((prev) =>
+																	new Map(prev).set(
+																		stage._id,
+																		(prev.get(stage._id) ?? 0) + 1
+																	)
+																);
+															// Reject weekend drops immediately
+															if (
+																rawDate.getDay() === 0 ||
+																rawDate.getDay() === 6
+															) {
+																revert();
+																return;
+															}
+															// Preserve business-day duration so the end always lands on a weekday
+															const bizDuration = Math.max(
+																0,
+																countBusinessDaysBetween(
+																	new Date(stage.startDate),
+																	new Date(stage.endDate)
+																) - 1
+															);
+															updateStageDates({
+																stageId: stage._id,
+																startDate: rawDate.getTime(),
+																endDate: addBusinessDays(
+																	rawDate,
+																	bizDuration
+																).getTime(),
+															}).catch(revert);
+														}}
+														style={{ position: 'absolute' }}
 													>
-														<PopoverTrigger
-															className={`absolute inset-0 overflow-hidden rounded-sm ${stageBarColor} ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+														<Popover
+															onOpenChange={(open) =>
+																setOpenPopoverId(open ? stage._id : null)
+															}
+															open={openPopoverId === stage._id}
 														>
-															{columns
-																.filter(
-																	(col) =>
-																		col.isWeekend &&
-																		col.dayIndex < stageEndOff + 1 &&
-																		col.dayIndex > stageStartOff - 1
-																)
-																.map((col) => {
-																	const overlapStart = Math.max(
-																		col.dayIndex,
-																		stageStartOff
-																	);
-																	const overlapEnd = Math.min(
-																		col.dayIndex + 1,
-																		stageEndOff + 1
-																	);
-																	return (
-																		<div
-																			className="absolute inset-y-0"
-																			key={col.dayIndex}
-																			style={{
-																				left:
-																					(overlapStart - stageStartOff) *
-																					pixelsPerDay,
-																				width:
-																					(overlapEnd - overlapStart) *
-																					pixelsPerDay,
-																				background:
-																					'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																			}}
-																		/>
-																	);
-																})}
-														</PopoverTrigger>
-														<PopoverPopup arrow side="top" sideOffset={10}>
-															<PopoverTitle className="flex items-center justify-between gap-2">
-																<span>{stage.name}</span>
-																<StatusBadge status={stage.status} />
-															</PopoverTitle>
-															<PopoverDescription>
-																{formatProjectDate(stage.startDate)}
-																{' → '}
-																{formatProjectDate(stage.endDate)}
-															</PopoverDescription>
-														</PopoverPopup>
-													</Popover>
-												</Rnd>
+															<PopoverTrigger
+																className={`absolute inset-0 overflow-hidden rounded-sm ${stageBarColor} ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
+															>
+																{columns
+																	.filter(
+																		(col) =>
+																			col.isWeekend &&
+																			col.dayIndex < stageEndOff + 1 &&
+																			col.dayIndex > stageStartOff - 1
+																	)
+																	.map((col) => {
+																		const overlapStart = Math.max(
+																			col.dayIndex,
+																			stageStartOff
+																		);
+																		const overlapEnd = Math.min(
+																			col.dayIndex + 1,
+																			stageEndOff + 1
+																		);
+																		return (
+																			<div
+																				className="absolute inset-y-0"
+																				key={col.dayIndex}
+																				style={{
+																					left:
+																						(overlapStart - stageStartOff) *
+																						pixelsPerDay,
+																					width:
+																						(overlapEnd - overlapStart) *
+																						pixelsPerDay,
+																					background:
+																						'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																				}}
+																			/>
+																		);
+																	})}
+															</PopoverTrigger>
+															<PopoverPopup arrow side="top" sideOffset={10}>
+																<PopoverTitle className="flex items-center justify-between gap-2">
+																	<span>{stage.name}</span>
+																	<StatusBadge status={stage.status} />
+																</PopoverTitle>
+																<PopoverDescription>
+																	{formatProjectDate(stage.startDate)}
+																	{' → '}
+																	{formatProjectDate(stage.endDate)}
+																</PopoverDescription>
+																<div className="mt-2 flex gap-1">
+																	{stage.status !== 'Pending' && (
+																		<Button
+																			onClick={() =>
+																				updateStageStatus({
+																					stageId: stage._id,
+																					status: 'Pending',
+																				})
+																			}
+																			size="sm"
+																			type="button"
+																			variant="outline"
+																		>
+																			Mark Pending
+																		</Button>
+																	)}
+																	{stage.status !== 'In Progress' && (
+																		<Button
+																			onClick={() =>
+																				updateStageStatus({
+																					stageId: stage._id,
+																					status: 'In Progress',
+																				})
+																			}
+																			size="sm"
+																			type="button"
+																			variant="outline"
+																		>
+																			Mark In Progress
+																		</Button>
+																	)}
+																	{stage.status !== 'Complete' && (
+																		<Button
+																			onClick={() =>
+																				updateStageStatus({
+																					stageId: stage._id,
+																					status: 'Complete',
+																				})
+																			}
+																			size="sm"
+																			type="button"
+																			variant="outline"
+																		>
+																			Mark Complete
+																		</Button>
+																	)}
+																</div>
+															</PopoverPopup>
+														</Popover>
+													</Rnd>
+													<span
+														className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-background/90 px-1 text-muted-foreground text-xs"
+														style={{
+															left: stageBarLeft + stageBarWidth + 12,
+															top: '50%',
+															transform: 'translateY(-50%)',
+															zIndex: 6,
+														}}
+													>
+														{stage.name}
+													</span>
+												</>
 											) : null}
 										</div>
 
@@ -1410,9 +1476,67 @@ export default function ProjectGanttPanel({
 																		{' → '}
 																		{formatProjectDate(task.endDate)}
 																	</PopoverDescription>
+																	<div className="mt-2 flex gap-1">
+																		{task.status !== 'Pending' && (
+																			<Button
+																				onClick={() =>
+																					updateTaskStatus({
+																						taskId: task._id,
+																						status: 'Pending',
+																					})
+																				}
+																				size="sm"
+																				type="button"
+																				variant="outline"
+																			>
+																				Mark Pending
+																			</Button>
+																		)}
+																		{task.status !== 'In Progress' && (
+																			<Button
+																				onClick={() =>
+																					updateTaskStatus({
+																						taskId: task._id,
+																						status: 'In Progress',
+																					})
+																				}
+																				size="sm"
+																				type="button"
+																				variant="outline"
+																			>
+																				Mark In Progress
+																			</Button>
+																		)}
+																		{task.status !== 'Complete' && (
+																			<Button
+																				onClick={() =>
+																					updateTaskStatus({
+																						taskId: task._id,
+																						status: 'Complete',
+																					})
+																				}
+																				size="sm"
+																				type="button"
+																				variant="outline"
+																			>
+																				Mark Complete
+																			</Button>
+																		)}
+																	</div>
 																</PopoverPopup>
 															</Popover>
 														</Rnd>
+														<span
+															className="pointer-events-none absolute whitespace-nowrap rounded-sm bg-background/90 px-1 text-muted-foreground text-xs"
+															style={{
+																left: barLeft + barWidth + 12,
+																top: '50%',
+																transform: 'translateY(-50%)',
+																zIndex: 6,
+															}}
+														>
+															{task.name}
+														</span>
 													</div>
 												);
 											})}

@@ -229,12 +229,14 @@ export async function recalcStageStatus(
 	}
 
 	const allComplete = tasks.every((t) => t.status === 'Complete');
-	const anyInProgress = tasks.some((t) => t.status === 'In Progress');
+	const anyStarted = tasks.some(
+		(t) => t.status === 'In Progress' || t.status === 'Complete'
+	);
 
 	let status: 'Complete' | 'In Progress' | 'Pending' = 'Pending';
 	if (allComplete) {
 		status = 'Complete';
-	} else if (anyInProgress) {
+	} else if (anyStarted) {
 		status = 'In Progress';
 	}
 
