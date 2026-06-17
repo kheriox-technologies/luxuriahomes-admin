@@ -18,10 +18,12 @@ import {
 	GripVertical,
 	Pencil,
 	Plus,
+	ShoppingCart,
 	Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { STAGE_ROW_HEIGHT } from '@/components/schedules/schedule-row-heights';
+import AddProjectOrderTask from './add-project-order-task';
 import AddProjectTask from './add-project-task';
 import DeleteProjectStage from './delete-project-stage';
 import EditProjectStage from './edit-project-stage';
@@ -48,6 +50,7 @@ export default function ProjectStageRow({
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [addTaskOpen, setAddTaskOpen] = useState(false);
+	const [addOrderTaskOpen, setAddOrderTaskOpen] = useState(false);
 	const updateStatus = useMutation(api.projectStages.updateStatus.updateStatus);
 
 	return (
@@ -116,6 +119,10 @@ export default function ProjectStageRow({
 								<Plus />
 								Add Task
 							</MenuItem>
+							<MenuItem onClick={() => setAddOrderTaskOpen(true)}>
+								<ShoppingCart />
+								Add Order Task
+							</MenuItem>
 							<MenuSeparator />
 							{stage.status !== 'Pending' && (
 								<MenuItem
@@ -179,6 +186,13 @@ export default function ProjectStageRow({
 				open={addTaskOpen}
 				projectId={projectId}
 				stage={stage}
+				stageTasks={stageTasks}
+			/>
+			<AddProjectOrderTask
+				onOpenChange={setAddOrderTaskOpen}
+				open={addOrderTaskOpen}
+				projectId={projectId}
+				stageId={stage._id}
 				stageTasks={stageTasks}
 			/>
 		</>

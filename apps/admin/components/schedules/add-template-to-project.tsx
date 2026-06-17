@@ -62,10 +62,12 @@ const emptyValues: FormValues = {
 export default function AddTemplateToProject({
 	stages,
 	tasks,
+	orderTasks,
 }: {
 	scheduleTemplateId: Id<'scheduleTemplates'>;
 	stages: Doc<'scheduleStages'>[];
 	tasks: Doc<'scheduleTasks'>[];
+	orderTasks: Doc<'scheduleOrderTasks'>[];
 }) {
 	const [open, setOpen] = useState(false);
 	const projects = useQuery(api.projects.list.list);
@@ -140,10 +142,18 @@ export default function AddTemplateToProject({
 					endDate: taskDates.get(t._id)?.endDate ?? startDateMs,
 				}));
 
+				const orderTaskPayload = orderTasks.map((ot) => ({
+					templateOrderTaskId: ot._id,
+					templateTaskId: ot.parentTaskId,
+					name: ot.name,
+					durationDays: ot.durationDays,
+				}));
+
 				await applyToProject({
 					projectId: parsed.projectId as Id<'projects'>,
 					stages: stagePayload,
 					tasks: taskPayload,
+					orderTasks: orderTaskPayload,
 				});
 
 				toastManager.add({

@@ -56,6 +56,7 @@ import {
 	STAGE_ROW_HEIGHT,
 	TASK_ROW_HEIGHT,
 } from '@/components/schedules/schedule-row-heights';
+import DeleteProjectOrderTask from './delete-project-order-task';
 import {
 	addBusinessDays,
 	addCalendarDays,
@@ -70,7 +71,7 @@ import ProjectTaskRow from './project-task-row';
 const DAY_WIDTH = 50;
 const DATE_HEADER_HEIGHT = 52;
 const MIN_DAYS = 20;
-const STAGE_LIST_WIDTH = 280;
+const STAGE_LIST_WIDTH = 320;
 const GRID_LEFT_PADDING = 24;
 
 interface ProjectGanttColumn {
@@ -317,12 +318,14 @@ export default function ProjectGanttPanel({
 	projectStartDate,
 	stages,
 	tasks,
+	orderTasks,
 	search,
 }: {
 	projectId: Id<'projects'>;
 	projectStartDate: number;
 	stages: Doc<'projectStages'>[];
 	tasks: Doc<'projectTasks'>[];
+	orderTasks: Doc<'projectOrderTasks'>[];
 	search?: string;
 }) {
 	const [isReadOnly, setIsReadOnly] = useState(true);
@@ -369,6 +372,8 @@ export default function ProjectGanttPanel({
 		durationDays: number;
 	} | null>(null);
 	const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+	const [deletingOrderTask, setDeletingOrderTask] =
+		useState<Doc<'projectOrderTasks'> | null>(null);
 	const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('day');
 	const [stageReversionTicks, setStageReversionTicks] = useState<
 		Map<string, number>
@@ -387,14 +392,41 @@ export default function ProjectGanttPanel({
 		return d;
 	}, []);
 
-	// Anchor date: earliest stage start minus 3 days padding
+	const orderTasksByParent = useMemo(() => {
+		const map = new Map<string, Doc<'projectOrderTasks'>>();
+		for (const ot of orderTasks) {
+			map.set(ot.parentTaskId, ot);
+		}
+		return map;
+	}, [orderTasks]);
+
+	const orderTaskStartDates = useMemo(() => {
+		const map = new Map<string, number>();
+		const taskMap = new Map(tasks.map((t) => [t._id as string, t]));
+		for (const ot of orderTasks) {
+			const parent = taskMap.get(ot.parentTaskId);
+			if (parent) {
+				const startDate = addBusinessDays(
+					new Date(parent.startDate),
+					-ot.durationDays
+				);
+				map.set(ot._id, startDate.getTime());
+			}
+		}
+		return map;
+	}, [orderTasks, tasks]);
+
+	// Anchor date: earliest stage/order-task start minus 3 days padding
 	const anchor = useMemo(() => {
-		const allStartDates = stages.map((s) => s.startDate);
+		const allStartDates = [
+			...stages.map((s) => s.startDate),
+			...[...orderTaskStartDates.values()],
+		];
 		const minDate =
 			allStartDates.length > 0 ? Math.min(...allStartDates) : projectStartDate;
 		const anchorRaw = startOfDay(new Date(Math.min(minDate, today.getTime())));
 		return addCalendarDays(anchorRaw, -3);
-	}, [stages, today, projectStartDate]);
+	}, [stages, today, projectStartDate, orderTaskStartDates]);
 
 	// Total calendar days to show
 	const totalDays = useMemo(() => {
@@ -770,7 +802,9 @@ export default function ProjectGanttPanel({
 		for (const stage of displayedStages) {
 			h += STAGE_ROW_HEIGHT;
 			if (isExpanded(stage._id)) {
-				h += getDisplayedTasks(stage._id).length * TASK_ROW_HEIGHT;
+				for (const _task of getDisplayedTasks(stage._id)) {
+					h += TASK_ROW_HEIGHT;
+				}
 			}
 		}
 		return h;
@@ -1090,22 +1124,27 @@ export default function ProjectGanttPanel({
 												strategy={verticalListSortingStrategy}
 											>
 												{isExpanded(stage._id) &&
-													stageTasks.map((task) => (
-														<SortableProjectTaskWrapper
-															isDndEnabled={isDndEnabled}
-															key={task._id}
-															onNameClick={() => {
-																scrollToDate(task.startDate);
-																setTimeout(
-																	() => setOpenPopoverId(task._id),
-																	400
-																);
-															}}
-															stageStartDate={stage.startDate}
-															stageTasks={stageTasks}
-															task={task}
-														/>
-													))}
+													stageTasks.map((task) => {
+														const orderTask = orderTasksByParent.get(task._id);
+														return (
+															<div key={task._id}>
+																<SortableProjectTaskWrapper
+																	isDndEnabled={isDndEnabled}
+																	onNameClick={() => {
+																		scrollToDate(task.startDate);
+																		setTimeout(
+																			() => setOpenPopoverId(task._id),
+																			400
+																		);
+																	}}
+																	orderTask={orderTask}
+																	stageStartDate={stage.startDate}
+																	stageTasks={stageTasks}
+																	task={task}
+																/>
+															</div>
+														);
+													})}
 											</SortableContext>
 										</SortableProjectStageWrapper>
 									);
@@ -1405,6 +1444,10 @@ export default function ProjectGanttPanel({
 										{/* Task rows */}
 										{isExpanded(stage._id) &&
 											stageTasks.map((task) => {
+												const orderTask = orderTasksByParent.get(task._id);
+												const otStartDate = orderTask
+													? orderTaskStartDates.get(orderTask._id)
+													: undefined;
 												const taskStartOff = dateToCalOffset(
 													new Date(task.startDate),
 													anchor
@@ -1424,7 +1467,28 @@ export default function ProjectGanttPanel({
 													resizePreview?.taskId === task._id
 														? resizePreview.durationDays
 														: task.durationDays;
-
+												let otBarLeft: number | undefined;
+												let otBarWidth: number | undefined;
+												if (orderTask && otStartDate !== undefined) {
+													const otStartOff = dateToCalOffset(
+														new Date(otStartDate),
+														anchor
+													);
+													const otEndDate = addBusinessDays(
+														new Date(task.startDate),
+														-1
+													);
+													const otEndOff = dateToCalOffset(otEndDate, anchor);
+													otBarLeft =
+														GRID_LEFT_PADDING + otStartOff * pixelsPerDay;
+													otBarWidth = Math.min(
+														Math.max(
+															pixelsPerDay,
+															(otEndOff - otStartOff + 1) * pixelsPerDay
+														),
+														barLeft - otBarLeft - 10
+													);
+												}
 												return (
 													<div
 														className={`relative border-b ${isEven ? 'bg-muted/20' : ''}`}
@@ -1636,6 +1700,13 @@ export default function ProjectGanttPanel({
 																		{' → '}
 																		{formatProjectDate(task.endDate)}
 																	</PopoverDescription>
+																	{orderTask && (
+																		<PopoverDescription>
+																			Order: {orderTask.name}
+																			{' · '}
+																			{orderTask.durationDays}d
+																		</PopoverDescription>
+																	)}
 																	<div className="mt-2 flex gap-1">
 																		{task.status !== 'Pending' && (
 																			<Button
@@ -1697,6 +1768,110 @@ export default function ProjectGanttPanel({
 														>
 															{task.name}
 														</span>
+														{orderTask &&
+															otBarLeft !== undefined &&
+															otBarWidth !== undefined && (
+																<>
+																	<Popover
+																		onOpenChange={(open) =>
+																			setOpenPopoverId(
+																				open ? `ot-${orderTask._id}` : null
+																			)
+																		}
+																		open={
+																			openPopoverId === `ot-${orderTask._id}`
+																		}
+																	>
+																		<PopoverTrigger
+																			className="absolute cursor-pointer rounded-sm bg-pink-500/70"
+																			style={{
+																				height: 16,
+																				left: otBarLeft,
+																				top: (TASK_ROW_HEIGHT - 16) / 2,
+																				width: otBarWidth,
+																			}}
+																		/>
+																		<PopoverPopup
+																			arrow
+																			side="top"
+																			sideOffset={10}
+																		>
+																			<PopoverTitle>
+																				{orderTask.name}
+																				{' · '}
+																				{orderTask.durationDays}d
+																			</PopoverTitle>
+																			<PopoverDescription>
+																				{formatProjectDate(
+																					orderTaskStartDates.get(
+																						orderTask._id
+																					) ?? 0
+																				)}
+																				{' → '}
+																				{formatProjectDate(
+																					addBusinessDays(
+																						new Date(task.startDate),
+																						-1
+																					).getTime()
+																				)}
+																			</PopoverDescription>
+																			<div className="mt-2">
+																				<Button
+																					onClick={() => {
+																						setOpenPopoverId(null);
+																						setDeletingOrderTask(orderTask);
+																					}}
+																					size="sm"
+																					type="button"
+																					variant="destructive-outline"
+																				>
+																					Delete order task
+																				</Button>
+																			</div>
+																		</PopoverPopup>
+																	</Popover>
+																	{barLeft > otBarLeft + otBarWidth && (
+																		<svg
+																			aria-hidden="true"
+																			className="pointer-events-none absolute"
+																			style={{
+																				height: 16,
+																				left: otBarLeft + otBarWidth,
+																				overflow: 'visible',
+																				top: (TASK_ROW_HEIGHT - 16) / 2,
+																				width:
+																					barLeft - (otBarLeft + otBarWidth),
+																				zIndex: 3,
+																			}}
+																		>
+																			<defs>
+																				<marker
+																					id={`oa-${task._id}`}
+																					markerHeight="6"
+																					markerWidth="6"
+																					orient="auto"
+																					refX="5"
+																					refY="3"
+																				>
+																					<path
+																						d="M 0 0 L 6 3 L 0 6 z"
+																						fill="#ec4899"
+																					/>
+																				</marker>
+																			</defs>
+																			<line
+																				markerEnd={`url(#oa-${task._id})`}
+																				stroke="#ec4899"
+																				strokeWidth="1.5"
+																				x1="0"
+																				x2={barLeft - (otBarLeft + otBarWidth)}
+																				y1="8"
+																				y2="8"
+																			/>
+																		</svg>
+																	)}
+																</>
+															)}
 													</div>
 												);
 											})}
@@ -1807,6 +1982,17 @@ export default function ProjectGanttPanel({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+			{deletingOrderTask && (
+				<DeleteProjectOrderTask
+					onOpenChange={(open) => {
+						if (!open) {
+							setDeletingOrderTask(null);
+						}
+					}}
+					open={true}
+					orderTask={deletingOrderTask}
+				/>
+			)}
 		</>
 	);
 }

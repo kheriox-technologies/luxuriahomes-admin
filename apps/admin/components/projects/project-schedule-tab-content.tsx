@@ -28,6 +28,10 @@ export default function ProjectScheduleTabContent({
 	const tasks = useQuery(api.projectTasks.listByProject.listByProject, {
 		projectId,
 	});
+	const orderTasks = useQuery(
+		api.projectOrderTasks.listByProject.listByProject,
+		{ projectId }
+	);
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -45,7 +49,7 @@ export default function ProjectScheduleTabContent({
 		return startOfDay(new Date()).getTime();
 	}, [project.startDate]);
 
-	if (stages === undefined || tasks === undefined) {
+	if (stages === undefined || tasks === undefined || orderTasks === undefined) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-6">
 				<p className="text-muted-foreground text-sm">Loading schedule…</p>
@@ -84,6 +88,7 @@ export default function ProjectScheduleTabContent({
 
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<ProjectGanttPanel
+					orderTasks={orderTasks}
 					projectId={projectId}
 					projectStartDate={projectStartDate}
 					search={debouncedSearch.trim()}

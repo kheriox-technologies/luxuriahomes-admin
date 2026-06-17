@@ -107,7 +107,10 @@ import { signCdnUrls } from '@/actions/cdn';
 import LocationCombobox from '@/components/inclusions/location-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
-import { openProjectInclusionsPdfInNewTab } from '@/lib/pdf/project-inclusions-pdf';
+import {
+	openGroupInclusionsPdfInNewTab,
+	openProjectInclusionsPdfInNewTab,
+} from '@/lib/pdf/project-inclusions-pdf';
 import { useAppModeStore } from '@/stores/app-mode-store';
 
 type ProjectInclusion = NonNullable<
@@ -954,6 +957,7 @@ function ProjectInclusionsTableInFrame({
 	pendingOrderItems,
 	onAddToOrder,
 	onCreateVendorGroupOrder,
+	onDownloadSectionPdf,
 }: {
 	section: InclusionSection;
 	mode: 'builder' | 'client';
@@ -965,8 +969,10 @@ function ProjectInclusionsTableInFrame({
 		inclusions: ProjectInclusion[],
 		deliveryDurationDays?: number
 	) => Promise<void>;
+	onDownloadSectionPdf: () => Promise<void>;
 }) {
 	const showPricing = mode === 'builder';
+	const [downloadLoading, setDownloadLoading] = useState(false);
 	const [bulkLoading, setBulkLoading] = useState(false);
 	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 	const [vendorOrderLoading, setVendorOrderLoading] = useState(false);
@@ -1162,6 +1168,22 @@ function ProjectInclusionsTableInFrame({
 							</DialogContent>
 						</Dialog>
 					) : null}
+					<Button
+						aria-label={`Download ${section.groupName} inclusions PDF`}
+						loading={downloadLoading}
+						onClick={() => {
+							setDownloadLoading(true);
+							onDownloadSectionPdf()
+								.catch(() => {
+									/* Error handled in onDownloadSectionPdf */
+								})
+								.finally(() => setDownloadLoading(false));
+						}}
+						type="button"
+						variant="outline"
+					>
+						<Download aria-hidden />
+					</Button>
 					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
 						<AlertDialogTrigger
 							render={
@@ -1801,7 +1823,7 @@ export default function ProjectInclusionsTabContent({
 			return;
 		}
 		try {
-			const allImageKeys = categorySections
+			const allImageKeys = sections
 				.flatMap((s) => s.inclusions)
 				.map((inc) => inc.image)
 				.filter((img): img is string => Boolean(img));
@@ -1826,9 +1848,9 @@ export default function ProjectInclusionsTabContent({
 					email: client.email,
 					phone: client.phone,
 				})),
-				sections: categorySections.map((section) => ({
-					categoryId: section.groupKey,
-					categoryName: section.groupName,
+				sections: sections.map((section) => ({
+					sectionId: section.groupKey,
+					sectionName: section.groupName,
 					inclusions: section.inclusions.map((inclusion) => ({
 						_id: String(inclusion._id),
 						title: inclusion.title,
@@ -1857,6 +1879,62 @@ export default function ProjectInclusionsTabContent({
 			});
 		}
 	};
+
+	const createSectionDownloadHandler =
+		(section: InclusionSection) => async () => {
+			if (!project) {
+				toastManager.add({
+					title: 'Could not download PDF',
+					description: 'Project details are still loading. Please try again.',
+					type: 'error',
+				});
+				return;
+			}
+			try {
+				const imageKeys = section.inclusions
+					.map((inc) => inc.image)
+					.filter((img): img is string => Boolean(img));
+				const pdfImageDataUrls: Record<string, string> = {};
+				if (imageKeys.length > 0) {
+					const signedUrls = await signCdnUrls(imageKeys);
+					await Promise.all(
+						Object.entries(signedUrls).map(async ([key, url]) => {
+							const dataUrl = await fetchUrlAsJpegDataUrl(url);
+							if (dataUrl) {
+								pdfImageDataUrls[key] = dataUrl;
+							}
+						})
+					);
+				}
+				await openGroupInclusionsPdfInNewTab({
+					groupName: section.groupName,
+					projectAddress: project.address,
+					inclusions: section.inclusions.map((inclusion) => ({
+						_id: String(inclusion._id),
+						title: inclusion.title,
+						code: inclusion.code,
+						vendor: inclusion.vendor,
+						models: inclusion.models,
+						color: inclusion.color,
+						locations: inclusion.locations?.map((l) => ({ name: l.name })),
+						details: inclusion.details,
+						status: inclusion.status,
+						class: inclusion.class,
+						variationPrice: inclusion.variationPrice,
+						image: pdfImageDataUrls[inclusion.image ?? ''],
+					})),
+				});
+			} catch (error) {
+				toastManager.add({
+					title: 'Could not generate PDF',
+					description:
+						error instanceof Error
+							? error.message
+							: 'Please try again in a moment.',
+					type: 'error',
+				});
+			}
+		};
 
 	if (inclusions === undefined || categories === undefined) {
 		return <p className="text-muted-foreground text-sm">Loading inclusions…</p>;
@@ -1957,6 +2035,7 @@ export default function ProjectInclusionsTabContent({
 						mode={mode}
 						onAddToOrder={onAddToOrder}
 						onCreateVendorGroupOrder={handleCreateVendorGroupOrder}
+						onDownloadSectionPdf={createSectionDownloadHandler(section)}
 						pendingOrderItems={pendingOrderItems}
 						projectId={projectId}
 						section={section}

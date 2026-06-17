@@ -229,6 +229,16 @@ export default defineSchema({
 		.index('by_stage', ['stageId'])
 		.index('by_schedule_template', ['scheduleTemplateId'])
 		.index('by_stage_order', ['stageId', 'order']),
+	scheduleOrderTasks: defineTable({
+		scheduleTemplateId: v.id('scheduleTemplates'),
+		stageId: v.id('scheduleStages'),
+		parentTaskId: v.id('scheduleTasks'),
+		name: v.string(),
+		durationDays: v.number(),
+	})
+		.index('by_schedule_template', ['scheduleTemplateId'])
+		.index('by_parent_task', ['parentTaskId'])
+		.index('by_stage', ['stageId']),
 	vendors: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),
@@ -395,4 +405,14 @@ export default defineSchema({
 		.index('by_project', ['projectId'])
 		.index('by_stage', ['stageId'])
 		.index('by_stage_order', ['stageId', 'order']),
+	projectOrderTasks: defineTable({
+		projectId: v.id('projects'),
+		stageId: v.id('projectStages'),
+		parentTaskId: v.id('projectTasks'),
+		name: v.string(),
+		durationDays: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_parent_task', ['parentTaskId'])
+		.index('by_stage', ['stageId']),
 });

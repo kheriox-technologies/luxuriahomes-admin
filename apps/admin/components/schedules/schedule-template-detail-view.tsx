@@ -36,6 +36,10 @@ export default function ScheduleTemplateDetailView({
 	const tasks = useQuery(api.scheduleTasks.listByTemplate.listByTemplate, {
 		scheduleTemplateId,
 	});
+	const orderTasks = useQuery(
+		api.scheduleOrderTasks.listByTemplate.listByTemplate,
+		{ scheduleTemplateId }
+	);
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -113,6 +117,7 @@ export default function ScheduleTemplateDetailView({
 							/>
 						</InputGroup>
 						<AddTemplateToProject
+							orderTasks={orderTasks ?? []}
 							scheduleTemplateId={scheduleTemplateId}
 							stages={stages ?? []}
 							tasks={tasks ?? []}
@@ -126,6 +131,7 @@ export default function ScheduleTemplateDetailView({
 			/>
 			<div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
 				<GanttPanel
+					orderTasks={orderTasks ?? []}
 					scheduleTemplateId={scheduleTemplateId}
 					search={debouncedSearch.trim()}
 					stageLayouts={stageLayouts}

@@ -1,6 +1,7 @@
 'use client';
 
-import type { Doc } from '@workspace/backend/dataModel';
+import type { Doc, Id } from '@workspace/backend/dataModel';
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Menu,
@@ -9,8 +10,22 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
-import { EllipsisVertical, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import {
+	Popover,
+	PopoverPopup,
+	PopoverTitle,
+	PopoverTrigger,
+} from '@workspace/ui/components/popover';
+import {
+	EllipsisVertical,
+	GripVertical,
+	Pencil,
+	ShoppingCart,
+	Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
+import AddOrderTask from './add-order-task';
+import DeleteOrderTask from './delete-order-task';
 import DeleteTask from './delete-task';
 import EditTask from './edit-task';
 import { TASK_ROW_HEIGHT } from './schedule-row-heights';
@@ -18,16 +33,23 @@ import { TASK_ROW_HEIGHT } from './schedule-row-heights';
 export default function TaskRow({
 	task,
 	tasks,
+	scheduleTemplateId,
+	orderTask,
 	onNameClick,
 	dragHandleProps,
 }: {
 	task: Doc<'scheduleTasks'>;
 	tasks: Doc<'scheduleTasks'>[];
+	scheduleTemplateId: Id<'scheduleTemplates'>;
+	orderTask?: Doc<'scheduleOrderTasks'>;
 	onNameClick?: () => void;
 	dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [addOrderTaskOpen, setAddOrderTaskOpen] = useState(false);
+	const [deleteOrderTaskOpen, setDeleteOrderTaskOpen] = useState(false);
+	const [orderPopoverOpen, setOrderPopoverOpen] = useState(false);
 
 	return (
 		<>
@@ -55,9 +77,33 @@ export default function TaskRow({
 					</button>
 				</div>
 				<div className="flex shrink-0 items-center gap-1">
-					<span className="text-muted-foreground text-xs">
-						{task.durationDays}d
-					</span>
+					<div className="flex items-center gap-2">
+						{orderTask && (
+							<Popover
+								onOpenChange={setOrderPopoverOpen}
+								open={orderPopoverOpen}
+							>
+								<PopoverTrigger
+									render={
+										<Badge
+											className="cursor-pointer bg-pink-500/20 px-1 py-0 font-semibold text-[9px] text-pink-700 dark:text-pink-300"
+											size="sm"
+										/>
+									}
+								>
+									O
+								</PopoverTrigger>
+								<PopoverPopup side="top">
+									<PopoverTitle>
+										{orderTask.name} · {orderTask.durationDays}d
+									</PopoverTitle>
+								</PopoverPopup>
+							</Popover>
+						)}
+						<span className="text-muted-foreground text-xs">
+							{task.durationDays}d
+						</span>
+					</div>
 					<Menu>
 						<MenuTrigger
 							render={
@@ -72,11 +118,27 @@ export default function TaskRow({
 							<EllipsisVertical className="size-4" />
 						</MenuTrigger>
 						<MenuPopup align="end">
+							{!orderTask && (
+								<MenuItem onClick={() => setAddOrderTaskOpen(true)}>
+									<ShoppingCart />
+									Add Order Task
+								</MenuItem>
+							)}
+							{!orderTask && <MenuSeparator />}
 							<MenuItem onClick={() => setEditOpen(true)}>
 								<Pencil />
 								Edit Task
 							</MenuItem>
 							<MenuSeparator />
+							{orderTask && (
+								<MenuItem
+									onClick={() => setDeleteOrderTaskOpen(true)}
+									variant="destructive"
+								>
+									<Trash2 />
+									Delete Order Task
+								</MenuItem>
+							)}
 							<MenuItem
 								onClick={() => setDeleteOpen(true)}
 								variant="destructive"
@@ -95,6 +157,21 @@ export default function TaskRow({
 				tasks={tasks}
 			/>
 			<DeleteTask onOpenChange={setDeleteOpen} open={deleteOpen} task={task} />
+			<AddOrderTask
+				onOpenChange={setAddOrderTaskOpen}
+				open={addOrderTaskOpen}
+				preselectedTaskId={task._id}
+				scheduleTemplateId={scheduleTemplateId}
+				stageId={task.stageId}
+				stageTasks={tasks}
+			/>
+			{orderTask && (
+				<DeleteOrderTask
+					onOpenChange={setDeleteOrderTaskOpen}
+					open={deleteOrderTaskOpen}
+					orderTask={orderTask}
+				/>
+			)}
 		</>
 	);
 }
