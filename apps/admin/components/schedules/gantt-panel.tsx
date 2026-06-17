@@ -30,6 +30,7 @@ import {
 	AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Label } from '@workspace/ui/components/label';
 import {
 	Popover,
@@ -399,6 +400,7 @@ export default function GanttPanel({
 		Map<string, number>
 	>(new Map());
 	const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+	const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('day');
 
 	const leftRef = useRef<HTMLDivElement>(null);
 	const rightRef = useRef<HTMLDivElement>(null);
@@ -644,7 +646,12 @@ export default function GanttPanel({
 		return Math.max(max + 2, MIN_DAYS);
 	}, [taskLayouts, stageLayouts, today]);
 
-	const pixelsPerDay = DAY_WIDTH;
+	let pixelsPerDay = DAY_WIDTH;
+	if (viewType === 'week') {
+		pixelsPerDay = 15;
+	} else if (viewType === 'month') {
+		pixelsPerDay = 5;
+	}
 
 	const gridWidth = GRID_LEFT_PADDING + totalDays * pixelsPerDay;
 
@@ -667,10 +674,10 @@ export default function GanttPanel({
 				behavior: 'smooth',
 			});
 		},
-		[today]
+		[today, pixelsPerDay]
 	);
 
-	const columns = useMemo<GanttColumn[]>(() => {
+	const dayColumns = useMemo<GanttColumn[]>(() => {
 		return Array.from({ length: totalDays }, (_, i) => {
 			const { day, dayName, month, isWeekend } = getDayLabel(today, i);
 			return {
@@ -683,6 +690,62 @@ export default function GanttPanel({
 			};
 		});
 	}, [today, totalDays]);
+
+	const headerColumns = useMemo<GanttColumn[]>(() => {
+		if (viewType === 'day') {
+			return dayColumns;
+		}
+		if (viewType === 'week') {
+			const todayDow = today.getDay();
+			const daysToMon = -((todayDow + 6) % 7);
+			const cols: GanttColumn[] = [];
+			let dayStart = daysToMon;
+			while (dayStart < totalDays) {
+				const startDate = new Date(today);
+				startDate.setDate(startDate.getDate() + dayStart);
+				const endDate = new Date(today);
+				endDate.setDate(endDate.getDate() + dayStart + 6);
+				cols.push({
+					dayStart,
+					widthDays: 7,
+					label: startDate.toLocaleDateString('en-AU', {
+						day: 'numeric',
+						month: 'short',
+					}),
+					subLabel: endDate.toLocaleDateString('en-AU', {
+						day: 'numeric',
+						month: 'short',
+					}),
+					isWeekend: false,
+				});
+				dayStart += 7;
+			}
+			return cols;
+		}
+		// month view
+		const daysTillFirst = 1 - today.getDate();
+		const cols: GanttColumn[] = [];
+		let dayStart = daysTillFirst;
+		while (dayStart < totalDays) {
+			const d = new Date(today);
+			d.setDate(d.getDate() + dayStart);
+			const daysInMonth = new Date(
+				d.getFullYear(),
+				d.getMonth() + 1,
+				0
+			).getDate();
+			const daysRemaining = daysInMonth - d.getDate() + 1;
+			cols.push({
+				dayStart,
+				widthDays: daysRemaining,
+				label: d.toLocaleDateString('en-AU', { month: 'long' }),
+				subLabel: String(d.getFullYear()),
+				isWeekend: false,
+			});
+			dayStart += daysRemaining;
+		}
+		return cols;
+	}, [viewType, dayColumns, today, totalDays]);
 
 	const rowYMap = useMemo(() => {
 		const map = new Map<string, number>();
@@ -799,7 +862,7 @@ export default function GanttPanel({
 		}
 
 		return result;
-	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, today]);
+	}, [tasks, stages, taskLayouts, stageLayouts, rowYMap, today, pixelsPerDay]);
 
 	const onDeleteDependency = useCallback(async () => {
 		if (!deletingArrow) {
@@ -854,6 +917,37 @@ export default function GanttPanel({
 						<Label htmlFor="read-only-toggle">Read Only</Label>
 					</div>
 					<div className="flex items-center gap-2">
+						<Group>
+							<Button
+								className={viewType === 'day' ? 'bg-secondary' : undefined}
+								onClick={() => setViewType('day')}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Day
+							</Button>
+							<GroupSeparator />
+							<Button
+								className={viewType === 'week' ? 'bg-secondary' : undefined}
+								onClick={() => setViewType('week')}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Week
+							</Button>
+							<GroupSeparator />
+							<Button
+								className={viewType === 'month' ? 'bg-secondary' : undefined}
+								onClick={() => setViewType('month')}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Month
+							</Button>
+						</Group>
 						<Button
 							onClick={expandAll}
 							size="sm"
@@ -1009,19 +1103,17 @@ export default function GanttPanel({
 						<div className="relative" style={{ width: gridWidth }}>
 							{/* Day label header — sticks to the top of the right panel */}
 							<div
-								className="sticky top-0 z-10 flex border-b bg-background"
+								className="sticky top-0 z-10 border-b bg-background"
 								style={{ height: DATE_HEADER_HEIGHT }}
 							>
-								{/* Left padding cell before first column */}
-								<div
-									className="shrink-0"
-									style={{ width: GRID_LEFT_PADDING }}
-								/>
-								{columns.map((col) => (
+								{headerColumns.map((col) => (
 									<div
-										className={`flex shrink-0 flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isWeekend ? 'bg-foreground/5' : ''}`}
+										className={`absolute inset-y-0 flex flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isWeekend ? 'bg-foreground/5' : ''}`}
 										key={col.dayStart}
-										style={{ width: col.widthDays * pixelsPerDay }}
+										style={{
+											left: GRID_LEFT_PADDING + col.dayStart * pixelsPerDay,
+											width: col.widthDays * pixelsPerDay,
+										}}
 									>
 										{col.dayName && (
 											<span className="text-[10px] leading-none opacity-60">
@@ -1053,9 +1145,24 @@ export default function GanttPanel({
 											className={`relative border-b ${isEven ? 'bg-muted/20' : ''}`}
 											style={{ height: STAGE_ROW_HEIGHT, width: gridWidth }}
 										>
-											{columns.map((col) => (
+											{viewType === 'day' &&
+												dayColumns
+													.filter((col) => col.isWeekend)
+													.map((col) => (
+														<div
+															className="absolute inset-y-0 bg-foreground/5"
+															key={col.dayStart}
+															style={{
+																left:
+																	GRID_LEFT_PADDING +
+																	col.dayStart * pixelsPerDay,
+																width: pixelsPerDay,
+															}}
+														/>
+													))}
+											{headerColumns.map((col) => (
 												<div
-													className={`absolute inset-y-0 border-border/40 border-r ${col.isWeekend ? 'bg-foreground/5' : ''}`}
+													className="absolute inset-y-0 border-border/40 border-r"
 													key={col.dayStart}
 													style={{
 														left:
@@ -1091,7 +1198,7 @@ export default function GanttPanel({
 																	dragAxis="x"
 																	dragGrid={[pixelsPerDay, 1]}
 																	enableResizing={false}
-																	key={`${stage._id}-${stageLayout.startOffset}-${stageLayout.endOffset}-${stageReversionTicks.get(stage._id) ?? 0}`}
+																	key={`${stage._id}-${stageLayout.startOffset}-${stageLayout.endOffset}-${stageReversionTicks.get(stage._id) ?? 0}-${viewType}`}
 																	onDrag={(_e, d) => {
 																		const newCalStart =
 																			(d.x - GRID_LEFT_PADDING) / pixelsPerDay;
@@ -1153,40 +1260,27 @@ export default function GanttPanel({
 																		<PopoverTrigger
 																			className={`absolute inset-0 overflow-hidden rounded-sm bg-purple-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
 																		>
-																			{columns
+																			{dayColumns
 																				.filter(
 																					(col) =>
 																						col.isWeekend &&
 																						col.dayStart < calEnd + 1 &&
-																						col.dayStart + col.widthDays >
-																							calStart
+																						col.dayStart >= calStart
 																				)
-																				.map((col) => {
-																					const overlapStart = Math.max(
-																						col.dayStart,
-																						calStart
-																					);
-																					const overlapEnd = Math.min(
-																						col.dayStart + col.widthDays,
-																						calEnd + 1
-																					);
-																					return (
-																						<div
-																							className="absolute inset-y-0"
-																							key={col.dayStart}
-																							style={{
-																								left:
-																									(overlapStart - calStart) *
-																									pixelsPerDay,
-																								width:
-																									(overlapEnd - overlapStart) *
-																									pixelsPerDay,
-																								background:
-																									'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																							}}
-																						/>
-																					);
-																				})}
+																				.map((col) => (
+																					<div
+																						className="absolute inset-y-0"
+																						key={col.dayStart}
+																						style={{
+																							left:
+																								(col.dayStart - calStart) *
+																								pixelsPerDay,
+																							width: pixelsPerDay,
+																							background:
+																								'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																						}}
+																					/>
+																				))}
 																		</PopoverTrigger>
 																		<PopoverPopup side="top">
 																			<PopoverTitle>
@@ -1242,9 +1336,24 @@ export default function GanttPanel({
 															width: gridWidth,
 														}}
 													>
-														{columns.map((col) => (
+														{viewType === 'day' &&
+															dayColumns
+																.filter((col) => col.isWeekend)
+																.map((col) => (
+																	<div
+																		className="absolute inset-y-0 bg-foreground/5"
+																		key={col.dayStart}
+																		style={{
+																			left:
+																				GRID_LEFT_PADDING +
+																				col.dayStart * pixelsPerDay,
+																			width: pixelsPerDay,
+																		}}
+																	/>
+																))}
+														{headerColumns.map((col) => (
 															<div
-																className={`absolute inset-y-0 border-border/40 border-r ${col.isWeekend ? 'bg-foreground/5' : ''}`}
+																className="absolute inset-y-0 border-border/40 border-r"
 																key={col.dayStart}
 																style={{
 																	left:
@@ -1289,7 +1398,7 @@ export default function GanttPanel({
 																				enableResizing={
 																					isReadOnly ? false : { right: true }
 																				}
-																				key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}-${taskReversionTicks.get(task._id) ?? 0}`}
+																				key={`${task._id}-${taskLayout.durationDays}-${taskLayout.startOffset}-${taskReversionTicks.get(task._id) ?? 0}-${viewType}`}
 																				minWidth={pixelsPerDay}
 																				onDrag={(_e, d) => {
 																					const newCalStart =
@@ -1410,42 +1519,28 @@ export default function GanttPanel({
 																					<PopoverTrigger
 																						className={`absolute inset-0 overflow-hidden rounded-sm bg-blue-500/70 ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
 																					>
-																						{columns
+																						{dayColumns
 																							.filter(
 																								(col) =>
 																									col.isWeekend &&
 																									col.dayStart < calEnd + 1 &&
-																									col.dayStart + col.widthDays >
-																										calStart
+																									col.dayStart >= calStart
 																							)
-																							.map((col) => {
-																								const overlapStart = Math.max(
-																									col.dayStart,
-																									calStart
-																								);
-																								const overlapEnd = Math.min(
-																									col.dayStart + col.widthDays,
-																									calEnd + 1
-																								);
-																								return (
-																									<div
-																										className="absolute inset-y-0"
-																										key={col.dayStart}
-																										style={{
-																											left:
-																												(overlapStart -
-																													calStart) *
-																												pixelsPerDay,
-																											width:
-																												(overlapEnd -
-																													overlapStart) *
-																												pixelsPerDay,
-																											background:
-																												'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																										}}
-																									/>
-																								);
-																							})}
+																							.map((col) => (
+																								<div
+																									className="absolute inset-y-0"
+																									key={col.dayStart}
+																									style={{
+																										left:
+																											(col.dayStart -
+																												calStart) *
+																											pixelsPerDay,
+																										width: pixelsPerDay,
+																										background:
+																											'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																									}}
+																								/>
+																							))}
 																					</PopoverTrigger>
 																					<PopoverPopup side="top">
 																						<PopoverTitle>

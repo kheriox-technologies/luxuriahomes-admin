@@ -81,6 +81,7 @@ interface ProjectGanttColumn {
 	isToday: boolean;
 	isWeekend: boolean;
 	monthLabel: string;
+	widthDays: number;
 }
 
 interface ArrowDef {
@@ -176,16 +177,6 @@ function getTaskBarColor(status: Doc<'projectTasks'>['status']): string {
 		default:
 			return 'bg-blue-500/70';
 	}
-}
-
-function getColumnBg(col: ProjectGanttColumn): string {
-	if (col.isToday) {
-		return 'bg-primary/10';
-	}
-	if (col.isWeekend) {
-		return 'bg-foreground/5';
-	}
-	return '';
 }
 
 function getStatusVariant(status: string): 'warning' | 'success' | 'secondary' {
@@ -378,6 +369,7 @@ export default function ProjectGanttPanel({
 		durationDays: number;
 	} | null>(null);
 	const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+	const [viewType, setViewType] = useState<'day' | 'week' | 'month'>('day');
 	const [stageReversionTicks, setStageReversionTicks] = useState<
 		Map<string, number>
 	>(new Map());
@@ -427,10 +419,15 @@ export default function ProjectGanttPanel({
 		return Math.max(maxOffset + 5, MIN_DAYS);
 	}, [stages, tasks, anchor, today]);
 
-	const pixelsPerDay = DAY_WIDTH;
+	let pixelsPerDay = DAY_WIDTH;
+	if (viewType === 'week') {
+		pixelsPerDay = 15;
+	} else if (viewType === 'month') {
+		pixelsPerDay = 5;
+	}
 	const gridWidth = GRID_LEFT_PADDING + totalDays * pixelsPerDay;
 
-	const columns = useMemo<ProjectGanttColumn[]>(() => {
+	const dayColumns = useMemo<ProjectGanttColumn[]>(() => {
 		const todayStr = today.toDateString();
 		return Array.from({ length: totalDays }, (_, i) => {
 			const date = addCalendarDays(anchor, i);
@@ -443,9 +440,73 @@ export default function ProjectGanttPanel({
 				dayLabel: date.toLocaleDateString('en-AU', { day: 'numeric' }),
 				monthLabel: date.toLocaleDateString('en-AU', { month: 'short' }),
 				dayName: date.toLocaleDateString('en-AU', { weekday: 'short' }),
+				widthDays: 1,
 			};
 		});
 	}, [anchor, totalDays, today]);
+
+	const headerColumns = useMemo<ProjectGanttColumn[]>(() => {
+		if (viewType === 'day') {
+			return dayColumns;
+		}
+		const todayOffset = dateToCalOffset(today, anchor);
+		if (viewType === 'week') {
+			const anchorDow = anchor.getDay();
+			const daysToMon = -((anchorDow + 6) % 7);
+			const cols: ProjectGanttColumn[] = [];
+			let dayIndex = daysToMon;
+			while (dayIndex < totalDays) {
+				const startDate = addCalendarDays(anchor, dayIndex);
+				const endDate = addCalendarDays(anchor, dayIndex + 6);
+				const containsToday =
+					todayOffset >= dayIndex && todayOffset < dayIndex + 7;
+				cols.push({
+					date: startDate,
+					dayIndex,
+					dayLabel: startDate.toLocaleDateString('en-AU', {
+						day: 'numeric',
+						month: 'short',
+					}),
+					dayName: '',
+					isToday: containsToday,
+					isWeekend: false,
+					monthLabel: endDate.toLocaleDateString('en-AU', {
+						day: 'numeric',
+						month: 'short',
+					}),
+					widthDays: 7,
+				});
+				dayIndex += 7;
+			}
+			return cols;
+		}
+		// month view
+		const daysTillFirst = 1 - anchor.getDate();
+		const cols: ProjectGanttColumn[] = [];
+		let dayIndex = daysTillFirst;
+		while (dayIndex < totalDays) {
+			const monthStart = addCalendarDays(anchor, dayIndex);
+			const daysInMonth = new Date(
+				monthStart.getFullYear(),
+				monthStart.getMonth() + 1,
+				0
+			).getDate();
+			const containsToday =
+				todayOffset >= dayIndex && todayOffset < dayIndex + daysInMonth;
+			cols.push({
+				date: monthStart,
+				dayIndex,
+				dayLabel: monthStart.toLocaleDateString('en-AU', { month: 'long' }),
+				dayName: '',
+				isToday: containsToday,
+				isWeekend: false,
+				monthLabel: String(monthStart.getFullYear()),
+				widthDays: daysInMonth,
+			});
+			dayIndex += daysInMonth;
+		}
+		return cols;
+	}, [viewType, dayColumns, anchor, today, totalDays]);
 
 	const onLeftScroll = useCallback(() => {
 		if (isSyncing.current || !rightRef.current || !leftRef.current) {
@@ -495,7 +556,7 @@ export default function ProjectGanttPanel({
 			left: Math.max(0, scrollLeft),
 			behavior: 'smooth',
 		});
-	}, [today, anchor]);
+	}, [today, anchor, pixelsPerDay]);
 
 	const scrollToStart = useCallback(() => {
 		if (!rightRef.current || stages.length === 0) {
@@ -507,7 +568,7 @@ export default function ProjectGanttPanel({
 			left: Math.max(0, GRID_LEFT_PADDING + offset * pixelsPerDay - 24),
 			behavior: 'smooth',
 		});
-	}, [stages, anchor]);
+	}, [stages, anchor, pixelsPerDay]);
 
 	const scrollToEnd = useCallback(() => {
 		if (!rightRef.current || stages.length === 0) {
@@ -523,7 +584,7 @@ export default function ProjectGanttPanel({
 			),
 			behavior: 'smooth',
 		});
-	}, [stages, anchor]);
+	}, [stages, anchor, pixelsPerDay]);
 
 	const onResizeMouseDown = useCallback(
 		(e: React.MouseEvent) => {
@@ -801,7 +862,7 @@ export default function ProjectGanttPanel({
 		}
 
 		return result;
-	}, [tasks, stages, rowYMap, anchor]);
+	}, [tasks, stages, rowYMap, anchor, pixelsPerDay]);
 
 	const scrollToDate = useCallback(
 		(timestamp: number) => {
@@ -818,7 +879,7 @@ export default function ProjectGanttPanel({
 				behavior: 'smooth',
 			});
 		},
-		[anchor]
+		[anchor, pixelsPerDay]
 	);
 
 	const onDeleteDependency = useCallback(async () => {
@@ -871,6 +932,37 @@ export default function ProjectGanttPanel({
 						<Label htmlFor="project-read-only-toggle">Read Only</Label>
 					</div>
 					<div className="flex items-center gap-2">
+						<Group>
+							<Button
+								className={viewType === 'day' ? 'bg-secondary' : undefined}
+								onClick={() => setViewType('day')}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Day
+							</Button>
+							<GroupSeparator />
+							<Button
+								className={viewType === 'week' ? 'bg-secondary' : undefined}
+								onClick={() => setViewType('week')}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Week
+							</Button>
+							<GroupSeparator />
+							<Button
+								className={viewType === 'month' ? 'bg-secondary' : undefined}
+								onClick={() => setViewType('month')}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								Month
+							</Button>
+						</Group>
 						<Group>
 							<Button
 								aria-label="Scroll to start"
@@ -1019,28 +1111,31 @@ export default function ProjectGanttPanel({
 						<div className="relative" style={{ width: gridWidth }}>
 							{/* Date header */}
 							<div
-								className="sticky top-0 z-10 flex border-b bg-background"
+								className="sticky top-0 z-10 border-b bg-background"
 								style={{ height: DATE_HEADER_HEIGHT }}
 							>
-								<div
-									className="shrink-0"
-									style={{ width: GRID_LEFT_PADDING }}
-								/>
-								{columns.map((col) => (
+								{headerColumns.map((col) => (
 									<div
-										className={`flex shrink-0 flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isToday ? 'bg-primary/10 font-semibold text-primary' : getColumnBg(col)}`}
+										className={`absolute inset-y-0 flex flex-col items-center justify-center gap-0.5 border-r text-muted-foreground text-xs ${col.isToday ? 'bg-primary/10 font-semibold text-primary' : ''}`}
 										key={col.dayIndex}
-										style={{ width: pixelsPerDay }}
+										style={{
+											left: GRID_LEFT_PADDING + col.dayIndex * pixelsPerDay,
+											width: col.widthDays * pixelsPerDay,
+										}}
 									>
-										<span className="text-[10px] leading-none opacity-60">
-											{col.dayName}
-										</span>
+										{col.dayName && (
+											<span className="text-[10px] leading-none opacity-60">
+												{col.dayName}
+											</span>
+										)}
 										<span className="font-medium leading-none">
 											{col.dayLabel}
 										</span>
-										<span className="text-[10px] leading-none opacity-70">
-											{col.monthLabel}
-										</span>
+										{col.monthLabel && (
+											<span className="text-[10px] leading-none opacity-70">
+												{col.monthLabel}
+											</span>
+										)}
 									</div>
 								))}
 							</div>
@@ -1073,14 +1168,29 @@ export default function ProjectGanttPanel({
 											className={`relative border-b ${isEven ? 'bg-muted/20' : ''}`}
 											style={{ height: STAGE_ROW_HEIGHT, width: gridWidth }}
 										>
-											{columns.map((col) => (
+											{viewType === 'day' &&
+												dayColumns
+													.filter((col) => col.isWeekend)
+													.map((col) => (
+														<div
+															className="absolute inset-y-0 bg-foreground/5"
+															key={col.dayIndex}
+															style={{
+																left:
+																	GRID_LEFT_PADDING +
+																	col.dayIndex * pixelsPerDay,
+																width: pixelsPerDay,
+															}}
+														/>
+													))}
+											{headerColumns.map((col) => (
 												<div
-													className={`absolute inset-y-0 border-border/40 border-r ${getColumnBg(col)}`}
+													className={`absolute inset-y-0 border-border/40 border-r${col.isToday ? 'bg-primary/10' : ''}`}
 													key={col.dayIndex}
 													style={{
 														left:
 															GRID_LEFT_PADDING + col.dayIndex * pixelsPerDay,
-														width: pixelsPerDay,
+														width: col.widthDays * pixelsPerDay,
 													}}
 												/>
 											))}
@@ -1097,7 +1207,7 @@ export default function ProjectGanttPanel({
 														dragAxis="x"
 														dragGrid={[pixelsPerDay, 1]}
 														enableResizing={false}
-														key={`${stage._id}-${stage.startDate}-${stage.endDate}-${stageReversionTicks.get(stage._id) ?? 0}`}
+														key={`${stage._id}-${stage.startDate}-${stage.endDate}-${stageReversionTicks.get(stage._id) ?? 0}-${viewType}`}
 														onDragStop={(_e, d) => {
 															const newStartOff = Math.round(
 																(d.x - GRID_LEFT_PADDING) / pixelsPerDay
@@ -1149,39 +1259,27 @@ export default function ProjectGanttPanel({
 															<PopoverTrigger
 																className={`absolute inset-0 overflow-hidden rounded-sm ${stageBarColor} ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
 															>
-																{columns
+																{dayColumns
 																	.filter(
 																		(col) =>
 																			col.isWeekend &&
 																			col.dayIndex < stageEndOff + 1 &&
-																			col.dayIndex > stageStartOff - 1
+																			col.dayIndex >= stageStartOff
 																	)
-																	.map((col) => {
-																		const overlapStart = Math.max(
-																			col.dayIndex,
-																			stageStartOff
-																		);
-																		const overlapEnd = Math.min(
-																			col.dayIndex + 1,
-																			stageEndOff + 1
-																		);
-																		return (
-																			<div
-																				className="absolute inset-y-0"
-																				key={col.dayIndex}
-																				style={{
-																					left:
-																						(overlapStart - stageStartOff) *
-																						pixelsPerDay,
-																					width:
-																						(overlapEnd - overlapStart) *
-																						pixelsPerDay,
-																					background:
-																						'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																				}}
-																			/>
-																		);
-																	})}
+																	.map((col) => (
+																		<div
+																			className="absolute inset-y-0"
+																			key={col.dayIndex}
+																			style={{
+																				left:
+																					(col.dayIndex - stageStartOff) *
+																					pixelsPerDay,
+																				width: pixelsPerDay,
+																				background:
+																					'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																			}}
+																		/>
+																	))}
 															</PopoverTrigger>
 															<PopoverPopup arrow side="top" sideOffset={10}>
 																<PopoverTitle className="flex items-center justify-between gap-2">
@@ -1290,15 +1388,30 @@ export default function ProjectGanttPanel({
 															width: gridWidth,
 														}}
 													>
-														{columns.map((col) => (
+														{viewType === 'day' &&
+															dayColumns
+																.filter((col) => col.isWeekend)
+																.map((col) => (
+																	<div
+																		className="absolute inset-y-0 bg-foreground/5"
+																		key={col.dayIndex}
+																		style={{
+																			left:
+																				GRID_LEFT_PADDING +
+																				col.dayIndex * pixelsPerDay,
+																			width: pixelsPerDay,
+																		}}
+																	/>
+																))}
+														{headerColumns.map((col) => (
 															<div
-																className={`absolute inset-y-0 border-border/40 border-r ${getColumnBg(col)}`}
+																className={`absolute inset-y-0 border-border/40 border-r${col.isToday ? 'bg-primary/10' : ''}`}
 																key={col.dayIndex}
 																style={{
 																	left:
 																		GRID_LEFT_PADDING +
 																		col.dayIndex * pixelsPerDay,
-																	width: pixelsPerDay,
+																	width: col.widthDays * pixelsPerDay,
 																}}
 															/>
 														))}
@@ -1315,7 +1428,7 @@ export default function ProjectGanttPanel({
 															enableResizing={
 																isReadOnly ? false : { right: true }
 															}
-															key={`${task._id}-${task.startDate}-${task.endDate}-${taskReversionTicks.get(task._id) ?? 0}`}
+															key={`${task._id}-${task.startDate}-${task.endDate}-${taskReversionTicks.get(task._id) ?? 0}-${viewType}`}
 															minWidth={pixelsPerDay}
 															onDragStop={(_e, d) => {
 																const newStartOff = Math.round(
@@ -1428,39 +1541,27 @@ export default function ProjectGanttPanel({
 																<PopoverTrigger
 																	className={`absolute inset-0 overflow-hidden rounded-sm ${taskBarColor} ${isReadOnly ? '' : 'cursor-grab active:cursor-grabbing'}`}
 																>
-																	{columns
+																	{dayColumns
 																		.filter(
 																			(col) =>
 																				col.isWeekend &&
 																				col.dayIndex < taskEndOff + 1 &&
-																				col.dayIndex > taskStartOff - 1
+																				col.dayIndex >= taskStartOff
 																		)
-																		.map((col) => {
-																			const overlapStart = Math.max(
-																				col.dayIndex,
-																				taskStartOff
-																			);
-																			const overlapEnd = Math.min(
-																				col.dayIndex + 1,
-																				taskEndOff + 1
-																			);
-																			return (
-																				<div
-																					className="absolute inset-y-0"
-																					key={col.dayIndex}
-																					style={{
-																						left:
-																							(overlapStart - taskStartOff) *
-																							pixelsPerDay,
-																						width:
-																							(overlapEnd - overlapStart) *
-																							pixelsPerDay,
-																						background:
-																							'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
-																					}}
-																				/>
-																			);
-																		})}
+																		.map((col) => (
+																			<div
+																				className="absolute inset-y-0"
+																				key={col.dayIndex}
+																				style={{
+																					left:
+																						(col.dayIndex - taskStartOff) *
+																						pixelsPerDay,
+																					width: pixelsPerDay,
+																					background:
+																						'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.2) 3px, rgba(0,0,0,0.2) 6px)',
+																				}}
+																			/>
+																		))}
 																</PopoverTrigger>
 																<PopoverPopup arrow side="top" sideOffset={10}>
 																	<PopoverTitle className="flex items-center justify-between gap-2">
