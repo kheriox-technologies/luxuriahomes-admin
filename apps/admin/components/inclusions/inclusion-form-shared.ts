@@ -2,18 +2,21 @@ import { z } from 'zod';
 
 const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
 
+const optionalMoneyStringSchema = z
+	.string()
+	.optional()
+	.refine(
+		(val) => !val || MONEY_PATTERN.test(val.trim()),
+		'Enter a valid amount (up to 2 decimals)'
+	);
+
 export const inclusionFormSchema = z
 	.object({
 		title: z.string().trim().min(1, 'Title is required'),
 		categoryId: z.string(),
 		newCategoryName: z.string().optional(),
-		standardPrice: z
-			.string()
-			.optional()
-			.refine(
-				(val) => !val || MONEY_PATTERN.test(val.trim()),
-				'Enter a valid amount (up to 2 decimals)'
-			),
+		standardPrice: optionalMoneyStringSchema,
+		standardLabourPrice: optionalMoneyStringSchema,
 		measurementUnit: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
@@ -54,6 +57,7 @@ export const addInclusionVariantFormSchema = z
 		newColorName: z.string().optional(),
 		costPrice: moneyStringSchema,
 		salePrice: moneyStringSchema,
+		labourPrice: optionalMoneyStringSchema,
 		details: z.string().optional(),
 		link: z.string().optional(),
 		image: z.string().optional(),
@@ -77,12 +81,14 @@ export const emptyInclusionFormValues: {
 	categoryId: string;
 	newCategoryName: string;
 	standardPrice: string;
+	standardLabourPrice: string;
 	measurementUnit: string;
 } = {
 	title: '',
 	categoryId: '',
 	newCategoryName: '',
 	standardPrice: '',
+	standardLabourPrice: '',
 	measurementUnit: '',
 };
 
@@ -96,6 +102,7 @@ export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =
 		newColorName: '',
 		costPrice: '',
 		salePrice: '',
+		labourPrice: '',
 		details: 'Subject to availability and approval by client',
 		link: '',
 		image: '',

@@ -20,6 +20,7 @@ interface VariantPatchArgs {
 	costPrice?: number | undefined;
 	details?: string | null | undefined;
 	image?: string | null | undefined;
+	labourPrice?: number | null | undefined;
 	link?: string | null | undefined;
 	models?: string[] | undefined;
 	salePrice?: number | undefined;
@@ -59,6 +60,12 @@ function buildVariantPatch(args: VariantPatchArgs): Record<string, unknown> {
 	if (args.salePrice !== undefined) {
 		patch.salePrice = parseMoney2(args.salePrice, 'Sale price');
 	}
+	if (args.labourPrice !== undefined) {
+		patch.labourPrice =
+			args.labourPrice === null
+				? undefined
+				: parseMoney2(args.labourPrice, 'Labour price');
+	}
 	return patch;
 }
 
@@ -74,6 +81,7 @@ export const update = mutation({
 		link: v.optional(v.union(v.string(), v.null())),
 		costPrice: v.optional(v.number()),
 		salePrice: v.optional(v.number()),
+		labourPrice: v.optional(v.union(v.number(), v.null())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);

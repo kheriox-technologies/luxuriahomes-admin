@@ -13,6 +13,7 @@ export const update = mutation({
 		title: v.string(),
 		categoryId: v.optional(v.id('inclusionCategories')),
 		standardPrice: v.optional(v.number()),
+		standardLabourPrice: v.optional(v.number()),
 		measurementUnit: v.optional(v.id('units')),
 	},
 	handler: async (ctx, args) => {
@@ -44,6 +45,7 @@ export const update = mutation({
 			title,
 			categoryId: nextCategoryId,
 			standardPrice: args.standardPrice,
+			standardLabourPrice: args.standardLabourPrice,
 			measurementUnit: args.measurementUnit,
 		});
 		await syncSearchTextsForInclusion(ctx, args.inclusionId);

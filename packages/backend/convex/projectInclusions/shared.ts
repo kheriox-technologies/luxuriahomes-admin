@@ -74,12 +74,16 @@ export async function deleteNotesForProjectInclusion(
 export function buildVariationFromBase(
 	className: Doc<'projectInclusions'>['class'],
 	salePrice: number,
-	basePrice: number | undefined
+	basePrice: number | undefined,
+	labourPrice?: number | undefined,
+	baseLabourPrice?: number | undefined
 ) {
 	if (className === 'Standard' || basePrice === undefined) {
 		return { variationPrice: undefined };
 	}
-	return { variationPrice: roundMoney(salePrice - basePrice) };
+	const baseVariation = salePrice - basePrice;
+	const labourVariation = (labourPrice ?? 0) - (baseLabourPrice ?? 0);
+	return { variationPrice: roundMoney(baseVariation + labourVariation) };
 }
 
 export function validateVariationFields(
