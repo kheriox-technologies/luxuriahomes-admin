@@ -22,6 +22,7 @@ export interface ProjectPdfInclusion {
 	color?: string;
 	details?: string;
 	image?: string;
+	link?: string;
 	locations?: { name: string }[];
 	models: string[];
 	status?: 'Under Review' | 'Approved';
@@ -86,6 +87,21 @@ function inclusionImageTableCell(
 	};
 }
 
+function inclusionLinkTableCell(
+	link: string | undefined
+): Record<string, unknown> | string {
+	const trimmed = link?.trim();
+	if (!trimmed) {
+		return '-';
+	}
+	return {
+		text: 'View Online',
+		link: trimmed,
+		color: '#2563eb',
+		decoration: 'underline',
+	};
+}
+
 interface GroupPdfOptions {
 	hideClientSection: boolean;
 	hideSectionHeadings: boolean;
@@ -109,6 +125,7 @@ function buildDocDefinition(
 				{ text: 'Color', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Location', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Status', bold: true, fillColor: '#f3f4f6' },
+				{ text: 'Web link', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Image', bold: true, fillColor: '#f3f4f6' },
 			],
 		];
@@ -128,6 +145,7 @@ function buildDocDefinition(
 				inclusion.color ?? '—',
 				inclusion.locations?.map((l) => l.name).join(', ') || '—',
 				inclusion.status ?? 'Under Review',
+				inclusionLinkTableCell(inclusion.link),
 				inclusionImageTableCell(inclusionImageDataUrls.get(inclusion._id)),
 			]);
 		}
@@ -144,7 +162,7 @@ function buildDocDefinition(
 			table: {
 				headerRows: 1,
 				dontBreakRows: true,
-				widths: ['20%', '24%', '9%', '13%', '10%', '24%'],
+				widths: ['18%', '22%', '8%', '12%', '10%', '9%', '21%'],
 				body,
 			},
 			fontSize: 9,
@@ -396,6 +414,12 @@ interface PdfMakeBrowser {
 	setFonts: (fonts: Record<string, Record<string, string>>) => void;
 }
 
+interface CreatedPdf {
+	getBase64: () => Promise<string>;
+	getBlob: () => Promise<Blob>;
+	open: () => void;
+}
+
 /**
  * Browser `pdfmake` is a singleton that loads fonts from an internal virtual FS.
  * Assigning `pdfMake.vfs = …` does not register files — you must call
@@ -423,9 +447,10 @@ function configurePdfMakeFonts(
 	});
 }
 
-export async function openProjectInclusionsPdfInNewTab(
-	options: OpenProjectInclusionsPdfOptions
-): Promise<void> {
+async function createInclusionsPdf(
+	options: OpenProjectInclusionsPdfOptions,
+	groupOptions?: GroupPdfOptions
+): Promise<CreatedPdf> {
 	const [{ default: pdfMake }, vfsModule, logoDataUrl] = await Promise.all([
 		import('pdfmake/build/pdfmake'),
 		import('pdfmake/build/vfs_fonts'),
@@ -450,14 +475,15 @@ export async function openProjectInclusionsPdfInNewTab(
 		logoDataUrl,
 		options,
 		inclusionImageDataUrls,
-		undefined
+		groupOptions
 	);
 
+	return pdfMake.createPdf(docDefinition as never) as unknown as CreatedPdf;
+}
+
+async function openPdfInNewTab(pdf: CreatedPdf): Promise<void> {
 	// Use getBlob() instead of open() so errors thrown during PDF generation
 	// propagate to the caller rather than silently leaving a blank tab open.
-	const pdf = pdfMake.createPdf(docDefinition as never) as unknown as {
-		getBlob: () => Promise<Blob>;
-	};
 	const blob = await pdf.getBlob();
 	const blobUrl = URL.createObjectURL(blob);
 	const win = window.open(blobUrl, '_blank');
@@ -468,63 +494,68 @@ export async function openProjectInclusionsPdfInNewTab(
 	}
 }
 
+export async function openProjectInclusionsPdfInNewTab(
+	options: OpenProjectInclusionsPdfOptions
+): Promise<void> {
+	const pdf = await createInclusionsPdf(options);
+	await openPdfInNewTab(pdf);
+}
+
+/**
+ * Generates the full project inclusions PDF and resolves with its base64
+ * contents (without a data-URL prefix) — suitable for an email attachment.
+ */
+export async function generateProjectInclusionsPdfBase64(
+	options: OpenProjectInclusionsPdfOptions
+): Promise<string> {
+	const pdf = await createInclusionsPdf(options);
+	return await pdf.getBase64();
+}
+
 export interface OpenGroupInclusionsPdfOptions {
 	groupName: string;
 	inclusions: ProjectPdfInclusion[];
 	projectAddress: PdfProjectAddress;
 }
 
-export async function openGroupInclusionsPdfInNewTab(
+function buildGroupPdfArgs(
 	options: OpenGroupInclusionsPdfOptions
-): Promise<void> {
-	const [{ default: pdfMake }, vfsModule, logoDataUrl] = await Promise.all([
-		import('pdfmake/build/pdfmake'),
-		import('pdfmake/build/vfs_fonts'),
-		getProjectInclusionsPdfLogoDataUrl(),
-	]);
-
-	const vfs = mergeVirtualFontFilesFromModule(vfsModule);
-	if (
-		Object.keys(vfs).length === 0 ||
-		typeof vfs[ROBOTO_VFS_FILES.normal] !== 'string' ||
-		vfs[ROBOTO_VFS_FILES.normal] === ''
-	) {
-		throw new Error('Could not initialize PDF fonts.');
-	}
-
-	configurePdfMakeFonts(pdfMake as PdfMakeBrowser, vfs);
-
+): [OpenProjectInclusionsPdfOptions, GroupPdfOptions] {
 	const section = {
 		sectionId: options.groupName,
 		sectionName: options.groupName,
 		inclusions: options.inclusions,
 		totalVariationSalePrice: 0,
 	};
-	const inclusionImageDataUrls = resolveInclusionImageDataUrls([section]);
-	const docDefinition = buildDocDefinition(
-		logoDataUrl,
+	return [
 		{
 			clients: [],
 			projectAddress: options.projectAddress,
 			projectName: options.groupName,
 			sections: [section],
 		},
-		inclusionImageDataUrls,
 		{
 			titleOverride: options.groupName,
 			hideClientSection: true,
 			hideSectionHeadings: true,
-		}
-	);
+		},
+	];
+}
 
-	const pdf = pdfMake.createPdf(docDefinition as never) as unknown as {
-		getBlob: () => Promise<Blob>;
-	};
-	const blob = await pdf.getBlob();
-	const blobUrl = URL.createObjectURL(blob);
-	const win = window.open(blobUrl, '_blank');
-	setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
-	if (!win) {
-		throw new Error('Could not open PDF — please allow popups for this site.');
-	}
+export async function openGroupInclusionsPdfInNewTab(
+	options: OpenGroupInclusionsPdfOptions
+): Promise<void> {
+	const pdf = await createInclusionsPdf(...buildGroupPdfArgs(options));
+	await openPdfInNewTab(pdf);
+}
+
+/**
+ * Generates a single group's inclusions PDF and resolves with its base64
+ * contents (without a data-URL prefix) — suitable for an email attachment.
+ */
+export async function generateGroupInclusionsPdfBase64(
+	options: OpenGroupInclusionsPdfOptions
+): Promise<string> {
+	const pdf = await createInclusionsPdf(...buildGroupPdfArgs(options));
+	return await pdf.getBase64();
 }
