@@ -36,13 +36,19 @@ import {
 	FileText,
 	History,
 	Link,
+	Mail,
 	Pencil,
 	SearchIcon,
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
 import { useState } from 'react';
-import { openProjectOrderPdfInNewTab } from '@/lib/pdf/project-order-pdf';
+import ComposeEmailDialog from '@/components/email/compose-email-dialog';
+import type { ComposeAttachment } from '@/lib/email';
+import {
+	generateProjectOrderPdfBase64,
+	openProjectOrderPdfInNewTab,
+} from '@/lib/pdf/project-order-pdf';
 import AddOrder from './add-order';
 import AddToTaskDialog from './add-to-task-dialog';
 import DeleteOrder from './delete-order';
@@ -91,6 +97,48 @@ function OrderActionsCell({
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
 	const [addToTaskOpen, setAddToTaskOpen] = useState(false);
+	const [emailOpen, setEmailOpen] = useState(false);
+	const [emailAttachments, setEmailAttachments] = useState<ComposeAttachment[]>(
+		[]
+	);
+
+	const handleEmailOrder = async () => {
+		if (!projectAddress) {
+			toastManager.add({
+				title: 'Could not prepare email',
+				description: 'Project address is still loading. Please try again.',
+				type: 'error',
+			});
+			return;
+		}
+		try {
+			const base64 = await generateProjectOrderPdfBase64({
+				orderId: row.orderId,
+				vendor: row.vendor,
+				items: row.items,
+				projectAddress,
+			});
+			setEmailAttachments([
+				{
+					id: crypto.randomUUID(),
+					filename: `${row.orderId}.pdf`,
+					contentType: 'application/pdf',
+					contentBase64: base64,
+					removable: true,
+				},
+			]);
+			setEmailOpen(true);
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not prepare email',
+				description:
+					error instanceof Error
+						? error.message
+						: 'Please try again in a moment.',
+				type: 'error',
+			});
+		}
+	};
 
 	const handleViewOrderPdf = async () => {
 		if (!projectAddress) {
@@ -144,6 +192,15 @@ function OrderActionsCell({
 				open={addToTaskOpen}
 				order={row}
 			/>
+			<ComposeEmailDialog
+				defaultAttachments={emailAttachments}
+				defaultSubject={`Order ${row.orderId} — ${row.vendor}`}
+				onOpenChange={setEmailOpen}
+				open={emailOpen}
+				projectId={row.projectId}
+				relatedId={row._id}
+				relatedTable="projectOrders"
+			/>
 			<Menu>
 				<MenuTrigger
 					render={
@@ -172,6 +229,15 @@ function OrderActionsCell({
 					</MenuItem>
 					<MenuItem onClick={handleViewOrderPdf}>
 						<FileText /> View Order
+					</MenuItem>
+					<MenuItem
+						onClick={() => {
+							handleEmailOrder().catch(() => {
+								/* Error handled in handleEmailOrder */
+							});
+						}}
+					>
+						<Mail /> Email Order
 					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
