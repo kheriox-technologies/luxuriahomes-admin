@@ -1,5 +1,6 @@
 'use client';
 
+import type { Id } from '@workspace/backend/dataModel';
 import {
 	AlertDialog,
 	AlertDialogClose,
@@ -18,6 +19,7 @@ import {
 	BreadcrumbSeparator,
 } from '@workspace/ui/components/breadcrumb';
 import { Button } from '@workspace/ui/components/button';
+import { Checkbox } from '@workspace/ui/components/checkbox';
 import {
 	Dialog,
 	DialogClose,
@@ -62,6 +64,7 @@ import {
 	Folder,
 	FolderOpen,
 	FolderPlus,
+	Mail,
 	MoveRight,
 	Pencil,
 	Trash2,
@@ -77,7 +80,11 @@ import {
 	useState,
 } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
+import ComposeEmailDialog from '@/components/email/compose-email-dialog';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import type { ComposeAttachment } from '@/lib/email';
+
+const DEFAULT_ATTACHMENT_CONTENT_TYPE = 'application/octet-stream';
 
 // Structural interfaces matching both projectDocuments and companyDocuments shapes
 interface FileItem {
@@ -130,6 +137,7 @@ export interface ProjectFileManagerTabContentProps {
 	onRemoveFile: (fileId: string) => Promise<void>;
 	onRenameFile: (fileId: string, newName: string) => Promise<void>;
 	onRenameFolder: (folderId: string, newName: string) => Promise<void>;
+	projectId?: Id<'projects'>;
 	rootLabel?: string;
 }
 
@@ -1127,6 +1135,7 @@ export function ProjectFileManagerTabContent({
 	onRemoveFile,
 	onRenameFolder,
 	onDeleteFolder,
+	projectId,
 	rootLabel = 'Files',
 	emptyTitle = 'No files yet',
 }: ProjectFileManagerTabContentProps) {
@@ -1134,6 +1143,31 @@ export function ProjectFileManagerTabContent({
 	const [createFolderOpen, setCreateFolderOpen] = useState(false);
 	const [uploadOpen, setUploadOpen] = useState(false);
 	const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
+	// Keyed by document id so the selection persists across folder navigation
+	// and an email can attach documents picked from multiple folders.
+	const [selectedDocs, setSelectedDocs] = useState<Map<string, FileItem>>(
+		new Map()
+	);
+	const [emailOpen, setEmailOpen] = useState(false);
+	const [emailAttachments, setEmailAttachments] = useState<ComposeAttachment[]>(
+		[]
+	);
+
+	const navigateTo = (path: string) => {
+		setCurrentPath(path);
+	};
+
+	const toggleSelected = (doc: FileItem) => {
+		setSelectedDocs((prev) => {
+			const next = new Map(prev);
+			if (next.has(doc._id)) {
+				next.delete(doc._id);
+			} else {
+				next.set(doc._id, doc);
+			}
+			return next;
+		});
+	};
 
 	const handleOpenDocument = async (doc: FileItem) => {
 		if (loadingDocs.has(doc._id)) {
@@ -1163,6 +1197,44 @@ export function ProjectFileManagerTabContent({
 	const contents = raw as
 		| { folders: FolderItem[]; documents: FileItem[] }
 		| undefined;
+
+	const documents = contents?.documents ?? [];
+	const allSelected =
+		documents.length > 0 && documents.every((doc) => selectedDocs.has(doc._id));
+	const someSelected = documents.some((doc) => selectedDocs.has(doc._id));
+	const selectedCount = selectedDocs.size;
+
+	const toggleSelectAll = () => {
+		setSelectedDocs((prev) => {
+			const next = new Map(prev);
+			if (documents.every((doc) => next.has(doc._id))) {
+				for (const doc of documents) {
+					next.delete(doc._id);
+				}
+			} else {
+				for (const doc of documents) {
+					next.set(doc._id, doc);
+				}
+			}
+			return next;
+		});
+	};
+
+	const openEmailWithSelected = () => {
+		if (selectedDocs.size === 0) {
+			return;
+		}
+		setEmailAttachments(
+			Array.from(selectedDocs.values()).map((doc) => ({
+				id: doc._id,
+				filename: doc.name,
+				contentType: doc.mimeType ?? DEFAULT_ATTACHMENT_CONTENT_TYPE,
+				s3Key: doc.s3Key,
+				removable: true,
+			}))
+		);
+		setEmailOpen(true);
+	};
 
 	const isEmpty =
 		contents !== undefined &&
@@ -1194,6 +1266,15 @@ export function ProjectFileManagerTabContent({
 				<Table className="w-full min-w-xl">
 					<TableHeader>
 						<TableRow>
+							<TableHead className="w-10 min-w-10 max-w-10">
+								<Checkbox
+									aria-label="Select all files"
+									checked={allSelected}
+									disabled={documents.length === 0}
+									indeterminate={someSelected && !allSelected}
+									onCheckedChange={toggleSelectAll}
+								/>
+							</TableHead>
 							<TableHead className="min-w-[16rem]">Name</TableHead>
 							<TableHead>Size</TableHead>
 							<TableHead>Uploaded</TableHead>
@@ -1207,8 +1288,9 @@ export function ProjectFileManagerTabContent({
 							<TableRow
 								className="cursor-pointer"
 								key={folder._id}
-								onClick={() => setCurrentPath(folder.path)}
+								onClick={() => navigateTo(folder.path)}
 							>
+								<TableCell className="w-10" />
 								<TableCell className="font-medium">
 									<div className="flex items-center gap-2">
 										<Folder className="size-4 shrink-0 text-yellow-500" />
@@ -1234,9 +1316,20 @@ export function ProjectFileManagerTabContent({
 						{contents.documents.map((doc) => (
 							<TableRow
 								className="cursor-pointer"
+								data-state={selectedDocs.has(doc._id) ? 'selected' : undefined}
 								key={doc._id}
 								onClick={() => handleOpenDocument(doc).catch(() => undefined)}
 							>
+								<TableCell
+									className="w-10"
+									onClick={(e) => e.stopPropagation()}
+								>
+									<Checkbox
+										aria-label={`Select ${doc.name}`}
+										checked={selectedDocs.has(doc._id)}
+										onCheckedChange={() => toggleSelected(doc)}
+									/>
+								</TableCell>
 								<TableCell className="font-medium">
 									<div className="flex items-center gap-2">
 										{getFileIcon(doc.mimeType)}
@@ -1277,7 +1370,7 @@ export function ProjectFileManagerTabContent({
 			<div className="flex items-center justify-between gap-3">
 				<FileManagerBreadcrumb
 					currentPath={currentPath}
-					onNavigate={setCurrentPath}
+					onNavigate={navigateTo}
 					rootLabel={rootLabel}
 				/>
 				<div className="flex shrink-0 items-center gap-2">
@@ -1297,7 +1390,35 @@ export function ProjectFileManagerTabContent({
 				</div>
 			</div>
 
+			{selectedCount > 0 ? (
+				<div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+					<span className="font-medium text-sm">{selectedCount} selected</span>
+					<div className="flex items-center gap-2">
+						<Button
+							onClick={() => setSelectedDocs(new Map())}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							Clear
+						</Button>
+						<Button onClick={openEmailWithSelected} size="sm" type="button">
+							<Mail />
+							Email
+						</Button>
+					</div>
+				</div>
+			) : null}
+
 			{body}
+
+			<ComposeEmailDialog
+				defaultAttachments={emailAttachments}
+				onOpenChange={setEmailOpen}
+				onSent={() => setSelectedDocs(new Map())}
+				open={emailOpen}
+				projectId={projectId}
+			/>
 
 			<CreateFolderDialog
 				currentPath={currentPath}

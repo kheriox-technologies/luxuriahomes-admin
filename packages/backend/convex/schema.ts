@@ -416,4 +416,34 @@ export default defineSchema({
 		.index('by_project', ['projectId'])
 		.index('by_parent_task', ['parentTaskId'])
 		.index('by_stage', ['stageId']),
+	emailSignatures: defineTable({
+		name: v.string(),
+		content: v.string(),
+		isDefault: v.boolean(),
+		searchText: v.string(),
+	}).searchIndex('search_email_signatures', { searchField: 'searchText' }),
+	emailTemplates: defineTable({
+		name: v.string(),
+		subject: v.string(),
+		body: v.string(),
+		signatureId: v.optional(v.id('emailSignatures')),
+		isActive: v.boolean(),
+		searchText: v.string(),
+	}).searchIndex('search_email_templates', { searchField: 'searchText' }),
+	sentEmails: defineTable({
+		to: v.array(v.string()),
+		cc: v.optional(v.array(v.string())),
+		bcc: v.optional(v.array(v.string())),
+		subject: v.string(),
+		sentBy: v.string(),
+		gmailMessageId: v.string(),
+		gmailThreadId: v.string(),
+		attachmentNames: v.array(v.string()),
+		projectId: v.optional(v.id('projects')),
+		relatedTable: v.optional(v.string()),
+		relatedId: v.optional(v.string()),
+		timestamp: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_timestamp', ['timestamp']),
 });

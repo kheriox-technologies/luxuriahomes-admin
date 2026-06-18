@@ -80,6 +80,11 @@ interface PdfMakeBrowser {
 	setFonts: (fonts: Record<string, Record<string, string>>) => void;
 }
 
+interface CreatedPdf {
+	getBase64: () => Promise<string>;
+	open: () => void;
+}
+
 function configurePdfMakeFonts(
 	pdfMake: PdfMakeBrowser,
 	vfs: Record<string, string>
@@ -179,9 +184,7 @@ function buildOrderDocDefinition(
 	};
 }
 
-export async function openProjectOrderPdfInNewTab(
-	options: OpenProjectOrderPdfOptions
-): Promise<void> {
+async function createProjectOrderPdf(options: OpenProjectOrderPdfOptions) {
 	const [{ default: pdfMake }, vfsModule, logoDataUrl] = await Promise.all([
 		import('pdfmake/build/pdfmake'),
 		import('pdfmake/build/vfs_fonts'),
@@ -200,5 +203,23 @@ export async function openProjectOrderPdfInNewTab(
 	configurePdfMakeFonts(pdfMake as PdfMakeBrowser, vfs);
 
 	const docDefinition = buildOrderDocDefinition(logoDataUrl, options);
-	pdfMake.createPdf(docDefinition as never).open();
+	return pdfMake.createPdf(docDefinition as never) as unknown as CreatedPdf;
+}
+
+export async function openProjectOrderPdfInNewTab(
+	options: OpenProjectOrderPdfOptions
+): Promise<void> {
+	const pdf = await createProjectOrderPdf(options);
+	pdf.open();
+}
+
+/**
+ * Generates the order PDF and resolves with its base64 contents (without a
+ * data-URL prefix) — suitable for sending as an email attachment.
+ */
+export async function generateProjectOrderPdfBase64(
+	options: OpenProjectOrderPdfOptions
+): Promise<string> {
+	const pdf = await createProjectOrderPdf(options);
+	return await pdf.getBase64();
 }

@@ -29,6 +29,7 @@ import {
 	List,
 	type LucideIcon,
 	Package,
+	Settings,
 	SquaresIntersect,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -113,6 +114,24 @@ const items: SidebarItem[] = [
 				title: 'Service Providers',
 				url: '/service-providers',
 				path: '/service-providers',
+			},
+		],
+	},
+	{
+		title: 'Settings',
+		url: '#',
+		path: '#',
+		icon: Settings,
+		items: [
+			{
+				title: 'Email Templates',
+				url: '/settings/email-templates',
+				path: '/settings/email-templates',
+			},
+			{
+				title: 'Email Signatures',
+				url: '/settings/signatures',
+				path: '/settings/signatures',
 			},
 		],
 	},
