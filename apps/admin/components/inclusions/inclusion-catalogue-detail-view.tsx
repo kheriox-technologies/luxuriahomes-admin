@@ -242,6 +242,7 @@ function InclusionCatalogueVariantsTableInFrame({
 	const showPricing = mode === 'builder';
 	const minClass = catalogueVariantsTableMinClass(showPricing);
 	const standardPrice = inclusion.standardPrice ?? null;
+	const standardLabourPrice = inclusion.standardLabourPrice ?? null;
 	const [signedImageUrls, setSignedImageUrls] = useState<
 		Record<string, string>
 	>({});
@@ -308,7 +309,9 @@ function InclusionCatalogueVariantsTableInFrame({
 									);
 								} else {
 									variationDisplay = formatSignedAud(
-										variant.salePrice - standardPrice
+										variant.salePrice -
+											standardPrice +
+											((variant.labourPrice ?? 0) - (standardLabourPrice ?? 0))
 									);
 								}
 								return (
@@ -509,6 +512,7 @@ export default function InclusionCatalogueDetailView({
 							inclusionId={inclusionId}
 							initialCategoryId={inclusion.categoryId}
 							initialMeasurementUnit={inclusion.measurementUnit}
+							initialStandardLabourPrice={inclusion.standardLabourPrice}
 							initialStandardPrice={inclusion.standardPrice}
 							initialTitle={inclusion.title}
 							trigger={
@@ -549,13 +553,18 @@ export default function InclusionCatalogueDetailView({
 						</Badge>
 						{inclusion.standardPrice !== undefined ? (
 							<Badge size="lg" variant="purple">
-								{formatAud(inclusion.standardPrice)}
+								{`Base ${formatAud(inclusion.standardPrice)}`}
 							</Badge>
 						) : (
 							<Badge size="lg" variant="yellow">
 								No standard price set
 							</Badge>
 						)}
+						{inclusion.standardLabourPrice !== undefined ? (
+							<Badge size="lg" variant="teal">
+								{`Labour ${formatAud(inclusion.standardLabourPrice)}`}
+							</Badge>
+						) : null}
 						{inclusion.measurementUnit &&
 						unitAbbrById.get(inclusion.measurementUnit) ? (
 							<Badge size="lg" variant="outline">

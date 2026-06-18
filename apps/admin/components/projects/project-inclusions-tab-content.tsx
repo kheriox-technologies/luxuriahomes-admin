@@ -41,6 +41,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { FieldLabel } from '@workspace/ui/components/field';
 import {
 	Frame,
 	FrameDescription,
@@ -89,6 +90,7 @@ import {
 	Plus,
 	SearchIcon,
 	ShoppingCart,
+	SlidersHorizontal,
 	SquaresIntersect,
 	StickyNote,
 	Trash2,
@@ -773,6 +775,120 @@ function EditInclusionQuantitiesDialog({
 	);
 }
 
+const VARIATION_PATTERN = /^-?\d+(\.\d{1,2})?$/;
+
+function AdjustVariationDialog({
+	inclusion,
+	open,
+	onOpenChange,
+}: {
+	inclusion: ProjectInclusion;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+}) {
+	const [value, setValue] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+
+	useEffect(() => {
+		if (open) {
+			setValue(
+				inclusion.variationPrice !== undefined
+					? String(inclusion.variationPrice)
+					: ''
+			);
+		}
+	}, [open, inclusion.variationPrice]);
+
+	const trimmed = value.trim();
+	const isValid = trimmed === '' || VARIATION_PATTERN.test(trimmed);
+
+	const onSave = async () => {
+		setIsSubmitting(true);
+		try {
+			await updateProjectInclusion({
+				projectInclusionId: inclusion._id,
+				variationPrice: trimmed === '' ? null : Number(trimmed),
+			});
+			toastManager.add({ title: 'Variation updated', type: 'success' });
+			onOpenChange(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update variation. Please try again.'
+				),
+				title: 'Could not update variation',
+				type: 'error',
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Adjust Variation</DialogTitle>
+					<DialogDescription>
+						<span className="font-medium text-foreground">
+							{inclusion.title}
+						</span>
+						<span className="text-muted-foreground">{` · ${inclusion.code}`}</span>
+					</DialogDescription>
+				</DialogHeader>
+				<div className="flex flex-col gap-2 px-6 pb-2">
+					<FieldLabel htmlFor={`adjust-variation-${inclusion._id}`}>
+						Variation (total)
+					</FieldLabel>
+					<InputGroup>
+						<InputGroupAddon align="inline-start">
+							<InputGroupText>$</InputGroupText>
+						</InputGroupAddon>
+						<InputGroupInput
+							aria-invalid={!isValid || undefined}
+							id={`adjust-variation-${inclusion._id}`}
+							inputMode="decimal"
+							onChange={(e) => setValue(e.target.value)}
+							placeholder="0.00"
+							type="text"
+							value={value}
+						/>
+						<InputGroupAddon align="inline-end">
+							<InputGroupText>AUD</InputGroupText>
+						</InputGroupAddon>
+					</InputGroup>
+					<p className="text-muted-foreground text-xs">
+						Combined base and labour variation for this inclusion. Leave blank
+						to clear.
+					</p>
+				</div>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						disabled={isSubmitting || !isValid}
+						loading={isSubmitting}
+						onClick={() => {
+							onSave().catch(() => {
+								/* Error handled in onSave */
+							});
+						}}
+						type="button"
+					>
+						Save
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 function ProjectInclusionNotesLink({
 	inclusion,
 }: {
@@ -816,6 +932,7 @@ function ProjectInclusionActionsCell({
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [editQuantitiesOpen, setEditQuantitiesOpen] = useState(false);
+	const [adjustVariationOpen, setAdjustVariationOpen] = useState(false);
 	const [approveLoading, setApproveLoading] = useState(false);
 
 	const updateProjectInclusion = useMutation(
@@ -895,6 +1012,17 @@ function ProjectInclusionActionsCell({
 						Edit Quantities
 					</MenuItem>
 					<MenuItem
+						disabled={inclusion.class === 'Standard'}
+						onClick={() => {
+							if (inclusion.class !== 'Standard') {
+								setAdjustVariationOpen(true);
+							}
+						}}
+					>
+						<SlidersHorizontal />
+						Adjust Variation
+					</MenuItem>
+					<MenuItem
 						disabled={!canAddToOrder}
 						onClick={() => {
 							if (canAddToOrder) {
@@ -943,6 +1071,11 @@ function ProjectInclusionActionsCell({
 				inclusion={inclusion}
 				onOpenChange={setEditQuantitiesOpen}
 				open={editQuantitiesOpen}
+			/>
+			<AdjustVariationDialog
+				inclusion={inclusion}
+				onOpenChange={setAdjustVariationOpen}
+				open={adjustVariationOpen}
 			/>
 		</>
 	);

@@ -77,6 +77,7 @@ export default defineSchema({
 		searchText: v.string(),
 		variantCount: v.number(),
 		standardPrice: v.optional(v.number()),
+		standardLabourPrice: v.optional(v.number()),
 		measurementUnit: v.optional(v.id('units')),
 	})
 		.index('by_category', ['categoryId'])
@@ -93,6 +94,7 @@ export default defineSchema({
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
+		labourPrice: v.optional(v.number()),
 		searchText: v.string(),
 	})
 		.index('by_inclusion', ['inclusionId'])
@@ -112,6 +114,7 @@ export default defineSchema({
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
+		labourPrice: v.optional(v.number()),
 		variationPrice: v.optional(v.number()),
 		locations: v.optional(
 			v.array(

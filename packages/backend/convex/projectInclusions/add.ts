@@ -45,10 +45,16 @@ export const add = mutation({
 		const inclusion = await getInclusionOrThrow(ctx, variant.inclusionId);
 		const costPrice = parseMoney2(variant.costPrice, 'Cost price');
 		const salePrice = parseMoney2(variant.salePrice, 'Sale price');
+		const labourPrice =
+			variant.labourPrice !== undefined
+				? parseMoney2(variant.labourPrice, 'Labour price')
+				: undefined;
 		const { variationPrice: perUnitVariationPrice } = buildVariationFromBase(
 			variant.class,
 			salePrice,
-			inclusion.standardPrice
+			inclusion.standardPrice,
+			labourPrice,
+			inclusion.standardLabourPrice
 		);
 		validateVariationFields(variant.class, perUnitVariationPrice);
 
@@ -100,6 +106,7 @@ export const add = mutation({
 			link,
 			costPrice,
 			salePrice,
+			labourPrice,
 			variationPrice,
 			locations: args.locations,
 			searchText,

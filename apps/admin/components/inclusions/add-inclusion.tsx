@@ -73,11 +73,16 @@ export default function AddInclusion({
 				const standardPrice = standardPriceStr
 					? parseMoneyString(standardPriceStr)
 					: undefined;
+				const standardLabourPriceStr = parsed.standardLabourPrice?.trim();
+				const standardLabourPrice = standardLabourPriceStr
+					? parseMoneyString(standardLabourPriceStr)
+					: undefined;
 				const measurementUnit = parsed.measurementUnit?.trim() || undefined;
 				await addInclusion({
 					categoryId: resolvedCategoryId,
 					title: parsed.title,
 					standardPrice,
+					standardLabourPrice,
 					measurementUnit: measurementUnit as never,
 				});
 				toastManager.add({
@@ -213,6 +218,43 @@ export default function AddInclusion({
 										<Field data-invalid={invalid}>
 											<FieldLabel htmlFor={field.name}>
 												Standard Base Price
+											</FieldLabel>
+											<InputGroup>
+												<InputGroupAddon align="inline-start">
+													<InputGroupText>$</InputGroupText>
+												</InputGroupAddon>
+												<InputGroupInput
+													aria-invalid={invalid || undefined}
+													id={field.name}
+													inputMode="decimal"
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="0.00"
+													type="text"
+													value={field.state.value ?? ''}
+												/>
+												<InputGroupAddon align="inline-end">
+													<InputGroupText>AUD</InputGroupText>
+												</InputGroupAddon>
+											</InputGroup>
+											{invalid ? (
+												<FieldError>
+													{inclusionFormFieldError(field.state.meta.errors)}
+												</FieldError>
+											) : null}
+										</Field>
+									);
+								}}
+							</form.Field>
+							<form.Field name="standardLabourPrice">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>
+												Standard Labour Price
 											</FieldLabel>
 											<InputGroup>
 												<InputGroupAddon align="inline-start">

@@ -9,6 +9,7 @@ export const add = mutation({
 		title: v.string(),
 		categoryId: v.id('inclusionCategories'),
 		standardPrice: v.optional(v.number()),
+		standardLabourPrice: v.optional(v.number()),
 		measurementUnit: v.optional(v.id('units')),
 	},
 	handler: async (ctx, args) => {
@@ -31,6 +32,7 @@ export const add = mutation({
 			searchText,
 			variantCount: 0,
 			standardPrice: args.standardPrice,
+			standardLabourPrice: args.standardLabourPrice,
 			measurementUnit: args.measurementUnit,
 		});
 		await ctx.db.patch(args.categoryId, {

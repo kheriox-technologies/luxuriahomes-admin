@@ -66,6 +66,8 @@ function toDefaultValues(variant: Doc<'inclusionVariants'>) {
 		newColorName: '',
 		costPrice: String(variant.costPrice),
 		salePrice: String(variant.salePrice),
+		labourPrice:
+			variant.labourPrice !== undefined ? String(variant.labourPrice) : '',
 		details: variant.details ?? '',
 		link: variant.link ?? '',
 		image: variant.image ?? '',
@@ -144,11 +146,13 @@ export default function EditInclusionVariant({
 					await addMaterialColor({ name: newColorTrimmed });
 				}
 
+				const labourPriceStr = parsed.labourPrice?.trim();
 				await updateVariant({
 					variantId: variant._id,
 					class: parsed.class,
 					costPrice: parseMoneyString(parsed.costPrice),
 					salePrice: parseMoneyString(parsed.salePrice),
+					labourPrice: labourPriceStr ? parseMoneyString(labourPriceStr) : null,
 					vendor: resolvedVendor,
 					models: parsed.models,
 					color: resolvedColor ?? null,
@@ -424,6 +428,60 @@ export default function EditInclusionVariant({
 																										placeholder="0.00"
 																										type="text"
 																										value={field.state.value}
+																									/>
+																									<InputGroupAddon align="inline-end">
+																										<InputGroupText>
+																											AUD
+																										</InputGroupText>
+																									</InputGroupAddon>
+																								</InputGroup>
+																								{invalid ? (
+																									<FieldError>
+																										{inclusionFormFieldError(
+																											field.state.meta.errors
+																										)}
+																									</FieldError>
+																								) : null}
+																							</Field>
+																						);
+																					}}
+																				</form.Field>
+																				<form.Field name="labourPrice">
+																					{(field) => {
+																						const invalid =
+																							field.state.meta.isTouched &&
+																							!field.state.meta.isValid;
+																						return (
+																							<Field data-invalid={invalid}>
+																								<FieldLabel
+																									htmlFor={field.name}
+																								>
+																									Labour price
+																								</FieldLabel>
+																								<InputGroup>
+																									<InputGroupAddon align="inline-start">
+																										<InputGroupText>
+																											$
+																										</InputGroupText>
+																									</InputGroupAddon>
+																									<InputGroupInput
+																										aria-invalid={
+																											invalid || undefined
+																										}
+																										id={field.name}
+																										inputMode="decimal"
+																										nativeInput
+																										onBlur={field.handleBlur}
+																										onChange={(e) =>
+																											field.handleChange(
+																												e.target.value
+																											)
+																										}
+																										placeholder="0.00"
+																										type="text"
+																										value={
+																											field.state.value ?? ''
+																										}
 																									/>
 																									<InputGroupAddon align="inline-end">
 																										<InputGroupText>

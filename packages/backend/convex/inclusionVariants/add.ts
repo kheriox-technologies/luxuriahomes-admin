@@ -27,6 +27,7 @@ export const add = mutation({
 		link: v.optional(v.string()),
 		costPrice: v.number(),
 		salePrice: v.number(),
+		labourPrice: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -50,6 +51,10 @@ export const add = mutation({
 			args.link !== undefined ? parseOptionalDetail(args.link) : undefined;
 		const costPrice = parseMoney2(args.costPrice, 'Cost price');
 		const salePrice = parseMoney2(args.salePrice, 'Sale price');
+		const labourPrice =
+			args.labourPrice !== undefined
+				? parseMoney2(args.labourPrice, 'Labour price')
+				: undefined;
 
 		const code = await allocateUniqueVariantCode(ctx, category.code);
 		const searchText = buildInclusionVariantSearchText(inclusion.title, {
@@ -71,6 +76,7 @@ export const add = mutation({
 			link,
 			costPrice,
 			salePrice,
+			labourPrice,
 			searchText,
 		});
 
