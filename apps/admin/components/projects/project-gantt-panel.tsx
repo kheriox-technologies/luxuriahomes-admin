@@ -508,6 +508,37 @@ export default function ProjectGanttPanel({
 		return Math.max(maxOffset + 5, MIN_DAYS);
 	}, [stages, tasks, anchor, today]);
 
+	// Project span: start = projectStartDate prop, end = latest stage/task end
+	const projectEndDate = useMemo(() => {
+		const ends = [
+			...stages.map((s) => s.endDate),
+			...tasks.map((t) => t.endDate),
+		];
+		return ends.length > 0 ? Math.max(...ends) : projectStartDate;
+	}, [stages, tasks, projectStartDate]);
+
+	// Duration label whose unit follows the selected view (day/week/month)
+	const durationLabel = useMemo(() => {
+		const start = new Date(projectStartDate);
+		const end = new Date(projectEndDate);
+		// inclusive calendar-day span
+		const days = Math.max(1, dateToCalOffset(end, start) + 1);
+
+		if (viewType === 'week') {
+			const weeks = Math.max(1, Math.round(days / 7));
+			return `${weeks} ${weeks === 1 ? 'week' : 'weeks'}`;
+		}
+		if (viewType === 'month') {
+			const months = Math.max(
+				1,
+				(end.getFullYear() - start.getFullYear()) * 12 +
+					(end.getMonth() - start.getMonth())
+			);
+			return `${months} ${months === 1 ? 'month' : 'months'}`;
+		}
+		return `${days} ${days === 1 ? 'day' : 'days'}`;
+	}, [projectStartDate, projectEndDate, viewType]);
+
 	let pixelsPerDay = DAY_WIDTH;
 	if (viewType === 'week') {
 		pixelsPerDay = 15;
@@ -1046,15 +1077,22 @@ export default function ProjectGanttPanel({
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 				{/* Toolbar */}
 				<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
-					<div className="flex items-center gap-2">
-						<Switch
-							checked={isReadOnly}
-							id="project-read-only-toggle"
-							onCheckedChange={setIsReadOnly}
-						/>
-						<Label htmlFor="project-read-only-toggle">Read Only</Label>
+					<div className="flex items-center gap-2 text-muted-foreground text-sm">
+						<span className="font-medium text-foreground">
+							{formatProjectDate(projectStartDate)} –{' '}
+							{formatProjectDate(projectEndDate)}
+						</span>
+						<span>({durationLabel})</span>
 					</div>
 					<div className="flex items-center gap-2">
+						<div className="flex items-center gap-2">
+							<Switch
+								checked={isReadOnly}
+								id="project-read-only-toggle"
+								onCheckedChange={setIsReadOnly}
+							/>
+							<Label htmlFor="project-read-only-toggle">Read Only</Label>
+						</div>
 						<Group>
 							<Button
 								className={viewType === 'day' ? 'bg-secondary' : undefined}
