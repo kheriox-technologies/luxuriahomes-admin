@@ -311,9 +311,12 @@ export default function ComparePageContent() {
 		);
 	} else {
 		tableContent = (
-			<div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+			<div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border bg-white shadow-sm">
 				{/* Header row */}
-				<div className="grid border-b bg-muted/50" style={gridStyle}>
+				<div
+					className="sticky top-0 z-10 grid border-b bg-muted"
+					style={gridStyle}
+				>
 					<div className="px-4 py-2.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 						Company
 					</div>
