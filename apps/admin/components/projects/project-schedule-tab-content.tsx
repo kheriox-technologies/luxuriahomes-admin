@@ -32,6 +32,7 @@ export default function ProjectScheduleTabContent({
 		api.projectOrderTasks.listByProject.listByProject,
 		{ projectId }
 	);
+	const orders = useQuery(api.projectOrders.list.list, { projectId });
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -49,7 +50,30 @@ export default function ProjectScheduleTabContent({
 		return startOfDay(new Date()).getTime();
 	}, [project.startDate]);
 
-	if (stages === undefined || tasks === undefined || orderTasks === undefined) {
+	const ordersByOrderTaskId = useMemo(() => {
+		const map = new Map<string, NonNullable<typeof orders>>();
+		if (!orders) {
+			return map;
+		}
+		for (const order of orders) {
+			if (order.orderTaskId) {
+				const existing = map.get(order.orderTaskId);
+				if (existing) {
+					existing.push(order);
+				} else {
+					map.set(order.orderTaskId, [order]);
+				}
+			}
+		}
+		return map;
+	}, [orders]);
+
+	if (
+		stages === undefined ||
+		tasks === undefined ||
+		orderTasks === undefined ||
+		orders === undefined
+	) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-6">
 				<p className="text-muted-foreground text-sm">Loading schedule…</p>
@@ -88,6 +112,7 @@ export default function ProjectScheduleTabContent({
 
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<ProjectGanttPanel
+					ordersByOrderTaskId={ordersByOrderTaskId}
 					orderTasks={orderTasks}
 					projectId={projectId}
 					projectStartDate={projectStartDate}

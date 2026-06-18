@@ -12,7 +12,6 @@ export const addToProject = mutation({
 		projectId: v.id('projects'),
 		variantId: v.id('materialVariants'),
 		quantity: v.number(),
-		deliveryDurationDays: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -111,7 +110,6 @@ export const addToProject = mutation({
 				orderId: orderCode,
 				projectId: args.projectId,
 				vendor,
-				deliveryDurationDays: args.deliveryDurationDays,
 				items,
 				status,
 				searchText,

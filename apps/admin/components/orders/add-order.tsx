@@ -79,7 +79,6 @@ export default function AddOrder({
 					projectId,
 					vendor: resolvedVendor,
 					orderBy: parsed.orderBy?.getTime(),
-					deliveryDurationDays: parsed.deliveryDurationDays,
 					items: parsed.items.map((item) => ({
 						name: item.name,
 						description: item.description?.trim() || undefined,
@@ -200,34 +199,6 @@ export default function AddOrder({
 										onBlur={field.handleBlur}
 										onChange={(date) => field.handleChange(date)}
 										value={field.state.value}
-									/>
-								</Field>
-							)}
-						</form.Field>
-						<form.Field name="deliveryDurationDays">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Delivery Duration (Days){' '}
-										<span className="text-muted-foreground text-xs">
-											(optional)
-										</span>
-									</FieldLabel>
-									<Input
-										id={field.name}
-										min="1"
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => {
-											const raw = e.target.value;
-											field.handleChange(
-												raw === '' ? undefined : Math.floor(Number(raw))
-											);
-										}}
-										placeholder="e.g. 14"
-										type="number"
-										value={field.state.value ?? ''}
 									/>
 								</Field>
 							)}

@@ -4,6 +4,7 @@ import { requireAdmin } from '../lib/checkIdentity';
 import {
 	cascadeDependentStages,
 	cascadeDependentTasks,
+	cascadeLinkedOrderDates,
 	getProjectTaskOrThrow,
 	recalcStageDates,
 } from './shared';
@@ -23,6 +24,7 @@ export const updateDates = mutation({
 			endDate: args.endDate,
 			durationDays: args.durationDays,
 		});
+		await cascadeLinkedOrderDates(ctx, args.taskId, args.startDate);
 		// Cascade to dependent tasks within the same stage
 		await cascadeDependentTasks(ctx, args.taskId, task.stageId);
 		// Recalculate parent stage bounds from all tasks

@@ -342,8 +342,8 @@ export default defineSchema({
 		projectId: v.id('projects'),
 		vendor: v.string(),
 		orderBy: v.optional(v.number()),
-		deliveryDurationDays: v.optional(v.number()),
 		deliverBy: v.optional(v.number()),
+		orderTaskId: v.optional(v.id('projectOrderTasks')),
 		items: v.array(
 			v.object({
 				name: v.string(),
@@ -359,6 +359,7 @@ export default defineSchema({
 	})
 		.index('by_project', ['projectId'])
 		.index('by_order_id', ['orderId'])
+		.index('by_order_task', ['orderTaskId'])
 		.searchIndex('search_project_orders', {
 			searchField: 'searchText',
 			filterFields: ['projectId'],

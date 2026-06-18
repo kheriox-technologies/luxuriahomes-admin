@@ -49,12 +49,15 @@ import {
 	ChevronLast,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
+	ExternalLink,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import {
 	STAGE_ROW_HEIGHT,
 	TASK_ROW_HEIGHT,
+	TASK_ROW_HEIGHT_WITH_ORDERS,
 } from '@/components/schedules/schedule-row-heights';
 import DeleteProjectOrderTask from './delete-project-order-task';
 import {
@@ -177,6 +180,43 @@ function getTaskBarColor(status: Doc<'projectTasks'>['status']): string {
 			return 'bg-green-500/70';
 		default:
 			return 'bg-blue-500/70';
+	}
+}
+
+export interface OrderForTask {
+	_id: Id<'projectOrders'>;
+	deliverBy?: number;
+	orderBy?: number;
+	orderId: string;
+	status: string;
+	vendor: string;
+}
+
+function getOrderTaskBarColor(orders: OrderForTask[]): string {
+	if (orders.length === 0) {
+		return 'bg-destructive/70';
+	}
+	if (orders.every((o) => o.status === 'Delivered')) {
+		return 'bg-green-600/70';
+	}
+	if (orders.some((o) => o.status === 'Pending')) {
+		return 'bg-amber-400/70';
+	}
+	return 'bg-pink-500/70';
+}
+
+function getOrderStatusVariant(
+	status: string
+): 'warning' | 'success' | 'info' | 'purple' {
+	switch (status) {
+		case 'Delivered':
+			return 'success';
+		case 'Pending':
+			return 'warning';
+		case 'In Transit':
+			return 'purple';
+		default:
+			return 'info';
 	}
 }
 
@@ -319,6 +359,7 @@ export default function ProjectGanttPanel({
 	stages,
 	tasks,
 	orderTasks,
+	ordersByOrderTaskId,
 	search,
 }: {
 	projectId: Id<'projects'>;
@@ -326,9 +367,11 @@ export default function ProjectGanttPanel({
 	stages: Doc<'projectStages'>[];
 	tasks: Doc<'projectTasks'>[];
 	orderTasks: Doc<'projectOrderTasks'>[];
+	ordersByOrderTaskId: Map<string, OrderForTask[]>;
 	search?: string;
 }) {
 	const [isReadOnly, setIsReadOnly] = useState(true);
+	const router = useRouter();
 	const [collapsedStages, setCollapsedStages] = useState<Set<string>>(
 		new Set()
 	);
@@ -399,6 +442,20 @@ export default function ProjectGanttPanel({
 		}
 		return map;
 	}, [orderTasks]);
+
+	const getTaskRowHeight = useCallback(
+		(taskId: string) => {
+			const orderTask = orderTasksByParent.get(taskId);
+			if (!orderTask) {
+				return TASK_ROW_HEIGHT;
+			}
+			const linked = ordersByOrderTaskId.get(orderTask._id);
+			return linked && linked.length > 0
+				? TASK_ROW_HEIGHT_WITH_ORDERS
+				: TASK_ROW_HEIGHT;
+		},
+		[orderTasksByParent, ordersByOrderTaskId]
+	);
 
 	const orderTaskStartDates = useMemo(() => {
 		const map = new Map<string, number>();
@@ -789,26 +846,27 @@ export default function ProjectGanttPanel({
 			y += STAGE_ROW_HEIGHT;
 			if (isExpanded(stage._id)) {
 				for (const task of getDisplayedTasks(stage._id)) {
-					map.set(task._id, y + TASK_ROW_HEIGHT / 2);
-					y += TASK_ROW_HEIGHT;
+					const rh = getTaskRowHeight(task._id);
+					map.set(task._id, y + rh / 2);
+					y += rh;
 				}
 			}
 		}
 		return map;
-	}, [displayedStages, getDisplayedTasks, isExpanded]);
+	}, [displayedStages, getDisplayedTasks, isExpanded, getTaskRowHeight]);
 
 	const totalRowHeight = useMemo(() => {
 		let h = 0;
 		for (const stage of displayedStages) {
 			h += STAGE_ROW_HEIGHT;
 			if (isExpanded(stage._id)) {
-				for (const _task of getDisplayedTasks(stage._id)) {
-					h += TASK_ROW_HEIGHT;
+				for (const task of getDisplayedTasks(stage._id)) {
+					h += getTaskRowHeight(task._id);
 				}
 			}
 		}
 		return h;
-	}, [displayedStages, getDisplayedTasks, isExpanded]);
+	}, [displayedStages, getDisplayedTasks, isExpanded, getTaskRowHeight]);
 
 	const scrollToFirstStageInColumn = useCallback(
 		(colDayIndex: number, colWidthDays: number) => {
@@ -1126,6 +1184,9 @@ export default function ProjectGanttPanel({
 												{isExpanded(stage._id) &&
 													stageTasks.map((task) => {
 														const orderTask = orderTasksByParent.get(task._id);
+														const ordersForTask = orderTask
+															? (ordersByOrderTaskId.get(orderTask._id) ?? [])
+															: undefined;
 														return (
 															<div key={task._id}>
 																<SortableProjectTaskWrapper
@@ -1137,6 +1198,7 @@ export default function ProjectGanttPanel({
 																			400
 																		);
 																	}}
+																	ordersForTask={ordersForTask}
 																	orderTask={orderTask}
 																	stageStartDate={stage.startDate}
 																	stageTasks={stageTasks}
@@ -1448,6 +1510,9 @@ export default function ProjectGanttPanel({
 												const otStartDate = orderTask
 													? orderTaskStartDates.get(orderTask._id)
 													: undefined;
+												const ordersForTask = orderTask
+													? (ordersByOrderTaskId.get(orderTask._id) ?? [])
+													: [];
 												const taskStartOff = dateToCalOffset(
 													new Date(task.startDate),
 													anchor
@@ -1494,7 +1559,7 @@ export default function ProjectGanttPanel({
 														className={`relative border-b ${isEven ? 'bg-muted/20' : ''}`}
 														key={task._id}
 														style={{
-															height: TASK_ROW_HEIGHT,
+															height: getTaskRowHeight(task._id),
 															width: gridWidth,
 														}}
 													>
@@ -1541,7 +1606,7 @@ export default function ProjectGanttPanel({
 														<Rnd
 															default={{
 																x: barLeft,
-																y: (TASK_ROW_HEIGHT - 16) / 2,
+																y: (getTaskRowHeight(task._id) - 16) / 2,
 																width: barWidth,
 																height: 16,
 															}}
@@ -1783,11 +1848,12 @@ export default function ProjectGanttPanel({
 																		}
 																	>
 																		<PopoverTrigger
-																			className="absolute cursor-pointer rounded-sm bg-pink-500/70"
+																			className={`absolute cursor-pointer rounded-sm ${getOrderTaskBarColor(ordersForTask)}`}
 																			style={{
 																				height: 16,
 																				left: otBarLeft,
-																				top: (TASK_ROW_HEIGHT - 16) / 2,
+																				top:
+																					(getTaskRowHeight(task._id) - 16) / 2,
 																				width: otBarWidth,
 																			}}
 																		/>
@@ -1815,7 +1881,47 @@ export default function ProjectGanttPanel({
 																					).getTime()
 																				)}
 																			</PopoverDescription>
-																			<div className="mt-2">
+																			{ordersForTask.length > 0 ? (
+																				<div className="mt-2 flex flex-wrap gap-1">
+																					{ordersForTask.map((order) => (
+																						<Badge
+																							key={order._id}
+																							size="sm"
+																							variant={getOrderStatusVariant(
+																								order.status
+																							)}
+																						>
+																							{order.orderId}
+																						</Badge>
+																					))}
+																				</div>
+																			) : (
+																				<div className="mt-2">
+																					<Badge
+																						size="sm"
+																						variant="destructive"
+																					>
+																						No Orders Linked
+																					</Badge>
+																				</div>
+																			)}
+																			<div className="mt-2 flex gap-2">
+																				{ordersForTask.length > 0 && (
+																					<Button
+																						onClick={() => {
+																							setOpenPopoverId(null);
+																							router.push(
+																								`?tab=orders&orderTaskId=${orderTask._id}`
+																							);
+																						}}
+																						size="sm"
+																						type="button"
+																						variant="outline"
+																					>
+																						<ExternalLink />
+																						View Orders
+																					</Button>
+																				)}
 																				<Button
 																					onClick={() => {
 																						setOpenPopoverId(null);
@@ -1838,7 +1944,8 @@ export default function ProjectGanttPanel({
 																				height: 16,
 																				left: otBarLeft + otBarWidth,
 																				overflow: 'visible',
-																				top: (TASK_ROW_HEIGHT - 16) / 2,
+																				top:
+																					(getTaskRowHeight(task._id) - 16) / 2,
 																				width:
 																					barLeft - (otBarLeft + otBarWidth),
 																				zIndex: 3,
