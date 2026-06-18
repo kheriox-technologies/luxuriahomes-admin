@@ -22,7 +22,6 @@ import {
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
-import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -65,7 +64,6 @@ export default function AddMaterialVariantToProject({
 	const [selectedProjectId, setSelectedProjectId] = useState('');
 	const [showProjectError, setShowProjectError] = useState(false);
 	const [quantity, setQuantity] = useState('');
-	const [deliveryDurationDays, setDeliveryDurationDays] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const projects = useQuery(api.projects.list.list, {});
@@ -120,10 +118,6 @@ export default function AddMaterialVariantToProject({
 				projectId: selectedProject,
 				variantId,
 				quantity: parsedQuantity,
-				deliveryDurationDays:
-					deliveryDurationDays !== ''
-						? Math.floor(Number(deliveryDurationDays))
-						: undefined,
 			});
 			toastManager.add({
 				description: `${variantName} was added to ${projectNameById.get(selectedProject) ?? 'the selected project'}.`,
@@ -150,7 +144,6 @@ export default function AddMaterialVariantToProject({
 		setSelectedProjectId('');
 		setShowProjectError(false);
 		setQuantity('');
-		setDeliveryDurationDays('');
 		setIsSubmitting(false);
 	};
 
@@ -245,21 +238,6 @@ export default function AddMaterialVariantToProject({
 								</InputGroupAddon>
 							) : null}
 						</InputGroup>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor="add-to-project-delivery-duration">
-							Delivery Duration (Days){' '}
-							<span className="text-muted-foreground text-xs">(optional)</span>
-						</FieldLabel>
-						<Input
-							id="add-to-project-delivery-duration"
-							min="1"
-							nativeInput
-							onChange={(e) => setDeliveryDurationDays(e.target.value)}
-							placeholder="e.g. 14"
-							type="number"
-							value={deliveryDurationDays}
-						/>
 					</Field>
 				</div>
 				<DialogFooter>

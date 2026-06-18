@@ -35,6 +35,7 @@ import {
 	ExternalLink,
 	FileText,
 	History,
+	Link,
 	Pencil,
 	SearchIcon,
 	StickyNote,
@@ -43,13 +44,18 @@ import {
 import { useState } from 'react';
 import { openProjectOrderPdfInNewTab } from '@/lib/pdf/project-order-pdf';
 import AddOrder from './add-order';
+import AddToTaskDialog from './add-to-task-dialog';
 import DeleteOrder from './delete-order';
 import EditOrder from './edit-order';
 import type { OrderStatus } from './order-form-shared';
 import OrderNotesDialog from './order-notes-dialog';
 import OrderStatusHistoryDialog from './order-status-history-dialog';
 
-type ProjectOrder = Doc<'projectOrders'> & { noteCount: number };
+type ProjectOrder = Doc<'projectOrders'> & {
+	noteCount: number;
+	linkedOrderTaskName: string | null;
+	linkedParentTaskName: string | null;
+};
 
 interface PdfProjectAddress {
 	postcode: string;
@@ -84,6 +90,7 @@ function OrderActionsCell({
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
+	const [addToTaskOpen, setAddToTaskOpen] = useState(false);
 
 	const handleViewOrderPdf = async () => {
 		if (!projectAddress) {
@@ -132,6 +139,11 @@ function OrderActionsCell({
 				open={historyOpen}
 				orderId={row._id as Id<'projectOrders'>}
 			/>
+			<AddToTaskDialog
+				onOpenChange={setAddToTaskOpen}
+				open={addToTaskOpen}
+				order={row}
+			/>
 			<Menu>
 				<MenuTrigger
 					render={
@@ -148,6 +160,9 @@ function OrderActionsCell({
 				<MenuPopup align="end">
 					<MenuItem onClick={() => setEditOpen(true)}>
 						<Pencil /> Edit
+					</MenuItem>
+					<MenuItem onClick={() => setAddToTaskOpen(true)}>
+						<Link /> Add to task
 					</MenuItem>
 					<MenuItem onClick={() => setNotesOpen(true)}>
 						<StickyNote /> View / Edit Notes
@@ -249,24 +264,24 @@ function buildColumns(
 			),
 		},
 		{
+			id: 'linkedTask',
+			header: 'Linked Task',
+			size: 160,
+			cell: ({ row }) => (
+				<span className="text-muted-foreground text-sm">
+					{row.original.linkedParentTaskName
+						? `${row.original.linkedParentTaskName} · ${row.original.linkedOrderTaskName}`
+						: '—'}
+				</span>
+			),
+		},
+		{
 			id: 'orderBy',
 			header: 'Order By',
 			size: 130,
 			cell: ({ row }) => (
 				<span className="text-muted-foreground text-sm">
 					{row.original.orderBy ? formatOrderByDate(row.original.orderBy) : '—'}
-				</span>
-			),
-		},
-		{
-			id: 'deliveryDurationDays',
-			header: 'Duration (Days)',
-			size: 130,
-			cell: ({ row }) => (
-				<span className="text-muted-foreground text-sm">
-					{row.original.deliveryDurationDays != null
-						? `${row.original.deliveryDurationDays}d`
-						: '—'}
 				</span>
 			),
 		},
@@ -314,9 +329,11 @@ function buildColumns(
 export default function ProjectOrdersTabContent({
 	projectId,
 	orderIdFilter = '',
+	orderTaskIdFilter,
 }: {
 	projectId: Id<'projects'>;
 	orderIdFilter?: string;
+	orderTaskIdFilter?: string;
 }) {
 	const project = useQuery(api.projects.get.get, { projectId });
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
@@ -324,12 +341,21 @@ export default function ProjectOrdersTabContent({
 	const [search, setSearch] = useState(orderIdFilter);
 
 	const trimmedSearch = search.trim();
-	const filteredOrders =
-		trimmedSearch !== '' && orders
-			? orders.filter((o) =>
-					o.orderId.toLowerCase().includes(trimmedSearch.toLowerCase())
-				)
-			: (orders ?? []);
+	const filteredOrders = (() => {
+		if (!orders) {
+			return [];
+		}
+		let result = orders;
+		if (orderTaskIdFilter) {
+			result = result.filter((o) => o.orderTaskId === orderTaskIdFilter);
+		}
+		if (trimmedSearch !== '') {
+			result = result.filter((o) =>
+				o.orderId.toLowerCase().includes(trimmedSearch.toLowerCase())
+			);
+		}
+		return result;
+	})();
 
 	let content: React.ReactNode;
 

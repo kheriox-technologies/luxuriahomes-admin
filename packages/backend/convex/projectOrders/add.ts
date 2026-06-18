@@ -25,8 +25,6 @@ export const add = mutation({
 		projectId: v.id('projects'),
 		vendor: v.string(),
 		orderBy: v.optional(v.number()),
-		deliveryDurationDays: v.optional(v.number()),
-		deliverBy: v.optional(v.number()),
 		items: v.array(
 			v.object({
 				name: v.string(),
@@ -60,8 +58,6 @@ export const add = mutation({
 			projectId: args.projectId,
 			vendor,
 			orderBy: args.orderBy,
-			deliveryDurationDays: args.deliveryDurationDays,
-			deliverBy: args.deliverBy,
 			items,
 			status,
 			searchText,

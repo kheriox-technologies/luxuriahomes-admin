@@ -127,9 +127,38 @@ export async function cascadeDependentTasks(
 		// Recompute endDate from durationDays so it always lands on a weekday.
 		const newEnd = addBusinessDaysToTimestamp(newStart, task.durationDays - 1);
 		await ctx.db.patch(task._id, { startDate: newStart, endDate: newEnd });
+		await cascadeLinkedOrderDates(ctx, task._id, newStart);
 
 		await cascadeDependentTasks(ctx, task._id, stageId);
 	}
+}
+
+// When a task's startDate changes, update orderBy/deliverBy on any orders
+// linked via the task's order task.
+export async function cascadeLinkedOrderDates(
+	ctx: MutationCtx,
+	taskId: Id<'projectTasks'>,
+	newStartDate: number
+): Promise<void> {
+	const orderTask = await ctx.db
+		.query('projectOrderTasks')
+		.withIndex('by_parent_task', (q) => q.eq('parentTaskId', taskId))
+		.first();
+	if (!orderTask) {
+		return;
+	}
+	const deliverBy = addBusinessDaysToTimestamp(newStartDate, -1);
+	const orderBy = addBusinessDaysToTimestamp(
+		deliverBy,
+		-(orderTask.durationDays - 1)
+	);
+	const linkedOrders = await ctx.db
+		.query('projectOrders')
+		.withIndex('by_order_task', (q) => q.eq('orderTaskId', orderTask._id))
+		.collect();
+	await Promise.all(
+		linkedOrders.map((order) => ctx.db.patch(order._id, { orderBy, deliverBy }))
+	);
 }
 
 // After a stage's dates change, shift any stages that depend on it (and all their tasks).
@@ -182,6 +211,7 @@ export async function cascadeDependentStages(
 				startDate: newTaskStart,
 				endDate: newTaskEnd,
 			});
+			await cascadeLinkedOrderDates(ctx, task._id, newTaskStart);
 			if (newTaskEnd > newStageEnd) {
 				newStageEnd = newTaskEnd;
 			}
