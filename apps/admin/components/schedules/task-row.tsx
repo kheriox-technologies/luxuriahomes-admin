@@ -84,6 +84,7 @@ export default function TaskRow({
 								open={orderPopoverOpen}
 							>
 								<PopoverTrigger
+									nativeButton={false}
 									render={
 										<Badge
 											className="cursor-pointer bg-pink-500/20 px-1 py-0 font-semibold text-[9px] text-pink-700 dark:text-pink-300"
