@@ -71,7 +71,6 @@ export default function ProjectDetailView({
 	return (
 		<div className={cn('flex h-full w-full flex-col')}>
 			<PageHeading
-				className="mb-0"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
 				rightSlot={
@@ -107,22 +106,22 @@ export default function ProjectDetailView({
 					</Group>
 				}
 				titleTrailing={
-					<Badge className="shrink-0" size="lg" variant={statusBadge.variant}>
-						{statusBadge.label}
-					</Badge>
+					<div className="flex shrink-0 items-center gap-3">
+						<Badge className="shrink-0" size="lg" variant={statusBadge.variant}>
+							{statusBadge.label}
+						</Badge>
+						{project.startDate ? (
+							<Badge className="shrink-0" size="lg" variant="outline">
+								{formatStartDateRelative(project.startDate)}
+							</Badge>
+						) : (
+							<Badge className="shrink-0" size="lg" variant="warning">
+								No start date available
+							</Badge>
+						)}
+					</div>
 				}
 			/>
-			<div className="mt-1 mb-4">
-				{project.startDate ? (
-					<Badge size="lg" variant="outline">
-						{formatStartDateRelative(project.startDate)}
-					</Badge>
-				) : (
-					<Badge size="lg" variant="warning">
-						No start date available
-					</Badge>
-				)}
-			</div>
 			<ProjectDetailsTabs clients={project.clients} project={project} />
 		</div>
 	);
