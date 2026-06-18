@@ -79,6 +79,7 @@ export default function ComposeEmailDialog({
 
 	const wasOpen = useRef(false);
 	const signatureApplied = useRef(false);
+	const prefixApplied = useRef(false);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const sendEmail = useAction(api.email.send.send);
@@ -101,6 +102,19 @@ export default function ComposeEmailDialog({
 		() => buildRecipientSuggestions(project, serviceProviders),
 		[project, serviceProviders]
 	);
+
+	// Project-specific emails (those given a `projectId`) prefix the subject with
+	// the project name, e.g. "123 Smith St — Order ORD-101". Company-wide emails
+	// have no `projectId`, so no project is fetched and the subject is left as-is.
+	const applyProjectPrefix = (subjectText: string) => {
+		const projectName = project?.name?.trim();
+		if (!projectName) {
+			return subjectText;
+		}
+		return subjectText.trim() === ''
+			? projectName
+			: `${projectName} — ${subjectText}`;
+	};
 
 	const activeTemplates = useMemo(
 		() => (templates ?? []).filter((template) => template.isActive),
@@ -128,6 +142,7 @@ export default function ComposeEmailDialog({
 			setSignatureId(null);
 			setSubmitting(false);
 			signatureApplied.current = false;
+			prefixApplied.current = false;
 			setAttachments(
 				(defaultAttachments ?? []).map((attachment) => ({
 					...attachment,
@@ -155,12 +170,25 @@ export default function ComposeEmailDialog({
 		}
 	}, [open, signatures, templateId]);
 
+	// Prepend the project name to the subject once the project query resolves.
+	// Runs once per open (guarded by `prefixApplied`) and tolerates the project
+	// loading either before or after the dialog is opened.
+	const projectName = project?.name?.trim();
+	useEffect(() => {
+		if (open && !prefixApplied.current && projectId && projectName) {
+			setSubject((prev) =>
+				prev.trim() === '' ? projectName : `${projectName} — ${prev}`
+			);
+			prefixApplied.current = true;
+		}
+	}, [open, projectId, projectName]);
+
 	const applyTemplate = (nextTemplateId: Id<'emailTemplates'> | null) => {
 		setTemplateId(nextTemplateId);
 		signatureApplied.current = true;
 		const template = activeTemplates.find((t) => t._id === nextTemplateId);
 		if (template) {
-			setSubject(template.subject);
+			setSubject(applyProjectPrefix(template.subject));
 			setBody(template.body);
 			setSignatureId(template.signatureId ?? null);
 		}

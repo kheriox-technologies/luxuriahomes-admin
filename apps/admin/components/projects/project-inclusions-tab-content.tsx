@@ -89,6 +89,7 @@ import {
 	EllipsisVertical,
 	ExternalLink,
 	Info,
+	Mail,
 	MapPin,
 	Pencil,
 	Plus,
@@ -109,10 +110,14 @@ import {
 	useState,
 } from 'react';
 import { signCdnUrls } from '@/actions/cdn';
+import ComposeEmailDialog from '@/components/email/compose-email-dialog';
 import LocationCombobox from '@/components/inclusions/location-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import type { ComposeAttachment } from '@/lib/email';
 import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
 import {
+	generateGroupInclusionsPdfBase64,
+	generateProjectInclusionsPdfBase64,
 	openGroupInclusionsPdfInNewTab,
 	openProjectInclusionsPdfInNewTab,
 } from '@/lib/pdf/project-inclusions-pdf';
@@ -1096,6 +1101,7 @@ function ProjectInclusionsTableInFrame({
 	onAddToOrder,
 	onCreateVendorGroupOrder,
 	onDownloadSectionPdf,
+	onEmailSectionPdf,
 }: {
 	section: InclusionSection;
 	mode: 'builder' | 'client';
@@ -1105,9 +1111,11 @@ function ProjectInclusionsTableInFrame({
 	onAddToOrder: (inclusion: ProjectInclusion) => void;
 	onCreateVendorGroupOrder: (inclusions: ProjectInclusion[]) => Promise<void>;
 	onDownloadSectionPdf: () => Promise<void>;
+	onEmailSectionPdf: () => Promise<void>;
 }) {
 	const showPricing = mode === 'builder';
 	const [downloadLoading, setDownloadLoading] = useState(false);
+	const [emailLoading, setEmailLoading] = useState(false);
 	const [bulkLoading, setBulkLoading] = useState(false);
 	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 	const [vendorOrderLoading, setVendorOrderLoading] = useState(false);
@@ -1283,6 +1291,22 @@ function ProjectInclusionsTableInFrame({
 						variant="outline"
 					>
 						<Download aria-hidden />
+					</Button>
+					<Button
+						aria-label={`Email ${section.groupName} inclusions PDF`}
+						loading={emailLoading}
+						onClick={() => {
+							setEmailLoading(true);
+							onEmailSectionPdf()
+								.catch(() => {
+									/* Error handled in onEmailSectionPdf */
+								})
+								.finally(() => setEmailLoading(false));
+						}}
+						type="button"
+						variant="outline"
+					>
+						<Mail aria-hidden />
 					</Button>
 					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
 						<AlertDialogTrigger
@@ -1620,6 +1644,11 @@ export default function ProjectInclusionsTabContent({
 		PendingOrderItem[]
 	>([]);
 	const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+	const [emailOpen, setEmailOpen] = useState(false);
+	const [emailAttachments, setEmailAttachments] = useState<ComposeAttachment[]>(
+		[]
+	);
+	const [emailSubject, setEmailSubject] = useState('');
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -1883,128 +1912,177 @@ export default function ProjectInclusionsTabContent({
 		[addOrder, projectId]
 	);
 
-	const onDownloadPdf = async () => {
+	// Resolve CDN image keys to JPEG data URLs so they embed in the PDF.
+	const resolveImageDataUrls = async (inclusions: ProjectInclusion[]) => {
+		const imageKeys = inclusions
+			.map((inc) => inc.image)
+			.filter((img): img is string => Boolean(img));
+		const pdfImageDataUrls: Record<string, string> = {};
+		if (imageKeys.length > 0) {
+			const signedUrls = await signCdnUrls(imageKeys);
+			await Promise.all(
+				Object.entries(signedUrls).map(async ([key, url]) => {
+					const dataUrl = await fetchUrlAsJpegDataUrl(url);
+					if (dataUrl) {
+						pdfImageDataUrls[key] = dataUrl;
+					}
+				})
+			);
+		}
+		return pdfImageDataUrls;
+	};
+
+	const mapInclusionForPdf = (
+		inclusion: ProjectInclusion,
+		pdfImageDataUrls: Record<string, string>
+	) => ({
+		_id: String(inclusion._id),
+		title: inclusion.title,
+		code: inclusion.code,
+		vendor: inclusion.vendor,
+		models: inclusion.models,
+		color: inclusion.color,
+		locations: inclusion.locations?.map((l) => ({ name: l.name })),
+		details: inclusion.details,
+		status: inclusion.status,
+		class: inclusion.class,
+		variationPrice: inclusion.variationPrice,
+		link: inclusion.link,
+		image: pdfImageDataUrls[inclusion.image ?? ''],
+	});
+
+	// Builds the full project inclusions PDF options, or null if the project
+	// details are still loading (a toast is shown in that case).
+	const buildFullPdfOptions = async () => {
 		if (!project) {
 			toastManager.add({
-				title: 'Could not download PDF',
+				title: 'Could not generate PDF',
 				description: 'Project details are still loading. Please try again.',
 				type: 'error',
 			});
-			return;
+			return null;
 		}
-		try {
-			const allImageKeys = sections
-				.flatMap((s) => s.inclusions)
-				.map((inc) => inc.image)
-				.filter((img): img is string => Boolean(img));
-			const pdfImageDataUrls: Record<string, string> = {};
-			if (allImageKeys.length > 0) {
-				const signedUrls = await signCdnUrls(allImageKeys);
-				await Promise.all(
-					Object.entries(signedUrls).map(async ([key, url]) => {
-						const dataUrl = await fetchUrlAsJpegDataUrl(url);
-						if (dataUrl) {
-							pdfImageDataUrls[key] = dataUrl;
-						}
-					})
-				);
-			}
-			await openProjectInclusionsPdfInNewTab({
-				projectName: project.name,
-				projectAddress: project.address,
-				clients: project.clients.map((client) => ({
-					firstName: client.firstName,
-					lastName: client.lastName,
-					email: client.email,
-					phone: client.phone,
-				})),
-				sections: sections.map((section) => ({
-					sectionId: section.groupKey,
-					sectionName: section.groupName,
-					inclusions: section.inclusions.map((inclusion) => ({
-						_id: String(inclusion._id),
-						title: inclusion.title,
-						code: inclusion.code,
-						vendor: inclusion.vendor,
-						models: inclusion.models,
-						color: inclusion.color,
-						locations: inclusion.locations?.map((l) => ({ name: l.name })),
-						details: inclusion.details,
-						status: inclusion.status,
-						class: inclusion.class,
-						variationPrice: inclusion.variationPrice,
-						image: pdfImageDataUrls[inclusion.image ?? ''],
-					})),
-					totalVariationSalePrice: section.totalVariationPrice,
-				})),
-			});
-		} catch (error) {
+		const pdfImageDataUrls = await resolveImageDataUrls(
+			sections.flatMap((s) => s.inclusions)
+		);
+		return {
+			projectName: project.name,
+			projectAddress: project.address,
+			clients: project.clients.map((client) => ({
+				firstName: client.firstName,
+				lastName: client.lastName,
+				email: client.email,
+				phone: client.phone,
+			})),
+			sections: sections.map((section) => ({
+				sectionId: section.groupKey,
+				sectionName: section.groupName,
+				inclusions: section.inclusions.map((inclusion) =>
+					mapInclusionForPdf(inclusion, pdfImageDataUrls)
+				),
+				totalVariationSalePrice: section.totalVariationPrice,
+			})),
+		};
+	};
+
+	const buildSectionPdfOptions = async (section: InclusionSection) => {
+		if (!project) {
 			toastManager.add({
 				title: 'Could not generate PDF',
-				description:
-					error instanceof Error
-						? error.message
-						: 'Please try again in a moment.',
+				description: 'Project details are still loading. Please try again.',
 				type: 'error',
 			});
+			return null;
+		}
+		const pdfImageDataUrls = await resolveImageDataUrls(section.inclusions);
+		return {
+			groupName: section.groupName,
+			projectAddress: project.address,
+			inclusions: section.inclusions.map((inclusion) =>
+				mapInclusionForPdf(inclusion, pdfImageDataUrls)
+			),
+		};
+	};
+
+	const handlePdfError = (error: unknown) => {
+		toastManager.add({
+			title: 'Could not generate PDF',
+			description:
+				error instanceof Error
+					? error.message
+					: 'Please try again in a moment.',
+			type: 'error',
+		});
+	};
+
+	const onDownloadPdf = async () => {
+		try {
+			const options = await buildFullPdfOptions();
+			if (options) {
+				await openProjectInclusionsPdfInNewTab(options);
+			}
+		} catch (error) {
+			handlePdfError(error);
+		}
+	};
+
+	const onEmailPdf = async () => {
+		try {
+			const options = await buildFullPdfOptions();
+			if (!options) {
+				return;
+			}
+			const contentBase64 = await generateProjectInclusionsPdfBase64(options);
+			setEmailAttachments([
+				{
+					id: crypto.randomUUID(),
+					filename: `${options.projectName} - Schedule of Finishes.pdf`,
+					contentType: 'application/pdf',
+					contentBase64,
+					removable: true,
+				},
+			]);
+			setEmailSubject('Schedule of Finishes');
+			setEmailOpen(true);
+		} catch (error) {
+			handlePdfError(error);
 		}
 	};
 
 	const createSectionDownloadHandler =
 		(section: InclusionSection) => async () => {
-			if (!project) {
-				toastManager.add({
-					title: 'Could not download PDF',
-					description: 'Project details are still loading. Please try again.',
-					type: 'error',
-				});
-				return;
-			}
 			try {
-				const imageKeys = section.inclusions
-					.map((inc) => inc.image)
-					.filter((img): img is string => Boolean(img));
-				const pdfImageDataUrls: Record<string, string> = {};
-				if (imageKeys.length > 0) {
-					const signedUrls = await signCdnUrls(imageKeys);
-					await Promise.all(
-						Object.entries(signedUrls).map(async ([key, url]) => {
-							const dataUrl = await fetchUrlAsJpegDataUrl(url);
-							if (dataUrl) {
-								pdfImageDataUrls[key] = dataUrl;
-							}
-						})
-					);
+				const options = await buildSectionPdfOptions(section);
+				if (options) {
+					await openGroupInclusionsPdfInNewTab(options);
 				}
-				await openGroupInclusionsPdfInNewTab({
-					groupName: section.groupName,
-					projectAddress: project.address,
-					inclusions: section.inclusions.map((inclusion) => ({
-						_id: String(inclusion._id),
-						title: inclusion.title,
-						code: inclusion.code,
-						vendor: inclusion.vendor,
-						models: inclusion.models,
-						color: inclusion.color,
-						locations: inclusion.locations?.map((l) => ({ name: l.name })),
-						details: inclusion.details,
-						status: inclusion.status,
-						class: inclusion.class,
-						variationPrice: inclusion.variationPrice,
-						image: pdfImageDataUrls[inclusion.image ?? ''],
-					})),
-				});
 			} catch (error) {
-				toastManager.add({
-					title: 'Could not generate PDF',
-					description:
-						error instanceof Error
-							? error.message
-							: 'Please try again in a moment.',
-					type: 'error',
-				});
+				handlePdfError(error);
 			}
 		};
+
+	const createSectionEmailHandler = (section: InclusionSection) => async () => {
+		try {
+			const options = await buildSectionPdfOptions(section);
+			if (!options) {
+				return;
+			}
+			const contentBase64 = await generateGroupInclusionsPdfBase64(options);
+			setEmailAttachments([
+				{
+					id: crypto.randomUUID(),
+					filename: `${section.groupName}.pdf`,
+					contentType: 'application/pdf',
+					contentBase64,
+					removable: true,
+				},
+			]);
+			setEmailSubject(section.groupName);
+			setEmailOpen(true);
+		} catch (error) {
+			handlePdfError(error);
+		}
+	};
 
 	if (inclusions === undefined || categories === undefined) {
 		return <p className="text-muted-foreground text-sm">Loading inclusions…</p>;
@@ -2054,6 +2132,20 @@ export default function ProjectInclusionsTabContent({
 			>
 				<Download aria-hidden />
 				Download
+			</Button>
+			<Button
+				aria-label="Email project inclusions"
+				className="shrink-0"
+				onClick={() => {
+					onEmailPdf().catch(() => {
+						/* Error handled in onEmailPdf */
+					});
+				}}
+				type="button"
+				variant="outline"
+			>
+				<Mail aria-hidden />
+				Email
 			</Button>
 		</div>
 	);
@@ -2106,6 +2198,7 @@ export default function ProjectInclusionsTabContent({
 						onAddToOrder={onAddToOrder}
 						onCreateVendorGroupOrder={handleCreateVendorGroupOrder}
 						onDownloadSectionPdf={createSectionDownloadHandler(section)}
+						onEmailSectionPdf={createSectionEmailHandler(section)}
 						pendingOrderItems={pendingOrderItems}
 						projectId={projectId}
 						section={section}
@@ -2130,6 +2223,14 @@ export default function ProjectInclusionsTabContent({
 				onRemove={onRemoveFromOrder}
 			/>
 			{listBody}
+			<ComposeEmailDialog
+				defaultAttachments={emailAttachments}
+				defaultSubject={emailSubject}
+				onOpenChange={setEmailOpen}
+				open={emailOpen}
+				projectId={projectId}
+				relatedTable="projectInclusions"
+			/>
 		</div>
 	);
 }
