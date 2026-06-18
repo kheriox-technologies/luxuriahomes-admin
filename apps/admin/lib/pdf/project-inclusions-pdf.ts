@@ -23,7 +23,7 @@ export interface ProjectPdfInclusion {
 	details?: string;
 	image?: string;
 	link?: string;
-	locations?: { name: string }[];
+	locations?: { name: string; quantity?: number; unit?: string }[];
 	models: string[];
 	status?: 'Under Review' | 'Approved';
 	title: string;
@@ -40,6 +40,7 @@ export interface ProjectPdfSection {
 
 export interface OpenProjectInclusionsPdfOptions {
 	clients: ProjectPdfClient[];
+	groupedByVendor?: boolean;
 	projectAddress: PdfProjectAddress;
 	projectName: string;
 	sections: ProjectPdfSection[];
@@ -87,6 +88,19 @@ function inclusionImageTableCell(
 	};
 }
 
+function inclusionQuantityCell(inclusion: ProjectPdfInclusion): string {
+	const locations = inclusion.locations ?? [];
+	if (locations.length === 0) {
+		return '—';
+	}
+	const totalQty = locations.reduce((sum, l) => sum + (l.quantity ?? 0), 0);
+	if (totalQty === 0) {
+		return '—';
+	}
+	const unit = locations.find((l) => l.unit?.trim())?.unit?.trim();
+	return unit ? `${totalQty} ${unit}` : String(totalQty);
+}
+
 function inclusionLinkTableCell(
 	link: string | undefined
 ): Record<string, unknown> | string {
@@ -115,6 +129,7 @@ function buildDocDefinition(
 	groupOptions?: GroupPdfOptions
 ) {
 	const projectAddressLine = formatAddressLine(options.projectAddress);
+	const groupedByVendor = options.groupedByVendor === true;
 	const sectionsContent: unknown[] = [];
 
 	for (const section of options.sections) {
@@ -123,7 +138,11 @@ function buildDocDefinition(
 				{ text: 'Title', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Vendor & details', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Color', bold: true, fillColor: '#f3f4f6' },
-				{ text: 'Location', bold: true, fillColor: '#f3f4f6' },
+				{
+					text: groupedByVendor ? 'Quantity' : 'Location',
+					bold: true,
+					fillColor: '#f3f4f6',
+				},
 				{ text: 'Status', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Web link', bold: true, fillColor: '#f3f4f6' },
 				{ text: 'Image', bold: true, fillColor: '#f3f4f6' },
@@ -143,7 +162,9 @@ function buildDocDefinition(
 				`${inclusion.title}\n${inclusion.code}`,
 				vendorDetails || '—',
 				inclusion.color ?? '—',
-				inclusion.locations?.map((l) => l.name).join(', ') || '—',
+				groupedByVendor
+					? inclusionQuantityCell(inclusion)
+					: inclusion.locations?.map((l) => l.name).join(', ') || '—',
 				inclusion.status ?? 'Under Review',
 				inclusionLinkTableCell(inclusion.link),
 				inclusionImageTableCell(inclusionImageDataUrls.get(inclusion._id)),
@@ -513,6 +534,7 @@ export async function generateProjectInclusionsPdfBase64(
 }
 
 export interface OpenGroupInclusionsPdfOptions {
+	groupedByVendor?: boolean;
 	groupName: string;
 	inclusions: ProjectPdfInclusion[];
 	projectAddress: PdfProjectAddress;
@@ -530,6 +552,7 @@ function buildGroupPdfArgs(
 	return [
 		{
 			clients: [],
+			groupedByVendor: options.groupedByVendor,
 			projectAddress: options.projectAddress,
 			projectName: options.groupName,
 			sections: [section],

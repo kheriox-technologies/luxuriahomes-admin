@@ -1942,7 +1942,11 @@ export default function ProjectInclusionsTabContent({
 		vendor: inclusion.vendor,
 		models: inclusion.models,
 		color: inclusion.color,
-		locations: inclusion.locations?.map((l) => ({ name: l.name })),
+		locations: inclusion.locations?.map((l) => ({
+			name: l.name,
+			quantity: l.quantity,
+			unit: l.unit,
+		})),
 		details: inclusion.details,
 		status: inclusion.status,
 		class: inclusion.class,
@@ -1968,6 +1972,7 @@ export default function ProjectInclusionsTabContent({
 		return {
 			projectName: project.name,
 			projectAddress: project.address,
+			groupedByVendor: groupBy === 'vendor',
 			clients: project.clients.map((client) => ({
 				firstName: client.firstName,
 				lastName: client.lastName,
@@ -1998,6 +2003,7 @@ export default function ProjectInclusionsTabContent({
 		return {
 			groupName: section.groupName,
 			projectAddress: project.address,
+			groupedByVendor: groupBy === 'vendor',
 			inclusions: section.inclusions.map((inclusion) =>
 				mapInclusionForPdf(inclusion, pdfImageDataUrls)
 			),
