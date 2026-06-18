@@ -91,6 +91,7 @@ function OrderBadge({
 	return (
 		<Popover onOpenChange={setOpen} open={open}>
 			<PopoverTrigger
+				nativeButton={false}
 				render={
 					<Badge
 						className="cursor-pointer"
@@ -235,6 +236,7 @@ export default function ProjectTaskRow({
 								open={orderPopoverOpen}
 							>
 								<PopoverTrigger
+									nativeButton={false}
 									render={
 										<Badge
 											className={`cursor-pointer ${getOrderBadgeClass(ordersForTask)}`}

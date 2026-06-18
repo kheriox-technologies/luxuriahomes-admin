@@ -41,7 +41,11 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { FieldLabel } from '@workspace/ui/components/field';
+import {
+	Field,
+	FieldDescription,
+	FieldLabel,
+} from '@workspace/ui/components/field';
 import {
 	Frame,
 	FrameDescription,
@@ -841,31 +845,33 @@ function AdjustVariationDialog({
 						<span className="text-muted-foreground">{` · ${inclusion.code}`}</span>
 					</DialogDescription>
 				</DialogHeader>
-				<div className="flex flex-col gap-2 px-6 pb-2">
-					<FieldLabel htmlFor={`adjust-variation-${inclusion._id}`}>
-						Variation (total)
-					</FieldLabel>
-					<InputGroup>
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>$</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-invalid={!isValid || undefined}
-							id={`adjust-variation-${inclusion._id}`}
-							inputMode="decimal"
-							onChange={(e) => setValue(e.target.value)}
-							placeholder="0.00"
-							type="text"
-							value={value}
-						/>
-						<InputGroupAddon align="inline-end">
-							<InputGroupText>AUD</InputGroupText>
-						</InputGroupAddon>
-					</InputGroup>
-					<p className="text-muted-foreground text-xs">
-						Combined base and labour variation for this inclusion. Leave blank
-						to clear.
-					</p>
+				<div className="px-6 pb-2">
+					<Field data-invalid={!isValid || undefined}>
+						<FieldLabel htmlFor={`adjust-variation-${inclusion._id}`}>
+							Variation (total)
+						</FieldLabel>
+						<InputGroup>
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>$</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-invalid={!isValid || undefined}
+								id={`adjust-variation-${inclusion._id}`}
+								inputMode="decimal"
+								onChange={(e) => setValue(e.target.value)}
+								placeholder="0.00"
+								type="text"
+								value={value}
+							/>
+							<InputGroupAddon align="inline-end">
+								<InputGroupText>AUD</InputGroupText>
+							</InputGroupAddon>
+						</InputGroup>
+						<FieldDescription>
+							Combined base and labour variation for this inclusion. Leave blank
+							to clear.
+						</FieldDescription>
+					</Field>
 				</div>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
