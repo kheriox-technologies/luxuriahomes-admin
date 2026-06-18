@@ -10,9 +10,8 @@ import {
 import { requireAdmin } from '../lib/checkIdentity';
 import {
 	buildProjectInclusionSearchText,
-	buildVariationFromStandard,
+	buildVariationFromBase,
 	getProjectOrThrow,
-	getStandardVariantOrThrow,
 	roundMoney,
 	validateVariationFields,
 } from './shared';
@@ -46,16 +45,11 @@ export const add = mutation({
 		const inclusion = await getInclusionOrThrow(ctx, variant.inclusionId);
 		const costPrice = parseMoney2(variant.costPrice, 'Cost price');
 		const salePrice = parseMoney2(variant.salePrice, 'Sale price');
-		const standardVariant = await getStandardVariantOrThrow(
-			ctx,
-			variant.inclusionId
+		const { variationPrice: perUnitVariationPrice } = buildVariationFromBase(
+			variant.class,
+			salePrice,
+			inclusion.standardPrice
 		);
-		const { variationPrice: perUnitVariationPrice } =
-			buildVariationFromStandard(
-				variant.class,
-				salePrice,
-				standardVariant.salePrice
-			);
 		validateVariationFields(variant.class, perUnitVariationPrice);
 
 		const totalQuantity = args.locations

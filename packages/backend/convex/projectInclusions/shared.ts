@@ -71,53 +71,25 @@ export async function deleteNotesForProjectInclusion(
 	}
 }
 
-export async function getStandardVariantOrThrow(
-	ctx: ReadCtx,
-	inclusionId: Id<'inclusions'>
-) {
-	const variants = await ctx.db
-		.query('inclusionVariants')
-		.withIndex('by_inclusion', (q) => q.eq('inclusionId', inclusionId))
-		.collect();
-	const standard = variants.find((v) => v.class === 'Standard');
-	if (!standard) {
-		throw new ConvexError({
-			code: 'STANDARD_VARIANT_REQUIRED',
-			message: 'A Standard inclusion variant is required to compute variation',
-		});
-	}
-	return standard;
-}
-
-export function buildVariationFromStandard(
+export function buildVariationFromBase(
 	className: Doc<'projectInclusions'>['class'],
 	salePrice: number,
-	standardSalePrice: number
+	basePrice: number | undefined
 ) {
-	if (className === 'Standard') {
+	if (className === 'Standard' || basePrice === undefined) {
 		return { variationPrice: undefined };
 	}
-	return { variationPrice: roundMoney(salePrice - standardSalePrice) };
+	return { variationPrice: roundMoney(salePrice - basePrice) };
 }
 
 export function validateVariationFields(
 	className: Doc<'projectInclusions'>['class'],
 	variationPrice: number | undefined
 ) {
-	if (className === 'Standard') {
-		if (variationPrice !== undefined) {
-			throw new ConvexError({
-				code: 'INVALID_VARIATION',
-				message: 'Standard class cannot have a variation price',
-			});
-		}
-		return;
-	}
-
-	if (variationPrice === undefined) {
+	if (className === 'Standard' && variationPrice !== undefined) {
 		throw new ConvexError({
 			code: 'INVALID_VARIATION',
-			message: 'Variation price is required for non-standard classes',
+			message: 'Standard class cannot have a variation price',
 		});
 	}
 }
