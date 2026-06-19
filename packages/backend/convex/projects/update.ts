@@ -9,6 +9,7 @@ import {
 import {
 	assertAustralianAddress,
 	australianAddressValidator,
+	normalizeClientEmail,
 	projectClientValidator,
 	projectStatusValidator,
 } from './shared';
@@ -48,12 +49,30 @@ export const update = mutation({
 					message: 'At least one client is required',
 				});
 			}
-			for (const client of args.clients) {
+			// Preserve existing client portal links: the form drafts that drive this
+			// mutation do not carry portal fields, so match incoming clients to existing
+			// ones by email and carry the portal access over.
+			const portalByEmail = new Map(
+				existing.clients
+					.filter((client) => client.portalUserId !== undefined)
+					.map((client) => [normalizeClientEmail(client.email), client])
+			);
+			clients = args.clients.map((client) => {
 				if (client.address) {
 					assertAustralianAddress(client.address);
 				}
-			}
-			clients = args.clients;
+				const existingClient = portalByEmail.get(
+					normalizeClientEmail(client.email)
+				);
+				if (!existingClient) {
+					return client;
+				}
+				return {
+					...client,
+					portalUserId: existingClient.portalUserId,
+					portalAccessGrantedAt: existingClient.portalAccessGrantedAt,
+				};
+			});
 		}
 
 		let startDate = existing.startDate;

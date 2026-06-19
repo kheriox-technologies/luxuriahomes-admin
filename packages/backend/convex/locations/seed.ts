@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildLocationSearchText } from '../lib/buildSearchText';
 
 const LOCATIONS_DATA: string[] = [
@@ -40,7 +40,7 @@ const LOCATIONS_DATA: string[] = [
 	'Balcony',
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const existing = await ctx.db.query('locations').first();

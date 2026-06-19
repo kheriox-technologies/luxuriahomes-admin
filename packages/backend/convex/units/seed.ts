@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 
 const UNITS_DATA: { category: string; abbr: string; label: string }[] = [
 	// Area
@@ -35,7 +35,7 @@ const UNITS_DATA: { category: string; abbr: string; label: string }[] = [
 	{ category: 'Packaged Goods', abbr: 'drum', label: 'Drum' },
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const existing = await ctx.db.query('units').first();

@@ -9,7 +9,7 @@ import { ConvexError, v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { action } from '../_generated/server';
-import { checkIdentity } from '../lib/checkIdentity';
+import { requireAdmin } from '../lib/checkIdentity';
 import { toKebabCase } from '../lib/toKebabCase';
 
 const fileExtensionPattern = /\.[^.]*$/;
@@ -34,7 +34,7 @@ export const renameFolder = action({
 		newName: v.string(),
 	},
 	handler: async (ctx, args): Promise<void> => {
-		await checkIdentity(ctx);
+		await requireAdmin(ctx);
 
 		const region = process.env.AWS_REGION;
 		const accessKeyId = process.env.AWS_ACCESS_KEY_ID;

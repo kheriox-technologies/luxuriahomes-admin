@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildDocumentFolderSearchText } from '../lib/buildSearchText';
 
 const DOCUMENT_FOLDERS_DATA: string[] = [
@@ -12,7 +12,7 @@ const DOCUMENT_FOLDERS_DATA: string[] = [
 	'Certifier Approved Documents',
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const existing = await ctx.db.query('documentFolders').collect();

@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { checkIdentity } from '../lib/checkIdentity';
+import { requireAdmin } from '../lib/checkIdentity';
 import { toKebabCase } from '../lib/toKebabCase';
 
 const fileExtensionPattern = /\.[^.]*$/;
@@ -11,7 +11,7 @@ export const createFolder = mutation({
 		parentPath: v.string(),
 	},
 	handler: async (ctx, args) => {
-		await checkIdentity(ctx);
+		await requireAdmin(ctx);
 
 		const trimmedName = args.name.trim();
 		if (!trimmedName) {

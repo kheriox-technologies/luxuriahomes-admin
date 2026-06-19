@@ -8,6 +8,20 @@
  * @module
  */
 
+import type * as clientPortal_documents_create from "../clientPortal/documents/create.js";
+import type * as clientPortal_documents_generateUploadUrl from "../clientPortal/documents/generateUploadUrl.js";
+import type * as clientPortal_documents_list from "../clientPortal/documents/list.js";
+import type * as clientPortal_documents_shared from "../clientPortal/documents/shared.js";
+import type * as clientPortal_grantAccess from "../clientPortal/grantAccess.js";
+import type * as clientPortal_inclusions_appendNote from "../clientPortal/inclusions/appendNote.js";
+import type * as clientPortal_inclusions_deleteNote from "../clientPortal/inclusions/deleteNote.js";
+import type * as clientPortal_inclusions_list from "../clientPortal/inclusions/list.js";
+import type * as clientPortal_inclusions_listNotes from "../clientPortal/inclusions/listNotes.js";
+import type * as clientPortal_inclusions_setStatus from "../clientPortal/inclusions/setStatus.js";
+import type * as clientPortal_internal from "../clientPortal/internal.js";
+import type * as clientPortal_projects_get from "../clientPortal/projects/get.js";
+import type * as clientPortal_projects_list from "../clientPortal/projects/list.js";
+import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js";
 import type * as companyDocuments_create from "../companyDocuments/create.js";
 import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
 import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
@@ -30,6 +44,7 @@ import type * as documentFolders_update from "../documentFolders/update.js";
 import type * as email_logSent from "../email/logSent.js";
 import type * as email_send from "../email/send.js";
 import type * as email_shared from "../email/shared.js";
+import type * as email_template from "../email/template.js";
 import type * as emailSignatures_add from "../emailSignatures/add.js";
 import type * as emailSignatures_get from "../emailSignatures/get.js";
 import type * as emailSignatures_list from "../emailSignatures/list.js";
@@ -73,6 +88,7 @@ import type * as inclusions_update from "../inclusions/update.js";
 import type * as lib_buildSearchText from "../lib/buildSearchText.js";
 import type * as lib_checkIdentity from "../lib/checkIdentity.js";
 import type * as lib_clerk from "../lib/clerk.js";
+import type * as lib_clientAccess from "../lib/clientAccess.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_toKebabCase from "../lib/toKebabCase.js";
@@ -128,6 +144,7 @@ import type * as projectDocuments_move from "../projectDocuments/move.js";
 import type * as projectDocuments_remove from "../projectDocuments/remove.js";
 import type * as projectDocuments_rename from "../projectDocuments/rename.js";
 import type * as projectDocuments_renameFolder from "../projectDocuments/renameFolder.js";
+import type * as projectDocuments_setClientPortalVisibility from "../projectDocuments/setClientPortalVisibility.js";
 import type * as projectDocuments_shared from "../projectDocuments/shared.js";
 import type * as projectInclusions_add from "../projectInclusions/add.js";
 import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
@@ -271,6 +288,20 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "clientPortal/documents/create": typeof clientPortal_documents_create;
+  "clientPortal/documents/generateUploadUrl": typeof clientPortal_documents_generateUploadUrl;
+  "clientPortal/documents/list": typeof clientPortal_documents_list;
+  "clientPortal/documents/shared": typeof clientPortal_documents_shared;
+  "clientPortal/grantAccess": typeof clientPortal_grantAccess;
+  "clientPortal/inclusions/appendNote": typeof clientPortal_inclusions_appendNote;
+  "clientPortal/inclusions/deleteNote": typeof clientPortal_inclusions_deleteNote;
+  "clientPortal/inclusions/list": typeof clientPortal_inclusions_list;
+  "clientPortal/inclusions/listNotes": typeof clientPortal_inclusions_listNotes;
+  "clientPortal/inclusions/setStatus": typeof clientPortal_inclusions_setStatus;
+  "clientPortal/internal": typeof clientPortal_internal;
+  "clientPortal/projects/get": typeof clientPortal_projects_get;
+  "clientPortal/projects/list": typeof clientPortal_projects_list;
+  "clientPortal/revokeAccess": typeof clientPortal_revokeAccess;
   "companyDocuments/create": typeof companyDocuments_create;
   "companyDocuments/createFolder": typeof companyDocuments_createFolder;
   "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;
@@ -293,6 +324,7 @@ declare const fullApi: ApiFromModules<{
   "email/logSent": typeof email_logSent;
   "email/send": typeof email_send;
   "email/shared": typeof email_shared;
+  "email/template": typeof email_template;
   "emailSignatures/add": typeof emailSignatures_add;
   "emailSignatures/get": typeof emailSignatures_get;
   "emailSignatures/list": typeof emailSignatures_list;
@@ -336,6 +368,7 @@ declare const fullApi: ApiFromModules<{
   "lib/buildSearchText": typeof lib_buildSearchText;
   "lib/checkIdentity": typeof lib_checkIdentity;
   "lib/clerk": typeof lib_clerk;
+  "lib/clientAccess": typeof lib_clientAccess;
   "lib/logger": typeof lib_logger;
   "lib/permissions": typeof lib_permissions;
   "lib/toKebabCase": typeof lib_toKebabCase;
@@ -391,6 +424,7 @@ declare const fullApi: ApiFromModules<{
   "projectDocuments/remove": typeof projectDocuments_remove;
   "projectDocuments/rename": typeof projectDocuments_rename;
   "projectDocuments/renameFolder": typeof projectDocuments_renameFolder;
+  "projectDocuments/setClientPortalVisibility": typeof projectDocuments_setClientPortalVisibility;
   "projectDocuments/shared": typeof projectDocuments_shared;
   "projectInclusions/add": typeof projectInclusions_add;
   "projectInclusions/appendNote": typeof projectInclusions_appendNote;

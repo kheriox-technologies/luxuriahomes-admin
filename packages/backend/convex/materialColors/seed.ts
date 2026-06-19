@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildMaterialColorSearchText } from '../lib/buildSearchText';
 
 const MATERIAL_COLORS_DATA: string[] = [
@@ -17,7 +17,7 @@ const MATERIAL_COLORS_DATA: string[] = [
 	'Grey',
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const existing = await ctx.db.query('materialColors').first();

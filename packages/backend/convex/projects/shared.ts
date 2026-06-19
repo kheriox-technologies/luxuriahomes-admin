@@ -50,4 +50,16 @@ export const projectClientValidator = v.object({
 	phone: v.string(),
 	company: v.optional(v.string()),
 	address: v.optional(australianAddressValidator),
+	// Client portal access. Presence of portalUserId means the client has a
+	// Clerk account (member + client roles) and can sign in to the portal.
+	portalUserId: v.optional(v.string()),
+	portalAccessGrantedAt: v.optional(v.number()),
 });
+
+/**
+ * Normalizes an email for matching project clients (trim + lowercase).
+ * Project clients have no stable id, so they are identified by project + email.
+ */
+export function normalizeClientEmail(email: string): string {
+	return email.trim().toLowerCase();
+}

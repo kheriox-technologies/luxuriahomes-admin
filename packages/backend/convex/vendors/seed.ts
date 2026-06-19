@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildVendorSearchText } from '../lib/buildSearchText';
 
 const VENDORS_DATA: string[] = [
@@ -13,7 +13,7 @@ const VENDORS_DATA: string[] = [
 	'Westing House',
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const existing = await ctx.db.query('vendors').first();

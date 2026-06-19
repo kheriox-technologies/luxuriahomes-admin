@@ -8,7 +8,8 @@
   "type": "module",
   "exports": {
     "./web": "./src/web.ts",
-    "./admin": "./src/admin.ts"
+    "./admin": "./src/admin.ts",
+    "./client": "./src/client.ts"
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.13.1",

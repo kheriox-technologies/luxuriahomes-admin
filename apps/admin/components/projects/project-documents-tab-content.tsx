@@ -26,6 +26,9 @@ export default function ProjectDocumentsTabContent({
 	const deleteFolderAction = useAction(
 		api.projectDocuments.deleteFolder.deleteFolder
 	);
+	const setClientPortalVisibility = useMutation(
+		api.projectDocuments.setClientPortalVisibility.setClientPortalVisibility
+	);
 
 	return (
 		<ProjectFileManagerTabContent
@@ -67,6 +70,12 @@ export default function ProjectDocumentsTabContent({
 				await renameFolderAction({
 					folderId: folderId as Id<'projectDocumentFolders'>,
 					newName,
+				});
+			}}
+			onSetClientPortalVisibility={async (fileId, visible) => {
+				await setClientPortalVisibility({
+					documentId: fileId as Id<'projectDocuments'>,
+					visible,
 				});
 			}}
 			projectId={projectId}

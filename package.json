@@ -16,6 +16,7 @@
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:admin": "turbo -F admin dev",
+    "dev:client": "turbo -F client dev",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "prepare": "husky",

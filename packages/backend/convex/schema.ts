@@ -176,6 +176,10 @@ export default defineSchema({
 		mimeType: v.optional(v.string()),
 		uploadedBy: v.string(),
 		uploadedAt: v.number(),
+		// Client portal: when true the document is visible on the client portal.
+		clientPortalVisible: v.optional(v.boolean()),
+		// True when the document was uploaded by a client via the portal.
+		uploadedByClient: v.optional(v.boolean()),
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_folder', ['projectId', 'folderPath']),

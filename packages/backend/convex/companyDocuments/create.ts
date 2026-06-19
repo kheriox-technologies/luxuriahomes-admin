@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { checkIdentity } from '../lib/checkIdentity';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 
 export const create = mutation({
 	args: {
@@ -12,6 +12,7 @@ export const create = mutation({
 		mimeType: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
 		return await ctx.db.insert('companyDocuments', {
 			name: args.name,

@@ -116,7 +116,7 @@ export default function ProjectDetailsTabs({
 				<ProjectScheduleTabContent project={project} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="clients">
-				<ProjectClientsTabContent clients={clients} />
+				<ProjectClientsTabContent clients={clients} projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="inclusions">
 				<ProjectInclusionsTabContent projectId={project._id} />

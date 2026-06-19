@@ -4,7 +4,7 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v } from 'convex/values';
 import { action } from '../_generated/server';
-import { checkIdentity } from '../lib/checkIdentity';
+import { requireAdmin } from '../lib/checkIdentity';
 
 export const generateUploadUrl = action({
 	args: {
@@ -14,7 +14,7 @@ export const generateUploadUrl = action({
 	},
 	returns: v.object({ uploadUrl: v.string(), s3Key: v.string() }),
 	handler: async (ctx, args): Promise<{ uploadUrl: string; s3Key: string }> => {
-		await checkIdentity(ctx);
+		await requireAdmin(ctx);
 
 		const region = process.env.AWS_REGION;
 		const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
