@@ -16,13 +16,20 @@ import {
 } from '@workspace/ui/components/dialog';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { type ReactElement, useEffect, useState } from 'react';
 import {
-	emptyInclusionCategoryFormValues,
+	editInclusionCategoryFormSchema,
+	emptyEditInclusionCategoryFormValues,
 	inclusionCategoryFieldError,
-	inclusionCategoryFormSchema,
+	parseAllowanceString,
 } from '@/components/inclusions/inclusion-category-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -34,28 +41,36 @@ export default function EditInclusionCategory({
 	categoryId,
 	initialName,
 	initialCode,
+	initialAllowance,
+	initialLabourAllowance,
+	showCodeField = false,
 	trigger,
 }: {
 	categoryId: Id<'inclusionCategories'>;
 	initialName: InclusionCategory['name'];
 	initialCode: InclusionCategory['code'];
+	initialAllowance?: InclusionCategory['allowance'];
+	initialLabourAllowance?: InclusionCategory['labourAllowance'];
+	showCodeField?: boolean;
 	trigger: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
 	const updateCategory = useMutation(api.inclusionCategories.update.update);
 
 	const form = useForm({
-		defaultValues: emptyInclusionCategoryFormValues,
+		defaultValues: emptyEditInclusionCategoryFormValues,
 		validators: {
-			onChange: inclusionCategoryFormSchema as never,
+			onChange: editInclusionCategoryFormSchema as never,
 		},
 		onSubmit: async ({ value }) => {
 			try {
-				const parsed = inclusionCategoryFormSchema.parse(value);
+				const parsed = editInclusionCategoryFormSchema.parse(value);
 				await updateCategory({
 					categoryId,
 					name: parsed.name,
 					code: parsed.code.toUpperCase(),
+					allowance: parseAllowanceString(parsed.allowance),
+					labourAllowance: parseAllowanceString(parsed.labourAllowance),
 				});
 				toastManager.add({
 					title: 'Category updated',
@@ -80,14 +95,30 @@ export default function EditInclusionCategory({
 	useEffect(() => {
 		if (open) {
 			form.reset(
-				{ name: initialName, code: initialCode },
+				{
+					name: initialName,
+					code: initialCode,
+					allowance:
+						initialAllowance === undefined ? '' : String(initialAllowance),
+					labourAllowance:
+						initialLabourAllowance === undefined
+							? ''
+							: String(initialLabourAllowance),
+				},
 				{ keepDefaultValues: true }
 			);
 			return;
 		}
 
 		form.reset();
-	}, [form, initialCode, initialName, open]);
+	}, [
+		form,
+		initialCode,
+		initialName,
+		initialAllowance,
+		initialLabourAllowance,
+		open,
+	]);
 
 	return (
 		<Dialog
@@ -137,24 +168,98 @@ export default function EditInclusionCategory({
 								);
 							}}
 						</form.Field>
-						<form.Field name="code">
+						{showCodeField ? (
+							<form.Field name="code">
+								{(field) => {
+									const invalid =
+										field.state.meta.isTouched && !field.state.meta.isValid;
+									return (
+										<Field data-invalid={invalid}>
+											<FieldLabel htmlFor={field.name}>Code</FieldLabel>
+											<Input
+												aria-invalid={invalid}
+												autoCapitalize="characters"
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="e.g. KIT"
+												value={field.state.value}
+											/>
+											{invalid ? (
+												<FieldError>
+													{inclusionCategoryFieldError(field.state.meta.errors)}
+												</FieldError>
+											) : null}
+										</Field>
+									);
+								}}
+							</form.Field>
+						) : null}
+						<form.Field name="allowance">
 							{(field) => {
 								const invalid =
 									field.state.meta.isTouched && !field.state.meta.isValid;
 								return (
 									<Field data-invalid={invalid}>
-										<FieldLabel htmlFor={field.name}>Code</FieldLabel>
-										<Input
-											aria-invalid={invalid}
-											autoCapitalize="characters"
-											id={field.name}
-											name={field.name}
-											nativeInput
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="e.g. KIT"
-											value={field.state.value}
-										/>
+										<FieldLabel htmlFor={field.name}>Allowance</FieldLabel>
+										<InputGroup>
+											<InputGroupAddon align="inline-start">
+												<InputGroupText>$</InputGroupText>
+											</InputGroupAddon>
+											<InputGroupInput
+												aria-invalid={invalid || undefined}
+												id={field.name}
+												inputMode="decimal"
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="0.00"
+												type="text"
+												value={field.state.value}
+											/>
+											<InputGroupAddon align="inline-end">
+												<InputGroupText>AUD</InputGroupText>
+											</InputGroupAddon>
+										</InputGroup>
+										{invalid ? (
+											<FieldError>
+												{inclusionCategoryFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="labourAllowance">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>
+											Labour allowance
+										</FieldLabel>
+										<InputGroup>
+											<InputGroupAddon align="inline-start">
+												<InputGroupText>$</InputGroupText>
+											</InputGroupAddon>
+											<InputGroupInput
+												aria-invalid={invalid || undefined}
+												id={field.name}
+												inputMode="decimal"
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="0.00"
+												type="text"
+												value={field.state.value}
+											/>
+											<InputGroupAddon align="inline-end">
+												<InputGroupText>AUD</InputGroupText>
+											</InputGroupAddon>
+										</InputGroup>
 										{invalid ? (
 											<FieldError>
 												{inclusionCategoryFieldError(field.state.meta.errors)}

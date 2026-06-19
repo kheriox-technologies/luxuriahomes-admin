@@ -14,6 +14,8 @@ export const update = mutation({
 		categoryId: v.id('inclusionCategories'),
 		name: v.string(),
 		code: v.string(),
+		allowance: v.optional(v.number()),
+		labourAllowance: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -31,7 +33,13 @@ export const update = mutation({
 		await ensureCategoryCodeUnique(ctx, code, args.categoryId);
 		const searchText = buildInclusionCategorySearchText(name, code);
 
-		await ctx.db.patch(args.categoryId, { name, code, searchText });
+		await ctx.db.patch(args.categoryId, {
+			name,
+			code,
+			searchText,
+			allowance: args.allowance,
+			labourAllowance: args.labourAllowance,
+		});
 		return args.categoryId;
 	},
 });

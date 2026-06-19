@@ -5,24 +5,13 @@ import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
-	Card,
-	CardAction,
-	CardHeader,
-	CardTitle,
-} from '@workspace/ui/components/card';
-import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import {
-	Frame,
-	FrameHeader,
-	FramePanel,
-	FrameTitle,
-} from '@workspace/ui/components/frame';
+import { Frame, FrameHeader, FrameTitle } from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
@@ -30,6 +19,15 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableFooter,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@workspace/ui/components/table';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import {
@@ -45,49 +43,67 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AddInclusion from '@/components/inclusions/add-inclusion';
 import DeleteInclusion from '@/components/inclusions/delete-inclusion';
 import EditInclusion from '@/components/inclusions/edit-inclusion';
+import EditInclusionCategory from '@/components/inclusions/edit-inclusion-category';
 import { formatVariantBadgeLabel } from '@/components/inclusions/inclusion-form-shared';
 import PageHeading from '@/components/page-heading';
 
 type Inclusion = Doc<'inclusions'>;
+type InclusionCategory = Doc<'inclusionCategories'>;
+
+const audFormatter = new Intl.NumberFormat('en-AU', {
+	style: 'currency',
+	currency: 'AUD',
+});
 
 function inclusionCountBadgeLabel(count: number): string {
 	const noun = count === 1 ? 'Inclusion' : 'Inclusions';
 	return `${count} ${noun}`;
 }
 
-function InclusionCatalogueCard({
+function InclusionRow({
 	inclusion,
-	categoryName,
 	categoryId,
-	showCategorySubtitle = true,
 }: {
 	inclusion: Inclusion;
-	categoryName: string;
 	categoryId: Id<'inclusionCategories'>;
-	showCategorySubtitle?: boolean;
 }) {
 	return (
-		<Card>
-			<CardHeader className="flex flex-row items-start justify-between gap-3">
+		<TableRow>
+			<TableCell className="min-w-0">
 				<Link
-					className="-m-2 flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-foreground no-underline outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+					className="font-medium text-foreground no-underline hover:underline"
 					href={
 						`/inclusions/${inclusion._id}?from=${categoryId}` as LinkProps<string>['href']
 					}
 				>
-					<CardTitle className="truncate leading-tight">
-						{inclusion.title}
-					</CardTitle>
-					{showCategorySubtitle ? (
-						<p className="truncate font-medium text-muted-foreground text-xs tracking-wide">
-							{categoryName}
-						</p>
-					) : null}
-					<Badge className="mt-1 w-fit" size="lg" variant="info">
-						{formatVariantBadgeLabel(inclusion.variantCount)}
-					</Badge>
+					<span className="block truncate">{inclusion.title}</span>
 				</Link>
-				<CardAction>
+			</TableCell>
+			<TableCell>
+				<Badge size="lg" variant="info">
+					{formatVariantBadgeLabel(inclusion.variantCount)}
+				</Badge>
+			</TableCell>
+			<TableCell>
+				{inclusion.standardPrice === undefined ? (
+					<span className="text-muted-foreground">—</span>
+				) : (
+					<Badge size="lg" variant="purple">
+						{audFormatter.format(inclusion.standardPrice)}
+					</Badge>
+				)}
+			</TableCell>
+			<TableCell>
+				{inclusion.standardLabourPrice === undefined ? (
+					<span className="text-muted-foreground">—</span>
+				) : (
+					<Badge size="lg" variant="teal">
+						{audFormatter.format(inclusion.standardLabourPrice)}
+					</Badge>
+				)}
+			</TableCell>
+			<TableCell>
+				<div className="flex justify-end">
 					<Group>
 						<EditInclusion
 							inclusionId={inclusion._id}
@@ -122,9 +138,9 @@ function InclusionCatalogueCard({
 							}
 						/>
 					</Group>
-				</CardAction>
-			</CardHeader>
-		</Card>
+				</div>
+			</TableCell>
+		</TableRow>
 	);
 }
 
@@ -147,26 +163,67 @@ function EmptyInclusionsState() {
 function CategoryInclusionsFrame({
 	categoryId,
 	categoryName,
+	categoryCode,
+	allowance,
+	labourAllowance,
 	inclusions: categoryInclusions,
-	categoryNameById,
 }: {
 	categoryId: Id<'inclusionCategories'>;
 	categoryName: string;
+	categoryCode: string;
+	allowance?: number;
+	labourAllowance?: number;
 	inclusions: Inclusion[];
-	categoryNameById: Map<Id<'inclusionCategories'>, string>;
 }) {
 	const count = categoryInclusions.length;
+	const baseTotal = categoryInclusions.reduce(
+		(sum, inclusion) => sum + (inclusion.standardPrice ?? 0),
+		0
+	);
+	const labourTotal = categoryInclusions.reduce(
+		(sum, inclusion) => sum + (inclusion.standardLabourPrice ?? 0),
+		0
+	);
 
 	return (
 		<Frame id={categoryId}>
 			<FrameHeader className="flex flex-row items-center justify-between gap-3 py-3">
-				<FrameTitle className="min-w-0 truncate text-base">
-					{categoryName}
-				</FrameTitle>
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<FrameTitle className="min-w-0 truncate text-base">
+						{categoryName}
+					</FrameTitle>
+					{allowance === undefined ? null : (
+						<Badge className="shrink-0" size="lg" variant="purple">
+							{`Base ${audFormatter.format(allowance)}`}
+						</Badge>
+					)}
+					{labourAllowance === undefined ? null : (
+						<Badge className="shrink-0" size="lg" variant="teal">
+							{`Labour ${audFormatter.format(labourAllowance)}`}
+						</Badge>
+					)}
+				</div>
 				<div className="flex flex-wrap items-center justify-end gap-2">
 					<Badge className="shrink-0" size="lg" variant="secondary">
 						{inclusionCountBadgeLabel(count)}
 					</Badge>
+					<EditInclusionCategory
+						categoryId={categoryId}
+						initialAllowance={allowance}
+						initialCode={categoryCode}
+						initialLabourAllowance={labourAllowance}
+						initialName={categoryName}
+						trigger={
+							<Button
+								aria-label={`Edit ${categoryName}`}
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<Pencil />
+							</Button>
+						}
+					/>
 					<AddInclusion
 						initialCategoryId={categoryId}
 						trigger={
@@ -182,19 +239,39 @@ function CategoryInclusionsFrame({
 					/>
 				</div>
 			</FrameHeader>
-			<FramePanel className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-				{categoryInclusions.map((inclusion) => (
-					<InclusionCatalogueCard
-						categoryId={categoryId}
-						categoryName={
-							categoryNameById.get(inclusion.categoryId) ?? 'Unknown category'
-						}
-						inclusion={inclusion}
-						key={inclusion._id}
-						showCategorySubtitle={false}
-					/>
-				))}
-			</FramePanel>
+			<Table className="w-full">
+				<TableHeader>
+					<TableRow>
+						<TableHead>Name</TableHead>
+						<TableHead className="w-36">Variants</TableHead>
+						<TableHead className="w-36">Base price</TableHead>
+						<TableHead className="w-36">Labour price</TableHead>
+						<TableHead className="w-28 text-right">Actions</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{categoryInclusions.map((inclusion) => (
+						<InclusionRow
+							categoryId={categoryId}
+							inclusion={inclusion}
+							key={inclusion._id}
+						/>
+					))}
+				</TableBody>
+				<TableFooter>
+					<TableRow>
+						<TableCell className="font-semibold">Total</TableCell>
+						<TableCell />
+						<TableCell className="font-semibold">
+							{audFormatter.format(baseTotal)}
+						</TableCell>
+						<TableCell className="font-semibold">
+							{audFormatter.format(labourTotal)}
+						</TableCell>
+						<TableCell />
+					</TableRow>
+				</TableFooter>
+			</Table>
 		</Frame>
 	);
 }
@@ -224,6 +301,14 @@ export default function InclusionCataloguePageContent() {
 		const m = new Map<Id<'inclusionCategories'>, string>();
 		for (const c of categories ?? []) {
 			m.set(c._id, c.name);
+		}
+		return m;
+	}, [categories]);
+
+	const categoryById = useMemo(() => {
+		const m = new Map<Id<'inclusionCategories'>, InclusionCategory>();
+		for (const c of categories ?? []) {
+			m.set(c._id, c);
 		}
 		return m;
 	}, [categories]);
@@ -321,11 +406,13 @@ export default function InclusionCataloguePageContent() {
 				<div className="flex flex-col gap-6">
 					{categoriesWithInclusions.map((category) => (
 						<CategoryInclusionsFrame
+							allowance={category.allowance}
+							categoryCode={category.code}
 							categoryId={category._id}
 							categoryName={category.name}
-							categoryNameById={categoryNameById}
 							inclusions={inclusionsByCategoryId.get(category._id) ?? []}
 							key={category._id}
+							labourAllowance={category.labourAllowance}
 						/>
 					))}
 				</div>
@@ -336,13 +423,15 @@ export default function InclusionCataloguePageContent() {
 			<div className="flex flex-col gap-6">
 				{searchCategoryOrder.map((categoryId) => (
 					<CategoryInclusionsFrame
+						allowance={categoryById.get(categoryId)?.allowance}
+						categoryCode={categoryById.get(categoryId)?.code ?? ''}
 						categoryId={categoryId}
 						categoryName={
 							categoryNameById.get(categoryId) ?? 'Unknown category'
 						}
-						categoryNameById={categoryNameById}
 						inclusions={inclusionsByCategoryId.get(categoryId) ?? []}
 						key={categoryId}
+						labourAllowance={categoryById.get(categoryId)?.labourAllowance}
 					/>
 				))}
 			</div>

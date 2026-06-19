@@ -66,6 +66,8 @@ export default defineSchema({
 		name: v.string(),
 		code: v.string(),
 		count: v.number(),
+		allowance: v.optional(v.number()),
+		labourAllowance: v.optional(v.number()),
 		searchText: v.string(),
 	})
 		.index('by_name', ['name'])
