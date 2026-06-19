@@ -1,9 +1,9 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { toKebabCase } from '../lib/toKebabCase';
 
 const fileExtensionPattern = /\.[^.]*$/;
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const projects = await ctx.db.query('projects').collect();

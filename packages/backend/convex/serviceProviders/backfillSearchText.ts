@@ -1,8 +1,8 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { syncServiceProviderSearchText } from './shared';
 
 /** Rebuilds searchText for every service provider; run once after expanding the search index. */
-export const resyncAll = mutation({
+export const resyncAll = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const rows = await ctx.db.query('serviceProviders').collect();

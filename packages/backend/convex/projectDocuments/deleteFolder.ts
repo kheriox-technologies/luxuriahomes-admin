@@ -4,14 +4,14 @@ import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import { action } from '../_generated/server';
-import { checkIdentity } from '../lib/checkIdentity';
+import { requireAdmin } from '../lib/checkIdentity';
 
 export const deleteFolder = action({
 	args: {
 		folderId: v.id('projectDocumentFolders'),
 	},
 	handler: async (ctx, args): Promise<void> => {
-		await checkIdentity(ctx);
+		await requireAdmin(ctx);
 
 		const region = process.env.AWS_REGION;
 		const accessKeyId = process.env.AWS_ACCESS_KEY_ID;

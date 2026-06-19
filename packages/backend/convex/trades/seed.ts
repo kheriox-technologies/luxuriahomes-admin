@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildTradeSearchText } from '../lib/buildSearchText';
 
 const TRADES_DATA: string[] = [
@@ -39,7 +39,7 @@ const TRADES_DATA: string[] = [
 	'Building Certification',
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const existing = await ctx.db.query('trades').first();

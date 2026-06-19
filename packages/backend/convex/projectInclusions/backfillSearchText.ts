@@ -1,8 +1,8 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildProjectInclusionSearchText } from './shared';
 
 /** Rebuilds `searchText` for every projectInclusion; run once after adding location names and status to the search blob. */
-export const resyncAll = mutation({
+export const resyncAll = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const rows = await ctx.db.query('projectInclusions').collect();

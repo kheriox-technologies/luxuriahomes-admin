@@ -8,6 +8,9 @@
  * @module
  */
 
+import type * as clientPortal_grantAccess from "../clientPortal/grantAccess.js";
+import type * as clientPortal_internal from "../clientPortal/internal.js";
+import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js";
 import type * as companyDocuments_create from "../companyDocuments/create.js";
 import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
 import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
@@ -271,6 +274,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "clientPortal/grantAccess": typeof clientPortal_grantAccess;
+  "clientPortal/internal": typeof clientPortal_internal;
+  "clientPortal/revokeAccess": typeof clientPortal_revokeAccess;
   "companyDocuments/create": typeof companyDocuments_create;
   "companyDocuments/createFolder": typeof companyDocuments_createFolder;
   "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;

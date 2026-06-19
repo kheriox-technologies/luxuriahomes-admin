@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { checkIdentity } from '../lib/checkIdentity';
+import { requireAdmin } from '../lib/checkIdentity';
 
 export const listContents = query({
 	args: {
@@ -8,7 +8,7 @@ export const listContents = query({
 		folderPath: v.string(),
 	},
 	handler: async (ctx, args) => {
-		await checkIdentity(ctx);
+		await requireAdmin(ctx);
 		const folders = await ctx.db
 			.query('projectDocumentFolders')
 			.withIndex('by_project_and_parent', (q) =>

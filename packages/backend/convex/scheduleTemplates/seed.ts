@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 
 type DependencyType = 'startAfter' | 'startWith';
 
@@ -117,7 +117,7 @@ function maybePickDependency<T>(pool: T[]): T | undefined {
 	return pickRandom(pool);
 }
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {
 		scheduleTemplateId: v.id('scheduleTemplates'),
 	},

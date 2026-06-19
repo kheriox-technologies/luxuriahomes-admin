@@ -1,4 +1,4 @@
-import { mutation } from '../_generated/server';
+import { internalMutation } from '../_generated/server';
 import { buildServiceProviderSearchText } from '../lib/buildSearchText';
 
 interface ServiceProviderInput {
@@ -130,7 +130,7 @@ const SERVICE_PROVIDERS_DATA: ServiceProviderInput[] = [
 	},
 ];
 
-export const populate = mutation({
+export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
 		const allExisting = await ctx.db.query('serviceProviders').collect();
