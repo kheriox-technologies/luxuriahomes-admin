@@ -25,6 +25,8 @@ export const env = createEnv({
 		NEXT_PUBLIC_CONTACT_EMAIL: z.string().min(1),
 		NEXT_PUBLIC_CONTACT_PHONE: z.string().min(1),
 		NEXT_PUBLIC_CONTACT_ADDRESS: z.string().min(1),
+		NEXT_PUBLIC_WEB_URL: z.string().min(1),
+		NEXT_PUBLIC_EMAIL_LOGO: z.string().min(1),
 	},
 	experimental__runtimeEnv: {
 		NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
@@ -46,5 +48,7 @@ export const env = createEnv({
 		NEXT_PUBLIC_CONTACT_EMAIL: process.env.NEXT_PUBLIC_CONTACT_EMAIL,
 		NEXT_PUBLIC_CONTACT_PHONE: process.env.NEXT_PUBLIC_CONTACT_PHONE,
 		NEXT_PUBLIC_CONTACT_ADDRESS: process.env.NEXT_PUBLIC_CONTACT_ADDRESS,
+		NEXT_PUBLIC_WEB_URL: process.env.NEXT_PUBLIC_WEB_URL,
+		NEXT_PUBLIC_EMAIL_LOGO: process.env.NEXT_PUBLIC_EMAIL_LOGO,
 	},
 });
