@@ -29,13 +29,12 @@ applications:
       phases:
         preBuild:
           commands:
-            - aws s3 cp $CLIENT_ENV_FILE apps/client/.env
+            - aws s3 cp $ENV_FILE apps/client/.env
             - nvm install 22 && nvm use 22
             - npm install -g pnpm
             - pnpm install --frozen-lockfile
         build:
           commands:
-            - pnpm --filter @workspace/backend exec convex deploy
             - pnpm turbo build --filter=client
       artifacts:
         baseDirectory: apps/client/.next
