@@ -181,7 +181,12 @@ function Sidebar({
 
   if (isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <Sheet
+        disablePointerDismissal={false}
+        onOpenChange={setOpenMobile}
+        open={openMobile}
+        {...props}
+      >
         <SheetContent
           dir={dir}
           data-sidebar="sidebar"

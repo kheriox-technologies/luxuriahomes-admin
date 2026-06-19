@@ -10,6 +10,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@workspace/ui/components/alert-dialog';
+import { Badge } from '@workspace/ui/components/badge';
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -65,6 +66,8 @@ import {
 	FolderOpen,
 	FolderPlus,
 	Mail,
+	MonitorSmartphone,
+	MonitorX,
 	MoveRight,
 	Pencil,
 	Trash2,
@@ -89,6 +92,7 @@ const DEFAULT_ATTACHMENT_CONTENT_TYPE = 'application/octet-stream';
 // Structural interfaces matching both projectDocuments and companyDocuments shapes
 interface FileItem {
 	_id: string;
+	clientPortalVisible?: boolean;
 	folderPath: string;
 	kebabName: string;
 	mimeType?: string;
@@ -96,6 +100,7 @@ interface FileItem {
 	s3Key: string;
 	size?: number;
 	uploadedAt: number;
+	uploadedByClient?: boolean;
 }
 
 interface FolderItem {
@@ -137,6 +142,11 @@ export interface ProjectFileManagerTabContentProps {
 	onRemoveFile: (fileId: string) => Promise<void>;
 	onRenameFile: (fileId: string, newName: string) => Promise<void>;
 	onRenameFolder: (folderId: string, newName: string) => Promise<void>;
+	// When provided, files gain an "Add to / Remove from client portal" action.
+	onSetClientPortalVisibility?: (
+		fileId: string,
+		visible: boolean
+	) => Promise<void>;
 	projectId?: Id<'projects'>;
 	rootLabel?: string;
 }
@@ -875,6 +885,7 @@ function FileRowActions({
 	onRenameFile,
 	onMoveFile,
 	onRemoveFile,
+	onSetClientPortalVisibility,
 }: {
 	item: FileItem;
 	buildQueryArgs: ProjectFileManagerTabContentProps['buildQueryArgs'];
@@ -882,10 +893,30 @@ function FileRowActions({
 	onRenameFile: ProjectFileManagerTabContentProps['onRenameFile'];
 	onMoveFile: ProjectFileManagerTabContentProps['onMoveFile'];
 	onRemoveFile: ProjectFileManagerTabContentProps['onRemoveFile'];
+	onSetClientPortalVisibility?: ProjectFileManagerTabContentProps['onSetClientPortalVisibility'];
 }) {
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [moveOpen, setMoveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+
+	const onTogglePortal = async () => {
+		const nextVisible = !item.clientPortalVisible;
+		try {
+			await onSetClientPortalVisibility?.(item._id, nextVisible);
+			toastManager.add({
+				title: nextVisible
+					? 'Added to client portal'
+					: 'Removed from client portal',
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not update client portal visibility',
+				description: getConvexErrorMessage(error, 'Please try again.'),
+				type: 'error',
+			});
+		}
+	};
 
 	const onRename = async (newName: string) => {
 		try {
@@ -956,6 +987,14 @@ function FileRowActions({
 						<MoveRight />
 						Move
 					</MenuItem>
+					{onSetClientPortalVisibility ? (
+						<MenuItem onClick={() => onTogglePortal().catch(() => undefined)}>
+							{item.clientPortalVisible ? <MonitorX /> : <MonitorSmartphone />}
+							{item.clientPortalVisible
+								? 'Remove from client portal'
+								: 'Add to client portal'}
+						</MenuItem>
+					) : null}
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
@@ -1135,6 +1174,7 @@ export function ProjectFileManagerTabContent({
 	onRemoveFile,
 	onRenameFolder,
 	onDeleteFolder,
+	onSetClientPortalVisibility,
 	projectId,
 	rootLabel = 'Files',
 	emptyTitle = 'No files yet',
@@ -1331,9 +1371,19 @@ export function ProjectFileManagerTabContent({
 									/>
 								</TableCell>
 								<TableCell className="font-medium">
-									<div className="flex items-center gap-2">
+									<div className="flex flex-wrap items-center gap-2">
 										{getFileIcon(doc.mimeType)}
 										<span>{doc.name}</span>
+										{doc.uploadedByClient ? (
+											<Badge size="lg" variant="secondary">
+												Uploaded by client
+											</Badge>
+										) : null}
+										{doc.clientPortalVisible ? (
+											<Badge size="lg" variant="success">
+												On client portal
+											</Badge>
+										) : null}
 									</div>
 								</TableCell>
 								<TableCell className="text-muted-foreground text-sm">
@@ -1354,6 +1404,7 @@ export function ProjectFileManagerTabContent({
 											onMoveFile={onMoveFile}
 											onRemoveFile={onRemoveFile}
 											onRenameFile={onRenameFile}
+											onSetClientPortalVisibility={onSetClientPortalVisibility}
 										/>
 									</div>
 								</TableCell>

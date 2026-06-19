@@ -6,11 +6,15 @@ import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/button";
 import { ScrollArea } from "@workspace/ui/components/scroll-area";
 
-function Sheet({ onOpenChange, ...props }: SheetPrimitive.Root.Props) {
+function Sheet({
+  onOpenChange,
+  disablePointerDismissal = true,
+  ...props
+}: SheetPrimitive.Root.Props) {
   return (
     <SheetPrimitive.Root
       {...props}
-      disablePointerDismissal
+      disablePointerDismissal={disablePointerDismissal}
       onOpenChange={(open, eventDetails) => {
         if (!open && eventDetails.reason === "escape-key") return;
         onOpenChange?.(open, eventDetails);

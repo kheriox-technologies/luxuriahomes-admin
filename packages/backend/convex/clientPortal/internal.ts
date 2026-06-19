@@ -3,6 +3,27 @@ import { internalMutation, internalQuery } from '../_generated/server';
 import { normalizeClientEmail } from '../projects/shared';
 
 /**
+ * Returns true when the given Clerk portal user is a client on the project.
+ * Used by actions (which have no `ctx.db`) to authorize client-portal access.
+ */
+export const isProjectClient = internalQuery({
+	args: {
+		projectId: v.id('projects'),
+		portalUserId: v.string(),
+	},
+	returns: v.boolean(),
+	handler: async (ctx, args) => {
+		const project = await ctx.db.get(args.projectId);
+		if (!project) {
+			return false;
+		}
+		return project.clients.some(
+			(client) => client.portalUserId === args.portalUserId
+		);
+	},
+});
+
+/**
  * Returns the portal-relevant fields of a project client identified by email,
  * or null when the project or client does not exist.
  */
