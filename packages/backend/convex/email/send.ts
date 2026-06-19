@@ -13,6 +13,11 @@ import {
 	resolveAttachments,
 	sendGmailMessage,
 } from './shared';
+import {
+	appendBrandedText,
+	getEmailBranding,
+	wrapBrandedHtml,
+} from './template';
 
 const attachmentValidator = v.object({
 	filename: v.string(),
@@ -56,14 +61,15 @@ export const send = action({
 		const attachmentInputs: AttachmentInput[] = args.attachments ?? [];
 		const resolvedAttachments = await resolveAttachments(ctx, attachmentInputs);
 
+		const branding = getEmailBranding();
 		const raw = await buildRawMessage({
 			from: config.sender,
 			to: args.to,
 			cc: args.cc,
 			bcc: args.bcc,
 			subject: args.subject,
-			html: args.html,
-			text: args.text,
+			html: args.html ? wrapBrandedHtml(args.html, branding) : undefined,
+			text: args.text ? appendBrandedText(args.text, branding) : undefined,
 			attachments: resolvedAttachments,
 		});
 

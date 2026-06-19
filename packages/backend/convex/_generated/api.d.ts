@@ -33,6 +33,7 @@ import type * as documentFolders_update from "../documentFolders/update.js";
 import type * as email_logSent from "../email/logSent.js";
 import type * as email_send from "../email/send.js";
 import type * as email_shared from "../email/shared.js";
+import type * as email_template from "../email/template.js";
 import type * as emailSignatures_add from "../emailSignatures/add.js";
 import type * as emailSignatures_get from "../emailSignatures/get.js";
 import type * as emailSignatures_list from "../emailSignatures/list.js";
@@ -299,6 +300,7 @@ declare const fullApi: ApiFromModules<{
   "email/logSent": typeof email_logSent;
   "email/send": typeof email_send;
   "email/shared": typeof email_shared;
+  "email/template": typeof email_template;
   "emailSignatures/add": typeof emailSignatures_add;
   "emailSignatures/get": typeof emailSignatures_get;
   "emailSignatures/list": typeof emailSignatures_list;
