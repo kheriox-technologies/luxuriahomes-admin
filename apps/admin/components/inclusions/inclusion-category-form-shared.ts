@@ -26,6 +26,50 @@ export const emptyInclusionCategoryFormValues: z.input<
 	code: '',
 };
 
+const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
+
+const optionalMoneyStringSchema = z
+	.string()
+	.optional()
+	.refine(
+		(value) => !value || MONEY_PATTERN.test(value.trim()),
+		'Enter a valid amount (up to 2 decimals)'
+	);
+
+export const editInclusionCategoryFormSchema = z.object({
+	name: z.string().trim().min(1, 'Name is required'),
+	code: z
+		.string()
+		.trim()
+		.min(1, 'Code is required')
+		.max(32, 'Code must be at most 32 characters')
+		.regex(/^[A-Za-z0-9]+$/, 'Code can only contain letters and numbers'),
+	allowance: optionalMoneyStringSchema,
+	labourAllowance: optionalMoneyStringSchema,
+});
+
+export const emptyEditInclusionCategoryFormValues: z.input<
+	typeof editInclusionCategoryFormSchema
+> = {
+	name: '',
+	code: '',
+	allowance: '',
+	labourAllowance: '',
+};
+
+export function parseAllowanceString(
+	value: string | undefined
+): number | undefined {
+	const normalized = value?.trim();
+	if (!normalized) {
+		return undefined;
+	}
+	if (!MONEY_PATTERN.test(normalized)) {
+		throw new Error('Invalid money value');
+	}
+	return Number(normalized);
+}
+
 export function inclusionCategoryFieldError(
 	errors: readonly unknown[] | undefined
 ): string {

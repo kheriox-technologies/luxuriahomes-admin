@@ -41,6 +41,11 @@ import PageHeading from '@/components/page-heading';
 
 type InclusionCategory = Doc<'inclusionCategories'>;
 
+const audFormatter = new Intl.NumberFormat('en-AU', {
+	style: 'currency',
+	currency: 'AUD',
+});
+
 function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 	const inclusionLabel =
 		category.count === 1 ? '1 Inclusion' : `${category.count} Inclusions`;
@@ -59,6 +64,16 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 						<Badge size="lg" variant="info">
 							{inclusionLabel}
 						</Badge>
+						{category.allowance === undefined ? null : (
+							<Badge size="lg" variant="purple">
+								{`Base ${audFormatter.format(category.allowance)}`}
+							</Badge>
+						)}
+						{category.labourAllowance === undefined ? null : (
+							<Badge size="lg" variant="teal">
+								{`Labour ${audFormatter.format(category.labourAllowance)}`}
+							</Badge>
+						)}
 					</div>
 				</div>
 				<CardAction>
@@ -66,8 +81,11 @@ function InclusionCategoryCard({ category }: { category: InclusionCategory }) {
 						<Group>
 							<EditInclusionCategory
 								categoryId={category._id}
+								initialAllowance={category.allowance}
 								initialCode={category.code}
+								initialLabourAllowance={category.labourAllowance}
 								initialName={category.name}
+								showCodeField
 								trigger={
 									<Button
 										aria-label="Edit category"
