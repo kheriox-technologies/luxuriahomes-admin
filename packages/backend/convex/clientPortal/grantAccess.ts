@@ -80,6 +80,7 @@ function buildPasswordEmail(
 <p>Hi ${greetingName},</p>
 <p>You now have access to the Luxuria Homes client portal. Use the credentials below to sign in:</p>
 <p><strong>Email:</strong> ${email}<br><strong>Temporary password:</strong> ${password}</p>
+<p>You can also sign in with <strong>Google</strong> using this same email address (${email}) &mdash; no password needed.</p>
 <p>For your security, please change your password after signing in.</p>
 <p>If you did not expect this email, you can ignore it.</p>
 </div>`;
@@ -89,6 +90,8 @@ You now have access to the Luxuria Homes client portal. Use the credentials belo
 
 Email: ${email}
 Temporary password: ${password}
+
+You can also sign in with Google using this same email address (${email}) — no password needed.
 
 For your security, please change your password after signing in.
 

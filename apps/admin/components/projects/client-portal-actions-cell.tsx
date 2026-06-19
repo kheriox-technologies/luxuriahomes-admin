@@ -22,6 +22,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useAction } from 'convex/react';
 import { EllipsisVertical, ShieldMinus, ShieldPlus } from 'lucide-react';
 import { useState } from 'react';
+import { useClientPortalPending } from '@/components/projects/client-portal-pending-context';
 import { projectClientDisplayName } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -36,13 +37,14 @@ export default function ClientPortalActionsCell({
 }) {
 	const grantAccess = useAction(api.clientPortal.grantAccess.grantAccess);
 	const revokeAccess = useAction(api.clientPortal.revokeAccess.revokeAccess);
-	const [isPending, setIsPending] = useState(false);
+	const { isPending: isClientPending, setPending } = useClientPortalPending();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const hasAccess = Boolean(client.portalUserId);
 	const displayName = projectClientDisplayName(client);
+	const isPending = isClientPending(client.email);
 
 	const onGrant = async () => {
-		setIsPending(true);
+		setPending(client.email, true);
 		try {
 			const result = await grantAccess({ projectId, email: client.email });
 			toastManager.add({
@@ -62,12 +64,12 @@ export default function ClientPortalActionsCell({
 				type: 'error',
 			});
 		} finally {
-			setIsPending(false);
+			setPending(client.email, false);
 		}
 	};
 
 	const onRevoke = async () => {
-		setIsPending(true);
+		setPending(client.email, true);
 		try {
 			await revokeAccess({ projectId, email: client.email });
 			toastManager.add({
@@ -85,7 +87,7 @@ export default function ClientPortalActionsCell({
 				type: 'error',
 			});
 		} finally {
-			setIsPending(false);
+			setPending(client.email, false);
 		}
 	};
 
