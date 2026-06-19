@@ -26,6 +26,7 @@ import {
 	DollarSign,
 	EllipsisVertical,
 	ExternalLink,
+	FileText,
 	Pencil,
 	StickyNote,
 	Trash2,
@@ -57,6 +58,47 @@ function formatPrice(price: number): string {
 		style: 'currency',
 		currency: 'AUD',
 	}).format(price);
+}
+
+function QuotationTabPriceCell({ row }: { row: ApprovedQuotation }) {
+	const [isViewingDoc, setIsViewingDoc] = useState(false);
+
+	const handleViewDoc = async () => {
+		if (!row.s3Key) {
+			return;
+		}
+		setIsViewingDoc(true);
+		try {
+			const url = await signCdnUrl(row.s3Key);
+			window.open(url, '_blank', 'noopener,noreferrer');
+		} catch {
+			toastManager.add({ title: 'Could not open document.', type: 'error' });
+		} finally {
+			setIsViewingDoc(false);
+		}
+	};
+
+	return (
+		<div className="flex items-center gap-1">
+			<span className="text-sm">{formatPrice(row.price)}</span>
+			{row.s3Key ? (
+				<Button
+					aria-label="View quotation document"
+					disabled={isViewingDoc}
+					onClick={() => {
+						handleViewDoc().catch(() => {
+							/* Error handled in handleViewDoc */
+						});
+					}}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<FileText className="size-4" />
+				</Button>
+			) : null}
+		</div>
+	);
 }
 
 function QuotationTabNotesBadge({ row }: { row: ApprovedQuotation }) {
@@ -180,6 +222,7 @@ function buildColumns(): ColumnDef<ApprovedQuotation>[] {
 					{row.original.tradeNames.join(', ')}
 				</span>
 			),
+			footer: () => <span className="font-medium text-sm">Total</span>,
 		},
 		{
 			id: 'serviceProvider',
@@ -193,9 +236,15 @@ function buildColumns(): ColumnDef<ApprovedQuotation>[] {
 		{
 			id: 'price',
 			header: 'Price',
-			cell: ({ row }) => (
-				<span className="text-sm">{formatPrice(row.original.price)}</span>
-			),
+			cell: ({ row }) => <QuotationTabPriceCell row={row.original} />,
+			footer: ({ table }) => {
+				const total = table
+					.getCoreRowModel()
+					.rows.reduce((sum, r) => sum + r.original.price, 0);
+				return (
+					<span className="font-medium text-sm">{formatPrice(total)}</span>
+				);
+			},
 		},
 		{
 			id: 'notes',

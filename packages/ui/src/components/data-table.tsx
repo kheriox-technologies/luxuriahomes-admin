@@ -15,6 +15,7 @@ import {
 	Table,
 	TableBody,
 	TableCell,
+	TableFooter,
 	TableHead,
 	TableHeader,
 	TableRow,
@@ -64,6 +65,7 @@ export function DataTable<TData, TValue>({
 
 	const { pageIndex, pageSize } = table.getState().pagination;
 	const rowCount = data.length;
+	const hasFooter = columns.some((column) => column.footer != null);
 	const rangeLabel =
 		rowCount > 0 ? (
 			<span className="text-muted-foreground text-sm">
@@ -147,6 +149,37 @@ export function DataTable<TData, TValue>({
 						</TableRow>
 					)}
 				</TableBody>
+				{hasFooter && rowCount > 0 && (
+					<TableFooter>
+						{table.getFooterGroups().map((footerGroup) => (
+							<TableRow key={footerGroup.id}>
+								{footerGroup.headers.map((header) => {
+									const size = header.getSize();
+									const columnSize = header.column.columnDef.size;
+									const width = getColumnWidth(columnSize, size);
+									return (
+										<TableCell
+											className={width ? undefined : 'min-w-0'}
+											key={header.id}
+											style={
+												width
+													? { width, minWidth: width, maxWidth: width }
+													: undefined
+											}
+										>
+											{header.isPlaceholder
+												? null
+												: flexRender(
+														header.column.columnDef.footer,
+														header.getContext()
+													)}
+										</TableCell>
+									);
+								})}
+							</TableRow>
+						))}
+					</TableFooter>
+				)}
 			</Table>
 			{showPagination && rowCount > 0 && (
 				<FrameFooter>

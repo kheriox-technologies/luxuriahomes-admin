@@ -41,6 +41,7 @@ import {
 	DollarSign,
 	EllipsisVertical,
 	ExternalLink,
+	FileText,
 	Pencil,
 	SearchIcon,
 	StickyNote,
@@ -91,6 +92,47 @@ function formatPrice(price: number): string {
 		style: 'currency',
 		currency: 'AUD',
 	}).format(price);
+}
+
+function QuotationPriceCell({ row }: { row: Quotation }) {
+	const [isViewingDoc, setIsViewingDoc] = useState(false);
+
+	const handleViewDoc = async () => {
+		if (!row.s3Key) {
+			return;
+		}
+		setIsViewingDoc(true);
+		try {
+			const url = await signCdnUrl(row.s3Key);
+			window.open(url, '_blank', 'noopener,noreferrer');
+		} catch {
+			toastManager.add({ title: 'Could not open document.', type: 'error' });
+		} finally {
+			setIsViewingDoc(false);
+		}
+	};
+
+	return (
+		<div className="flex items-center gap-1">
+			<span className="text-sm">{formatPrice(row.price)}</span>
+			{row.s3Key ? (
+				<Button
+					aria-label="View quotation document"
+					disabled={isViewingDoc}
+					onClick={() => {
+						handleViewDoc().catch(() => {
+							/* Error handled in handleViewDoc */
+						});
+					}}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<FileText className="size-4" />
+				</Button>
+			) : null}
+		</div>
+	);
 }
 
 function QuotationNotesBadge({ row }: { row: Quotation }) {
@@ -243,6 +285,7 @@ const columns: ColumnDef<Quotation>[] = [
 		cell: ({ row }) => (
 			<span className="font-medium">{row.original.tradeNames.join(', ')}</span>
 		),
+		footer: () => <span className="font-medium text-sm">Total</span>,
 	},
 	{
 		id: 'project',
@@ -265,9 +308,13 @@ const columns: ColumnDef<Quotation>[] = [
 	{
 		id: 'price',
 		header: 'Price',
-		cell: ({ row }) => (
-			<span className="text-sm">{formatPrice(row.original.price)}</span>
-		),
+		cell: ({ row }) => <QuotationPriceCell row={row.original} />,
+		footer: ({ table }) => {
+			const total = table
+				.getCoreRowModel()
+				.rows.reduce((sum, r) => sum + r.original.price, 0);
+			return <span className="font-medium text-sm">{formatPrice(total)}</span>;
+		},
 	},
 	{
 		id: 'notes',
