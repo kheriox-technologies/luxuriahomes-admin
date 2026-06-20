@@ -20,7 +20,10 @@ export const create = mutation({
 		mimeType: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
-		const { identity } = await requireProjectClient(ctx, args.projectId);
+		const { identity, project } = await requireProjectClient(
+			ctx,
+			args.projectId
+		);
 
 		// Ensure the "Client Uploads" folder exists so admins see uploads grouped.
 		const existingFolder = await ctx.db
@@ -55,7 +58,7 @@ export const create = mutation({
 
 		await createNotification(ctx, {
 			type: 'document_upload',
-			message: `${name} uploaded the document "${args.name}"`,
+			message: `${project.name} - Uploaded document "${args.name}"`,
 			fromName: name,
 			fromEmail: identity.email,
 			link: documentsLink(args.projectId),

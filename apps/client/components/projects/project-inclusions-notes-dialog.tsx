@@ -14,8 +14,13 @@ import {
 } from '@workspace/ui/components/dialog';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { ImagePlus, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import {
+	NoteImageUploader,
+	type NoteImageUploaderHandle,
+} from '@/components/notes/note-image-uploader';
+import { NoteImagesRow } from '@/components/notes/note-images-row';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 function formatNoteDate(timestamp: number): string {
@@ -29,11 +34,13 @@ function formatNoteDate(timestamp: number): string {
 }
 
 export default function ProjectInclusionNotesDialog({
+	projectId,
 	inclusionId,
 	inclusionTitle,
 	open,
 	onOpenChange,
 }: {
+	projectId: Id<'projects'>;
 	inclusionId: Id<'projectInclusions'>;
 	inclusionTitle: string;
 	open: boolean;
@@ -51,6 +58,10 @@ export default function ProjectInclusionNotesDialog({
 	);
 	const [noteText, setNoteText] = useState('');
 	const [saving, setSaving] = useState(false);
+	const [images, setImages] = useState<string[]>([]);
+	const [imagesUploading, setImagesUploading] = useState(false);
+	const [uploaderKey, setUploaderKey] = useState(0);
+	const uploaderRef = useRef<NoteImageUploaderHandle>(null);
 
 	const onAdd = async () => {
 		const trimmed = noteText.trim();
@@ -59,8 +70,15 @@ export default function ProjectInclusionNotesDialog({
 		}
 		setSaving(true);
 		try {
-			await appendNote({ projectInclusionId: inclusionId, note: trimmed });
+			await appendNote({
+				projectInclusionId: inclusionId,
+				note: trimmed,
+				images,
+			});
 			setNoteText('');
+			setImages([]);
+			setImagesUploading(false);
+			setUploaderKey((key) => key + 1);
 		} catch (error) {
 			toastManager.add({
 				title: 'Could not add note',
@@ -85,7 +103,18 @@ export default function ProjectInclusionNotesDialog({
 	};
 
 	return (
-		<Dialog onOpenChange={onOpenChange} open={open}>
+		<Dialog
+			onOpenChange={(next) => {
+				onOpenChange(next);
+				if (!next) {
+					setNoteText('');
+					setImages([]);
+					setImagesUploading(false);
+					setUploaderKey((key) => key + 1);
+				}
+			}}
+			open={open}
+		>
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle>Notes</DialogTitle>
@@ -99,9 +128,26 @@ export default function ProjectInclusionNotesDialog({
 							placeholder="Type your note…"
 							value={noteText}
 						/>
-						<div className="flex justify-end">
+						<NoteImageUploader
+							key={uploaderKey}
+							onChange={setImages}
+							onUploadingChange={setImagesUploading}
+							projectId={projectId}
+							ref={uploaderRef}
+						/>
+						<div className="flex justify-end gap-2">
 							<Button
-								disabled={saving || noteText.trim() === ''}
+								disabled={imagesUploading}
+								loading={imagesUploading}
+								onClick={() => uploaderRef.current?.open()}
+								type="button"
+								variant="outline"
+							>
+								<ImagePlus />
+								Add image
+							</Button>
+							<Button
+								disabled={saving || imagesUploading || noteText.trim() === ''}
 								onClick={() => onAdd().catch(() => undefined)}
 								type="button"
 							>
@@ -129,6 +175,14 @@ export default function ProjectInclusionNotesDialog({
 									<p className="mt-1 whitespace-pre-wrap text-sm">
 										{note.note}
 									</p>
+									{note.images && note.images.length > 0 ? (
+										<div className="mt-2">
+											<NoteImagesRow
+												imageKeys={note.images}
+												title={`Note by ${note.addedBy}`}
+											/>
+										</div>
+									) : null}
 								</div>
 								<Button
 									aria-label="Delete note"

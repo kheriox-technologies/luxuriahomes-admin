@@ -727,6 +727,7 @@ export default function ProjectInclusionsTabContent({
 						}
 					}}
 					open={notesFor !== null}
+					projectId={projectId}
 				/>
 			) : null}
 		</div>

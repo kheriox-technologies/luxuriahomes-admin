@@ -7,6 +7,7 @@ export const appendNote = mutation({
 	args: {
 		orderId: v.id('projectOrders'),
 		note: v.string(),
+		images: v.optional(v.array(v.string())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -19,6 +20,7 @@ export const appendNote = mutation({
 				message: 'Note cannot be empty',
 			});
 		}
+		const images = args.images?.filter((key) => key.trim() !== '');
 		const timestamp = Date.now();
 		const addedBy = addedByFromIdentity(identity);
 		await ctx.db.insert('projectOrderNotes', {
@@ -26,6 +28,7 @@ export const appendNote = mutation({
 			timestamp,
 			addedBy,
 			note: trimmed,
+			images: images && images.length > 0 ? images : undefined,
 		});
 		return args.orderId;
 	},

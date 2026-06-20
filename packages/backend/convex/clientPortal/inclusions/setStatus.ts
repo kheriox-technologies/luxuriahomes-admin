@@ -21,7 +21,10 @@ export const setStatus = mutation({
 			ctx,
 			args.projectInclusionId
 		);
-		const { identity } = await requireProjectClient(ctx, existing.projectId);
+		const { identity, project } = await requireProjectClient(
+			ctx,
+			existing.projectId
+		);
 
 		const searchText = buildProjectInclusionSearchText(existing.title, {
 			code: existing.code,
@@ -42,8 +45,8 @@ export const setStatus = mutation({
 		await createNotification(ctx, {
 			type: isApproved ? 'inclusion_approved' : 'inclusion_unapproved',
 			message: isApproved
-				? `${name} approved the inclusion "${existing.title}"`
-				: `${name} marked the inclusion "${existing.title}" as under review`,
+				? `${project.name} - Approved inclusion "${existing.title}"`
+				: `${project.name} - Inclusion "${existing.title}" marked as under review`,
 			fromName: name,
 			fromEmail: identity.email,
 			link: inclusionsLink(existing.projectId),

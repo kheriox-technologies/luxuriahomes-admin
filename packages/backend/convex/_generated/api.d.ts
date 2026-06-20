@@ -15,6 +15,7 @@ import type * as clientPortal_documents_shared from "../clientPortal/documents/s
 import type * as clientPortal_grantAccess from "../clientPortal/grantAccess.js";
 import type * as clientPortal_inclusions_appendNote from "../clientPortal/inclusions/appendNote.js";
 import type * as clientPortal_inclusions_deleteNote from "../clientPortal/inclusions/deleteNote.js";
+import type * as clientPortal_inclusions_generateNoteImageUploadUrl from "../clientPortal/inclusions/generateNoteImageUploadUrl.js";
 import type * as clientPortal_inclusions_list from "../clientPortal/inclusions/list.js";
 import type * as clientPortal_inclusions_listNotes from "../clientPortal/inclusions/listNotes.js";
 import type * as clientPortal_inclusions_setStatus from "../clientPortal/inclusions/setStatus.js";
@@ -301,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   "clientPortal/grantAccess": typeof clientPortal_grantAccess;
   "clientPortal/inclusions/appendNote": typeof clientPortal_inclusions_appendNote;
   "clientPortal/inclusions/deleteNote": typeof clientPortal_inclusions_deleteNote;
+  "clientPortal/inclusions/generateNoteImageUploadUrl": typeof clientPortal_inclusions_generateNoteImageUploadUrl;
   "clientPortal/inclusions/list": typeof clientPortal_inclusions_list;
   "clientPortal/inclusions/listNotes": typeof clientPortal_inclusions_listNotes;
   "clientPortal/inclusions/setStatus": typeof clientPortal_inclusions_setStatus;

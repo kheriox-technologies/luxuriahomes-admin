@@ -23,9 +23,14 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Info, Trash2 } from 'lucide-react';
+import { ImagePlus, Info, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import {
+	NoteImageUploader,
+	type NoteImageUploaderHandle,
+} from '@/components/notes/note-image-uploader';
+import { NoteImagesRow } from '@/components/notes/note-images-row';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 type OrderNote = Doc<'projectOrderNotes'>;
@@ -102,10 +107,16 @@ function OrderNotesCardList({ notes }: { notes: OrderNote[] }) {
 							</Button>
 						</CardAction>
 					</CardHeader>
-					<CardPanel>
+					<CardPanel className="flex flex-col gap-3">
 						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
 							{entry.note}
 						</p>
+						{entry.images && entry.images.length > 0 ? (
+							<NoteImagesRow
+								imageKeys={entry.images}
+								title={`Note by ${entry.addedBy}`}
+							/>
+						) : null}
 					</CardPanel>
 				</Card>
 			))}
@@ -124,6 +135,17 @@ export default function OrderNotesDialog({
 }) {
 	const [noteText, setNoteText] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	const [images, setImages] = useState<string[]>([]);
+	const [imagesUploading, setImagesUploading] = useState(false);
+	const [uploaderKey, setUploaderKey] = useState(0);
+	const uploaderRef = useRef<NoteImageUploaderHandle>(null);
+
+	const resetForm = () => {
+		setNoteText('');
+		setImages([]);
+		setImagesUploading(false);
+		setUploaderKey((key) => key + 1);
+	};
 
 	const appendNoteMutation = useMutation(
 		api.projectOrders.appendNote.appendNote
@@ -141,9 +163,9 @@ export default function OrderNotesDialog({
 		}
 		setSubmitting(true);
 		try {
-			await appendNoteMutation({ orderId, note: noteText });
+			await appendNoteMutation({ orderId, note: noteText, images });
 			toastManager.add({ title: 'Note added', type: 'success' });
-			setNoteText('');
+			resetForm();
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -180,7 +202,7 @@ export default function OrderNotesDialog({
 			onOpenChange={(next) => {
 				onOpenChange(next);
 				if (!next) {
-					setNoteText('');
+					resetForm();
 				}
 			}}
 			open={open}
@@ -205,6 +227,12 @@ export default function OrderNotesDialog({
 								placeholder="Type your note…"
 								value={noteText}
 							/>
+							<NoteImageUploader
+								key={uploaderKey}
+								onChange={setImages}
+								onUploadingChange={setImagesUploading}
+								ref={uploaderRef}
+							/>
 						</div>
 					</div>
 					<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
@@ -218,6 +246,17 @@ export default function OrderNotesDialog({
 						Close
 					</DialogClose>
 					<Button
+						disabled={imagesUploading}
+						loading={imagesUploading}
+						onClick={() => uploaderRef.current?.open()}
+						type="button"
+						variant="outline"
+					>
+						<ImagePlus />
+						Add image
+					</Button>
+					<Button
+						disabled={imagesUploading}
 						loading={submitting}
 						onClick={() => {
 							onSubmit().catch(() => {
