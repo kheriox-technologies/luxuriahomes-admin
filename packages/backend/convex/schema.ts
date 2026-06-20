@@ -213,6 +213,15 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_trades', { searchField: 'searchText' }),
+	budgets: defineTable({
+		title: v.string(),
+		description: v.optional(v.string()),
+		price: v.number(),
+		tradeId: v.id('trades'),
+		searchText: v.string(),
+	})
+		.index('by_trade', ['tradeId'])
+		.searchIndex('search_budgets', { searchField: 'searchText' }),
 	scheduleTemplates: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

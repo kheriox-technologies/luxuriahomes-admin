@@ -122,6 +122,7 @@ const items: SidebarItem[] = [
 				url: '/service-providers',
 				path: '/service-providers',
 			},
+			{ title: 'Budgets', url: '/budgets', path: '/budgets' },
 		],
 	},
 	{

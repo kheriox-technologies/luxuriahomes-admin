@@ -8,6 +8,14 @@
  * @module
  */
 
+import type * as budgets_add from "../budgets/add.js";
+import type * as budgets_get from "../budgets/get.js";
+import type * as budgets_list from "../budgets/list.js";
+import type * as budgets_remove from "../budgets/remove.js";
+import type * as budgets_search from "../budgets/search.js";
+import type * as budgets_shared from "../budgets/shared.js";
+import type * as budgets_update from "../budgets/update.js";
+import type * as budgets_withTradeNames from "../budgets/withTradeNames.js";
 import type * as clientPortal_documents_create from "../clientPortal/documents/create.js";
 import type * as clientPortal_documents_generateUploadUrl from "../clientPortal/documents/generateUploadUrl.js";
 import type * as clientPortal_documents_list from "../clientPortal/documents/list.js";
@@ -295,6 +303,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "budgets/add": typeof budgets_add;
+  "budgets/get": typeof budgets_get;
+  "budgets/list": typeof budgets_list;
+  "budgets/remove": typeof budgets_remove;
+  "budgets/search": typeof budgets_search;
+  "budgets/shared": typeof budgets_shared;
+  "budgets/update": typeof budgets_update;
+  "budgets/withTradeNames": typeof budgets_withTradeNames;
   "clientPortal/documents/create": typeof clientPortal_documents_create;
   "clientPortal/documents/generateUploadUrl": typeof clientPortal_documents_generateUploadUrl;
   "clientPortal/documents/list": typeof clientPortal_documents_list;
