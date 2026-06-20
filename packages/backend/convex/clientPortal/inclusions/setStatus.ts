@@ -1,6 +1,10 @@
 import { v } from 'convex/values';
 import { mutation } from '../../_generated/server';
-import { requireProjectClient } from '../../lib/clientAccess';
+import {
+	clientDisplayName,
+	requireProjectClient,
+} from '../../lib/clientAccess';
+import { createNotification, inclusionsLink } from '../../notifications/shared';
 import {
 	buildProjectInclusionSearchText,
 	getProjectInclusionOrThrow,
@@ -17,7 +21,7 @@ export const setStatus = mutation({
 			ctx,
 			args.projectInclusionId
 		);
-		await requireProjectClient(ctx, existing.projectId);
+		const { identity } = await requireProjectClient(ctx, existing.projectId);
 
 		const searchText = buildProjectInclusionSearchText(existing.title, {
 			code: existing.code,
@@ -32,6 +36,20 @@ export const setStatus = mutation({
 			status: args.status,
 			searchText,
 		});
+
+		const name = clientDisplayName(identity);
+		const isApproved = args.status === 'Approved';
+		await createNotification(ctx, {
+			type: isApproved ? 'inclusion_approved' : 'inclusion_unapproved',
+			message: isApproved
+				? `${name} approved the inclusion "${existing.title}"`
+				: `${name} marked the inclusion "${existing.title}" as under review`,
+			fromName: name,
+			fromEmail: identity.email,
+			link: inclusionsLink(existing.projectId),
+			projectId: existing.projectId,
+		});
+
 		return args.projectInclusionId;
 	},
 });

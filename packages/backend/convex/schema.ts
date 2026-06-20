@@ -455,4 +455,19 @@ export default defineSchema({
 	})
 		.index('by_project', ['projectId'])
 		.index('by_timestamp', ['timestamp']),
+	notifications: defineTable({
+		type: v.union(
+			v.literal('inclusion_approved'),
+			v.literal('inclusion_unapproved'),
+			v.literal('inclusion_note'),
+			v.literal('document_upload')
+		),
+		message: v.string(),
+		fromName: v.string(),
+		fromEmail: v.optional(v.string()),
+		// Relative deep-link into the admin app, opened in a new tab.
+		link: v.optional(v.string()),
+		read: v.boolean(),
+		projectId: v.optional(v.id('projects')),
+	}).index('by_read', ['read']),
 });
