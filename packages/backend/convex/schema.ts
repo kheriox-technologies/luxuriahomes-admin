@@ -143,6 +143,7 @@ export default defineSchema({
 		timestamp: v.number(),
 		addedBy: v.string(),
 		note: v.string(),
+		images: v.optional(v.array(v.string())),
 	}).index('by_project_inclusion', ['projectInclusionId']),
 	projects: defineTable({
 		name: v.string(),
@@ -311,6 +312,7 @@ export default defineSchema({
 		timestamp: v.number(),
 		addedBy: v.string(),
 		note: v.string(),
+		images: v.optional(v.array(v.string())),
 	}).index('by_quotation', ['quotationId']),
 	materials: defineTable({
 		name: v.string(),
@@ -385,6 +387,7 @@ export default defineSchema({
 		timestamp: v.number(),
 		addedBy: v.string(),
 		note: v.string(),
+		images: v.optional(v.array(v.string())),
 	}).index('by_order', ['orderId']),
 	projectStages: defineTable({
 		projectId: v.id('projects'),
