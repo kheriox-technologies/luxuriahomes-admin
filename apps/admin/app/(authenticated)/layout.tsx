@@ -10,6 +10,7 @@ import { hasAppAccess } from '@/actions/auth';
 import AppModeToggle from '@/components/app-mode-toggle';
 import AppSidebar from '@/components/app-sidebar';
 import Footer from '@/components/footer';
+import NotificationBell from '@/components/notifications/notification-bell';
 import AuthGuard from '@/guards/auth-guard';
 
 type AuthenticatedLayoutProps = Readonly<{
@@ -36,6 +37,7 @@ const AuthenticatedLayout = async ({ children }: AuthenticatedLayoutProps) => {
 								</div>
 								<div className="flex items-center gap-4">
 									<AppModeToggle />
+									<NotificationBell />
 									<UserButton />
 								</div>
 							</div>

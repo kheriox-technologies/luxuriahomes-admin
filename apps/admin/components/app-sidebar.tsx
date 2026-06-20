@@ -21,6 +21,7 @@ import {
 } from '@workspace/ui/components/sidebar';
 import { useQuery } from 'convex/react';
 import {
+	Bell,
 	Building2,
 	CalendarDays,
 	ChevronDown,
@@ -90,6 +91,12 @@ const items: SidebarItem[] = [
 		url: '/documents',
 		path: '/documents',
 		icon: FileText,
+	},
+	{
+		title: 'Notifications',
+		url: '/notifications',
+		path: '/notifications',
+		icon: Bell,
 	},
 	{
 		title: 'Lists',

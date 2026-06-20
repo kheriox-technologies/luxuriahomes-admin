@@ -4,6 +4,7 @@ import {
 	clientDisplayName,
 	requireProjectClient,
 } from '../../lib/clientAccess';
+import { createNotification, inclusionsLink } from '../../notifications/shared';
 import { getProjectInclusionOrThrow } from '../../projectInclusions/shared';
 
 export const appendNote = mutation({
@@ -24,12 +25,23 @@ export const appendNote = mutation({
 				message: 'Note cannot be empty',
 			});
 		}
+		const name = clientDisplayName(identity);
 		await ctx.db.insert('projectInclusionNotes', {
 			projectInclusionId: args.projectInclusionId,
 			timestamp: Date.now(),
-			addedBy: clientDisplayName(identity),
+			addedBy: name,
 			note: trimmed,
 		});
+
+		await createNotification(ctx, {
+			type: 'inclusion_note',
+			message: `${name} added a note on the inclusion "${inclusion.title}"`,
+			fromName: name,
+			fromEmail: identity.email,
+			link: inclusionsLink(inclusion.projectId),
+			projectId: inclusion.projectId,
+		});
+
 		return args.projectInclusionId;
 	},
 });

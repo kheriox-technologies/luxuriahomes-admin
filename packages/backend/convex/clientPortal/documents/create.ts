@@ -4,6 +4,7 @@ import {
 	clientDisplayName,
 	requireProjectClient,
 } from '../../lib/clientAccess';
+import { createNotification, documentsLink } from '../../notifications/shared';
 import {
 	CLIENT_UPLOADS_FOLDER_NAME,
 	CLIENT_UPLOADS_FOLDER_PATH,
@@ -37,7 +38,8 @@ export const create = mutation({
 			});
 		}
 
-		return await ctx.db.insert('projectDocuments', {
+		const name = clientDisplayName(identity);
+		const documentId = await ctx.db.insert('projectDocuments', {
 			projectId: args.projectId,
 			name: args.name,
 			kebabName: args.kebabName,
@@ -45,10 +47,21 @@ export const create = mutation({
 			folderPath: CLIENT_UPLOADS_FOLDER_PATH,
 			size: args.size,
 			mimeType: args.mimeType,
-			uploadedBy: clientDisplayName(identity),
+			uploadedBy: name,
 			uploadedAt: Date.now(),
 			clientPortalVisible: true,
 			uploadedByClient: true,
 		});
+
+		await createNotification(ctx, {
+			type: 'document_upload',
+			message: `${name} uploaded the document "${args.name}"`,
+			fromName: name,
+			fromEmail: identity.email,
+			link: documentsLink(args.projectId),
+			projectId: args.projectId,
+		});
+
+		return documentId;
 	},
 });
