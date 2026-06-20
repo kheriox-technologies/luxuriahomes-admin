@@ -40,6 +40,20 @@ export default function Providers({ children }: { children: ReactNode }) {
 									env.NEXT_PUBLIC_APP_PRIMARY_FOREGROUND_COLOR,
 							},
 						}}
+						localization={{
+							signIn: {
+								start: {
+									title: 'Luxuria Homes Client Portal',
+									titleCombined: 'Luxuria Homes Client Portal',
+								},
+							},
+							signUp: {
+								start: {
+									title: 'Luxuria Homes Client Portal',
+									titleCombined: 'Luxuria Homes Client Portal',
+								},
+							},
+						}}
 					>
 						<ConvexProviderWithClerk client={convex} useAuth={useAuth}>
 							{children}
