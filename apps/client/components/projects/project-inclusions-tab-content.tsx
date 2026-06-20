@@ -363,6 +363,11 @@ function CategorySection({
 									Colour: {inclusion.color}
 								</span>
 							) : null}
+							{inclusion.locations?.length ? (
+								<span className="text-muted-foreground text-sm">
+									Locations: {inclusion.locations.map((l) => l.name).join(', ')}
+								</span>
+							) : null}
 							<div className="flex flex-wrap items-center gap-2 text-sm">
 								<Badge
 									size="lg"
@@ -395,6 +400,7 @@ function CategorySection({
 									Vendor &amp; details
 								</TableHead>
 								<TableHead className="whitespace-nowrap">Colour</TableHead>
+								<TableHead className="whitespace-nowrap">Location</TableHead>
 								<TableHead className="whitespace-nowrap">Status</TableHead>
 								<TableHead className="whitespace-nowrap text-end">
 									Variation
@@ -416,6 +422,11 @@ function CategorySection({
 									</TableCell>
 									<TableCell className="text-sm">
 										{inclusion.color ?? '—'}
+									</TableCell>
+									<TableCell className="text-sm">
+										{inclusion.locations?.length
+											? inclusion.locations.map((l) => l.name).join(', ')
+											: '—'}
 									</TableCell>
 									<TableCell>
 										<Badge
