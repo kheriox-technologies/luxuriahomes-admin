@@ -16,6 +16,8 @@ export const add = mutation({
 		status: projectStatusValidator,
 		clients: v.array(projectClientValidator),
 		startDate: v.optional(v.number()),
+		quotePrice: v.optional(v.number()),
+		expenses: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -43,6 +45,8 @@ export const add = mutation({
 			status: args.status,
 			clients: args.clients,
 			startDate: args.startDate,
+			quotePrice: args.quotePrice,
+			expenses: args.expenses,
 			searchText,
 		});
 	},

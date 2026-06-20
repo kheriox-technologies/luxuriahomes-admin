@@ -16,6 +16,7 @@ import { useQuery } from 'convex/react';
 import { Building2, SearchIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
+import { formatAudWhole } from '@/lib/currency';
 
 /** Set to `false` before commit — forces the "no projects yet" empty UI. */
 const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
@@ -119,6 +120,39 @@ const columns: ColumnDef<Project>[] = [
 				<Badge size="lg" variant={badge.variant}>
 					{badge.label}
 				</Badge>
+			);
+		},
+	},
+	{
+		id: 'pricing',
+		header: 'Pricing',
+		size: 160,
+		cell: ({ row }) => {
+			const { quotePrice, expenses } = row.original;
+			if (quotePrice === undefined) {
+				return null;
+			}
+			const remaining =
+				expenses === undefined ? undefined : quotePrice - expenses;
+			return (
+				<div className="space-y-1">
+					<Badge size="lg" variant="purple">
+						{formatAudWhole(quotePrice)}
+					</Badge>
+					{remaining === undefined ? null : (
+						<p
+							className={
+								remaining >= 0
+									? 'text-success-foreground text-xs'
+									: 'text-destructive-foreground text-xs'
+							}
+						>
+							{remaining >= 0
+								? `${formatAudWhole(remaining)} Left`
+								: `${formatAudWhole(Math.abs(remaining))} Over`}
+						</p>
+					)}
+				</div>
 			);
 		},
 	},

@@ -22,6 +22,8 @@ export const update = mutation({
 		status: v.optional(projectStatusValidator),
 		clients: v.optional(v.array(projectClientValidator)),
 		startDate: v.optional(v.union(v.number(), v.null())),
+		quotePrice: v.optional(v.union(v.number(), v.null())),
+		expenses: v.optional(v.union(v.number(), v.null())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -81,6 +83,16 @@ export const update = mutation({
 			startDate = args.startDate === null ? undefined : args.startDate;
 		}
 
+		let quotePrice = existing.quotePrice;
+		if (args.quotePrice !== undefined) {
+			quotePrice = args.quotePrice === null ? undefined : args.quotePrice;
+		}
+
+		let expenses = existing.expenses;
+		if (args.expenses !== undefined) {
+			expenses = args.expenses === null ? undefined : args.expenses;
+		}
+
 		// When start date changes and a schedule exists, shift all stage/task dates
 		// by the same number of business days (skips weekends, preserving weekday alignment).
 		if (
@@ -133,6 +145,8 @@ export const update = mutation({
 			status,
 			clients,
 			startDate,
+			quotePrice,
+			expenses,
 			searchText,
 		});
 		return args.projectId;

@@ -152,6 +152,11 @@ export const projectCoreFormSchema = z.object({
 			.regex(postcodeRegex, 'Postcode must be exactly 4 digits'),
 	}),
 	startDate: z.date().optional(),
+	quotePrice: z
+		.number()
+		.nonnegative('Quote price must be 0 or more')
+		.optional(),
+	expenses: z.number().nonnegative('Expenses must be 0 or more').optional(),
 });
 
 export const PROJECT_STATUSES = [
@@ -184,6 +189,8 @@ export const emptyProjectCoreFormValues = {
 		postcode: '',
 	},
 	startDate: undefined,
+	quotePrice: undefined,
+	expenses: undefined,
 } as unknown as ProjectCoreFormValues;
 
 export const emptyEditProjectFormValues = {
@@ -336,6 +343,8 @@ export function toConvexCreatePayload(
 		status: value.status,
 		clients: clients.map(sanitizeProjectClient),
 		startDate: value.startDate ? value.startDate.getTime() : undefined,
+		quotePrice: value.quotePrice,
+		expenses: value.expenses,
 	};
 }
 
@@ -354,6 +363,8 @@ export function toConvexUpdatePayload(
 		status: value.status,
 		clients: clients.map(sanitizeProjectClient),
 		startDate: value.startDate ? value.startDate.getTime() : null,
+		quotePrice: value.quotePrice ?? null,
+		expenses: value.expenses ?? null,
 	};
 }
 

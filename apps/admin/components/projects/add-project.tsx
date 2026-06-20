@@ -398,6 +398,88 @@ export default function AddProjectForm() {
 						<Frame>
 							<FrameHeader className="flex flex-row items-center py-3">
 								<FrameTitle className="min-w-0 truncate leading-none">
+									Pricing
+								</FrameTitle>
+							</FrameHeader>
+							<FramePanel className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<form.Field name="quotePrice">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>
+													Quote price
+												</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													inputMode="numeric"
+													min={0}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value === ''
+																? undefined
+																: Number(e.target.value)
+														)
+													}
+													placeholder="0"
+													type="number"
+													value={field.state.value ?? ''}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+								<form.Field name="expenses">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Expenses</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													inputMode="numeric"
+													min={0}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value === ''
+																? undefined
+																: Number(e.target.value)
+														)
+													}
+													placeholder="0"
+													type="number"
+													value={field.state.value ?? ''}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+							</FramePanel>
+						</Frame>
+
+						<Frame>
+							<FrameHeader className="flex flex-row items-center py-3">
+								<FrameTitle className="min-w-0 truncate leading-none">
 									Client details
 								</FrameTitle>
 							</FrameHeader>
