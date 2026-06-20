@@ -59,6 +59,8 @@ function projectDocToEditDefaults(project: Doc<'projects'>) {
 		name: project.name,
 		address: { ...project.address },
 		startDate: project.startDate ? new Date(project.startDate) : undefined,
+		quotePrice: project.quotePrice,
+		expenses: project.expenses,
 	};
 }
 
@@ -160,6 +162,8 @@ export default function EditProjectForm({
 			form.setFieldValue('address.state', defaults.address.state);
 			form.setFieldValue('address.postcode', defaults.address.postcode);
 			form.setFieldValue('startDate', defaults.startDate as never);
+			form.setFieldValue('quotePrice', defaults.quotePrice as never);
+			form.setFieldValue('expenses', defaults.expenses as never);
 			setClients(cloneClientsFromProject(nextProject));
 			setDraft(emptyClientDraft);
 			setSameAsFirstClient(true);
@@ -486,6 +490,88 @@ export default function EditProjectForm({
 										}}
 									</form.Field>
 								</div>
+							</FramePanel>
+						</Frame>
+
+						<Frame>
+							<FrameHeader className="flex flex-row items-center py-3">
+								<FrameTitle className="min-w-0 truncate leading-none">
+									Pricing
+								</FrameTitle>
+							</FrameHeader>
+							<FramePanel className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<form.Field name="quotePrice">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>
+													Quote price
+												</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													inputMode="numeric"
+													min={0}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value === ''
+																? undefined
+																: Number(e.target.value)
+														)
+													}
+													placeholder="0"
+													type="number"
+													value={field.state.value ?? ''}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
+								<form.Field name="expenses">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Expenses</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													inputMode="numeric"
+													min={0}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value === ''
+																? undefined
+																: Number(e.target.value)
+														)
+													}
+													placeholder="0"
+													type="number"
+													value={field.state.value ?? ''}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
 							</FramePanel>
 						</Frame>
 

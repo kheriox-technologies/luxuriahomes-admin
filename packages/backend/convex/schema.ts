@@ -151,6 +151,8 @@ export default defineSchema({
 		status: projectStatusValidator,
 		clients: v.array(projectClientValidator),
 		startDate: v.optional(v.number()),
+		quotePrice: v.optional(v.number()),
+		expenses: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
 	units: defineTable({
