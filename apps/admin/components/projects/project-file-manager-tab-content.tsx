@@ -1182,6 +1182,10 @@ export function ProjectFileManagerTabContent({
 	const [currentPath, setCurrentPath] = useState('');
 	const [createFolderOpen, setCreateFolderOpen] = useState(false);
 	const [uploadOpen, setUploadOpen] = useState(false);
+	const [isDragging, setIsDragging] = useState(false);
+	// Tracks dragenter/dragleave depth so the overlay doesn't flicker when the
+	// cursor moves over child elements of the drop zone.
+	const dragDepth = useRef(0);
 	const [loadingDocs, setLoadingDocs] = useState<Set<string>>(new Set());
 	// Keyed by document id so the selection persists across folder navigation
 	// and an email can attach documents picked from multiple folders.
@@ -1230,6 +1234,109 @@ export function ProjectFileManagerTabContent({
 				return next;
 			});
 		}
+	};
+
+	// Upload a single file to the current folder, surfacing progress via a toast
+	// that transitions from loading to success/error.
+	const uploadOne = useCallback(
+		async (file: File) => {
+			const contentType = file.type || 'application/octet-stream';
+			const toastId = toastManager.add({
+				title: `Uploading ${file.name}`,
+				type: 'loading',
+			});
+			try {
+				const { uploadUrl, s3Key, kebabName } = await onGenerateUploadUrl({
+					folderPath: currentPath,
+					fileName: file.name,
+					contentType,
+				});
+
+				const res = await fetch(uploadUrl, {
+					method: 'PUT',
+					body: file,
+					headers: { 'Content-Type': contentType },
+				});
+				if (!res.ok) {
+					throw new Error(`Upload failed (${res.status})`);
+				}
+
+				await onCreateFile({
+					name: file.name,
+					kebabName,
+					s3Key,
+					folderPath: currentPath,
+					size: file.size,
+					mimeType: file.type || undefined,
+				});
+
+				toastManager.update(toastId, {
+					title: `${file.name} uploaded`,
+					type: 'success',
+				});
+			} catch (error) {
+				toastManager.update(toastId, {
+					title: `Could not upload ${file.name}`,
+					description: getConvexErrorMessage(error, 'Please try again.'),
+					type: 'error',
+				});
+			}
+		},
+		[currentPath, onCreateFile, onGenerateUploadUrl]
+	);
+
+	// Upload dropped files concurrently so one slow file doesn't block the rest.
+	const uploadFiles = useCallback(
+		(files: FileList | File[]) => {
+			const list = Array.from(files);
+			if (list.length === 0) {
+				return;
+			}
+			Promise.allSettled(list.map((file) => uploadOne(file))).catch(
+				() => undefined
+			);
+		},
+		[uploadOne]
+	);
+
+	const hasFiles = (e: DragEvent<HTMLDivElement>) =>
+		Array.from(e.dataTransfer.types).includes('Files');
+
+	const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
+		if (!hasFiles(e)) {
+			return;
+		}
+		e.preventDefault();
+		dragDepth.current += 1;
+		setIsDragging(true);
+	};
+
+	const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+		if (!hasFiles(e)) {
+			return;
+		}
+		e.preventDefault();
+	};
+
+	const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+		if (!hasFiles(e)) {
+			return;
+		}
+		e.preventDefault();
+		dragDepth.current = Math.max(0, dragDepth.current - 1);
+		if (dragDepth.current === 0) {
+			setIsDragging(false);
+		}
+	};
+
+	const onDrop = (e: DragEvent<HTMLDivElement>) => {
+		if (!hasFiles(e)) {
+			return;
+		}
+		e.preventDefault();
+		dragDepth.current = 0;
+		setIsDragging(false);
+		uploadFiles(e.dataTransfer.files);
 	};
 
 	// biome-ignore lint/suspicious/noExplicitAny: args shape varies by namespace
@@ -1417,7 +1524,25 @@ export function ProjectFileManagerTabContent({
 	}
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-4">
+		// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop is a progressive enhancement; the Upload button is the accessible alternative
+		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: drag-and-drop is a progressive enhancement; the Upload button is the accessible alternative
+		<div
+			className="relative flex min-h-0 flex-1 flex-col gap-4"
+			onDragEnter={onDragEnter}
+			onDragLeave={onDragLeave}
+			onDragOver={onDragOver}
+			onDrop={onDrop}
+		>
+			{isDragging ? (
+				<div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-primary border-dashed bg-primary/8 backdrop-blur-xs">
+					<span className="flex size-12 items-center justify-center rounded-lg border border-input bg-background shadow-xs/5">
+						<Upload aria-hidden className="size-6 text-primary" />
+					</span>
+					<p className="font-medium text-sm">
+						{`Drop files to upload to ${currentPath || rootLabel}`}
+					</p>
+				</div>
+			) : null}
 			<div className="flex items-center justify-between gap-3">
 				<FileManagerBreadcrumb
 					currentPath={currentPath}
