@@ -3,7 +3,6 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
-import { Badge } from '@workspace/ui/components/badge';
 import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	Empty,
@@ -16,7 +15,7 @@ import { useQuery } from 'convex/react';
 import { Building2, ChevronRight, SearchIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { formatDuration, statusBadgeProps } from '@/lib/format';
+import { formatDuration } from '@/lib/format';
 
 type Project = Doc<'projects'>;
 
@@ -95,19 +94,6 @@ const columns: ColumnDef<Project>[] = [
 		},
 	},
 	{
-		accessorKey: 'status',
-		header: 'Status',
-		size: 130,
-		cell: ({ row }) => {
-			const badge = statusBadgeProps(row.original.status);
-			return (
-				<Badge size="lg" variant={badge.variant}>
-					{badge.label}
-				</Badge>
-			);
-		},
-	},
-	{
 		id: 'duration',
 		header: 'Duration',
 		size: 140,
@@ -132,7 +118,6 @@ function ProjectCard({
 	project: Project;
 	onOpen: () => void;
 }) {
-	const badge = statusBadgeProps(project.status);
 	const { street, suburb, state, postcode } = project.address;
 	return (
 		<button
@@ -146,9 +131,6 @@ function ProjectCard({
 				<p className="text-muted-foreground text-xs">
 					{suburb}, {state} {postcode}
 				</p>
-				<Badge size="lg" variant={badge.variant}>
-					{badge.label}
-				</Badge>
 			</div>
 			<ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground" />
 		</button>

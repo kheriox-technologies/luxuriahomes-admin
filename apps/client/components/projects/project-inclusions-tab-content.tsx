@@ -2,6 +2,7 @@
 
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
+import { Alert, AlertAction, AlertTitle } from '@workspace/ui/components/alert';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -50,9 +51,11 @@ import {
 	CheckCircle2,
 	Download,
 	EllipsisVertical,
+	Info,
 	NotebookPen,
 	SearchIcon,
 	SquaresIntersect,
+	TriangleAlert,
 } from 'lucide-react';
 import NextImage from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
@@ -269,6 +272,28 @@ function InclusionVariationCell({
 	);
 }
 
+function VariationSummaryAlert({ total }: { total: number }) {
+	if (total === 0) {
+		return (
+			<Alert variant="info">
+				<Info aria-hidden />
+				<AlertTitle>No variations</AlertTitle>
+			</Alert>
+		);
+	}
+	return (
+		<Alert variant="warning">
+			<TriangleAlert aria-hidden />
+			<AlertTitle>Variations</AlertTitle>
+			<AlertAction className="max-sm:col-start-3 max-sm:row-start-1 max-sm:mt-0 max-sm:self-center">
+				<Badge size="lg" variant="purple">
+					{formatSignedAud(total)}
+				</Badge>
+			</AlertAction>
+		</Alert>
+	);
+}
+
 function CategorySection({
 	section,
 	signedImageUrls,
@@ -288,7 +313,7 @@ function CategorySection({
 
 	return (
 		<Frame className="w-full">
-			<FrameHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<FrameHeader className="flex flex-row items-center justify-between gap-3">
 				<div className="min-w-0">
 					<FrameTitle>{section.groupName}</FrameTitle>
 					<FrameDescription>
@@ -296,19 +321,15 @@ function CategorySection({
 						{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
 					</FrameDescription>
 				</div>
-				<div className="flex shrink-0 flex-wrap items-center gap-2">
-					<Badge size="lg" variant="purple">
-						{formatSignedAud(section.totalVariationPrice)}
-					</Badge>
-					<Button
-						onClick={() => onBulkSetStatus(section, !allApproved)}
-						size="sm"
-						type="button"
-						variant="outline"
-					>
-						{allApproved ? 'Unapprove all' : 'Approve all'}
-					</Button>
-				</div>
+				<Button
+					className="shrink-0"
+					onClick={() => onBulkSetStatus(section, !allApproved)}
+					size="sm"
+					type="button"
+					variant="outline"
+				>
+					{allApproved ? 'Unapprove all' : 'Approve all'}
+				</Button>
 			</FrameHeader>
 			<FramePanel className="p-0">
 				{/* Mobile cards */}
@@ -337,12 +358,12 @@ function CategorySection({
 									<InclusionVendorCell inclusion={inclusion} />
 								</div>
 							</div>
+							{inclusion.color ? (
+								<span className="text-muted-foreground text-sm">
+									Colour: {inclusion.color}
+								</span>
+							) : null}
 							<div className="flex flex-wrap items-center gap-2 text-sm">
-								{inclusion.color ? (
-									<span className="text-muted-foreground">
-										Colour: {inclusion.color}
-									</span>
-								) : null}
 								<Badge
 									size="lg"
 									variant={statusBadgeVariant(
@@ -351,7 +372,14 @@ function CategorySection({
 								>
 									{inclusion.status ?? 'Under Review'}
 								</Badge>
-								<InclusionVariationCell inclusion={inclusion} />
+								{inclusion.class === 'Standard' ||
+								inclusion.variationPrice == null ? (
+									<span className="text-muted-foreground tabular-nums">—</span>
+								) : (
+									<Badge size="lg" variant="purple">
+										{formatSignedAud(inclusion.variationPrice)}
+									</Badge>
+								)}
 							</div>
 						</div>
 					))}
@@ -489,6 +517,17 @@ export default function ProjectInclusionsTabContent({
 		return buildSections(filtered);
 	}, [inclusions, debouncedSearch]);
 
+	const totalVariationPrice = useMemo(() => {
+		if (!inclusions) {
+			return 0;
+		}
+		return inclusions.reduce(
+			(sum, inc) =>
+				inc.class === 'Standard' ? sum : sum + (inc.variationPrice ?? 0),
+			0
+		);
+	}, [inclusions]);
+
 	const onSetStatus = async (
 		id: Id<'projectInclusions'>,
 		approved: boolean
@@ -603,7 +642,7 @@ export default function ProjectInclusionsTabContent({
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+			<div className="flex flex-row items-center gap-2">
 				<InputGroup className="min-w-0 flex-1">
 					<InputGroupAddon align="inline-start">
 						<InputGroupText>
@@ -619,15 +658,21 @@ export default function ProjectInclusionsTabContent({
 					/>
 				</InputGroup>
 				<Button
+					aria-label="Download"
+					className="shrink-0"
 					disabled={downloading || sections.length === 0}
 					onClick={() => onDownload().catch(() => undefined)}
 					type="button"
 					variant="outline"
 				>
 					<Download />
-					Download
+					<span className="hidden sm:inline">Download</span>
 				</Button>
 			</div>
+
+			{inclusions.length > 0 ? (
+				<VariationSummaryAlert total={totalVariationPrice} />
+			) : null}
 
 			{sections.length === 0 ? (
 				<Empty>
