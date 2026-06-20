@@ -27,7 +27,8 @@
     "infra:destroy:dev": "pnpm --filter @workspace/infra destroy:dev",
     "infra:destroy:prod": "pnpm --filter @workspace/infra destroy:prod",
     "env:push": "scripts/env-push.sh",
-    "env:pull": "scripts/env-pull.sh"
+    "env:pull": "scripts/env-pull.sh",
+    "ship": "scripts/ship.sh"
   },
   "dependencies": {
     "@workspace/env": "workspace:*",
