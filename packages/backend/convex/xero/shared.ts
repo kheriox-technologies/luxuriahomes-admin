@@ -7,7 +7,10 @@ import { ConvexError } from 'convex/values';
 const XERO_TOKEN_ENDPOINT = 'https://identity.xero.com/connect/token';
 const XERO_CONNECTIONS_ENDPOINT = 'https://api.xero.com/connections';
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0';
-const XERO_SCOPES = 'accounting.reports.read accounting.settings.read';
+// Custom Connections created from 29 Apr 2026 use Xero's granular scopes:
+// `accounting.reports.read` is split per-report (P&L below); settings is unchanged.
+const XERO_SCOPES =
+	'accounting.reports.profitandloss.read accounting.settings.read';
 
 export interface XeroConfig {
 	clientId: string;

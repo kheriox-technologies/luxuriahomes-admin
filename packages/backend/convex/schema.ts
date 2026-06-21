@@ -220,19 +220,24 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_trades', { searchField: 'searchText' }),
-	budgets: defineTable({
+	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),
-		price: v.number(),
-		tradeId: v.id('trades'),
+		// Auto-computed sum of this template's budgetTemplateItems prices.
+		totalPrice: v.number(),
 		searchText: v.string(),
+	}).searchIndex('search_budget_templates', { searchField: 'searchText' }),
+	budgetTemplateItems: defineTable({
+		budgetTemplateId: v.id('budgetTemplates'),
+		tradeId: v.id('trades'),
+		price: v.number(),
 	})
-		.index('by_trade', ['tradeId'])
-		.searchIndex('search_budgets', { searchField: 'searchText' }),
+		.index('by_template', ['budgetTemplateId'])
+		.index('by_template_and_trade', ['budgetTemplateId', 'tradeId']),
 	projectBudgets: defineTable({
 		projectId: v.id('projects'),
-		budgetId: v.id('budgets'),
 		tradeId: v.id('trades'),
+		price: v.number(),
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_trade', ['projectId', 'tradeId']),

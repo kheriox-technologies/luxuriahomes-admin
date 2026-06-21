@@ -17,36 +17,39 @@ import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
-export default function DeleteBudget({
-	budgetId,
-	budgetTitle,
+export default function DeleteBudgetTemplate({
+	budgetTemplateId,
+	templateTitle,
 	open,
 	onOpenChange,
+	onDeleted,
 }: {
-	budgetId: Id<'budgets'>;
-	budgetTitle: string;
+	budgetTemplateId: Id<'budgetTemplates'>;
+	templateTitle: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	onDeleted?: () => void;
 }) {
 	const [isDeleting, setIsDeleting] = useState(false);
-	const removeBudget = useMutation(api.budgets.remove.remove);
+	const removeTemplate = useMutation(api.budgetTemplates.remove.remove);
 
 	const onDelete = async () => {
 		setIsDeleting(true);
 		try {
-			await removeBudget({ budgetId });
+			await removeTemplate({ budgetTemplateId });
 			toastManager.add({
-				title: 'Budget deleted',
+				title: 'Budget template deleted',
 				type: 'success',
 			});
 			onOpenChange(false);
+			onDeleted?.();
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
-					'Could not delete budget. Please try again in a moment.'
+					'Could not delete budget template. Please try again in a moment.'
 				),
-				title: 'Could not delete budget',
+				title: 'Could not delete budget template',
 				type: 'error',
 			});
 		} finally {
@@ -58,9 +61,9 @@ export default function DeleteBudget({
 		<AlertDialog onOpenChange={onOpenChange} open={open}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete budget?</AlertDialogTitle>
+					<AlertDialogTitle>Delete budget template?</AlertDialogTitle>
 					<AlertDialogDescription>
-						{`This will permanently delete ${budgetTitle}. This action cannot be undone.`}
+						{`This will permanently delete ${templateTitle} and all of its trade prices. This action cannot be undone.`}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -76,7 +79,7 @@ export default function DeleteBudget({
 						}}
 						variant="destructive"
 					>
-						Delete budget
+						Delete template
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

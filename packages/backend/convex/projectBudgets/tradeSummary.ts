@@ -39,27 +39,21 @@ export const tradeSummary = query({
 			quotationTotals.set(quotation.tradeId, current);
 		}
 
-		const rows = await Promise.all(
-			trades.map(async (trade) => {
-				const projectBudget = budgetByTrade.get(trade._id) ?? null;
-				const budget = projectBudget
-					? await ctx.db.get(projectBudget.budgetId)
-					: null;
-				const quotation = quotationTotals.get(trade._id) ?? {
-					total: 0,
-					count: 0,
-				};
-				return {
-					tradeId: trade._id,
-					tradeName: trade.name,
-					projectBudgetId: projectBudget?._id ?? null,
-					budgetTitle: budget?.title ?? null,
-					budgetPrice: budget?.price ?? null,
-					totalQuotationPrice: quotation.total,
-					quotationCount: quotation.count,
-				};
-			})
-		);
+		const rows = trades.map((trade) => {
+			const projectBudget = budgetByTrade.get(trade._id) ?? null;
+			const quotation = quotationTotals.get(trade._id) ?? {
+				total: 0,
+				count: 0,
+			};
+			return {
+				tradeId: trade._id,
+				tradeName: trade.name,
+				projectBudgetId: projectBudget?._id ?? null,
+				budgetPrice: projectBudget?.price ?? null,
+				totalQuotationPrice: quotation.total,
+				quotationCount: quotation.count,
+			};
+		});
 
 		return rows.sort((a, b) =>
 			a.tradeName.localeCompare(b.tradeName, undefined, { sensitivity: 'base' })
