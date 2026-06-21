@@ -25,6 +25,8 @@ const badgeVariants = cva(
           "bg-primary text-primary-foreground [button&,a&]:hover:bg-primary/90",
         destructive:
           "bg-destructive text-white [button&,a&]:hover:bg-destructive/90",
+        "destructive-outline":
+          "border-destructive/32 bg-background text-destructive-foreground dark:bg-input/32",
         error:
           "bg-destructive/8 text-destructive-foreground dark:bg-destructive/16",
         info: "bg-info/8 text-info-foreground dark:bg-info/16",
@@ -33,6 +35,8 @@ const badgeVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground [button&,a&]:hover:bg-secondary/90",
         success: "bg-success/8 text-success-foreground dark:bg-success/16",
+        "success-outline":
+          "border-success/32 bg-background text-success-foreground dark:bg-input/32",
         teal: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
         purple: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
         yellow:

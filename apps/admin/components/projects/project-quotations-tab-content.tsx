@@ -14,8 +14,10 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
+	ComboboxChip,
+	ComboboxChips,
+	ComboboxChipsInput,
 	ComboboxEmpty,
-	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
@@ -94,6 +96,7 @@ interface ProjectQuotation {
 interface TradeGroup {
 	budgetPrice: number | null;
 	quotes: ProjectQuotation[];
+	remaining: number | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 }
@@ -106,39 +109,14 @@ const STATUS_VALUES: QuotationFormValues['status'][] = [
 
 function statusBadgeVariant(
 	status: QuotationFormValues['status']
-): 'success' | 'warning' | 'destructive' {
+): 'success' | 'warning' | 'destructive-outline' {
 	if (status === 'Approved') {
 		return 'success';
 	}
 	if (status === 'Rejected') {
-		return 'destructive';
+		return 'destructive-outline';
 	}
 	return 'warning';
-}
-
-function VarianceCell({
-	budgetPrice,
-	price,
-}: {
-	budgetPrice: number | null;
-	price: number;
-}) {
-	if (budgetPrice === null) {
-		return <span className="text-muted-foreground text-sm">—</span>;
-	}
-	const variance = budgetPrice - price;
-	const underBudget = variance >= 0;
-	return (
-		<span
-			className={cn(
-				'text-sm tabular-nums',
-				underBudget ? 'text-emerald-600' : 'text-destructive'
-			)}
-		>
-			{underBudget ? '+' : '−'}
-			{formatBudgetPrice(Math.abs(variance))}
-		</span>
-	);
 }
 
 function QuotationActionsCell({ row }: { row: ProjectQuotation }) {
@@ -367,10 +345,10 @@ export default function ProjectQuotationsTabContent({
 	const [addOpen, setAddOpen] = useState(false);
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
-	const [filterTradeId, setFilterTradeId] = useState<Id<'trades'> | null>(null);
-	const [filterStatus, setFilterStatus] = useState<
-		QuotationFormValues['status'] | null
-	>(null);
+	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>([]);
+	const [filterStatuses, setFilterStatuses] = useState<
+		QuotationFormValues['status'][]
+	>([]);
 	const [openTradeIds, setOpenTradeIds] = useState<Id<'trades'>[]>([]);
 
 	useEffect(() => {
@@ -390,9 +368,16 @@ export default function ProjectQuotationsTabContent({
 	const trades = useQuery(api.trades.list.list, {});
 
 	const budgetByTrade = useMemo(() => {
-		const map = new Map<Id<'trades'>, number | null>();
+		const map = new Map<
+			Id<'trades'>,
+			{ budgetPrice: number | null; remaining: number | null }
+		>();
 		for (const row of tradeSummary ?? []) {
-			map.set(row.tradeId, row.budgetPrice);
+			const remaining =
+				row.budgetPrice === null
+					? null
+					: row.budgetPrice - row.totalQuotationPrice;
+			map.set(row.tradeId, { budgetPrice: row.budgetPrice, remaining });
 		}
 		return map;
 	}, [tradeSummary]);
@@ -404,10 +389,10 @@ export default function ProjectQuotationsTabContent({
 			return [];
 		}
 		const filtered = quotations.filter((q) => {
-			if (filterTradeId && q.tradeId !== filterTradeId) {
+			if (filterTradeIds.length > 0 && !filterTradeIds.includes(q.tradeId)) {
 				return false;
 			}
-			if (filterStatus && q.status !== filterStatus) {
+			if (filterStatuses.length > 0 && !filterStatuses.includes(q.status)) {
 				return false;
 			}
 			if (
@@ -425,10 +410,12 @@ export default function ProjectQuotationsTabContent({
 		for (const q of filtered) {
 			let group = map.get(q.tradeId);
 			if (!group) {
+				const budget = budgetByTrade.get(q.tradeId);
 				group = {
 					tradeId: q.tradeId,
 					tradeName: q.tradeName,
-					budgetPrice: budgetByTrade.get(q.tradeId) ?? null,
+					budgetPrice: budget?.budgetPrice ?? null,
+					remaining: budget?.remaining ?? null,
 					quotes: [],
 				};
 				map.set(q.tradeId, group);
@@ -443,7 +430,13 @@ export default function ProjectQuotationsTabContent({
 			a.tradeName.localeCompare(b.tradeName, undefined, { sensitivity: 'base' })
 		);
 		return arr;
-	}, [quotations, filterTradeId, filterStatus, trimmedSearch, budgetByTrade]);
+	}, [
+		quotations,
+		filterTradeIds,
+		filterStatuses,
+		trimmedSearch,
+		budgetByTrade,
+	]);
 
 	const groupKey = groups.map((g) => g.tradeId).join(',');
 	useEffect(() => {
@@ -453,7 +446,9 @@ export default function ProjectQuotationsTabContent({
 	}, [groupKey]);
 
 	const hasFilters =
-		filterTradeId !== null || filterStatus !== null || trimmedSearch !== '';
+		filterTradeIds.length > 0 ||
+		filterStatuses.length > 0 ||
+		trimmedSearch !== '';
 
 	const tradeItems = useMemo(() => (trades ?? []).map((t) => t._id), [trades]);
 	const tradeLabelById = useMemo(
@@ -518,13 +513,28 @@ export default function ProjectQuotationsTabContent({
 										{group.quotes.length}
 									</Badge>
 								</span>
-								<span className="text-muted-foreground text-sm">
-									Budget:{' '}
-									<span className="font-medium text-foreground tabular-nums">
-										{group.budgetPrice === null
-											? '—'
-											: formatBudgetPrice(group.budgetPrice)}
-									</span>
+								<span className="flex items-center gap-2">
+									{group.budgetPrice === null ? (
+										<Badge size="lg" variant="outline">
+											No budget
+										</Badge>
+									) : (
+										<>
+											<Badge size="lg" variant="purple">
+												Budget {formatBudgetPrice(group.budgetPrice)}
+											</Badge>
+											<Badge
+												size="lg"
+												variant={
+													(group.remaining ?? 0) >= 0
+														? 'success-outline'
+														: 'destructive-outline'
+												}
+											>
+												Remaining {formatBudgetPrice(group.remaining ?? 0)}
+											</Badge>
+										</>
+									)}
 								</span>
 							</AccordionPrimitive.Trigger>
 						</AccordionPrimitive.Header>
@@ -535,7 +545,6 @@ export default function ProjectQuotationsTabContent({
 										<TableHead>Title</TableHead>
 										<TableHead>Service Provider</TableHead>
 										<TableHead>Price</TableHead>
-										<TableHead>Variance</TableHead>
 										<TableHead>Notes</TableHead>
 										<TableHead>Status</TableHead>
 										<TableHead />
@@ -552,12 +561,6 @@ export default function ProjectQuotationsTabContent({
 											</TableCell>
 											<TableCell>
 												<QuotationPriceCell row={quote} />
-											</TableCell>
-											<TableCell>
-												<VarianceCell
-													budgetPrice={group.budgetPrice}
-													price={quote.price}
-												/>
 											</TableCell>
 											<TableCell>
 												<QuotationNotesBadge row={quote} />
@@ -586,8 +589,8 @@ export default function ProjectQuotationsTabContent({
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<InputGroup className="w-full sm:max-w-sm">
+			<div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+				<InputGroup className="w-full lg:w-64 lg:shrink-0">
 					<InputGroupAddon align="inline-start">
 						<InputGroupText>
 							<SearchIcon aria-hidden />
@@ -601,50 +604,77 @@ export default function ProjectQuotationsTabContent({
 						value={search}
 					/>
 				</InputGroup>
-				<div className="flex items-center gap-2">
-					<Combobox<Id<'trades'>>
-						items={tradeItems}
-						itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
-						onValueChange={(next) => setFilterTradeId(next ?? null)}
-						value={filterTradeId}
-					>
-						<ComboboxInput className="sm:w-40" placeholder="All trades" />
-						<ComboboxPopup>
-							<ComboboxEmpty>No trades found.</ComboboxEmpty>
-							<ComboboxList>
-								{(item: Id<'trades'>) => (
-									<ComboboxItem key={item} value={item}>
-										{tradeLabelById.get(item) ?? item}
-									</ComboboxItem>
-								)}
-							</ComboboxList>
-						</ComboboxPopup>
-					</Combobox>
 
-					<Combobox<QuotationFormValues['status']>
-						items={STATUS_VALUES}
-						itemToStringLabel={(item) => item ?? ''}
-						onValueChange={(next) => setFilterStatus(next ?? null)}
-						value={filterStatus}
-					>
-						<ComboboxInput className="sm:w-40" placeholder="All statuses" />
-						<ComboboxPopup>
-							<ComboboxList>
-								{(item: QuotationFormValues['status']) => (
-									<ComboboxItem key={item} value={item}>
-										{item}
-									</ComboboxItem>
-								)}
-							</ComboboxList>
-						</ComboboxPopup>
-					</Combobox>
+				<div className="flex flex-1 flex-col gap-2 sm:flex-row">
+					<div className="min-w-0 flex-1">
+						<Combobox<Id<'trades'>, true>
+							items={tradeItems}
+							itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
+							}
+							value={filterTradeIds}
+						>
+							<ComboboxChips>
+								{filterTradeIds.map((id) => (
+									<ComboboxChip key={id}>
+										{tradeLabelById.get(id) ?? id}
+									</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="All trades" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxEmpty>No trades found.</ComboboxEmpty>
+								<ComboboxList>
+									{(item: Id<'trades'>) => (
+										<ComboboxItem key={item} value={item}>
+											{tradeLabelById.get(item) ?? item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
 
+					<div className="min-w-0 flex-1">
+						<Combobox<QuotationFormValues['status'], true>
+							items={STATUS_VALUES}
+							itemToStringLabel={(item) => item ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterStatuses(
+									(next as QuotationFormValues['status'][] | null) ?? []
+								)
+							}
+							value={filterStatuses}
+						>
+							<ComboboxChips>
+								{filterStatuses.map((status) => (
+									<ComboboxChip key={status}>{status}</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="All statuses" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxList>
+									{(item: QuotationFormValues['status']) => (
+										<ComboboxItem key={item} value={item}>
+											{item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
+				</div>
+
+				<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
 					{hasFilters ? (
 						<Button
 							onClick={() => {
 								setSearch('');
-								setFilterTradeId(null);
-								setFilterStatus(null);
+								setFilterTradeIds([]);
+								setFilterStatuses([]);
 							}}
 							type="button"
 							variant="outline"
