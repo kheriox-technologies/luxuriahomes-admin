@@ -24,13 +24,25 @@ export default function DeleteMaterial({
 	materialName,
 	redirectAfterDelete,
 	trigger,
+	open: controlledOpen,
+	onOpenChange,
 }: {
 	materialId: Id<'materials'>;
 	materialName: string;
 	redirectAfterDelete?: boolean;
-	trigger: ReactElement;
+	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const isControlled = controlledOpen !== undefined;
+	const open = isControlled ? controlledOpen : internalOpen;
+	const setOpen = (next: boolean) => {
+		if (!isControlled) {
+			setInternalOpen(next);
+		}
+		onOpenChange?.(next);
+	};
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeMaterial = useMutation(api.materials.remove.remove);
 	const router = useRouter();
@@ -60,12 +72,12 @@ export default function DeleteMaterial({
 
 	return (
 		<AlertDialog onOpenChange={setOpen} open={open}>
-			<AlertDialogTrigger render={trigger} />
+			{trigger ? <AlertDialogTrigger render={trigger} /> : null}
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete material?</AlertDialogTitle>
 					<AlertDialogDescription>
-						{`This will permanently delete ${materialName} and all of its variants and items. This action cannot be undone.`}
+						{`This will permanently delete ${materialName} and all of its items. This action cannot be undone.`}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>

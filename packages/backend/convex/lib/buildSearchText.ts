@@ -158,30 +158,36 @@ export function buildDocumentFolderSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
-export function buildMaterialSearchText(
-	name: string,
-	description?: string,
-	unitAbbr?: string
-): string {
-	return buildSearchText([name, description, unitAbbr]);
+export interface MaterialSearchFields {
+	description?: string | undefined;
+	sku?: string | undefined;
+	tradeName?: string | undefined;
+	unitAbbr?: string | undefined;
+	vendor?: string | undefined;
 }
 
-export function buildMaterialVariantSearchText(
-	materialName: string,
-	variantName: string,
-	vendor: string,
-	description?: string
+export function buildMaterialSearchText(
+	name: string,
+	fields: MaterialSearchFields = {}
 ): string {
-	return buildSearchText([materialName, variantName, vendor, description]);
+	return buildSearchText([
+		name,
+		fields.description,
+		fields.unitAbbr,
+		fields.vendor,
+		fields.tradeName,
+		fields.sku,
+	]);
 }
 
 export function buildMaterialItemSearchText(
-	variantName: string,
+	materialName: string,
 	itemName: string,
 	vendor: string,
-	description?: string
+	description?: string,
+	sku?: string
 ): string {
-	return buildSearchText([variantName, itemName, vendor, description]);
+	return buildSearchText([materialName, itemName, vendor, description, sku]);
 }
 
 // Strips the domain from an email and replaces dots in the local part with spaces,

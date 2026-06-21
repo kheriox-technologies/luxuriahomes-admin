@@ -24,6 +24,7 @@ export const add = mutation({
 	args: {
 		projectId: v.id('projects'),
 		vendor: v.string(),
+		tradeId: v.id('trades'),
 		orderBy: v.optional(v.number()),
 		items: v.array(
 			v.object({
@@ -31,6 +32,7 @@ export const add = mutation({
 				description: v.optional(v.string()),
 				quantity: v.number(),
 				unit: v.string(),
+				price: v.optional(v.number()),
 				sku: v.optional(v.string()),
 				link: v.optional(v.string()),
 			})
@@ -48,6 +50,7 @@ export const add = mutation({
 			description: item.description?.trim() || undefined,
 			quantity: item.quantity,
 			unit: item.unit.trim(),
+			price: item.price,
 			sku: item.sku?.trim() || undefined,
 			link: item.link?.trim() || undefined,
 		}));
@@ -57,6 +60,7 @@ export const add = mutation({
 			orderId: orderCode,
 			projectId: args.projectId,
 			vendor,
+			tradeId: args.tradeId,
 			orderBy: args.orderBy,
 			items,
 			status,

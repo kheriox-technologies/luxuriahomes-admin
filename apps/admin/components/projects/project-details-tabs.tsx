@@ -1,6 +1,6 @@
 'use client';
 
-import type { Doc } from '@workspace/backend/dataModel';
+import type { Doc, Id } from '@workspace/backend/dataModel';
 import {
 	Tabs,
 	TabsList,
@@ -27,8 +27,10 @@ import ProjectInclusionsTabContent from '@/components/projects/project-inclusion
 import ProjectQuotationsTabContent from '@/components/projects/project-quotations-tab-content';
 import ProjectScheduleTabContent from '@/components/projects/project-schedule-tab-content';
 import ProjectServiceProvidersTabContent from '@/components/projects/project-service-providers-tab-content';
+import type { QuotationFormValues } from '@/components/quotations/quotation-form-shared';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
+type QuotationStatus = QuotationFormValues['status'];
 
 export default function ProjectDetailsTabs({
 	clients,
@@ -42,6 +44,13 @@ export default function ProjectDetailsTabs({
 	const activeTab = searchParams.get('tab') ?? 'schedule';
 	const orderIdFilter = searchParams.get('orderId') ?? '';
 	const orderTaskIdFilter = searchParams.get('orderTaskId') ?? undefined;
+	const orderTradeIdFilter =
+		(searchParams.get('orderTradeId') as Id<'trades'> | null) ?? undefined;
+	const quotationTradeIdFilter =
+		(searchParams.get('quotationTradeId') as Id<'trades'> | null) ?? undefined;
+	const quotationStatusFilter =
+		(searchParams.get('quotationStatus') as QuotationStatus | null) ??
+		undefined;
 
 	const onTabChange = useCallback(
 		(tab: string) => {
@@ -49,6 +58,9 @@ export default function ProjectDetailsTabs({
 			params.set('tab', tab);
 			params.delete('orderId');
 			params.delete('orderTaskId');
+			params.delete('orderTradeId');
+			params.delete('quotationTradeId');
+			params.delete('quotationStatus');
 			router.push(`?${params.toString()}`);
 		},
 		[router, searchParams]
@@ -134,7 +146,11 @@ export default function ProjectDetailsTabs({
 				<ProjectDocumentsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="quotations">
-				<ProjectQuotationsTabContent projectId={project._id} />
+				<ProjectQuotationsTabContent
+					initialStatus={quotationStatusFilter}
+					initialTradeId={quotationTradeIdFilter}
+					projectId={project._id}
+				/>
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="budgets">
 				<ProjectBudgetsTabContent projectId={project._id} />
@@ -144,6 +160,7 @@ export default function ProjectDetailsTabs({
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="orders">
 				<ProjectOrdersTabContent
+					initialTradeId={orderTradeIdFilter}
 					orderIdFilter={orderIdFilter}
 					orderTaskIdFilter={orderTaskIdFilter}
 					projectId={project._id}

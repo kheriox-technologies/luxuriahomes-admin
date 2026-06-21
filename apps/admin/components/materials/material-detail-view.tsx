@@ -37,13 +37,13 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import { formatAud } from '@/lib/currency';
 import AddMaterialItem from './add-material-item';
-import AddMaterialVariantToProject from './add-material-variant-to-project';
+import AddMaterialToProject from './add-material-to-project';
+import DeleteMaterial from './delete-material';
 import DeleteMaterialItem from './delete-material-item';
-import DeleteMaterialVariant from './delete-material-variant';
+import EditMaterial from './edit-material';
 import EditMaterialItem from './edit-material-item';
-import EditMaterialVariant from './edit-material-variant';
-import { formatItemCountBadgeLabel } from './material-form-shared';
 
 type MaterialItem = Doc<'materialItems'>;
 
@@ -93,25 +93,23 @@ function ItemActionsCell({ item }: { item: MaterialItem }) {
 	);
 }
 
-export default function MaterialVariantDetailView({
-	variantId,
+export default function MaterialDetailView({
+	materialId,
 }: {
 	materialId: Id<'materials'>;
-	variantId: Id<'materialVariants'>;
 }) {
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const trimmedSearch = debouncedSearch.trim();
-	const [editVariantOpen, setEditVariantOpen] = useState(false);
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
 		return () => window.clearTimeout(id);
 	}, [search]);
 
-	const data = useQuery(api.materialVariants.get.get, { variantId });
-	const itemsData = useQuery(api.materialItems.listByVariant.listByVariant, {
-		variantId,
+	const data = useQuery(api.materials.get.get, { materialId });
+	const itemsData = useQuery(api.materialItems.listByMaterial.listByMaterial, {
+		materialId,
 	});
 	const units = useQuery(api.units.list.list, {});
 
@@ -153,6 +151,13 @@ export default function MaterialVariantDetailView({
 				accessorKey: 'vendor',
 				header: 'Vendor',
 				cell: ({ row }) => <span>{row.original.vendor}</span>,
+			},
+			{
+				id: 'price',
+				header: 'Price',
+				cell: ({ row }) => (
+					<span className="text-sm">{formatAud(row.original.price)}</span>
+				),
 			},
 			{
 				id: 'quantity',
@@ -225,23 +230,23 @@ export default function MaterialVariantDetailView({
 
 	if (data === undefined || itemsData === undefined) {
 		return (
-			<div className="text-muted-foreground text-sm">Loading variant…</div>
+			<div className="text-muted-foreground text-sm">Loading material…</div>
 		);
 	}
 
 	if (data === null) {
 		return (
-			<div className="text-muted-foreground text-sm">Variant not found.</div>
+			<div className="text-muted-foreground text-sm">Material not found.</div>
 		);
 	}
 
-	const { variant, material, unit } = data;
+	const { material, unit, trade } = data;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<PageHeading
-				backLink={`/materials#${material._id}`}
-				heading={variant.name}
+				backLink="/materials"
+				heading={material.name}
 				headingActions={
 					<>
 						<InputGroup className="w-full sm:min-w-60 sm:max-w-xs">
@@ -258,21 +263,26 @@ export default function MaterialVariantDetailView({
 								value={search}
 							/>
 						</InputGroup>
-						<Button
-							aria-label="Edit variant"
-							onClick={() => setEditVariantOpen(true)}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<Pencil />
-						</Button>
-						<DeleteMaterialVariant
+						<EditMaterial
+							material={material}
+							trigger={
+								<Button
+									aria-label="Edit material"
+									size="icon"
+									type="button"
+									variant="outline"
+								>
+									<Pencil />
+								</Button>
+							}
+						/>
+						<DeleteMaterial
 							materialId={material._id}
+							materialName={material.name}
 							redirectAfterDelete
 							trigger={
 								<Button
-									aria-label="Delete variant"
+									aria-label="Delete material"
 									size="icon"
 									type="button"
 									variant="destructive-outline"
@@ -280,34 +290,42 @@ export default function MaterialVariantDetailView({
 									<Trash2 />
 								</Button>
 							}
-							variantId={variant._id}
-							variantName={variant.name}
 						/>
 					</>
 				}
 				metaSlot={
 					<>
-						<Badge size="lg" variant="secondary">
-							{material.name}
-						</Badge>
+						{trade ? (
+							<Badge size="lg" variant="secondary">
+								{trade.name}
+							</Badge>
+						) : null}
 						{unit ? (
 							<Badge size="lg" variant="outline">
 								{unit.abbr}
 							</Badge>
 						) : null}
-						<Badge size="lg" variant="secondary">
-							{formatItemCountBadgeLabel(variant.itemCount)}
+						<Badge size="lg" variant="outline">
+							{formatAud(material.price)}
 						</Badge>
+						<Badge size="lg" variant="secondary">
+							{material.vendor}
+						</Badge>
+						{material.sku ? (
+							<Badge size="lg" variant="outline">
+								SKU: {material.sku}
+							</Badge>
+						) : null}
 					</>
 				}
 				rightSlot={
 					<div className="flex items-center gap-2">
-						<AddMaterialVariantToProject
+						<AddMaterialToProject
+							materialId={materialId}
+							materialName={material.name}
 							unitAbbr={unit?.abbr ?? ''}
-							variantId={variantId}
-							variantName={variant.name}
 						/>
-						<AddMaterialItem variantId={variantId} />
+						<AddMaterialItem materialId={materialId} />
 					</div>
 				}
 			/>
@@ -346,15 +364,10 @@ export default function MaterialVariantDetailView({
 						columns={columns}
 						data={filteredItems}
 						initialPageSize={20}
+						key={trimmedSearch}
 					/>
 				);
 			})()}
-
-			<EditMaterialVariant
-				onOpenChange={setEditVariantOpen}
-				open={editVariantOpen}
-				variant={variant}
-			/>
 		</div>
 	);
 }

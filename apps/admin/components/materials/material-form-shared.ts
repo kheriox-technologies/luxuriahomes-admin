@@ -1,23 +1,20 @@
 import { z } from 'zod';
 
-export const materialFormSchema = z.object({
-	name: z.string().trim().min(1, 'Name is required'),
-	description: z.string().optional(),
-	unit: z.string().min(1, 'Unit is required'),
-});
+const priceField = z
+	.string()
+	.min(1, 'Price is required')
+	.refine(
+		(v) => !Number.isNaN(Number(v)) && Number(v) >= 0,
+		'Price must be a positive number'
+	);
 
-export type MaterialFormValues = z.infer<typeof materialFormSchema>;
-
-export const emptyMaterialFormValues: MaterialFormValues = {
-	name: '',
-	description: '',
-	unit: '',
-};
-
-export const materialVariantFormSchema = z
+export const materialFormSchema = z
 	.object({
-		name: z.string().trim().min(1, 'Variant name is required'),
+		name: z.string().trim().min(1, 'Name is required'),
 		description: z.string().optional(),
+		tradeId: z.string().min(1, 'Trade is required'),
+		unit: z.string().min(1, 'Unit is required'),
+		price: priceField,
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
 		sku: z.string().optional(),
@@ -33,13 +30,14 @@ export const materialVariantFormSchema = z
 		}
 	});
 
-export type MaterialVariantFormValues = z.infer<
-	typeof materialVariantFormSchema
->;
+export type MaterialFormValues = z.infer<typeof materialFormSchema>;
 
-export const emptyMaterialVariantFormValues: MaterialVariantFormValues = {
+export const emptyMaterialFormValues: MaterialFormValues = {
 	name: '',
 	description: '',
+	tradeId: '',
+	unit: '',
+	price: '',
 	vendor: '',
 	newVendorName: '',
 	sku: '',
@@ -53,6 +51,7 @@ export const materialItemDraftSchema = z
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
 		unit: z.string().min(1, 'Unit is required'),
+		price: priceField,
 		quantity: z
 			.string()
 			.min(1, 'Quantity is required')
@@ -81,6 +80,7 @@ export const emptyMaterialItemDraft: MaterialItemDraftValues = {
 	vendor: '',
 	newVendorName: '',
 	unit: '',
+	price: '',
 	quantity: '',
 	sku: '',
 	link: '',
@@ -104,8 +104,4 @@ export function materialItemDraftErrorMessage(
 	error: z.ZodError<MaterialItemDraftValues>
 ): string {
 	return error.issues.map((i) => i.message).join(' ');
-}
-
-export function formatItemCountBadgeLabel(count: number): string {
-	return count === 1 ? '1 Item' : `${count} Items`;
 }

@@ -13,11 +13,11 @@ export const listByMaterial = query({
 				message: 'Material not found',
 			});
 		}
-		const variants = await ctx.db
-			.query('materialVariants')
+		const items = await ctx.db
+			.query('materialItems')
 			.withIndex('by_material', (q) => q.eq('materialId', args.materialId))
 			.collect();
-		return variants.sort((a, b) =>
+		return items.sort((a, b) =>
 			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
 		);
 	},

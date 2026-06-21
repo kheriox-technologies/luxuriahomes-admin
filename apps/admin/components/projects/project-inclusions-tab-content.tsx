@@ -119,6 +119,7 @@ import {
 	type NoteImageUploaderHandle,
 } from '@/components/notes/note-image-uploader';
 import { NoteImagesRow } from '@/components/notes/note-images-row';
+import SelectTradeDialog from '@/components/orders/select-trade-dialog';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import type { ComposeAttachment } from '@/lib/email';
 import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
@@ -1151,7 +1152,10 @@ function ProjectInclusionsTableInFrame({
 	projectId: Id<'projects'>;
 	pendingOrderItems: PendingOrderItem[];
 	onAddToOrder: (inclusion: ProjectInclusion) => void;
-	onCreateVendorGroupOrder: (inclusions: ProjectInclusion[]) => Promise<void>;
+	onCreateVendorGroupOrder: (
+		inclusions: ProjectInclusion[],
+		tradeId: Id<'trades'>
+	) => Promise<void>;
 	onDownloadSectionPdf: () => Promise<void>;
 	onEmailSectionPdf: () => Promise<void>;
 }) {
@@ -1233,10 +1237,13 @@ function ProjectInclusionsTableInFrame({
 	const showCreateOrderButton =
 		isVendorGroup && allApproved && unorderedInclusions.length > 0;
 
-	const handleVendorGroupOrder = async (inclusions: ProjectInclusion[]) => {
+	const handleVendorGroupOrder = async (
+		inclusions: ProjectInclusion[],
+		tradeId: Id<'trades'>
+	) => {
 		setVendorOrderLoading(true);
 		try {
-			await onCreateVendorGroupOrder(inclusions);
+			await onCreateVendorGroupOrder(inclusions, tradeId);
 			setVendorOrderConfirmOpen(false);
 		} catch {
 			/* Error handled in onCreateVendorGroupOrder */
@@ -1260,32 +1267,36 @@ function ProjectInclusionsTableInFrame({
 						{formatSignedAud(section.totalVariationPrice)}
 					</Badge>
 					{showCreateOrderButton ? (
-						<Dialog
-							onOpenChange={setVendorOrderConfirmOpen}
-							open={vendorOrderConfirmOpen}
-						>
-							<DialogTrigger
-								render={
-									<Button
-										loading={vendorOrderLoading}
-										type="button"
-										variant="outline"
-									/>
-								}
+						<>
+							<Button
+								loading={vendorOrderLoading}
+								onClick={() => setVendorOrderConfirmOpen(true)}
+								type="button"
+								variant="outline"
 							>
 								<ShoppingCart />
 								Create Order
-							</DialogTrigger>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>Create Order</DialogTitle>
-									{alreadyOrderedInclusions.length > 0 ? (
-										<DialogDescription>
-											The following items are already part of an order and will
-											be skipped:
-										</DialogDescription>
-									) : null}
-								</DialogHeader>
+							</Button>
+							<SelectTradeDialog
+								description={
+									alreadyOrderedInclusions.length > 0
+										? 'The following items are already part of an order and will be skipped:'
+										: undefined
+								}
+								loading={vendorOrderLoading}
+								onConfirm={(tradeId) => {
+									handleVendorGroupOrder(
+										alreadyOrderedInclusions.length > 0
+											? unorderedInclusions
+											: section.inclusions,
+										tradeId
+									).catch(() => {
+										/* handled */
+									});
+								}}
+								onOpenChange={setVendorOrderConfirmOpen}
+								open={vendorOrderConfirmOpen}
+							>
 								{alreadyOrderedInclusions.length > 0 ? (
 									<ul className="px-6 pb-2 text-sm">
 										{alreadyOrderedInclusions.map((inc) => (
@@ -1293,30 +1304,8 @@ function ProjectInclusionsTableInFrame({
 										))}
 									</ul>
 								) : null}
-								<DialogFooter>
-									<DialogClose
-										render={<Button type="button" variant="outline" />}
-									>
-										Cancel
-									</DialogClose>
-									<Button
-										loading={vendorOrderLoading}
-										onClick={() => {
-											handleVendorGroupOrder(
-												alreadyOrderedInclusions.length > 0
-													? unorderedInclusions
-													: section.inclusions
-											).catch(() => {
-												/* handled */
-											});
-										}}
-										type="button"
-									>
-										Create Order
-									</Button>
-								</DialogFooter>
-							</DialogContent>
-						</Dialog>
+							</SelectTradeDialog>
+						</>
 					) : null}
 					<Button
 						aria-label={`Download ${section.groupName} inclusions PDF`}
@@ -1594,15 +1583,22 @@ function NewOrderBuilderCard({
 }: {
 	items: PendingOrderItem[];
 	onRemove: (inclusionId: Id<'projectInclusions'>) => void;
-	onCreateOrder: () => void;
+	onCreateOrder: (tradeId: Id<'trades'>) => void;
 	onCancel: () => void;
 	isCreating: boolean;
 }) {
+	const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
 	if (items.length === 0) {
 		return null;
 	}
 	return (
 		<Frame className="w-full">
+			<SelectTradeDialog
+				loading={isCreating}
+				onConfirm={(tradeId) => onCreateOrder(tradeId)}
+				onOpenChange={setTradeDialogOpen}
+				open={tradeDialogOpen}
+			/>
 			<FrameHeader className="flex flex-row items-center justify-between gap-3">
 				<div className="min-w-0">
 					<FrameTitle>{items[0].vendor}</FrameTitle>
@@ -1623,7 +1619,7 @@ function NewOrderBuilderCard({
 					</Button>
 					<Button
 						loading={isCreating}
-						onClick={() => onCreateOrder()}
+						onClick={() => setTradeDialogOpen(true)}
 						type="button"
 					>
 						Create Order
@@ -1879,52 +1875,58 @@ export default function ProjectInclusionsTabContent({
 		[]
 	);
 
-	const handleCreateOrder = useCallback(async () => {
-		if (pendingOrderItems.length === 0) {
-			return;
-		}
-		setIsCreatingOrder(true);
-		try {
-			const vendor = pendingOrderItems[0].vendor;
-			const items = pendingOrderItems.map((item) => {
-				const inc = inclusionById.get(item.inclusionId);
-				const descParts = [inc?.details, inc?.color].filter(Boolean);
-				return {
-					name: item.title,
-					description: descParts.length > 0 ? descParts.join(', ') : undefined,
-					quantity: item.totalQty > 0 ? item.totalQty : 1,
-					unit: item.unit || 'unit',
-					sku:
-						inc?.models && inc.models.length > 0
-							? inc.models.join(', ')
-							: undefined,
-				};
-			});
-			await addOrder({
-				projectId,
-				vendor,
-				items,
-				status: 'Pending',
-				inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
-			});
-			toastManager.add({ title: 'Order created', type: 'success' });
-			setPendingOrderItems([]);
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not create order. Please try again in a moment.'
-				),
-				title: 'Could not create order',
-				type: 'error',
-			});
-		} finally {
-			setIsCreatingOrder(false);
-		}
-	}, [pendingOrderItems, inclusionById, addOrder, projectId]);
+	const handleCreateOrder = useCallback(
+		async (tradeId: Id<'trades'>) => {
+			if (pendingOrderItems.length === 0) {
+				return;
+			}
+			setIsCreatingOrder(true);
+			try {
+				const vendor = pendingOrderItems[0].vendor;
+				const items = pendingOrderItems.map((item) => {
+					const inc = inclusionById.get(item.inclusionId);
+					const descParts = [inc?.details, inc?.color].filter(Boolean);
+					return {
+						name: item.title,
+						description:
+							descParts.length > 0 ? descParts.join(', ') : undefined,
+						quantity: item.totalQty > 0 ? item.totalQty : 1,
+						unit: item.unit || 'unit',
+						price: inc?.costPrice,
+						sku:
+							inc?.models && inc.models.length > 0
+								? inc.models.join(', ')
+								: undefined,
+					};
+				});
+				await addOrder({
+					projectId,
+					vendor,
+					tradeId,
+					items,
+					status: 'Pending',
+					inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
+				});
+				toastManager.add({ title: 'Order created', type: 'success' });
+				setPendingOrderItems([]);
+			} catch (error) {
+				toastManager.add({
+					description: getConvexErrorMessage(
+						error,
+						'Could not create order. Please try again in a moment.'
+					),
+					title: 'Could not create order',
+					type: 'error',
+				});
+			} finally {
+				setIsCreatingOrder(false);
+			}
+		},
+		[pendingOrderItems, inclusionById, addOrder, projectId]
+	);
 
 	const handleCreateVendorGroupOrder = useCallback(
-		async (groupInclusions: ProjectInclusion[]) => {
+		async (groupInclusions: ProjectInclusion[], tradeId: Id<'trades'>) => {
 			if (groupInclusions.length === 0) {
 				return;
 			}
@@ -1939,12 +1941,14 @@ export default function ProjectInclusionsTabContent({
 					description: descParts.length > 0 ? descParts.join(', ') : undefined,
 					quantity: totalQty > 0 ? totalQty : 1,
 					unit,
+					price: inc.costPrice,
 					sku: inc.models.length > 0 ? inc.models.join(', ') : undefined,
 				};
 			});
 			await addOrder({
 				projectId,
 				vendor,
+				tradeId,
 				items,
 				status: 'Pending',
 				inclusionIds: groupInclusions.map((inc) => inc._id),
@@ -2263,8 +2267,8 @@ export default function ProjectInclusionsTabContent({
 				isCreating={isCreatingOrder}
 				items={pendingOrderItems}
 				onCancel={() => setPendingOrderItems([])}
-				onCreateOrder={() => {
-					handleCreateOrder().catch(() => {
+				onCreateOrder={(tradeId) => {
+					handleCreateOrder(tradeId).catch(() => {
 						/* handled in handleCreateOrder */
 					});
 				}}

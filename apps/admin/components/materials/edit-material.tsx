@@ -2,7 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
-import type { Id } from '@workspace/backend/dataModel';
+import type { Doc } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Dialog,
@@ -20,31 +20,42 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useEffect, useState } from 'react';
 import UnitCombobox from '@/components/inclusions/unit-combobox';
+import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyMaterialFormValues,
 	materialFormFieldError,
 	materialFormSchema,
 } from './material-form-shared';
+import TradeCombobox from './trade-combobox';
 
 const FORM_ID = 'edit-material-form';
 
 export default function EditMaterial({
-	materialId,
-	initialName,
-	initialDescription,
-	initialUnit,
+	material,
 	trigger,
+	open: controlledOpen,
+	onOpenChange,
 }: {
-	materialId: Id<'materials'>;
-	initialName: string;
-	initialDescription?: string;
-	initialUnit: Id<'units'>;
-	trigger: ReactElement;
+	material: Doc<'materials'>;
+	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const isControlled = controlledOpen !== undefined;
+	const open = isControlled ? controlledOpen : internalOpen;
+	const setOpen = (next: boolean) => {
+		if (!isControlled) {
+			setInternalOpen(next);
+		}
+		onOpenChange?.(next);
+	};
+	const trades = useQuery(api.trades.list.list, {});
 	const units = useQuery(api.units.list.list, {});
+	const vendors = useQuery(api.vendors.list.list, {});
 	const updateMaterial = useMutation(api.materials.update.update);
+	const addVendor = useMutation(api.vendors.add.add);
 
 	const form = useForm({
 		defaultValues: emptyMaterialFormValues,
@@ -54,11 +65,21 @@ export default function EditMaterial({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = materialFormSchema.parse(value);
+				const newVendorTrimmed = parsed.newVendorName?.trim();
+				const resolvedVendor = newVendorTrimmed || parsed.vendor.trim();
+				if (newVendorTrimmed) {
+					await addVendor({ name: newVendorTrimmed });
+				}
 				await updateMaterial({
-					materialId,
+					materialId: material._id,
 					name: parsed.name,
 					description: parsed.description?.trim() || undefined,
+					tradeId: parsed.tradeId as never,
 					unit: parsed.unit as never,
+					price: Number(parsed.price),
+					vendor: resolvedVendor,
+					sku: parsed.sku?.trim() || undefined,
+					link: parsed.link?.trim() || undefined,
 				});
 				toastManager.add({ title: 'Material updated', type: 'success' });
 				setOpen(false);
@@ -79,14 +100,20 @@ export default function EditMaterial({
 		if (open) {
 			form.reset(
 				{
-					name: initialName,
-					description: initialDescription ?? '',
-					unit: initialUnit,
+					name: material.name,
+					description: material.description ?? '',
+					tradeId: material.tradeId,
+					unit: material.unit,
+					price: String(material.price),
+					vendor: material.vendor,
+					newVendorName: '',
+					sku: material.sku ?? '',
+					link: material.link ?? '',
 				},
 				{ keepDefaultValues: true }
 			);
 		}
-	}, [open, initialName, initialDescription, initialUnit, form]);
+	}, [open, material, form]);
 
 	return (
 		<Dialog
@@ -98,7 +125,7 @@ export default function EditMaterial({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger} />
+			{trigger ? <DialogTrigger render={trigger} /> : null}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Edit Material</DialogTitle>
@@ -161,6 +188,30 @@ export default function EditMaterial({
 								</Field>
 							)}
 						</form.Field>
+						<form.Field name="tradeId">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
+										<TradeCombobox
+											id={field.name}
+											invalid={invalid}
+											onBlur={field.handleBlur}
+											onChange={(next) => field.handleChange(next)}
+											trades={trades}
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{materialFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
 						<form.Field name="unit">
 							{(field) => {
 								const invalid =
@@ -184,6 +235,135 @@ export default function EditMaterial({
 									</Field>
 								);
 							}}
+						</form.Field>
+						<form.Field name="price">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>
+											Price{' '}
+											<span className="text-muted-foreground text-xs">
+												(per unit)
+											</span>
+										</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											id={field.name}
+											min="0"
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="e.g. 49.99"
+											step="any"
+											type="number"
+											value={field.state.value}
+										/>
+										{invalid ? (
+											<FieldError>
+												{materialFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="vendor">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
+										<VendorCombobox
+											id={field.name}
+											invalid={invalid}
+											onBlur={field.handleBlur}
+											onChange={(next) => {
+												field.handleChange(next);
+												if (next) {
+													form.setFieldValue('newVendorName', '');
+												}
+											}}
+											value={field.state.value}
+											vendors={vendors}
+										/>
+										{invalid ? (
+											<FieldError>
+												{materialFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+						<form.Field name="newVendorName">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Or add new vendor
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => {
+											field.handleChange(e.target.value);
+											if (e.target.value.trim()) {
+												form.setFieldValue('vendor', '');
+											}
+										}}
+										placeholder="New vendor name"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="sku">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										SKU{' '}
+										<span className="text-muted-foreground text-xs">
+											(optional)
+										</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="e.g. ABC-123"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="link">
+							{(field) => (
+								<Field>
+									<FieldLabel htmlFor={field.name}>
+										Link{' '}
+										<span className="text-muted-foreground text-xs">
+											(optional)
+										</span>
+									</FieldLabel>
+									<Input
+										id={field.name}
+										name={field.name}
+										nativeInput
+										onBlur={field.handleBlur}
+										onChange={(e) => field.handleChange(e.target.value)}
+										placeholder="https://"
+										type="url"
+										value={field.state.value ?? ''}
+									/>
+								</Field>
+							)}
 						</form.Field>
 					</DialogPanel>
 				</form>
