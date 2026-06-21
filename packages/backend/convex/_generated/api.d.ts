@@ -8,6 +8,10 @@
  * @module
  */
 
+import type * as adminUsers_list from "../adminUsers/list.js";
+import type * as adminUsers_replaceAll from "../adminUsers/replaceAll.js";
+import type * as adminUsers_syncAdminUsers from "../adminUsers/syncAdminUsers.js";
+import type * as adminUsers_syncNow from "../adminUsers/syncNow.js";
 import type * as budgets_add from "../budgets/add.js";
 import type * as budgets_get from "../budgets/get.js";
 import type * as budgets_list from "../budgets/list.js";
@@ -41,6 +45,7 @@ import type * as companyDocuments_remove from "../companyDocuments/remove.js";
 import type * as companyDocuments_rename from "../companyDocuments/rename.js";
 import type * as companyDocuments_renameFolder from "../companyDocuments/renameFolder.js";
 import type * as companyDocuments_shared from "../companyDocuments/shared.js";
+import type * as crons from "../crons.js";
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
@@ -277,6 +282,15 @@ import type * as serviceProviders_search from "../serviceProviders/search.js";
 import type * as serviceProviders_seed from "../serviceProviders/seed.js";
 import type * as serviceProviders_shared from "../serviceProviders/shared.js";
 import type * as serviceProviders_update from "../serviceProviders/update.js";
+import type * as tasks_add from "../tasks/add.js";
+import type * as tasks_appendNote from "../tasks/appendNote.js";
+import type * as tasks_deleteNote from "../tasks/deleteNote.js";
+import type * as tasks_list from "../tasks/list.js";
+import type * as tasks_listNotes from "../tasks/listNotes.js";
+import type * as tasks_remove from "../tasks/remove.js";
+import type * as tasks_shared from "../tasks/shared.js";
+import type * as tasks_update from "../tasks/update.js";
+import type * as tasks_updateStatus from "../tasks/updateStatus.js";
 import type * as trades_add from "../trades/add.js";
 import type * as trades_get from "../trades/get.js";
 import type * as trades_list from "../trades/list.js";
@@ -303,6 +317,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "adminUsers/list": typeof adminUsers_list;
+  "adminUsers/replaceAll": typeof adminUsers_replaceAll;
+  "adminUsers/syncAdminUsers": typeof adminUsers_syncAdminUsers;
+  "adminUsers/syncNow": typeof adminUsers_syncNow;
   "budgets/add": typeof budgets_add;
   "budgets/get": typeof budgets_get;
   "budgets/list": typeof budgets_list;
@@ -336,6 +354,7 @@ declare const fullApi: ApiFromModules<{
   "companyDocuments/rename": typeof companyDocuments_rename;
   "companyDocuments/renameFolder": typeof companyDocuments_renameFolder;
   "companyDocuments/shared": typeof companyDocuments_shared;
+  crons: typeof crons;
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/get": typeof documentFolders_get;
   "documentFolders/list": typeof documentFolders_list;
@@ -572,6 +591,15 @@ declare const fullApi: ApiFromModules<{
   "serviceProviders/seed": typeof serviceProviders_seed;
   "serviceProviders/shared": typeof serviceProviders_shared;
   "serviceProviders/update": typeof serviceProviders_update;
+  "tasks/add": typeof tasks_add;
+  "tasks/appendNote": typeof tasks_appendNote;
+  "tasks/deleteNote": typeof tasks_deleteNote;
+  "tasks/list": typeof tasks_list;
+  "tasks/listNotes": typeof tasks_listNotes;
+  "tasks/remove": typeof tasks_remove;
+  "tasks/shared": typeof tasks_shared;
+  "tasks/update": typeof tasks_update;
+  "tasks/updateStatus": typeof tasks_updateStatus;
   "trades/add": typeof trades_add;
   "trades/get": typeof trades_get;
   "trades/list": typeof trades_list;

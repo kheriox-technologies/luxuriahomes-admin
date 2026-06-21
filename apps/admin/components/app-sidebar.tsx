@@ -28,6 +28,7 @@ import {
 	DollarSign,
 	FileText,
 	List,
+	ListTodo,
 	type LucideIcon,
 	Package,
 	Settings,
@@ -85,6 +86,12 @@ const items: SidebarItem[] = [
 		url: '/schedules',
 		path: '/schedules',
 		icon: CalendarDays,
+	},
+	{
+		title: 'Tasks',
+		url: '/tasks',
+		path: '/tasks',
+		icon: ListTodo,
 	},
 	{
 		title: 'Documents',

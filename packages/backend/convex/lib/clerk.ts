@@ -129,6 +129,58 @@ export async function listAllUserContacts(
 	return contacts;
 }
 
+function hasAdminRole(user: {
+	publicMetadata?: Record<string, unknown> | null;
+}): boolean {
+	const roles = user.publicMetadata?.roles;
+	return Array.isArray(roles) && roles.includes('admin');
+}
+
+/**
+ * Fetches all Clerk users whose publicMetadata.roles includes 'admin' and
+ * returns contact details for each one with an email. Used to sync the
+ * `adminUsers` table for the tasks assignee picker.
+ */
+export async function listAdminUserContacts(
+	client: ClerkClient
+): Promise<ClerkUserContact[]> {
+	const contacts: ClerkUserContact[] = [];
+	let offset = 0;
+
+	for (;;) {
+		const { data } = await client.users.getUserList({
+			limit: CLERK_LIST_PAGE_SIZE,
+			offset,
+		});
+
+		if (data.length === 0) {
+			break;
+		}
+
+		for (const user of data) {
+			if (!hasAdminRole(user)) {
+				continue;
+			}
+			const email = toPrimaryEmail(user);
+			if (!email) {
+				continue;
+			}
+			contacts.push({
+				userId: user.id,
+				fullName: toFullName(user),
+				email,
+			});
+		}
+
+		offset += data.length;
+		if (data.length < CLERK_LIST_PAGE_SIZE) {
+			break;
+		}
+	}
+
+	return contacts;
+}
+
 /**
  * Backward-compatible helper for existing callers that only need full name.
  */
