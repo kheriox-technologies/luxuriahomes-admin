@@ -349,41 +349,36 @@ export default defineSchema({
 	materials: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),
+		tradeId: v.id('trades'),
 		unit: v.id('units'),
-		variantCount: v.number(),
+		price: v.number(),
+		vendor: v.string(),
+		sku: v.optional(v.string()),
+		link: v.optional(v.string()),
 		searchText: v.string(),
 	})
 		.index('by_name', ['name'])
+		.index('by_trade', ['tradeId'])
 		.searchIndex('search_materials', { searchField: 'searchText' }),
-	materialVariants: defineTable({
+	materialItems: defineTable({
 		materialId: v.id('materials'),
 		name: v.string(),
 		description: v.optional(v.string()),
 		vendor: v.string(),
-		sku: v.optional(v.string()),
-		link: v.optional(v.string()),
-		itemCount: v.number(),
-		searchText: v.string(),
-	})
-		.index('by_material', ['materialId'])
-		.searchIndex('search_material_variants', { searchField: 'searchText' }),
-	materialItems: defineTable({
-		materialVariantId: v.id('materialVariants'),
-		name: v.string(),
-		description: v.optional(v.string()),
-		vendor: v.string(),
 		unit: v.id('units'),
+		price: v.number(),
 		quantity: v.optional(v.number()),
 		sku: v.optional(v.string()),
 		link: v.optional(v.string()),
 		searchText: v.string(),
 	})
-		.index('by_material_variant', ['materialVariantId'])
+		.index('by_material', ['materialId'])
 		.searchIndex('search_material_items', { searchField: 'searchText' }),
 	projectOrders: defineTable({
 		orderId: v.string(),
 		projectId: v.id('projects'),
 		vendor: v.string(),
+		tradeId: v.id('trades'),
 		orderBy: v.optional(v.number()),
 		deliverBy: v.optional(v.number()),
 		orderTaskId: v.optional(v.id('projectOrderTasks')),
@@ -393,6 +388,7 @@ export default defineSchema({
 				description: v.optional(v.string()),
 				quantity: v.number(),
 				unit: v.string(),
+				price: v.optional(v.number()),
 				sku: v.optional(v.string()),
 				link: v.optional(v.string()),
 			})

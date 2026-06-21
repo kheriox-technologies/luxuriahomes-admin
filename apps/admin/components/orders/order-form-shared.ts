@@ -20,6 +20,13 @@ export const orderItemSchema = z.object({
 			'Quantity must be a positive number'
 		),
 	unit: z.string().trim().min(1, 'Unit is required'),
+	price: z
+		.string()
+		.optional()
+		.refine(
+			(v) => !v || (!Number.isNaN(Number(v)) && Number(v) >= 0),
+			'Price must be a positive number'
+		),
 	sku: z.string().optional(),
 	link: z.string().optional(),
 });
@@ -30,6 +37,7 @@ export const orderFormSchema = z
 	.object({
 		vendor: z.string(),
 		newVendorName: z.string().optional(),
+		tradeId: z.string().min(1, 'Trade is required'),
 		orderBy: z.date().optional(),
 		items: z.array(orderItemSchema).min(1, 'At least one item is required'),
 		status: z.enum(['Pending', 'Ordered', 'In Transit', 'Delivered']),
@@ -51,6 +59,7 @@ export const emptyOrderItem = {
 	description: '',
 	quantity: '',
 	unit: '',
+	price: '',
 	sku: '',
 	link: '',
 };
@@ -58,6 +67,7 @@ export const emptyOrderItem = {
 export const emptyOrderFormValues: OrderFormValues = {
 	vendor: '',
 	newVendorName: '',
+	tradeId: '',
 	orderBy: undefined,
 	items: [{ ...emptyOrderItem }],
 	status: 'Pending',

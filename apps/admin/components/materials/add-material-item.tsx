@@ -29,10 +29,10 @@ import {
 } from './material-form-shared';
 
 export default function AddMaterialItem({
-	variantId,
+	materialId,
 	trigger,
 }: {
-	variantId: Id<'materialVariants'>;
+	materialId: Id<'materials'>;
 	trigger?: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
@@ -63,11 +63,12 @@ export default function AddMaterialItem({
 				await addVendor({ name: newVendorTrimmed });
 			}
 			await addItem({
-				materialVariantId: variantId,
+				materialId,
 				name: data.name,
 				description: data.description?.trim() || undefined,
 				vendor: resolvedVendor,
 				unit: data.unit as never,
+				price: Number(data.price),
 				quantity: Number(data.quantity),
 				sku: data.sku?.trim() || undefined,
 				link: data.link?.trim() || undefined,
@@ -183,6 +184,24 @@ export default function AddMaterialItem({
 							onChange={(next) => setDraft((p) => ({ ...p, unit: next }))}
 							units={units}
 							value={draft.unit}
+						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="add-item-price">
+							Price{' '}
+							<span className="text-muted-foreground text-xs">(per unit)</span>
+						</FieldLabel>
+						<Input
+							id="add-item-price"
+							min="0"
+							nativeInput
+							onChange={(e) =>
+								setDraft((p) => ({ ...p, price: e.target.value }))
+							}
+							placeholder="e.g. 12.50"
+							step="any"
+							type="number"
+							value={draft.price}
 						/>
 					</Field>
 					<Field>

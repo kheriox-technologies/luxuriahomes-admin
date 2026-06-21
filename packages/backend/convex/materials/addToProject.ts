@@ -7,10 +7,20 @@ import {
 	allocateUniqueOrderId,
 } from '../projectOrders/shared';
 
+interface OrderItem {
+	description?: string;
+	link?: string;
+	name: string;
+	price?: number;
+	quantity: number;
+	sku?: string;
+	unit: string;
+}
+
 export const addToProject = mutation({
 	args: {
 		projectId: v.id('projects'),
-		variantId: v.id('materialVariants'),
+		materialId: v.id('materials'),
 		quantity: v.number(),
 	},
 	handler: async (ctx, args) => {
@@ -24,15 +34,7 @@ export const addToProject = mutation({
 			});
 		}
 
-		const variant = await ctx.db.get(args.variantId);
-		if (!variant) {
-			throw new ConvexError({
-				code: 'NOT_FOUND',
-				message: 'Variant not found',
-			});
-		}
-
-		const material = await ctx.db.get(variant.materialId);
+		const material = await ctx.db.get(args.materialId);
 		if (!material) {
 			throw new ConvexError({
 				code: 'NOT_FOUND',
@@ -50,19 +52,8 @@ export const addToProject = mutation({
 
 		const materialItems = await ctx.db
 			.query('materialItems')
-			.withIndex('by_material_variant', (q) =>
-				q.eq('materialVariantId', args.variantId)
-			)
+			.withIndex('by_material', (q) => q.eq('materialId', args.materialId))
 			.collect();
-
-		interface OrderItem {
-			description?: string;
-			link?: string;
-			name: string;
-			quantity: number;
-			sku?: string;
-			unit: string;
-		}
 
 		const vendorMap = new Map<string, OrderItem[]>();
 
@@ -75,13 +66,14 @@ export const addToProject = mutation({
 			}
 		};
 
-		addToVendor(variant.vendor.trim(), {
-			name: variant.name.trim(),
-			description: variant.description?.trim() || undefined,
+		addToVendor(material.vendor.trim(), {
+			name: material.name.trim(),
+			description: material.description?.trim() || undefined,
 			quantity: args.quantity,
 			unit: materialUnit.abbr,
-			sku: variant.sku?.trim() || undefined,
-			link: variant.link?.trim() || undefined,
+			price: material.price,
+			sku: material.sku?.trim() || undefined,
+			link: material.link?.trim() || undefined,
 		});
 
 		for (const item of materialItems) {
@@ -95,6 +87,7 @@ export const addToProject = mutation({
 				description: item.description?.trim() || undefined,
 				quantity: item.quantity * args.quantity,
 				unit: itemUnitAbbr,
+				price: item.price,
 				sku: item.sku?.trim() || undefined,
 				link: item.link?.trim() || undefined,
 			});
@@ -110,6 +103,7 @@ export const addToProject = mutation({
 				orderId: orderCode,
 				projectId: args.projectId,
 				vendor,
+				tradeId: material.tradeId,
 				items,
 				status,
 				searchText,

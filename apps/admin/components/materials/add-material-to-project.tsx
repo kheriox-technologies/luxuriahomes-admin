@@ -51,13 +51,13 @@ function statusLabel(status: Project['status']): string {
 	return 'Completed';
 }
 
-export default function AddMaterialVariantToProject({
-	variantId,
-	variantName,
+export default function AddMaterialToProject({
+	materialId,
+	materialName,
 	unitAbbr,
 }: {
-	variantId: Id<'materialVariants'>;
-	variantName: string;
+	materialId: Id<'materials'>;
+	materialName: string;
 	unitAbbr: string;
 }) {
 	const [open, setOpen] = useState(false);
@@ -67,9 +67,7 @@ export default function AddMaterialVariantToProject({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	const projects = useQuery(api.projects.list.list, {});
-	const addToProject = useMutation(
-		api.materialVariants.addToProject.addToProject
-	);
+	const addToProject = useMutation(api.materials.addToProject.addToProject);
 
 	const eligibleProjects = useMemo(
 		() =>
@@ -116,11 +114,11 @@ export default function AddMaterialVariantToProject({
 		try {
 			await addToProject({
 				projectId: selectedProject,
-				variantId,
+				materialId,
 				quantity: parsedQuantity,
 			});
 			toastManager.add({
-				description: `${variantName} was added to ${projectNameById.get(selectedProject) ?? 'the selected project'}.`,
+				description: `${materialName} was added to ${projectNameById.get(selectedProject) ?? 'the selected project'}.`,
 				title: 'Added to project',
 				type: 'success',
 			});
@@ -169,8 +167,7 @@ export default function AddMaterialVariantToProject({
 				<DialogHeader>
 					<DialogTitle>Add to Project</DialogTitle>
 					<DialogDescription>
-						Choose an in-progress or not-started project to add this material
-						variant.
+						Choose an in-progress or not-started project to add this material.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col gap-4 px-6 pb-2">

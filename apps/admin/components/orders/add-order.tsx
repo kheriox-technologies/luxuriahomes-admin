@@ -28,6 +28,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
+import TradeCombobox from '@/components/budgets/trade-combobox';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -52,6 +53,7 @@ export default function AddOrder({
 	const addOrder = useMutation(api.projectOrders.add.add);
 	const addVendor = useMutation(api.vendors.add.add);
 	const vendors = useQuery(api.vendors.list.list, {});
+	const trades = useQuery(api.trades.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const unitItems = useMemo(() => (units ?? []).map((u) => u.abbr), [units]);
 	const unitLabelByAbbr = useMemo(() => {
@@ -78,12 +80,14 @@ export default function AddOrder({
 				await addOrder({
 					projectId,
 					vendor: resolvedVendor,
+					tradeId: parsed.tradeId as Id<'trades'>,
 					orderBy: parsed.orderBy?.getTime(),
 					items: parsed.items.map((item) => ({
 						name: item.name,
 						description: item.description?.trim() || undefined,
 						quantity: Number(item.quantity),
 						unit: item.unit,
+						price: item.price?.trim() ? Number(item.price) : undefined,
 						sku: item.sku?.trim() || undefined,
 						link: item.link?.trim() || undefined,
 					})),
@@ -185,6 +189,30 @@ export default function AddOrder({
 									/>
 								</Field>
 							)}
+						</form.Field>
+						<form.Field name="tradeId">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
+										<TradeCombobox
+											id={field.name}
+											invalid={invalid}
+											onBlur={field.handleBlur}
+											onChange={(next) => field.handleChange(next)}
+											trades={trades}
+											value={field.state.value as Id<'trades'> | ''}
+										/>
+										{invalid ? (
+											<FieldError>
+												{orderFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
 						</form.Field>
 						<form.Field name="orderBy">
 							{(field) => (
@@ -370,6 +398,45 @@ export default function AddOrder({
 														}}
 													</form.Field>
 												</div>
+												<form.Field name={`items[${index}].price`}>
+													{(field) => {
+														const invalid =
+															field.state.meta.isTouched &&
+															!field.state.meta.isValid;
+														return (
+															<Field data-invalid={invalid}>
+																<FieldLabel htmlFor={field.name}>
+																	Price{' '}
+																	<span className="text-muted-foreground text-xs">
+																		(per unit)
+																	</span>
+																</FieldLabel>
+																<Input
+																	aria-invalid={invalid}
+																	id={field.name}
+																	min="0"
+																	name={field.name}
+																	nativeInput
+																	onBlur={field.handleBlur}
+																	onChange={(e) =>
+																		field.handleChange(e.target.value)
+																	}
+																	placeholder="e.g. 12.50"
+																	step="any"
+																	type="number"
+																	value={field.state.value ?? ''}
+																/>
+																{invalid ? (
+																	<FieldError>
+																		{orderFormFieldError(
+																			field.state.meta.errors
+																		)}
+																	</FieldError>
+																) : null}
+															</Field>
+														);
+													}}
+												</form.Field>
 												<form.Field name={`items[${index}].sku`}>
 													{(field) => (
 														<Field>

@@ -1,12 +1,26 @@
 'use no memo';
 'use client';
 
-import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
+import {
+	Accordion,
+	AccordionItem,
+	AccordionPanel,
+	AccordionPrimitive,
+} from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import { DataTable } from '@workspace/ui/components/data-table';
+import {
+	Combobox,
+	ComboboxChip,
+	ComboboxChips,
+	ComboboxChipsInput,
+	ComboboxEmpty,
+	ComboboxItem,
+	ComboboxList,
+	ComboboxPopup,
+} from '@workspace/ui/components/combobox';
 import {
 	Empty,
 	EmptyDescription,
@@ -27,9 +41,21 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@workspace/ui/components/table';
 import { toastManager } from '@workspace/ui/components/toast';
+import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import {
+	ChevronDownIcon,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
 	ClipboardList,
 	EllipsisVertical,
 	ExternalLink,
@@ -42,8 +68,10 @@ import {
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
 import ComposeEmailDialog from '@/components/email/compose-email-dialog';
+import { formatAud } from '@/lib/currency';
 import type { ComposeAttachment } from '@/lib/email';
 import {
 	generateProjectOrderPdfBase64,
@@ -53,12 +81,13 @@ import AddOrder from './add-order';
 import AddToTaskDialog from './add-to-task-dialog';
 import DeleteOrder from './delete-order';
 import EditOrder from './edit-order';
-import type { OrderStatus } from './order-form-shared';
+import { ORDER_STATUSES, type OrderStatus } from './order-form-shared';
 import OrderNotesDialog from './order-notes-dialog';
 import OrderStatusHistoryDialog from './order-status-history-dialog';
 
 type ProjectOrder = Doc<'projectOrders'> & {
 	noteCount: number;
+	tradeName: string;
 	linkedOrderTaskName: string | null;
 	linkedParentTaskName: string | null;
 };
@@ -68,6 +97,14 @@ interface PdfProjectAddress {
 	state: string;
 	street: string;
 	suburb: string;
+}
+
+interface OrderGroup {
+	budgetPrice: number | null;
+	key: string;
+	orders: ProjectOrder[];
+	remaining: number | null;
+	tradeName: string;
 }
 
 function orderStatusBadgeVariant(
@@ -278,6 +315,13 @@ function OrderVendorCell({ row }: { row: ProjectOrder }) {
 	);
 }
 
+function orderTotalPrice(order: ProjectOrder): number {
+	return order.items.reduce(
+		(sum, item) => sum + (item.price ?? 0) * item.quantity,
+		0
+	);
+}
+
 function formatOrderByDate(timestamp: number): string {
 	return new Date(timestamp).toLocaleDateString('en-AU', {
 		day: 'numeric',
@@ -286,142 +330,206 @@ function formatOrderByDate(timestamp: number): string {
 	});
 }
 
-function buildColumns(
-	projectAddress?: PdfProjectAddress
-): ColumnDef<ProjectOrder>[] {
-	return [
-		{
-			id: 'orderId',
-			header: 'Order ID',
-			size: 130,
-			cell: ({ row }) => (
-				<span className="font-mono text-sm">{row.original.orderId}</span>
-			),
-		},
-		{
-			id: 'vendor',
-			header: 'Vendor',
-			cell: ({ row }) => <OrderVendorCell row={row.original} />,
-		},
-		{
-			id: 'items',
-			header: 'Items',
-			cell: ({ row }) => (
-				<div className="flex flex-col gap-0.5">
-					{row.original.items.map((item) => (
-						<div className="flex items-center gap-1.5" key={item.name}>
-							<span className="text-sm">{item.name}</span>
-							{item.link ? (
-								<a
-									aria-label="View item link"
-									href={item.link}
-									rel="noopener noreferrer"
-									target="_blank"
-								>
-									<ExternalLink className="size-3 text-muted-foreground" />
-								</a>
-							) : null}
-							<span className="text-muted-foreground text-xs">
-								({item.quantity} {item.unit})
+function OrdersTable({
+	orders,
+	projectAddress,
+}: {
+	orders: ProjectOrder[];
+	projectAddress?: PdfProjectAddress;
+}) {
+	return (
+		<Table>
+			<TableHeader>
+				<TableRow>
+					<TableHead>Order ID</TableHead>
+					<TableHead>Vendor</TableHead>
+					<TableHead>Items</TableHead>
+					<TableHead>Linked Task</TableHead>
+					<TableHead>Order By</TableHead>
+					<TableHead>Deliver By</TableHead>
+					<TableHead>Total Price</TableHead>
+					<TableHead>Status</TableHead>
+					<TableHead />
+				</TableRow>
+			</TableHeader>
+			<TableBody>
+				{orders.map((order) => (
+					<TableRow key={order._id}>
+						<TableCell>
+							<span className="font-mono text-sm">{order.orderId}</span>
+						</TableCell>
+						<TableCell>
+							<OrderVendorCell row={order} />
+						</TableCell>
+						<TableCell>
+							<div className="flex flex-col gap-0.5">
+								{order.items.map((item) => (
+									<div className="flex items-center gap-1.5" key={item.name}>
+										<span className="text-sm">{item.name}</span>
+										{item.link ? (
+											<a
+												aria-label="View item link"
+												href={item.link}
+												rel="noopener noreferrer"
+												target="_blank"
+											>
+												<ExternalLink className="size-3 text-muted-foreground" />
+											</a>
+										) : null}
+										<span className="text-muted-foreground text-xs">
+											({item.quantity} {item.unit})
+										</span>
+									</div>
+								))}
+							</div>
+						</TableCell>
+						<TableCell>
+							<span className="text-muted-foreground text-sm">
+								{order.linkedParentTaskName
+									? `${order.linkedParentTaskName} · ${order.linkedOrderTaskName}`
+									: '—'}
 							</span>
-						</div>
-					))}
-				</div>
-			),
-		},
-		{
-			id: 'linkedTask',
-			header: 'Linked Task',
-			size: 160,
-			cell: ({ row }) => (
-				<span className="text-muted-foreground text-sm">
-					{row.original.linkedParentTaskName
-						? `${row.original.linkedParentTaskName} · ${row.original.linkedOrderTaskName}`
-						: '—'}
-				</span>
-			),
-		},
-		{
-			id: 'orderBy',
-			header: 'Order By',
-			size: 130,
-			cell: ({ row }) => (
-				<span className="text-muted-foreground text-sm">
-					{row.original.orderBy ? formatOrderByDate(row.original.orderBy) : '—'}
-				</span>
-			),
-		},
-		{
-			id: 'deliverBy',
-			header: 'Deliver By',
-			size: 130,
-			cell: ({ row }) => (
-				<span className="text-muted-foreground text-sm">
-					{row.original.deliverBy
-						? formatOrderByDate(row.original.deliverBy)
-						: '—'}
-				</span>
-			),
-		},
-		{
-			id: 'status',
-			header: 'Status',
-			size: 140,
-			cell: ({ row }) => (
-				<Badge
-					size="lg"
-					variant={orderStatusBadgeVariant(row.original.status as OrderStatus)}
-				>
-					{row.original.status}
-				</Badge>
-			),
-		},
-		{
-			id: 'actions',
-			header: '',
-			size: 60,
-			cell: ({ row }) => (
-				<div className="flex justify-end">
-					<OrderActionsCell
-						projectAddress={projectAddress}
-						row={row.original}
-					/>
-				</div>
-			),
-		},
-	];
+						</TableCell>
+						<TableCell>
+							<span className="text-muted-foreground text-sm">
+								{order.orderBy ? formatOrderByDate(order.orderBy) : '—'}
+							</span>
+						</TableCell>
+						<TableCell>
+							<span className="text-muted-foreground text-sm">
+								{order.deliverBy ? formatOrderByDate(order.deliverBy) : '—'}
+							</span>
+						</TableCell>
+						<TableCell>
+							<span className="font-medium text-sm">
+								{formatAud(orderTotalPrice(order))}
+							</span>
+						</TableCell>
+						<TableCell>
+							<Badge
+								size="lg"
+								variant={orderStatusBadgeVariant(order.status as OrderStatus)}
+							>
+								{order.status}
+							</Badge>
+						</TableCell>
+						<TableCell className="text-right">
+							<OrderActionsCell projectAddress={projectAddress} row={order} />
+						</TableCell>
+					</TableRow>
+				))}
+			</TableBody>
+		</Table>
+	);
 }
 
 export default function ProjectOrdersTabContent({
 	projectId,
 	orderIdFilter = '',
 	orderTaskIdFilter,
+	initialTradeId,
 }: {
 	projectId: Id<'projects'>;
 	orderIdFilter?: string;
 	orderTaskIdFilter?: string;
+	initialTradeId?: Id<'trades'>;
 }) {
 	const project = useQuery(api.projects.get.get, { projectId });
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
-	const columns = buildColumns(project?.address);
+	const trades = useQuery(api.trades.list.list, {});
+	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
+		projectId,
+	});
 	const [search, setSearch] = useState(orderIdFilter);
+	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>(
+		initialTradeId ? [initialTradeId] : []
+	);
+	const [filterStatuses, setFilterStatuses] = useState<OrderStatus[]>([]);
+	const [openKeys, setOpenKeys] = useState<string[]>([]);
 
 	const trimmedSearch = search.trim();
-	const filteredOrders = (() => {
+
+	const tradeItems = useMemo(() => (trades ?? []).map((t) => t._id), [trades]);
+	const tradeLabelById = useMemo(
+		() => new Map((trades ?? []).map((t) => [t._id, t.name])),
+		[trades]
+	);
+
+	const budgetByTradeId = useMemo(() => {
+		const map = new Map<
+			Id<'trades'>,
+			{ budgetPrice: number | null; remaining: number | null }
+		>();
+		for (const row of tradeSummary ?? []) {
+			const remaining =
+				row.budgetPrice === null
+					? null
+					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
+			map.set(row.tradeId, {
+				budgetPrice: row.budgetPrice,
+				remaining,
+			});
+		}
+		return map;
+	}, [tradeSummary]);
+
+	const groups = useMemo<OrderGroup[]>(() => {
 		if (!orders) {
 			return [];
 		}
-		let result = orders;
-		if (orderTaskIdFilter) {
-			result = result.filter((o) => o.orderTaskId === orderTaskIdFilter);
+		const lowerSearch = trimmedSearch.toLowerCase();
+		const filtered = orders.filter((o) => {
+			if (orderTaskIdFilter && o.orderTaskId !== orderTaskIdFilter) {
+				return false;
+			}
+			if (filterTradeIds.length > 0 && !filterTradeIds.includes(o.tradeId)) {
+				return false;
+			}
+			if (
+				filterStatuses.length > 0 &&
+				!filterStatuses.includes(o.status as OrderStatus)
+			) {
+				return false;
+			}
+			if (lowerSearch && !o.orderId.toLowerCase().includes(lowerSearch)) {
+				return false;
+			}
+			return true;
+		});
+
+		const map = new Map<string, OrderGroup>();
+		for (const o of filtered) {
+			const key = o.tradeId as string;
+			let group = map.get(key);
+			if (!group) {
+				const budget = budgetByTradeId.get(o.tradeId);
+				group = {
+					budgetPrice: budget?.budgetPrice ?? null,
+					key,
+					orders: [],
+					remaining: budget?.remaining ?? null,
+					tradeName: o.tradeName,
+				};
+				map.set(key, group);
+			}
+			group.orders.push(o);
 		}
-		if (trimmedSearch !== '') {
-			result = result.filter((o) =>
-				o.orderId.toLowerCase().includes(trimmedSearch.toLowerCase())
-			);
-		}
-		return result;
-	})();
+
+		const arr = [...map.values()];
+		arr.sort((a, b) =>
+			a.tradeName.localeCompare(b.tradeName, undefined, {
+				sensitivity: 'base',
+			})
+		);
+		return arr;
+	}, [
+		orders,
+		trimmedSearch,
+		orderTaskIdFilter,
+		filterTradeIds,
+		filterStatuses,
+		budgetByTradeId,
+	]);
 
 	let content: React.ReactNode;
 
@@ -443,22 +551,94 @@ export default function ProjectOrdersTabContent({
 				</EmptyHeader>
 			</Empty>
 		);
+	} else if (groups.length === 0) {
+		content = (
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<ClipboardList aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No matching orders</EmptyTitle>
+					<EmptyDescription>
+						Try a different trade or search term.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		);
 	} else {
 		content = (
-			<DataTable
-				columns={columns}
-				data={filteredOrders}
-				emptyMessage="No orders found."
-				initialPageSize={20}
-				key={trimmedSearch}
-			/>
+			<Accordion
+				className="rounded-xl border"
+				multiple
+				onValueChange={(value) => setOpenKeys(value as string[])}
+				value={openKeys}
+			>
+				{groups.map((group) => (
+					<AccordionItem
+						className="border-b last:border-b-0"
+						key={group.key}
+						value={group.key}
+					>
+						<AccordionPrimitive.Header className="flex">
+							<AccordionPrimitive.Trigger
+								className={cn(
+									'flex flex-1 cursor-pointer items-center justify-between gap-2 px-4 py-3 outline-none transition-colors hover:bg-muted/40',
+									'focus-visible:ring-[3px] focus-visible:ring-ring',
+									'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
+								)}
+								type="button"
+							>
+								<span className="flex items-center gap-2 font-medium text-sm">
+									{group.tradeName}
+									<ChevronDownIcon
+										className="size-4 shrink-0 opacity-70 transition-transform duration-200"
+										data-slot="accordion-indicator"
+									/>
+									<Badge size="lg" variant="outline">
+										{group.orders.length}
+									</Badge>
+								</span>
+								<span className="flex items-center gap-2">
+									{group.budgetPrice === null ? (
+										<Badge size="lg" variant="outline">
+											No budget
+										</Badge>
+									) : (
+										<>
+											<Badge size="lg" variant="purple">
+												Budget {formatBudgetPrice(group.budgetPrice)}
+											</Badge>
+											<Badge
+												size="lg"
+												variant={
+													(group.remaining ?? 0) >= 0
+														? 'success-outline'
+														: 'destructive-outline'
+												}
+											>
+												Remaining {formatBudgetPrice(group.remaining ?? 0)}
+											</Badge>
+										</>
+									)}
+								</span>
+							</AccordionPrimitive.Trigger>
+						</AccordionPrimitive.Header>
+						<AccordionPanel className="overflow-x-auto p-0">
+							<OrdersTable
+								orders={group.orders}
+								projectAddress={project?.address}
+							/>
+						</AccordionPanel>
+					</AccordionItem>
+				))}
+			</Accordion>
 		);
 	}
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex items-center gap-2">
-				<InputGroup className="min-w-0 flex-1">
+			<div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+				<InputGroup className="w-full lg:w-64 lg:shrink-0">
 					<InputGroupAddon align="inline-start">
 						<InputGroupText>
 							<SearchIcon aria-hidden />
@@ -472,7 +652,91 @@ export default function ProjectOrdersTabContent({
 						value={search}
 					/>
 				</InputGroup>
-				<AddOrder projectId={projectId} />
+
+				<div className="flex flex-1 flex-col gap-2 sm:flex-row">
+					<div className="min-w-0 flex-1">
+						<Combobox<Id<'trades'>, true>
+							items={tradeItems}
+							itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
+							}
+							value={filterTradeIds}
+						>
+							<ComboboxChips>
+								{filterTradeIds.map((id) => (
+									<ComboboxChip key={id}>
+										{tradeLabelById.get(id) ?? id}
+									</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="All trades" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxEmpty>No trades found.</ComboboxEmpty>
+								<ComboboxList>
+									{(item: Id<'trades'>) => (
+										<ComboboxItem key={item} value={item}>
+											{tradeLabelById.get(item) ?? item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
+
+					<div className="min-w-0 flex-1">
+						<Combobox<OrderStatus, true>
+							items={[...ORDER_STATUSES]}
+							itemToStringLabel={(item) => item ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterStatuses((next as OrderStatus[] | null) ?? [])
+							}
+							value={filterStatuses}
+						>
+							<ComboboxChips>
+								{filterStatuses.map((status) => (
+									<ComboboxChip key={status}>{status}</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="All statuses" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxList>
+									{(item: OrderStatus) => (
+										<ComboboxItem key={item} value={item}>
+											{item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
+				</div>
+
+				<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+					{groups.length > 0 ? (
+						<>
+							<Button
+								onClick={() => setOpenKeys(groups.map((g) => g.key))}
+								type="button"
+								variant="outline"
+							>
+								<ChevronsDownIcon />
+								Expand All
+							</Button>
+							<Button
+								onClick={() => setOpenKeys([])}
+								type="button"
+								variant="outline"
+							>
+								<ChevronsUpIcon />
+								Collapse All
+							</Button>
+						</>
+					) : null}
+					<AddOrder projectId={projectId} />
+				</div>
 			</div>
 			{content}
 		</div>

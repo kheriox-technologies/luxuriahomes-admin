@@ -339,16 +339,22 @@ function QuotationPriceCell({ row }: { row: ProjectQuotation }) {
 
 export default function ProjectQuotationsTabContent({
 	projectId,
+	initialTradeId,
+	initialStatus,
 }: {
 	projectId: Id<'projects'>;
+	initialTradeId?: Id<'trades'>;
+	initialStatus?: QuotationFormValues['status'];
 }) {
 	const [addOpen, setAddOpen] = useState(false);
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
-	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>([]);
+	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>(
+		initialTradeId ? [initialTradeId] : []
+	);
 	const [filterStatuses, setFilterStatuses] = useState<
 		QuotationFormValues['status'][]
-	>([]);
+	>(initialStatus ? [initialStatus] : []);
 	const [openTradeIds, setOpenTradeIds] = useState<Id<'trades'>[]>([]);
 
 	useEffect(() => {
@@ -376,7 +382,7 @@ export default function ProjectQuotationsTabContent({
 			const remaining =
 				row.budgetPrice === null
 					? null
-					: row.budgetPrice - row.totalQuotationPrice;
+					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
 			map.set(row.tradeId, { budgetPrice: row.budgetPrice, remaining });
 		}
 		return map;
@@ -437,13 +443,6 @@ export default function ProjectQuotationsTabContent({
 		trimmedSearch,
 		budgetByTrade,
 	]);
-
-	const groupKey = groups.map((g) => g.tradeId).join(',');
-	useEffect(() => {
-		setOpenTradeIds(
-			groupKey === '' ? [] : (groupKey.split(',') as Id<'trades'>[])
-		);
-	}, [groupKey]);
 
 	const hasFilters =
 		filterTradeIds.length > 0 ||

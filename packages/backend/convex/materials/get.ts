@@ -11,6 +11,7 @@ export const get = query({
 			return null;
 		}
 		const unit = await ctx.db.get(material.unit);
-		return { material, unit };
+		const trade = await ctx.db.get(material.tradeId);
+		return { material, unit, trade };
 	},
 });

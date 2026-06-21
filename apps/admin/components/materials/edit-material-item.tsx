@@ -40,6 +40,7 @@ export default function EditMaterialItem({
 		vendor: '',
 		newVendorName: '',
 		unit: '',
+		price: '',
 		quantity: '',
 		sku: '',
 		link: '',
@@ -58,6 +59,7 @@ export default function EditMaterialItem({
 				vendor: item.vendor,
 				newVendorName: '',
 				unit: item.unit,
+				price: item.price.toString(),
 				quantity: item.quantity?.toString() ?? '',
 				sku: item.sku ?? '',
 				link: item.link ?? '',
@@ -88,6 +90,7 @@ export default function EditMaterialItem({
 				description: data.description?.trim() || undefined,
 				vendor: resolvedVendor,
 				unit: data.unit as never,
+				price: Number(data.price),
 				quantity: Number(data.quantity),
 				sku: data.sku?.trim() || undefined,
 				link: data.link?.trim() || undefined,
@@ -184,6 +187,24 @@ export default function EditMaterialItem({
 							onChange={(next) => setDraft((p) => ({ ...p, unit: next }))}
 							units={units}
 							value={draft.unit}
+						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="edit-item-price">
+							Price{' '}
+							<span className="text-muted-foreground text-xs">(per unit)</span>
+						</FieldLabel>
+						<Input
+							id="edit-item-price"
+							min="0"
+							nativeInput
+							onChange={(e) =>
+								setDraft((p) => ({ ...p, price: e.target.value }))
+							}
+							placeholder="e.g. 12.50"
+							step="any"
+							type="number"
+							value={draft.price}
 						/>
 					</Field>
 					<Field>

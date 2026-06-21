@@ -33,8 +33,10 @@ import {
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
 import { toastManager } from '@workspace/ui/components/toast';
+import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
 import { EllipsisVertical, Pencil, Trash2, Wallet } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -42,8 +44,10 @@ import EditProjectBudgetPrice from './edit-project-budget-price';
 
 interface TradeBudgetRow {
 	budgetPrice: number | null;
+	orderCount: number;
 	projectBudgetId: Id<'projectBudgets'> | null;
 	quotationCount: number;
+	totalOrderPrice: number;
 	totalQuotationPrice: number;
 	tradeId: Id<'trades'>;
 	tradeName: string;
@@ -55,6 +59,32 @@ function BudgetCell({ row }: { row: TradeBudgetRow }) {
 	}
 	return (
 		<span className="tabular-nums">{formatBudgetPrice(row.budgetPrice)}</span>
+	);
+}
+
+function actualColorClass(actual: number, budgetPrice: number | null): string {
+	if (budgetPrice === null) {
+		return '';
+	}
+	return actual <= budgetPrice
+		? 'text-success-foreground'
+		: 'text-destructive-foreground';
+}
+
+function ActualCell({ row }: { row: TradeBudgetRow }) {
+	if (row.quotationCount === 0 && row.orderCount === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+	const actual = row.totalQuotationPrice + row.totalOrderPrice;
+	return (
+		<span
+			className={cn(
+				'font-medium tabular-nums',
+				actualColorClass(actual, row.budgetPrice)
+			)}
+		>
+			{formatBudgetPrice(actual)}
+		</span>
 	);
 }
 
@@ -126,17 +156,83 @@ function BudgetActionsCell({ row }: { row: TradeBudgetRow }) {
 	);
 }
 
+const FILTER_PARAMS = [
+	'orderId',
+	'orderTaskId',
+	'orderTradeId',
+	'quotationTradeId',
+	'quotationStatus',
+] as const;
+
+function QuotationsCountCell({ row }: { row: TradeBudgetRow }) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	if (row.quotationCount === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+
+	const handleClick = () => {
+		const params = new URLSearchParams(searchParams.toString());
+		for (const key of FILTER_PARAMS) {
+			params.delete(key);
+		}
+		params.set('tab', 'quotations');
+		params.set('quotationTradeId', row.tradeId);
+		params.set('quotationStatus', 'Approved');
+		router.push(`?${params.toString()}`);
+	};
+
+	return (
+		<button className="w-fit" onClick={handleClick} type="button">
+			<Badge size="lg" variant="secondary">
+				{row.quotationCount}{' '}
+				{row.quotationCount === 1 ? 'Quotation' : 'Quotations'}
+			</Badge>
+		</button>
+	);
+}
+
+function OrdersCountCell({ row }: { row: TradeBudgetRow }) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	if (row.orderCount === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+
+	const handleClick = () => {
+		const params = new URLSearchParams(searchParams.toString());
+		for (const key of FILTER_PARAMS) {
+			params.delete(key);
+		}
+		params.set('tab', 'orders');
+		params.set('orderTradeId', row.tradeId);
+		router.push(`?${params.toString()}`);
+	};
+
+	return (
+		<button className="w-fit" onClick={handleClick} type="button">
+			<Badge size="lg" variant="secondary">
+				{row.orderCount} {row.orderCount === 1 ? 'Order' : 'Orders'}
+			</Badge>
+		</button>
+	);
+}
+
 function ColumnHeaderWithTotal({
 	label,
 	total,
+	variant = 'outline',
 }: {
 	label: string;
 	total: number;
+	variant?: 'outline' | 'purple' | 'success-outline' | 'destructive-outline';
 }) {
 	return (
 		<div className="flex items-center gap-2">
 			<span>{label}</span>
-			<Badge size="lg" variant="outline">
+			<Badge size="lg" variant={variant}>
 				{formatBudgetPrice(total)}
 			</Badge>
 		</div>
@@ -145,7 +241,7 @@ function ColumnHeaderWithTotal({
 
 function buildColumns(
 	totalBudget: number,
-	totalQuotationPrice: number
+	totalActual: number
 ): ColumnDef<TradeBudgetRow>[] {
 	return [
 		{
@@ -158,26 +254,38 @@ function buildColumns(
 		{
 			id: 'budget',
 			header: () => (
-				<ColumnHeaderWithTotal label="Budget" total={totalBudget} />
+				<ColumnHeaderWithTotal
+					label="Budget"
+					total={totalBudget}
+					variant="purple"
+				/>
 			),
 			cell: ({ row }) => <BudgetCell row={row.original} />,
 		},
 		{
-			id: 'totalQuotationPrice',
+			id: 'actual',
 			header: () => (
 				<ColumnHeaderWithTotal
-					label="Quotation Price"
-					total={totalQuotationPrice}
+					label="Actual"
+					total={totalActual}
+					variant={
+						totalActual <= totalBudget
+							? 'success-outline'
+							: 'destructive-outline'
+					}
 				/>
 			),
-			cell: ({ row }) =>
-				row.original.quotationCount > 0 ? (
-					<span className="tabular-nums">
-						{formatBudgetPrice(row.original.totalQuotationPrice)}
-					</span>
-				) : (
-					<span className="text-muted-foreground text-sm">—</span>
-				),
+			cell: ({ row }) => <ActualCell row={row.original} />,
+		},
+		{
+			id: 'quotations',
+			header: 'Quotations',
+			cell: ({ row }) => <QuotationsCountCell row={row.original} />,
+		},
+		{
+			id: 'orders',
+			header: 'Orders',
+			cell: ({ row }) => <OrdersCountCell row={row.original} />,
 		},
 		{
 			id: 'actions',
@@ -243,11 +351,11 @@ export default function ProjectBudgetsTabContent({
 		(sum, row) => sum + (row.budgetPrice ?? 0),
 		0
 	);
-	const totalQuotationPrice = filteredRows.reduce(
-		(sum, row) => sum + row.totalQuotationPrice,
+	const totalActual = filteredRows.reduce(
+		(sum, row) => sum + row.totalQuotationPrice + row.totalOrderPrice,
 		0
 	);
-	const columns = buildColumns(totalBudget, totalQuotationPrice);
+	const columns = buildColumns(totalBudget, totalActual);
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
