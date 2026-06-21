@@ -11,7 +11,6 @@ import {
 	DialogHeader,
 	DialogPanel,
 	DialogTitle,
-	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
@@ -24,7 +23,7 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { type ReactElement, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	type BudgetDraftValues,
@@ -41,16 +40,17 @@ export default function EditBudget({
 	initialDescription,
 	initialPrice,
 	initialTradeId,
-	trigger,
+	open,
+	onOpenChange,
 }: {
 	budgetId: Id<'budgets'>;
 	initialTitle: string;
 	initialDescription?: string;
 	initialPrice: number;
 	initialTradeId: Id<'trades'>;
-	trigger: ReactElement;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
 	const [draft, setDraft] = useState<BudgetDraftValues>(emptyBudgetDraft);
 
 	const trades = useQuery(api.trades.list.list, {});
@@ -93,9 +93,9 @@ export default function EditBudget({
 				tradeId,
 			});
 			toastManager.add({ title: 'Budget updated', type: 'success' });
-			setOpen(false);
+			onOpenChange(false);
 		} catch (error) {
-			setOpen(false);
+			onOpenChange(false);
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
@@ -108,8 +108,7 @@ export default function EditBudget({
 	};
 
 	return (
-		<Dialog onOpenChange={setOpen} open={open}>
-			<DialogTrigger render={trigger} />
+		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Edit Budget</DialogTitle>

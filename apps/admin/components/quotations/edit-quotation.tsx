@@ -6,9 +6,6 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
-	ComboboxChip,
-	ComboboxChips,
-	ComboboxChipsInput,
 	ComboboxEmpty,
 	ComboboxInput,
 	ComboboxItem,
@@ -42,6 +39,7 @@ import { SingleFileUpload } from '@workspace/ui/components/single-file-upload';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
+import TradeCombobox from '@/components/budgets/trade-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	formatFieldErrors,
@@ -56,7 +54,8 @@ const FORM_ID = 'edit-quotation-form';
 export default function EditQuotation({
 	quotationId,
 	initialProjectId,
-	initialTradeIds,
+	initialTitle,
+	initialTradeId,
 	initialServiceProviderId,
 	initialPrice,
 	initialStatus,
@@ -64,9 +63,10 @@ export default function EditQuotation({
 	open,
 	onOpenChange,
 }: {
-	quotationId: Id<'quotations'>;
+	quotationId: Id<'projectQuotations'>;
 	initialProjectId: Id<'projects'>;
-	initialTradeIds: Id<'trades'>[];
+	initialTitle: string;
+	initialTradeId: Id<'trades'>;
 	initialServiceProviderId: Id<'serviceProviders'>;
 	initialPrice: number;
 	initialStatus: QuotationFormValues['status'];
@@ -78,31 +78,29 @@ export default function EditQuotation({
 	const [uploadedFileName, setUploadedFileName] = useState<string | null>(
 		initialS3Key ? '(existing document)' : null
 	);
-	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>(
-		initialTradeIds as string[]
+	const [selectedTradeId, setSelectedTradeId] = useState<string>(
+		initialTradeId as string
 	);
 
-	const projects = useQuery(api.projects.list.list, {});
 	const trades = useQuery(api.trades.list.list, {});
 	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
 
-	const filteredServiceProviders =
-		selectedTradeIds.length > 0
-			? (serviceProviders ?? []).filter((sp) =>
-					sp.tradeIds.some((t) => selectedTradeIds.includes(t))
-				)
-			: (serviceProviders ?? []);
+	const filteredServiceProviders = selectedTradeId
+		? (serviceProviders ?? []).filter((sp) =>
+				sp.tradeIds.includes(selectedTradeId as Id<'trades'>)
+			)
+		: (serviceProviders ?? []);
 
-	const updateQuotation = useMutation(api.quotations.update.update);
+	const updateQuotation = useMutation(api.projectQuotations.update.update);
 	const addTrade = useMutation(api.trades.add.add);
 	const generateUploadUrl = useAction(
-		api.quotations.generateUploadUrl.generateUploadUrl
+		api.projectQuotations.generateUploadUrl.generateUploadUrl
 	);
 
 	const form = useForm({
 		defaultValues: {
-			projectId: initialProjectId as string,
-			tradeIds: initialTradeIds as string[],
+			title: initialTitle,
+			tradeId: initialTradeId as string,
 			newTradeName: '',
 			serviceProviderId: initialServiceProviderId as string,
 			price: String(initialPrice),
@@ -113,16 +111,14 @@ export default function EditQuotation({
 		onSubmit: async ({ value }) => {
 			const parsed = quotationFormSchema.parse(value);
 			try {
-				let resolvedTradeIds = parsed.tradeIds as Id<'trades'>[];
 				const newName = parsed.newTradeName?.trim();
-				if (newName) {
-					const newTradeId = await addTrade({ name: newName });
-					resolvedTradeIds = [...resolvedTradeIds, newTradeId];
-				}
+				const resolvedTradeId = newName
+					? await addTrade({ name: newName })
+					: (parsed.tradeId as Id<'trades'>);
 				await updateQuotation({
 					quotationId,
-					projectId: parsed.projectId as Id<'projects'>,
-					tradeIds: resolvedTradeIds,
+					title: parsed.title,
+					tradeId: resolvedTradeId,
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -147,15 +143,11 @@ export default function EditQuotation({
 		if (!file) {
 			return;
 		}
-		const projectId = form.getFieldValue('projectId');
-		if (!projectId) {
-			return;
-		}
 		setIsUploadingDoc(true);
 		try {
 			const ext = file.name.split('.').pop() ?? 'pdf';
 			const { uploadUrl, s3Key } = await generateUploadUrl({
-				projectId: projectId as Id<'projects'>,
+				projectId: initialProjectId,
 				contentType: file.type || 'application/octet-stream',
 				ext,
 			});
@@ -214,48 +206,23 @@ export default function EditQuotation({
 								</FrameTitle>
 							</FrameHeader>
 							<FramePanel className="space-y-4">
-								<form.Field name="projectId">
+								<form.Field name="title">
 									{(field) => {
 										const invalid =
 											field.state.meta.isTouched && !field.state.meta.isValid;
-										const items = (projects ?? []).map((p) => p._id);
-										const labelById = new Map(
-											(projects ?? []).map((p) => [p._id, p.name])
-										);
 										return (
 											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Project</FieldLabel>
-												<Combobox<Id<'projects'>>
-													items={items}
-													itemToStringLabel={(item) =>
-														labelById.get(item) ?? ''
-													}
-													onValueChange={(next) =>
-														field.handleChange(next ?? '')
-													}
-													value={
-														field.state.value
-															? (field.state.value as Id<'projects'>)
-															: null
-													}
-												>
-													<ComboboxInput
-														aria-invalid={invalid}
-														id={field.name}
-														onBlur={field.handleBlur}
-														placeholder="Select a project"
-													/>
-													<ComboboxPopup>
-														<ComboboxEmpty>No projects found.</ComboboxEmpty>
-														<ComboboxList>
-															{(item: Id<'projects'>) => (
-																<ComboboxItem key={item} value={item}>
-																	{labelById.get(item) ?? item}
-																</ComboboxItem>
-															)}
-														</ComboboxList>
-													</ComboboxPopup>
-												</Combobox>
+												<FieldLabel htmlFor={field.name}>Title</FieldLabel>
+												<Input
+													aria-invalid={invalid || undefined}
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="Quotation title"
+													value={field.state.value}
+												/>
 												{invalid ? (
 													<FieldError>
 														{formatFieldErrors(field.state.meta.errors)}
@@ -266,54 +233,25 @@ export default function EditQuotation({
 									}}
 								</form.Field>
 
-								<form.Field name="tradeIds">
+								<form.Field name="tradeId">
 									{(field) => {
 										const invalid =
 											field.state.meta.isTouched && !field.state.meta.isValid;
-										const items = (trades ?? []).map((t) => t._id);
-										const labelById = new Map(
-											(trades ?? []).map((t) => [t._id, t.name])
-										);
-										const value = (field.state.value as string[]) ?? [];
 										return (
 											<Field data-invalid={invalid}>
-												<FieldLabel>Trades</FieldLabel>
-												<Combobox
-													items={items}
-													itemToStringLabel={(item) =>
-														labelById.get(item as Id<'trades'>) ?? ''
-													}
-													multiple
-													onValueChange={(next) => {
-														const ids = (next as Id<'trades'>[] | null) ?? [];
-														field.handleChange(ids);
-														setSelectedTradeIds(ids);
+												<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
+												<TradeCombobox
+													id={field.name}
+													invalid={invalid}
+													onBlur={field.handleBlur}
+													onChange={(next) => {
+														field.handleChange(next);
+														setSelectedTradeId(next);
 														form.setFieldValue('serviceProviderId', '');
 													}}
-													value={value}
-												>
-													<ComboboxChips onBlur={field.handleBlur}>
-														{value.map((id) => (
-															<ComboboxChip key={id}>
-																{labelById.get(id as Id<'trades'>) ?? id}
-															</ComboboxChip>
-														))}
-														<ComboboxChipsInput
-															aria-invalid={invalid}
-															placeholder="Select trades…"
-														/>
-													</ComboboxChips>
-													<ComboboxPopup>
-														<ComboboxEmpty>No trades found.</ComboboxEmpty>
-														<ComboboxList>
-															{(item: Id<'trades'>) => (
-																<ComboboxItem key={item} value={item}>
-																	{labelById.get(item) ?? item}
-																</ComboboxItem>
-															)}
-														</ComboboxList>
-													</ComboboxPopup>
-												</Combobox>
+													trades={trades}
+													value={field.state.value as Id<'trades'> | ''}
+												/>
 												{invalid ? (
 													<FieldError>
 														{formatFieldErrors(field.state.meta.errors)}

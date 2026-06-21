@@ -5,14 +5,16 @@ import { getQuotationOrThrow } from './shared';
 
 export const listNotes = query({
 	args: {
-		quotationId: v.id('quotations'),
+		quotationId: v.id('projectQuotations'),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		await getQuotationOrThrow(ctx, args.quotationId);
 		const rows = await ctx.db
-			.query('quotationNotes')
-			.withIndex('by_quotation', (q) => q.eq('quotationId', args.quotationId))
+			.query('projectQuotationNotes')
+			.withIndex('by_project_quotation', (q) =>
+				q.eq('projectQuotationId', args.quotationId)
+			)
 			.collect();
 		return rows.sort((a, b) => b.timestamp - a.timestamp);
 	},

@@ -25,7 +25,6 @@ import {
 	Building2,
 	CalendarDays,
 	ChevronDown,
-	DollarSign,
 	FileText,
 	List,
 	ListTodo,
@@ -74,12 +73,6 @@ const items: SidebarItem[] = [
 		url: '/materials',
 		path: '/materials',
 		icon: Package,
-	},
-	{
-		title: 'Quotations',
-		url: '/quotations',
-		path: '/quotations',
-		icon: DollarSign,
 	},
 	{
 		title: 'Schedules',

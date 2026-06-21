@@ -14,24 +14,96 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Pencil, SearchIcon, Trash2, Wallet } from 'lucide-react';
+import {
+	EllipsisVertical,
+	FolderPlus,
+	Pencil,
+	SearchIcon,
+	Trash2,
+	Wallet,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddBudget from './add-budget';
+import AddBudgetToProject from './add-budget-to-project';
 import { formatBudgetPrice } from './budget-form-shared';
 import DeleteBudget from './delete-budget';
 import EditBudget from './edit-budget';
 
 type BudgetRow = Doc<'budgets'> & { tradeName: string | null };
+
+function BudgetActionsCell({ row }: { row: BudgetRow }) {
+	const [editOpen, setEditOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [addToProjectOpen, setAddToProjectOpen] = useState(false);
+
+	return (
+		<>
+			<EditBudget
+				budgetId={row._id}
+				initialDescription={row.description}
+				initialPrice={row.price}
+				initialTitle={row.title}
+				initialTradeId={row.tradeId}
+				onOpenChange={setEditOpen}
+				open={editOpen}
+			/>
+			<DeleteBudget
+				budgetId={row._id}
+				budgetTitle={row.title}
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
+			/>
+			<AddBudgetToProject
+				budgetId={row._id}
+				budgetTitle={row.title}
+				onOpenChange={setAddToProjectOpen}
+				open={addToProjectOpen}
+			/>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Budget actions"
+							size="icon"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setEditOpen(true)}>
+						<Pencil /> Edit
+					</MenuItem>
+					<MenuItem onClick={() => setAddToProjectOpen(true)}>
+						<FolderPlus /> Add to Project
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 /> Delete
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+		</>
+	);
+}
 
 const columns: ColumnDef<BudgetRow>[] = [
 	{
@@ -73,43 +145,10 @@ const columns: ColumnDef<BudgetRow>[] = [
 	{
 		id: 'actions',
 		header: '',
-		size: 100,
+		size: 60,
 		cell: ({ row }) => (
 			<div className="flex justify-end">
-				<Group>
-					<EditBudget
-						budgetId={row.original._id}
-						initialDescription={row.original.description}
-						initialPrice={row.original.price}
-						initialTitle={row.original.title}
-						initialTradeId={row.original.tradeId}
-						trigger={
-							<Button
-								aria-label="Edit budget"
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<Pencil />
-							</Button>
-						}
-					/>
-					<GroupSeparator />
-					<DeleteBudget
-						budgetId={row.original._id}
-						budgetTitle={row.original.title}
-						trigger={
-							<Button
-								aria-label="Delete budget"
-								size="icon"
-								type="button"
-								variant="destructive-outline"
-							>
-								<Trash2 />
-							</Button>
-						}
-					/>
-				</Group>
+				<BudgetActionsCell row={row.original} />
 			</div>
 		),
 	},

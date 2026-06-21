@@ -22,12 +22,12 @@ export default function DeleteQuotation({
 	open,
 	onOpenChange,
 }: {
-	quotationId: Id<'quotations'>;
+	quotationId: Id<'projectQuotations'>;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
 	const [isDeleting, setIsDeleting] = useState(false);
-	const removeQuotation = useMutation(api.quotations.remove.remove);
+	const removeQuotation = useMutation(api.projectQuotations.remove.remove);
 
 	const onDelete = async () => {
 		setIsDeleting(true);

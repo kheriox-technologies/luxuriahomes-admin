@@ -33,7 +33,7 @@ import {
 import { NoteImagesRow } from '@/components/notes/note-images-row';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
-type QuotationNote = Doc<'quotationNotes'>;
+type QuotationNote = Doc<'projectQuotationNotes'>;
 
 function ordinalSuffix(day: number): string {
 	const mod100 = day % 100;
@@ -64,7 +64,9 @@ function formatNoteDate(timestamp: number): string {
 }
 
 function QuotationNotesCardList({ notes }: { notes: QuotationNote[] }) {
-	const deleteNoteMutation = useMutation(api.quotations.deleteNote.deleteNote);
+	const deleteNoteMutation = useMutation(
+		api.projectQuotations.deleteNote.deleteNote
+	);
 
 	const onDelete = async (noteId: QuotationNote['_id']) => {
 		try {
@@ -127,7 +129,7 @@ export default function QuotationNotesDialog({
 	open,
 	onOpenChange,
 }: {
-	quotationId: Id<'quotations'>;
+	quotationId: Id<'projectQuotations'>;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
@@ -145,9 +147,11 @@ export default function QuotationNotesDialog({
 		setUploaderKey((key) => key + 1);
 	};
 
-	const appendNoteMutation = useMutation(api.quotations.appendNote.appendNote);
+	const appendNoteMutation = useMutation(
+		api.projectQuotations.appendNote.appendNote
+	);
 	const notes = useQuery(
-		api.quotations.listNotes.listNotes,
+		api.projectQuotations.listNotes.listNotes,
 		open ? { quotationId } : 'skip'
 	);
 

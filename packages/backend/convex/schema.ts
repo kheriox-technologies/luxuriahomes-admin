@@ -229,6 +229,13 @@ export default defineSchema({
 	})
 		.index('by_trade', ['tradeId'])
 		.searchIndex('search_budgets', { searchField: 'searchText' }),
+	projectBudgets: defineTable({
+		projectId: v.id('projects'),
+		budgetId: v.id('budgets'),
+		tradeId: v.id('trades'),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_project_and_trade', ['projectId', 'tradeId']),
 	scheduleTemplates: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),
@@ -314,9 +321,10 @@ export default defineSchema({
 		name: v.string(),
 		searchText: v.string(),
 	}).searchIndex('search_document_folders', { searchField: 'searchText' }),
-	quotations: defineTable({
+	projectQuotations: defineTable({
 		projectId: v.id('projects'),
-		tradeIds: v.array(v.id('trades')),
+		title: v.string(),
+		tradeId: v.id('trades'),
 		serviceProviderId: v.id('serviceProviders'),
 		s3Key: v.optional(v.string()),
 		price: v.number(),
@@ -324,14 +332,15 @@ export default defineSchema({
 		searchText: v.string(),
 	})
 		.index('by_project', ['projectId'])
-		.searchIndex('search_quotations', { searchField: 'searchText' }),
-	quotationNotes: defineTable({
-		quotationId: v.id('quotations'),
+		.index('by_trade', ['tradeId'])
+		.searchIndex('search_project_quotations', { searchField: 'searchText' }),
+	projectQuotationNotes: defineTable({
+		projectQuotationId: v.id('projectQuotations'),
 		timestamp: v.number(),
 		addedBy: v.string(),
 		note: v.string(),
 		images: v.optional(v.array(v.string())),
-	}).index('by_quotation', ['quotationId']),
+	}).index('by_project_quotation', ['projectQuotationId']),
 	materials: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

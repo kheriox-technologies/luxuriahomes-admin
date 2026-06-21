@@ -20,7 +20,7 @@ function addedByFromIdentity(identity: {
 
 export const appendNote = mutation({
 	args: {
-		quotationId: v.id('quotations'),
+		quotationId: v.id('projectQuotations'),
 		note: v.string(),
 		images: v.optional(v.array(v.string())),
 	},
@@ -38,8 +38,8 @@ export const appendNote = mutation({
 		const images = args.images?.filter((key) => key.trim() !== '');
 		const timestamp = Date.now();
 		const addedBy = addedByFromIdentity(identity);
-		await ctx.db.insert('quotationNotes', {
-			quotationId: args.quotationId,
+		await ctx.db.insert('projectQuotationNotes', {
+			projectQuotationId: args.quotationId,
 			timestamp,
 			addedBy,
 			note: trimmed,
