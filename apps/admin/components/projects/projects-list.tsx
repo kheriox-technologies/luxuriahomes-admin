@@ -124,9 +124,9 @@ const columns: ColumnDef<Project>[] = [
 		},
 	},
 	{
-		id: 'pricing',
-		header: 'Pricing',
-		size: 160,
+		id: 'quotePrice',
+		header: 'Quote Price',
+		size: 140,
 		cell: ({ row }) => {
 			const { quotePrice, expenses } = row.original;
 			if (quotePrice === undefined) {
@@ -150,6 +150,54 @@ const columns: ColumnDef<Project>[] = [
 							{remaining >= 0
 								? `${formatAudWhole(remaining)} Left`
 								: `${formatAudWhole(Math.abs(remaining))} Over`}
+						</p>
+					)}
+				</div>
+			);
+		},
+	},
+	{
+		id: 'expenses',
+		header: 'Expenses',
+		size: 140,
+		cell: ({ row }) => {
+			const { expenses } = row.original;
+			if (expenses === undefined) {
+				return null;
+			}
+			return (
+				<Badge size="lg" variant="secondary">
+					{formatAudWhole(expenses)}
+				</Badge>
+			);
+		},
+	},
+	{
+		id: 'received',
+		header: 'Received',
+		size: 140,
+		cell: ({ row }) => {
+			const { received, expenses } = row.original;
+			if (received === undefined) {
+				return null;
+			}
+			const profit = expenses === undefined ? undefined : received - expenses;
+			return (
+				<div className="space-y-1">
+					<Badge size="lg" variant="secondary">
+						{formatAudWhole(received)}
+					</Badge>
+					{profit === undefined ? null : (
+						<p
+							className={
+								profit >= 0
+									? 'text-success-foreground text-xs'
+									: 'text-destructive-foreground text-xs'
+							}
+						>
+							{profit >= 0
+								? `${formatAudWhole(profit)} Profit`
+								: `${formatAudWhole(Math.abs(profit))} Loss`}
 						</p>
 					)}
 				</div>

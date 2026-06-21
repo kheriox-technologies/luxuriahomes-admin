@@ -160,6 +160,7 @@ export default defineSchema({
 		startDate: v.optional(v.number()),
 		quotePrice: v.optional(v.number()),
 		expenses: v.optional(v.number()),
+		received: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
 	units: defineTable({
