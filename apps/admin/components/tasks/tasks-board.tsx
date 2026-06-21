@@ -27,6 +27,7 @@ import {
 } from '@workspace/ui/components/frame';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import EditTask from '@/components/tasks/edit-task';
 import SortableTaskCard, {
@@ -38,6 +39,7 @@ import {
 	TASK_STATUS_ORDER,
 	type TaskStatus,
 } from '@/components/tasks/task-form-shared';
+import TaskQuickAdd from '@/components/tasks/task-quick-add';
 
 type Task = Doc<'tasks'>;
 
@@ -46,10 +48,16 @@ const LANE_PREFIX = 'lane-';
 function Lane({
 	status,
 	tasks,
+	composing,
+	onStartAdd,
+	onCloseAdd,
 	children,
 }: {
 	status: TaskStatus;
 	tasks: Task[];
+	composing: boolean;
+	onStartAdd: () => void;
+	onCloseAdd: () => void;
 	children: React.ReactNode;
 }) {
 	const { setNodeRef, isOver } = useDroppable({
@@ -73,13 +81,33 @@ function Lane({
 				)}
 				ref={setNodeRef}
 			>
+				{composing ? (
+					<TaskQuickAdd onClose={onCloseAdd} status={status} />
+				) : (
+					<button
+						className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed bg-background p-3 text-muted-foreground text-sm transition-colors hover:border-ring/60 hover:text-foreground"
+						onClick={onStartAdd}
+						type="button"
+					>
+						<Plus className="size-4" />
+						Add task
+					</button>
+				)}
 				{children}
 			</FramePanel>
 		</Frame>
 	);
 }
 
-export default function TasksBoard({ searchQuery }: { searchQuery: string }) {
+export default function TasksBoard({
+	searchQuery,
+	projectIds,
+	assigneeIds,
+}: {
+	searchQuery: string;
+	projectIds: string[];
+	assigneeIds: string[];
+}) {
 	const tasks = useQuery(api.tasks.list.list, {});
 	const projects = useQuery(api.projects.list.list, {});
 	const admins = useQuery(api.adminUsers.list.list, {});
@@ -105,6 +133,9 @@ export default function TasksBoard({ searchQuery }: { searchQuery: string }) {
 
 	const [activeId, setActiveId] = useState<Id<'tasks'> | null>(null);
 	const [selectedTaskId, setSelectedTaskId] = useState<Id<'tasks'> | null>(
+		null
+	);
+	const [composingStatus, setComposingStatus] = useState<TaskStatus | null>(
 		null
 	);
 
@@ -134,11 +165,27 @@ export default function TasksBoard({ searchQuery }: { searchQuery: string }) {
 	const filtered = useMemo(() => {
 		const all = tasks ?? [];
 		const q = searchQuery.trim().toLowerCase();
-		if (!q) {
-			return all;
-		}
-		return all.filter((t) => t.searchText.toLowerCase().includes(q));
-	}, [tasks, searchQuery]);
+		const projectSet = new Set(projectIds);
+		const assigneeSet = new Set(assigneeIds);
+		return all.filter((t) => {
+			if (q && !t.searchText.toLowerCase().includes(q)) {
+				return false;
+			}
+			if (
+				projectSet.size > 0 &&
+				!(t.projectId && projectSet.has(t.projectId))
+			) {
+				return false;
+			}
+			if (
+				assigneeSet.size > 0 &&
+				!(t.assigneeUserId && assigneeSet.has(t.assigneeUserId))
+			) {
+				return false;
+			}
+			return true;
+		});
+	}, [tasks, searchQuery, projectIds, assigneeIds]);
 
 	const tasksByStatus = useMemo(() => {
 		const grouped: Record<TaskStatus, Task[]> = {
@@ -257,7 +304,14 @@ export default function TasksBoard({ searchQuery }: { searchQuery: string }) {
 					{TASK_STATUS_ORDER.map((status) => {
 						const laneTasks = tasksByStatus[status];
 						return (
-							<Lane key={status} status={status} tasks={laneTasks}>
+							<Lane
+								composing={composingStatus === status}
+								key={status}
+								onCloseAdd={() => setComposingStatus(null)}
+								onStartAdd={() => setComposingStatus(status)}
+								status={status}
+								tasks={laneTasks}
+							>
 								<SortableContext
 									items={laneTasks.map((t) => t._id)}
 									strategy={verticalListSortingStrategy}
