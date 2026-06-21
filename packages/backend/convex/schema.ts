@@ -56,6 +56,13 @@ export const projectScheduleStatusValidator = v.union(
 	v.literal('Complete')
 );
 
+export const taskStatusValidator = v.union(
+	v.literal('planned'),
+	v.literal('in_progress'),
+	v.literal('blocked'),
+	v.literal('done')
+);
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -213,6 +220,15 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_trades', { searchField: 'searchText' }),
+	budgets: defineTable({
+		title: v.string(),
+		description: v.optional(v.string()),
+		price: v.number(),
+		tradeId: v.id('trades'),
+		searchText: v.string(),
+	})
+		.index('by_trade', ['tradeId'])
+		.searchIndex('search_budgets', { searchField: 'searchText' }),
 	scheduleTemplates: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),
@@ -475,4 +491,34 @@ export default defineSchema({
 		read: v.boolean(),
 		projectId: v.optional(v.id('projects')),
 	}).index('by_read', ['read']),
+	tasks: defineTable({
+		title: v.string(),
+		description: v.optional(v.string()),
+		status: taskStatusValidator,
+		dueDate: v.optional(v.number()),
+		projectId: v.optional(v.id('projects')),
+		// Clerk user id of the assigned admin (see adminUsers table).
+		assigneeUserId: v.optional(v.string()),
+		// Position of the card within its status lane (ascending).
+		order: v.number(),
+		createdBy: v.string(),
+		searchText: v.string(),
+	})
+		.index('by_status', ['status'])
+		.searchIndex('search_tasks', { searchField: 'searchText' }),
+	taskNotes: defineTable({
+		taskId: v.id('tasks'),
+		timestamp: v.number(),
+		addedBy: v.string(),
+		note: v.string(),
+		images: v.optional(v.array(v.string())),
+	}).index('by_task', ['taskId']),
+	// Cached snapshot of Clerk users with the admin role, refreshed by a cron
+	// (convex/crons.ts) so the tasks UI can pick assignees without hitting Clerk.
+	adminUsers: defineTable({
+		userId: v.string(),
+		fullName: v.string(),
+		email: v.string(),
+		syncedAt: v.number(),
+	}).index('by_user', ['userId']),
 });
