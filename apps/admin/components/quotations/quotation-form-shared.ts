@@ -12,8 +12,8 @@ export type QuotationStatus = (typeof quotationStatusValues)[number];
 
 export const quotationFormSchema = z
 	.object({
-		projectId: z.string().min(1, 'Project is required'),
-		tradeIds: z.array(z.string()),
+		title: z.string().trim().min(1, 'Title is required'),
+		tradeId: z.string(),
 		newTradeName: z.string().optional(),
 		serviceProviderId: z.string().min(1, 'Service provider is required'),
 		price: z
@@ -25,11 +25,11 @@ export const quotationFormSchema = z
 		s3Key: z.string().optional(),
 	})
 	.superRefine((data, ctx) => {
-		if (!(data.tradeIds.length > 0 || data.newTradeName?.trim())) {
+		if (!(data.tradeId.trim() || data.newTradeName?.trim())) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: 'At least one trade is required',
-				path: ['tradeIds'],
+				message: 'A trade is required',
+				path: ['tradeId'],
 			});
 		}
 	});
@@ -37,8 +37,8 @@ export const quotationFormSchema = z
 export type QuotationFormValues = z.infer<typeof quotationFormSchema>;
 
 export const emptyQuotationFormValues: QuotationFormValues = {
-	projectId: '',
-	tradeIds: [],
+	title: '',
+	tradeId: '',
 	newTradeName: '',
 	serviceProviderId: '',
 	price: '',

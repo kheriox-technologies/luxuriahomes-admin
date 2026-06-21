@@ -6,16 +6,17 @@ import { buildSearchText } from '../lib/buildSearchText';
 type ReadCtx = MutationCtx | QueryCtx;
 
 export function buildQuotationSearchText(
-	tradeNames: string[],
+	title: string,
+	tradeName: string,
 	projectName: string,
 	companyName: string
 ): string {
-	return buildSearchText([...tradeNames, projectName, companyName]);
+	return buildSearchText([title, tradeName, projectName, companyName]);
 }
 
 export async function getQuotationOrThrow(
 	ctx: ReadCtx,
-	quotationId: Id<'quotations'>
+	quotationId: Id<'projectQuotations'>
 ) {
 	const row = await ctx.db.get(quotationId);
 	if (!row) {

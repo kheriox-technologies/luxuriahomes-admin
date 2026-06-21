@@ -6,9 +6,10 @@ import { buildQuotationSearchText, getQuotationOrThrow } from './shared';
 
 export const update = mutation({
 	args: {
-		quotationId: v.id('quotations'),
+		quotationId: v.id('projectQuotations'),
 		projectId: v.optional(v.id('projects')),
-		tradeIds: v.optional(v.array(v.id('trades'))),
+		title: v.optional(v.string()),
+		tradeId: v.optional(v.id('trades')),
 		serviceProviderId: v.optional(v.id('serviceProviders')),
 		s3Key: v.optional(v.string()),
 		price: v.optional(v.number()),
@@ -19,19 +20,20 @@ export const update = mutation({
 		const existing = await getQuotationOrThrow(ctx, args.quotationId);
 
 		const projectId = args.projectId ?? existing.projectId;
-		const tradeIds = args.tradeIds ?? existing.tradeIds;
+		const tradeId = args.tradeId ?? existing.tradeId;
+		const title = (args.title ?? existing.title).trim();
 		const serviceProviderId =
 			args.serviceProviderId ?? existing.serviceProviderId;
 
-		const [trades, project, serviceProvider] = await Promise.all([
-			Promise.all(tradeIds.map((id) => ctx.db.get(id))),
+		const [trade, project, serviceProvider] = await Promise.all([
+			ctx.db.get(tradeId),
 			ctx.db.get(projectId),
 			ctx.db.get(serviceProviderId),
 		]);
 
-		const tradeNames = trades.map((t) => t?.name ?? '');
 		const searchText = buildQuotationSearchText(
-			tradeNames,
+			title,
+			trade?.name ?? '',
 			project?.name ?? '',
 			serviceProvider?.company ?? ''
 		);
@@ -40,8 +42,11 @@ export const update = mutation({
 		if (args.projectId !== undefined) {
 			patch.projectId = args.projectId;
 		}
-		if (args.tradeIds !== undefined) {
-			patch.tradeIds = args.tradeIds;
+		if (args.title !== undefined) {
+			patch.title = title;
+		}
+		if (args.tradeId !== undefined) {
+			patch.tradeId = args.tradeId;
 		}
 		if (args.serviceProviderId !== undefined) {
 			patch.serviceProviderId = args.serviceProviderId;

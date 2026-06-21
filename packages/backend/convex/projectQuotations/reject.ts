@@ -3,15 +3,15 @@ import { mutation } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
 import { getQuotationOrThrow } from './shared';
 
-export const approve = mutation({
+export const reject = mutation({
 	args: {
-		quotationId: v.id('quotations'),
+		quotationId: v.id('projectQuotations'),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		await getQuotationOrThrow(ctx, args.quotationId);
 
-		await ctx.db.patch(args.quotationId, { status: 'Approved' });
+		await ctx.db.patch(args.quotationId, { status: 'Rejected' });
 
 		return args.quotationId;
 	},

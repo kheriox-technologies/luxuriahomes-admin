@@ -10,24 +10,24 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { type ReactElement, useState } from 'react';
+import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 export default function DeleteBudget({
 	budgetId,
 	budgetTitle,
-	trigger,
+	open,
+	onOpenChange,
 }: {
 	budgetId: Id<'budgets'>;
 	budgetTitle: string;
-	trigger: ReactElement;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeBudget = useMutation(api.budgets.remove.remove);
 
@@ -39,7 +39,7 @@ export default function DeleteBudget({
 				title: 'Budget deleted',
 				type: 'success',
 			});
-			setOpen(false);
+			onOpenChange(false);
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -55,8 +55,7 @@ export default function DeleteBudget({
 	};
 
 	return (
-		<AlertDialog onOpenChange={setOpen} open={open}>
-			<AlertDialogTrigger render={trigger} />
+		<AlertDialog onOpenChange={onOpenChange} open={open}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete budget?</AlertDialogTitle>

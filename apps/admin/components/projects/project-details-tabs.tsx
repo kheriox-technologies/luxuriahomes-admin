@@ -15,10 +15,12 @@ import {
 	Handshake,
 	SquaresIntersect,
 	Users,
+	Wallet,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 import ProjectOrdersTabContent from '@/components/orders/orders-tab-content';
+import ProjectBudgetsTabContent from '@/components/projects/project-budgets-tab-content';
 import ProjectClientsTabContent from '@/components/projects/project-clients-tab-content';
 import ProjectDocumentsTabContent from '@/components/projects/project-documents-tab-content';
 import ProjectInclusionsTabContent from '@/components/projects/project-inclusions-tab-content';
@@ -89,6 +91,13 @@ export default function ProjectDetailsTabs({
 				</TabsTab>
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="budgets"
+				>
+					<Wallet />
+					Budgets
+				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="contacts"
 				>
 					<Handshake />
@@ -126,6 +135,9 @@ export default function ProjectDetailsTabs({
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="quotations">
 				<ProjectQuotationsTabContent projectId={project._id} />
+			</TabsPanel>
+			<TabsPanel className="overflow-auto p-4" value="budgets">
+				<ProjectBudgetsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="contacts">
 				<ProjectServiceProvidersTabContent projectId={project._id} />

@@ -7,23 +7,24 @@ export const listByProject = query({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const rows = await ctx.db
-			.query('quotations')
+			.query('projectQuotations')
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-			.filter((q) => q.eq(q.field('status'), 'Approved'))
 			.collect();
 		return Promise.all(
 			rows.map(async (row) => {
-				const [trades, serviceProvider, notes] = await Promise.all([
-					Promise.all(row.tradeIds.map((id) => ctx.db.get(id))),
+				const [trade, serviceProvider, notes] = await Promise.all([
+					ctx.db.get(row.tradeId),
 					ctx.db.get(row.serviceProviderId),
 					ctx.db
-						.query('quotationNotes')
-						.withIndex('by_quotation', (q) => q.eq('quotationId', row._id))
+						.query('projectQuotationNotes')
+						.withIndex('by_project_quotation', (q) =>
+							q.eq('projectQuotationId', row._id)
+						)
 						.collect(),
 				]);
 				return {
 					...row,
-					tradeNames: trades.map((t) => t?.name ?? '').filter(Boolean),
+					tradeName: trade?.name ?? '',
 					companyName: serviceProvider?.company ?? '',
 					noteCount: notes.length,
 				};
