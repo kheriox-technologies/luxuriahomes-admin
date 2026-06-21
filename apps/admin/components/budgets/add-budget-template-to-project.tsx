@@ -11,6 +11,7 @@ import {
 	DialogHeader,
 	DialogPanel,
 	DialogTitle,
+	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import {
 	Field,
@@ -19,24 +20,26 @@ import {
 } from '@workspace/ui/components/field';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { useEffect, useState } from 'react';
+import { FolderPlus } from 'lucide-react';
+import { type ReactElement, useEffect, useState } from 'react';
 import TaskProjectCombobox from '@/components/tasks/task-project-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
-export default function AddBudgetToProject({
-	budgetId,
-	budgetTitle,
-	open,
-	onOpenChange,
+export default function AddBudgetTemplateToProject({
+	budgetTemplateId,
+	templateTitle,
+	trigger,
 }: {
-	budgetId: Id<'budgets'>;
-	budgetTitle: string;
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
+	budgetTemplateId: Id<'budgetTemplates'>;
+	templateTitle: string;
+	trigger?: ReactElement;
 }) {
+	const [open, setOpen] = useState(false);
 	const [projectId, setProjectId] = useState<string>('');
 	const [isSaving, setIsSaving] = useState(false);
-	const addToProject = useMutation(api.projectBudgets.add.add);
+	const applyToProject = useMutation(
+		api.budgetTemplates.applyToProject.applyToProject
+	);
 
 	useEffect(() => {
 		if (open) {
@@ -51,17 +54,20 @@ export default function AddBudgetToProject({
 		}
 		setIsSaving(true);
 		try {
-			await addToProject({
+			await applyToProject({
 				projectId: projectId as Id<'projects'>,
-				budgetId,
+				budgetTemplateId,
 			});
-			toastManager.add({ title: 'Budget added to project', type: 'success' });
-			onOpenChange(false);
+			toastManager.add({
+				title: 'Template added to project',
+				type: 'success',
+			});
+			setOpen(false);
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
-					'Could not add budget to project. Please try again in a moment.'
+					'Could not add template to project. Please try again in a moment.'
 				),
 				title: 'Could not add to project',
 				type: 'error',
@@ -72,24 +78,34 @@ export default function AddBudgetToProject({
 	};
 
 	return (
-		<Dialog onOpenChange={onOpenChange} open={open}>
+		<Dialog onOpenChange={setOpen} open={open}>
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<FolderPlus />
+							Add to Project
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add to Project</DialogTitle>
 				</DialogHeader>
 				<DialogPanel className="flex flex-col gap-4">
 					<Field>
-						<FieldLabel htmlFor="add-budget-to-project-project">
+						<FieldLabel htmlFor="add-budget-template-to-project-project">
 							Project
 						</FieldLabel>
 						<TaskProjectCombobox
-							id="add-budget-to-project-project"
+							id="add-budget-template-to-project-project"
 							onChange={setProjectId}
 							placeholder="Select a project"
 							value={projectId}
 						/>
 						<FieldDescription>
-							{`Adds "${budgetTitle}" to the selected project. A project can have one budget item per trade.`}
+							{`Adds every trade price from "${templateTitle}" to the selected project. Existing trade prices on the project are overwritten.`}
 						</FieldDescription>
 					</Field>
 				</DialogPanel>

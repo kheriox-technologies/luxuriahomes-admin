@@ -32,6 +32,7 @@ import {
 	Package,
 	Settings,
 	SquaresIntersect,
+	Wallet,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
@@ -87,6 +88,12 @@ const items: SidebarItem[] = [
 		icon: ListTodo,
 	},
 	{
+		title: 'Budgets',
+		url: '/budgets',
+		path: '/budgets',
+		icon: Wallet,
+	},
+	{
 		title: 'Documents',
 		url: '/documents',
 		path: '/documents',
@@ -122,7 +129,6 @@ const items: SidebarItem[] = [
 				url: '/service-providers',
 				path: '/service-providers',
 			},
-			{ title: 'Budgets', url: '/budgets', path: '/budgets' },
 		],
 	},
 	{

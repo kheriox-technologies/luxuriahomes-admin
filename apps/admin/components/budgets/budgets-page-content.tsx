@@ -14,122 +14,79 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
-import {
-	Menu,
-	MenuItem,
-	MenuPopup,
-	MenuSeparator,
-	MenuTrigger,
-} from '@workspace/ui/components/menu';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import {
-	EllipsisVertical,
-	FolderPlus,
-	Pencil,
-	SearchIcon,
-	Trash2,
-	Wallet,
-} from 'lucide-react';
+import { Pencil, SearchIcon, Trash2, Wallet } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
-import AddBudget from './add-budget';
-import AddBudgetToProject from './add-budget-to-project';
+import AddBudgetTemplate from './add-budget-template';
 import { formatBudgetPrice } from './budget-form-shared';
-import DeleteBudget from './delete-budget';
-import EditBudget from './edit-budget';
+import DeleteBudgetTemplate from './delete-budget-template';
+import EditBudgetTemplate from './edit-budget-template';
 
-type BudgetRow = Doc<'budgets'> & { tradeName: string | null };
+type BudgetTemplateRow = Doc<'budgetTemplates'>;
 
-function BudgetActionsCell({ row }: { row: BudgetRow }) {
+function TemplateActionsCell({ row }: { row: BudgetTemplateRow }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
-	const [addToProjectOpen, setAddToProjectOpen] = useState(false);
 
 	return (
-		<>
-			<EditBudget
-				budgetId={row._id}
+		// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper, not interactive
+		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation wrapper, not interactive
+		// biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation wrapper, not interactive
+		<div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+			<EditBudgetTemplate
+				budgetTemplateId={row._id}
 				initialDescription={row.description}
-				initialPrice={row.price}
 				initialTitle={row.title}
-				initialTradeId={row.tradeId}
 				onOpenChange={setEditOpen}
 				open={editOpen}
 			/>
-			<DeleteBudget
-				budgetId={row._id}
-				budgetTitle={row.title}
+			<DeleteBudgetTemplate
+				budgetTemplateId={row._id}
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}
+				templateTitle={row.title}
 			/>
-			<AddBudgetToProject
-				budgetId={row._id}
-				budgetTitle={row.title}
-				onOpenChange={setAddToProjectOpen}
-				open={addToProjectOpen}
-			/>
-			<Menu>
-				<MenuTrigger
-					render={
-						<Button
-							aria-label="Budget actions"
-							size="icon"
-							type="button"
-							variant="ghost"
-						/>
-					}
+			<Group>
+				<Button
+					aria-label="Edit budget template"
+					onClick={() => setEditOpen(true)}
+					size="icon"
+					type="button"
+					variant="outline"
 				>
-					<EllipsisVertical className="size-4" />
-				</MenuTrigger>
-				<MenuPopup align="end">
-					<MenuItem onClick={() => setEditOpen(true)}>
-						<Pencil /> Edit
-					</MenuItem>
-					<MenuItem onClick={() => setAddToProjectOpen(true)}>
-						<FolderPlus /> Add to Project
-					</MenuItem>
-					<MenuSeparator />
-					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
-						<Trash2 /> Delete
-					</MenuItem>
-				</MenuPopup>
-			</Menu>
-		</>
+					<Pencil />
+				</Button>
+				<GroupSeparator />
+				<Button
+					aria-label="Delete budget template"
+					onClick={() => setDeleteOpen(true)}
+					size="icon"
+					type="button"
+					variant="destructive-outline"
+				>
+					<Trash2 />
+				</Button>
+			</Group>
+		</div>
 	);
 }
 
-const columns: ColumnDef<BudgetRow>[] = [
+const columns: ColumnDef<BudgetTemplateRow>[] = [
 	{
 		accessorKey: 'title',
 		header: 'Title',
 		cell: ({ row }) => (
 			<span className="font-medium">{row.original.title}</span>
-		),
-	},
-	{
-		accessorKey: 'tradeName',
-		header: 'Trade',
-		cell: ({ row }) =>
-			row.original.tradeName ? (
-				<span className="text-sm">{row.original.tradeName}</span>
-			) : (
-				<span className="text-muted-foreground text-sm">—</span>
-			),
-	},
-	{
-		accessorKey: 'price',
-		header: 'Price',
-		cell: ({ row }) => (
-			<span className="tabular-nums">
-				{formatBudgetPrice(row.original.price)}
-			</span>
 		),
 	},
 	{
@@ -143,27 +100,32 @@ const columns: ColumnDef<BudgetRow>[] = [
 			) : null,
 	},
 	{
+		accessorKey: 'totalPrice',
+		header: 'Total',
+		cell: ({ row }) => (
+			<span className="tabular-nums">
+				{formatBudgetPrice(row.original.totalPrice)}
+			</span>
+		),
+	},
+	{
 		id: 'actions',
 		header: '',
-		size: 60,
-		cell: ({ row }) => (
-			<div className="flex justify-end">
-				<BudgetActionsCell row={row.original} />
-			</div>
-		),
+		size: 100,
+		cell: ({ row }) => <TemplateActionsCell row={row.original} />,
 	},
 ];
 
-function EmptyBudgetsState() {
+function EmptyTemplatesState() {
 	return (
 		<Empty>
 			<EmptyHeader>
 				<EmptyMedia variant="icon">
 					<Wallet aria-hidden />
 				</EmptyMedia>
-				<EmptyTitle>No budgets yet</EmptyTitle>
+				<EmptyTitle>No budget templates yet</EmptyTitle>
 				<EmptyDescription>
-					Create your first budget using the Add Budget button.
+					Create your first template using the Add Template button.
 				</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
@@ -171,6 +133,7 @@ function EmptyBudgetsState() {
 }
 
 export default function BudgetsPageContent() {
+	const router = useRouter();
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const trimmedSearch = debouncedSearch.trim();
@@ -181,42 +144,48 @@ export default function BudgetsPageContent() {
 	}, [search]);
 
 	const listResults = useQuery(
-		api.budgets.list.list,
+		api.budgetTemplates.list.list,
 		trimmedSearch === '' ? {} : 'skip'
 	);
 	const searchResults = useQuery(
-		api.budgets.search.search,
+		api.budgetTemplates.search.search,
 		trimmedSearch !== '' ? { query: trimmedSearch } : 'skip'
 	);
-	const budgets = trimmedSearch === '' ? listResults : searchResults;
+	const templates = trimmedSearch === '' ? listResults : searchResults;
 
 	let content: React.ReactNode;
 
-	if (budgets === undefined) {
+	if (templates === undefined) {
 		content = (
-			<div className="text-muted-foreground text-sm">Loading budgets…</div>
+			<div className="text-muted-foreground text-sm">
+				Loading budget templates…
+			</div>
 		);
-	} else if (trimmedSearch !== '' && budgets.length === 0) {
+	} else if (trimmedSearch !== '' && templates.length === 0) {
 		content = (
 			<Empty>
 				<EmptyHeader>
 					<EmptyMedia variant="icon">
 						<Wallet aria-hidden />
 					</EmptyMedia>
-					<EmptyTitle>No matching budgets</EmptyTitle>
-					<EmptyDescription>Try a different title or trade.</EmptyDescription>
+					<EmptyTitle>No matching templates</EmptyTitle>
+					<EmptyDescription>
+						Try a different title or description.
+					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
 		);
-	} else if (budgets.length === 0) {
-		content = <EmptyBudgetsState />;
+	} else if (templates.length === 0) {
+		content = <EmptyTemplatesState />;
 	} else {
 		content = (
 			<DataTable
 				columns={columns}
-				data={budgets}
-				emptyMessage="No matching budgets."
+				data={templates}
+				emptyMessage="No matching templates."
+				initialPageSize={20}
 				key={trimmedSearch}
+				onRowClick={(row) => router.push(`/budgets/${row._id}`)}
 			/>
 		);
 	}
@@ -233,14 +202,14 @@ export default function BudgetsPageContent() {
 							</InputGroupText>
 						</InputGroupAddon>
 						<InputGroupInput
-							aria-label="Search budgets"
+							aria-label="Search budget templates"
 							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by title or trade…"
+							placeholder="Search by title or description…"
 							type="search"
 							value={search}
 						/>
 					</InputGroup>
-					<AddBudget />
+					<AddBudgetTemplate />
 				</div>
 			</div>
 			{content}

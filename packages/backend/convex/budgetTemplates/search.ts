@@ -1,7 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
-import { withTradeNames } from './withTradeNames';
 
 export const search = query({
 	args: {
@@ -18,10 +17,11 @@ export const search = query({
 			});
 		}
 		const limit = args.limit ?? 100;
-		const rows = await ctx.db
-			.query('budgets')
-			.withSearchIndex('search_budgets', (q) => q.search('searchText', trimmed))
+		return await ctx.db
+			.query('budgetTemplates')
+			.withSearchIndex('search_budget_templates', (q) =>
+				q.search('searchText', trimmed)
+			)
 			.take(limit);
-		return await withTradeNames(ctx, rows);
 	},
 });

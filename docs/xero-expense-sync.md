@@ -44,12 +44,16 @@ A Custom Connection requires a **paid Xero plan**.
    **New app** → choose **Custom Connection**.
 2. Give it a name and select the integrating user.
 3. Add the scopes:
-   - `accounting.reports.read` (Profit & Loss report)
+   - `accounting.reports.profitandloss.read` (Profit & Loss report)
    - `accounting.settings.read` (tracking categories)
 
    > Custom Connections created from **29 April 2026** use Xero's new granular
-   > scopes — select the equivalents that grant read access to reports and
-   > tracking categories/settings.
+   > scopes: `accounting.reports.read` no longer exists and is split per-report,
+   > so the P&L report uses `accounting.reports.profitandloss.read`. The
+   > `accounting.settings.read` scope is unchanged. The scope string requested in
+   > `shared.ts` (`XERO_SCOPES`) must exactly match the scopes selected here — a
+   > mismatch yields a `400 invalid_scope` ("Client credentials scope validation
+   > failed") on the token request.
 4. **Authorise** the connection to the target Xero **organisation** (an org admin
    must approve it; a Custom Connection binds to exactly one organisation).
 5. Copy the generated **Client ID** and **Client Secret** into the Convex env
