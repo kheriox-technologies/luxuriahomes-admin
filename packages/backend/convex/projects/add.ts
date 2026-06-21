@@ -18,6 +18,7 @@ export const add = mutation({
 		startDate: v.optional(v.number()),
 		quotePrice: v.optional(v.number()),
 		expenses: v.optional(v.number()),
+		received: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -47,6 +48,7 @@ export const add = mutation({
 			startDate: args.startDate,
 			quotePrice: args.quotePrice,
 			expenses: args.expenses,
+			received: args.received,
 			searchText,
 		});
 	},

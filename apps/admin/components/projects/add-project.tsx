@@ -474,6 +474,41 @@ export default function AddProjectForm() {
 										);
 									}}
 								</form.Field>
+								<form.Field name="received">
+									{(field) => {
+										const invalid =
+											field.state.meta.isTouched && !field.state.meta.isValid;
+										return (
+											<Field data-invalid={invalid}>
+												<FieldLabel htmlFor={field.name}>Received</FieldLabel>
+												<Input
+													aria-invalid={invalid}
+													id={field.name}
+													inputMode="numeric"
+													min={0}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) =>
+														field.handleChange(
+															e.target.value === ''
+																? undefined
+																: Number(e.target.value)
+														)
+													}
+													placeholder="0"
+													type="number"
+													value={field.state.value ?? ''}
+												/>
+												{invalid ? (
+													<FieldError>
+														{formatFieldErrors(field.state.meta.errors)}
+													</FieldError>
+												) : null}
+											</Field>
+										);
+									}}
+								</form.Field>
 							</FramePanel>
 						</Frame>
 
