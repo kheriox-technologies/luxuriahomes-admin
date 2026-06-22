@@ -114,6 +114,7 @@ export default function ProjectScheduleTabContent({
 
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<ProjectGanttPanel
+					autoFocusName={initialSearch}
 					ordersByOrderTaskId={ordersByOrderTaskId}
 					orderTasks={orderTasks}
 					projectId={projectId}

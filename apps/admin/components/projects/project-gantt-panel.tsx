@@ -361,6 +361,7 @@ export default function ProjectGanttPanel({
 	orderTasks,
 	ordersByOrderTaskId,
 	search,
+	autoFocusName,
 }: {
 	projectId: Id<'projects'>;
 	projectStartDate: number;
@@ -369,6 +370,7 @@ export default function ProjectGanttPanel({
 	orderTasks: Doc<'projectOrderTasks'>[];
 	ordersByOrderTaskId: Map<string, OrderForTask[]>;
 	search?: string;
+	autoFocusName?: string;
 }) {
 	const [isReadOnly, setIsReadOnly] = useState(true);
 	const router = useRouter();
@@ -1078,6 +1080,56 @@ export default function ProjectGanttPanel({
 		},
 		[anchor, pixelsPerDay]
 	);
+
+	// When arriving from the dashboard (?search=<name>), auto-scroll to the
+	// matching bar and open its popover once — without needing a manual click.
+	const autoFocusedNameRef = useRef<string | null>(null);
+	useEffect(() => {
+		const name = autoFocusName?.trim().toLowerCase();
+		if (!name || autoFocusedNameRef.current === name) {
+			return;
+		}
+
+		let target: { id: string; startDate: number } | null = null;
+		for (const stage of displayedStages) {
+			const matchTask = getDisplayedTasks(stage._id).find(
+				(t) =>
+					t.name.toLowerCase().includes(name) ||
+					(orderTasksByParentTask.get(t._id) ?? []).some((ot) =>
+						ot.name.toLowerCase().includes(name)
+					)
+			);
+			if (matchTask) {
+				target = { id: matchTask._id, startDate: matchTask.startDate };
+				break;
+			}
+		}
+		if (!target) {
+			const matchStage = displayedStages.find((s) =>
+				s.name.toLowerCase().includes(name)
+			);
+			if (matchStage) {
+				target = { id: matchStage._id, startDate: matchStage.startDate };
+			}
+		}
+		if (!target) {
+			return;
+		}
+
+		// Mark as handled so typing in the search box later doesn't re-trigger.
+		autoFocusedNameRef.current = name;
+		const focus = target;
+		// Defer one frame so the grid is laid out before measuring/scrolling.
+		requestAnimationFrame(() => {
+			scrollToDateThen(focus.startDate, () => setOpenPopoverId(focus.id));
+		});
+	}, [
+		autoFocusName,
+		displayedStages,
+		getDisplayedTasks,
+		orderTasksByParentTask,
+		scrollToDateThen,
+	]);
 
 	const onDeleteDependency = useCallback(async () => {
 		if (!deletingArrow) {
