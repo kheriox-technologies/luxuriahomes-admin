@@ -53,6 +53,7 @@ import {
 	FramePanel,
 	FrameTitle,
 } from '@workspace/ui/components/frame';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -618,6 +619,7 @@ function EditInclusionQuantitiesDialog({
 }) {
 	const [localLocations, setLocalLocations] = useState<PendingLocation[]>([]);
 	const [selectedLocationId, setSelectedLocationId] = useState('');
+	const [newLocationName, setNewLocationName] = useState('');
 	const [pendingQuantity, setPendingQuantity] = useState('');
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -628,6 +630,7 @@ function EditInclusionQuantitiesDialog({
 	const updateProjectInclusion = useMutation(
 		api.projectInclusions.update.update
 	);
+	const addLocation = useMutation(api.locations.add.add);
 
 	const locationNameById = useMemo(() => {
 		const map = new Map<Id<'locations'>, string>();
@@ -649,6 +652,7 @@ function EditInclusionQuantitiesDialog({
 		if (open) {
 			setLocalLocations(inclusion.locations ?? []);
 			setSelectedLocationId('');
+			setNewLocationName('');
 			setPendingQuantity('');
 			setEditingIndex(null);
 		}
@@ -660,38 +664,84 @@ function EditInclusionQuantitiesDialog({
 		if (locationId) {
 			setSelectedLocationId(locationId);
 		}
+		setNewLocationName('');
 		setPendingQuantity(entry.quantity?.toString() ?? '');
 		setEditingIndex(i);
 	};
 
-	const handleSaveAction = () => {
-		const name = locationNameById.get(selectedLocationId as Id<'locations'>);
+	const resolveLocationName = async (): Promise<string | null> => {
+		const trimmedNew = newLocationName.trim();
+		if (trimmedNew) {
+			const existingId = locationIdByName.get(trimmedNew);
+			if (!existingId) {
+				await addLocation({ name: trimmedNew });
+			}
+			return trimmedNew;
+		}
+		return locationNameById.get(selectedLocationId as Id<'locations'>) ?? null;
+	};
+
+	const hasPendingLocation = Boolean(
+		selectedLocationId || newLocationName.trim()
+	);
+
+	const buildNextLocations = (name: string): PendingLocation[] => {
+		const qty =
+			pendingQuantity !== '' ? Number.parseFloat(pendingQuantity) : undefined;
+		const entry = { name, quantity: qty, unit: unitAbbr || undefined };
+		if (editingIndex !== null) {
+			return localLocations.map((loc, idx) =>
+				idx === editingIndex ? entry : loc
+			);
+		}
+		return [...localLocations, entry];
+	};
+
+	const clearPendingLocation = () => {
+		setSelectedLocationId('');
+		setNewLocationName('');
+		setPendingQuantity('');
+		setEditingIndex(null);
+	};
+
+	const handleSaveAction = async () => {
+		let name: string | null;
+		try {
+			name = await resolveLocationName();
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not add the location. Please try again.'
+				),
+				title: 'Could not add location',
+				type: 'error',
+			});
+			return;
+		}
 		if (!name) {
 			return;
 		}
-		const qty =
-			pendingQuantity !== '' ? Number.parseFloat(pendingQuantity) : undefined;
-		const updated = { name, quantity: qty, unit: unitAbbr || undefined };
-		if (editingIndex !== null) {
-			setLocalLocations((prev) => {
-				const next = [...prev];
-				next[editingIndex] = updated;
-				return next;
-			});
-			setEditingIndex(null);
-		} else {
-			setLocalLocations((prev) => [...prev, updated]);
-		}
-		setSelectedLocationId('');
-		setPendingQuantity('');
+		setLocalLocations(buildNextLocations(name));
+		clearPendingLocation();
 	};
 
 	const onSave = async () => {
 		setIsSubmitting(true);
 		try {
+			let finalLocations = localLocations;
+			// Auto-commit a pending selection so the user doesn't have to click "+".
+			if (hasPendingLocation) {
+				const name = await resolveLocationName();
+				if (name) {
+					finalLocations = buildNextLocations(name);
+					setLocalLocations(finalLocations);
+					clearPendingLocation();
+				}
+			}
 			await updateProjectInclusion({
 				projectInclusionId: inclusion._id,
-				locations: localLocations.length > 0 ? localLocations : null,
+				locations: finalLocations.length > 0 ? finalLocations : null,
 			});
 			toastManager.add({ title: 'Quantities updated', type: 'success' });
 			onOpenChange(false);
@@ -728,7 +778,12 @@ function EditInclusionQuantitiesDialog({
 								id={`edit-quantities-location-${inclusion._id}`}
 								locations={locations}
 								onBlur={() => undefined}
-								onChange={setSelectedLocationId}
+								onChange={(next) => {
+									setSelectedLocationId(next);
+									if (next) {
+										setNewLocationName('');
+									}
+								}}
 								value={selectedLocationId}
 							/>
 						</div>
@@ -748,8 +803,12 @@ function EditInclusionQuantitiesDialog({
 						</InputGroup>
 						<Button
 							aria-label={editingIndex !== null ? 'Save edit' : 'Add location'}
-							disabled={!selectedLocationId}
-							onClick={handleSaveAction}
+							disabled={!(selectedLocationId || newLocationName.trim())}
+							onClick={() => {
+								handleSaveAction().catch(() => {
+									/* Error handled in handleSaveAction */
+								});
+							}}
 							size="icon"
 							type="button"
 							variant={editingIndex !== null ? 'default' : 'outline'}
@@ -757,6 +816,18 @@ function EditInclusionQuantitiesDialog({
 							{editingIndex !== null ? <Check /> : <Plus />}
 						</Button>
 					</div>
+					<Input
+						aria-label="Add a new location"
+						nativeInput
+						onChange={(e) => {
+							setNewLocationName(e.target.value);
+							if (e.target.value.trim()) {
+								setSelectedLocationId('');
+							}
+						}}
+						placeholder="Or add a new location"
+						value={newLocationName}
+					/>
 					{localLocations.length > 0 ? (
 						<div className="flex flex-col gap-1.5">
 							{localLocations.map((entry, i) => (
