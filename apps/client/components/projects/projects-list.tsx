@@ -15,7 +15,6 @@ import { useQuery } from 'convex/react';
 import { Building2, ChevronRight, SearchIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { formatDuration } from '@/lib/format';
 
 type Project = Doc<'projects'>;
 
@@ -90,22 +89,6 @@ const columns: ColumnDef<Project>[] = [
 						{suburb}, {state} {postcode}
 					</p>
 				</div>
-			);
-		},
-	},
-	{
-		id: 'duration',
-		header: 'Duration',
-		size: 140,
-		cell: ({ row }) => {
-			const { status, startDate } = row.original;
-			if (status !== 'in_progress' || !startDate) {
-				return null;
-			}
-			return (
-				<span className="text-muted-foreground text-sm">
-					{formatDuration(startDate)}
-				</span>
 			);
 		},
 	},

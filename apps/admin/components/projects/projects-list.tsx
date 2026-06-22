@@ -16,7 +16,7 @@ import { useQuery } from 'convex/react';
 import { Building2, SearchIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { formatAudWhole } from '@/lib/currency';
+import { formatAud } from '@/lib/currency';
 
 /** Set to `false` before commit — forces the "no projects yet" empty UI. */
 const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
@@ -137,7 +137,7 @@ const columns: ColumnDef<Project>[] = [
 			return (
 				<div className="space-y-1">
 					<Badge size="lg" variant="purple">
-						{formatAudWhole(quotePrice)}
+						{formatAud(quotePrice)}
 					</Badge>
 					{remaining === undefined ? null : (
 						<p
@@ -148,8 +148,8 @@ const columns: ColumnDef<Project>[] = [
 							}
 						>
 							{remaining >= 0
-								? `${formatAudWhole(remaining)} Left`
-								: `${formatAudWhole(Math.abs(remaining))} Over`}
+								? `${formatAud(remaining)} Left`
+								: `${formatAud(Math.abs(remaining))} Over`}
 						</p>
 					)}
 				</div>
@@ -167,7 +167,7 @@ const columns: ColumnDef<Project>[] = [
 			}
 			return (
 				<Badge size="lg" variant="secondary">
-					{formatAudWhole(expenses)}
+					{formatAud(expenses)}
 				</Badge>
 			);
 		},
@@ -185,7 +185,7 @@ const columns: ColumnDef<Project>[] = [
 			return (
 				<div className="space-y-1">
 					<Badge size="lg" variant="secondary">
-						{formatAudWhole(received)}
+						{formatAud(received)}
 					</Badge>
 					{profit === undefined ? null : (
 						<p
@@ -196,8 +196,8 @@ const columns: ColumnDef<Project>[] = [
 							}
 						>
 							{profit >= 0
-								? `${formatAudWhole(profit)} Profit`
-								: `${formatAudWhole(Math.abs(profit))} Loss`}
+								? `${formatAud(profit)} Profit`
+								: `${formatAud(Math.abs(profit))} Loss`}
 						</p>
 					)}
 				</div>

@@ -73,24 +73,30 @@ async function findExistingClerkUserId(
 function buildPasswordEmail(
 	firstName: string,
 	email: string,
-	password: string
+	password: string,
+	portalUrl: string
 ): { html: string; text: string } {
 	const greetingName = firstName.trim() || 'there';
+	const htmlButton = portalUrl
+		? `<p><a href="${portalUrl}" rel="noopener" style="display:inline-block;background:#111;color:#fff;font-weight:bold;text-decoration:none;padding:12px 20px;border-radius:6px;">Sign in to client portal</a></p>`
+		: '';
 	const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.5;">
 <p>Hi ${greetingName},</p>
 <p>You now have access to the Luxuria Homes client portal. Use the credentials below to sign in:</p>
 <p><strong>Email:</strong> ${email}<br><strong>Temporary password:</strong> ${password}</p>
+${htmlButton}
 <p>You can also sign in with <strong>Google</strong> using this same email address (${email}) &mdash; no password needed.</p>
 <p>For your security, please change your password after signing in.</p>
 <p>If you did not expect this email, you can ignore it.</p>
 </div>`;
+	const textLink = portalUrl ? `\nSign in here: ${portalUrl}\n` : '';
 	const text = `Hi ${greetingName},
 
 You now have access to the Luxuria Homes client portal. Use the credentials below to sign in:
 
 Email: ${email}
 Temporary password: ${password}
-
+${textLink}
 You can also sign in with Google using this same email address (${email}) — no password needed.
 
 For your security, please change your password after signing in.
@@ -155,10 +161,12 @@ export const grantAccess = action({
 			portalUserId = newUser.id;
 			createdUserId = newUser.id;
 
+			const portalUrl = process.env.NEXT_PUBLIC_CLIENT_PORTAL_URL?.trim() ?? '';
 			const { html, text } = buildPasswordEmail(
 				client.firstName,
 				client.email,
-				password
+				password,
+				portalUrl
 			);
 			await ctx.runAction(api.email.send.send, {
 				to: [client.email],
