@@ -374,7 +374,7 @@ export default function AddProjectForm() {
 													<Input
 														aria-invalid={invalid}
 														id={field.name}
-														inputMode="numeric"
+														inputMode="decimal"
 														name={field.name}
 														nativeInput
 														onBlur={field.handleBlur}
@@ -414,7 +414,7 @@ export default function AddProjectForm() {
 												<Input
 													aria-invalid={invalid}
 													id={field.name}
-													inputMode="numeric"
+													inputMode="decimal"
 													min={0}
 													name={field.name}
 													nativeInput
@@ -427,6 +427,7 @@ export default function AddProjectForm() {
 														)
 													}
 													placeholder="0"
+													step="0.01"
 													type="number"
 													value={field.state.value ?? ''}
 												/>
@@ -449,7 +450,7 @@ export default function AddProjectForm() {
 												<Input
 													aria-invalid={invalid}
 													id={field.name}
-													inputMode="numeric"
+													inputMode="decimal"
 													min={0}
 													name={field.name}
 													nativeInput
@@ -462,6 +463,7 @@ export default function AddProjectForm() {
 														)
 													}
 													placeholder="0"
+													step="0.01"
 													type="number"
 													value={field.state.value ?? ''}
 												/>
@@ -484,7 +486,7 @@ export default function AddProjectForm() {
 												<Input
 													aria-invalid={invalid}
 													id={field.name}
-													inputMode="numeric"
+													inputMode="decimal"
 													min={0}
 													name={field.name}
 													nativeInput
@@ -497,6 +499,7 @@ export default function AddProjectForm() {
 														)
 													}
 													placeholder="0"
+													step="0.01"
 													type="number"
 													value={field.state.value ?? ''}
 												/>
