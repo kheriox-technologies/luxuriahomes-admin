@@ -42,6 +42,7 @@ export default function ProjectDetailsTabs({
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const activeTab = searchParams.get('tab') ?? 'schedule';
+	const scheduleSearch = searchParams.get('search') ?? undefined;
 	const orderIdFilter = searchParams.get('orderId') ?? '';
 	const orderTaskIdFilter = searchParams.get('orderTaskId') ?? undefined;
 	const orderTradeIdFilter =
@@ -56,6 +57,7 @@ export default function ProjectDetailsTabs({
 		(tab: string) => {
 			const params = new URLSearchParams(searchParams.toString());
 			params.set('tab', tab);
+			params.delete('search');
 			params.delete('orderId');
 			params.delete('orderTaskId');
 			params.delete('orderTradeId');
@@ -134,7 +136,10 @@ export default function ProjectDetailsTabs({
 				className="flex min-h-0 flex-1 overflow-hidden p-0"
 				value="schedule"
 			>
-				<ProjectScheduleTabContent project={project} />
+				<ProjectScheduleTabContent
+					initialSearch={scheduleSearch}
+					project={project}
+				/>
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="clients">
 				<ProjectClientsTabContent clients={clients} projectId={project._id} />

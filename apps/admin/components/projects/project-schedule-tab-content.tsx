@@ -18,8 +18,10 @@ import { startOfDay } from './project-schedule-date-utils';
 
 export default function ProjectScheduleTabContent({
 	project,
+	initialSearch,
 }: {
 	project: Doc<'projects'>;
+	initialSearch?: string;
 }) {
 	const projectId = project._id;
 	const stages = useQuery(api.projectStages.listByProject.listByProject, {
@@ -34,8 +36,8 @@ export default function ProjectScheduleTabContent({
 	);
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
 
-	const [search, setSearch] = useState('');
-	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const [search, setSearch] = useState(initialSearch ?? '');
+	const [debouncedSearch, setDebouncedSearch] = useState(initialSearch ?? '');
 	const [addStageOpen, setAddStageOpen] = useState(false);
 
 	useEffect(() => {
@@ -112,6 +114,7 @@ export default function ProjectScheduleTabContent({
 
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				<ProjectGanttPanel
+					autoFocusName={initialSearch}
 					ordersByOrderTaskId={ordersByOrderTaskId}
 					orderTasks={orderTasks}
 					projectId={projectId}

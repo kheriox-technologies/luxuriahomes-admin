@@ -26,6 +26,7 @@ import {
 	CalendarDays,
 	ChevronDown,
 	FileText,
+	LayoutDashboard,
 	List,
 	ListTodo,
 	type LucideIcon,
@@ -57,6 +58,12 @@ function isItemWithSub(item: SidebarItem): item is SidebarItemWithSub {
 
 // Menu items with path for role-based filtering.
 const items: SidebarItem[] = [
+	{
+		title: 'Dashboard',
+		url: '/dashboard',
+		path: '/dashboard',
+		icon: LayoutDashboard,
+	},
 	{
 		title: 'Projects',
 		url: '/projects',
