@@ -820,6 +820,19 @@ export default function ProjectGanttPanel({
 		]
 	);
 
+	const orderTasksByParentTask = useMemo(() => {
+		const map = new Map<string, Doc<'projectOrderTasks'>[]>();
+		for (const orderTask of orderTasks) {
+			const existing = map.get(orderTask.parentTaskId);
+			if (existing) {
+				existing.push(orderTask);
+			} else {
+				map.set(orderTask.parentTaskId, [orderTask]);
+			}
+		}
+		return map;
+	}, [orderTasks]);
+
 	const { displayedStages, getDisplayedTasks, forceExpandedStageIds } =
 		useMemo(() => {
 			const lowerSearch = search?.toLowerCase() ?? '';
@@ -833,6 +846,11 @@ export default function ProjectGanttPanel({
 			}
 			const matches = (name: string) =>
 				name.toLowerCase().includes(lowerSearch);
+			const taskMatches = (task: Doc<'projectTasks'>) =>
+				matches(task.name) ||
+				(orderTasksByParentTask.get(task._id) ?? []).some((ot) =>
+					matches(ot.name)
+				);
 			const forceExpanded = new Set<string>();
 			const filteredData: Array<{
 				stage: Doc<'projectStages'>;
@@ -841,7 +859,7 @@ export default function ProjectGanttPanel({
 			for (const stage of stages) {
 				const allTasks = tasksByStage.get(stage._id) ?? [];
 				const stageNameMatches = matches(stage.name);
-				const matchingTasks = allTasks.filter((t) => matches(t.name));
+				const matchingTasks = allTasks.filter((t) => taskMatches(t));
 				if (!stageNameMatches && matchingTasks.length === 0) {
 					continue;
 				}
@@ -861,7 +879,7 @@ export default function ProjectGanttPanel({
 				getDisplayedTasks: (stageId: string) => stageDataMap.get(stageId) ?? [],
 				forceExpandedStageIds: forceExpanded,
 			};
-		}, [search, stages, tasksByStage]);
+		}, [search, stages, tasksByStage, orderTasksByParentTask]);
 
 	const isExpanded = useCallback(
 		(stageId: string) =>
@@ -1018,20 +1036,45 @@ export default function ProjectGanttPanel({
 		return result;
 	}, [tasks, stages, rowYMap, anchor, pixelsPerDay]);
 
-	const scrollToDate = useCallback(
-		(timestamp: number) => {
-			if (!rightRef.current) {
+	const scrollToDateThen = useCallback(
+		(timestamp: number, onSettled?: () => void) => {
+			const el = rightRef.current;
+			if (!el) {
+				onSettled?.();
 				return;
 			}
 			const offset = dateToCalOffset(new Date(timestamp), anchor);
-			const containerWidth = rightRef.current.clientWidth;
-			rightRef.current.scrollTo({
-				left: Math.max(
+			const containerWidth = el.clientWidth;
+			const maxLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+			const targetLeft = Math.min(
+				Math.max(
 					0,
 					GRID_LEFT_PADDING + offset * pixelsPerDay - containerWidth / 2
 				),
-				behavior: 'smooth',
-			});
+				maxLeft
+			);
+
+			// Already in position → no scroll, open right away.
+			if (Math.abs(el.scrollLeft - targetLeft) < 2) {
+				onSettled?.();
+				return;
+			}
+
+			el.scrollTo({ left: targetLeft, behavior: 'smooth' });
+
+			// Open only once the scroll reaches the target, with a safety cap so we
+			// never hang if it can't land exactly (clamping, momentum, etc.).
+			let frames = 0;
+			const MAX_FRAMES = 60; // ~1s @ 60fps safety net
+			const check = () => {
+				frames += 1;
+				if (Math.abs(el.scrollLeft - targetLeft) < 2 || frames >= MAX_FRAMES) {
+					onSettled?.();
+					return;
+				}
+				requestAnimationFrame(check);
+			};
+			requestAnimationFrame(check);
 		},
 		[anchor, pixelsPerDay]
 	);
@@ -1206,8 +1249,9 @@ export default function ProjectGanttPanel({
 											isDndEnabled={isDndEnabled}
 											key={stage._id}
 											onNameClick={() => {
-												scrollToDate(stage.startDate);
-												setTimeout(() => setOpenPopoverId(stage._id), 400);
+												scrollToDateThen(stage.startDate, () =>
+													setOpenPopoverId(stage._id)
+												);
 											}}
 											onToggleCollapse={() => toggleStage(stage._id)}
 											projectId={projectId}
@@ -1230,10 +1274,8 @@ export default function ProjectGanttPanel({
 																<SortableProjectTaskWrapper
 																	isDndEnabled={isDndEnabled}
 																	onNameClick={() => {
-																		scrollToDate(task.startDate);
-																		setTimeout(
-																			() => setOpenPopoverId(task._id),
-																			400
+																		scrollToDateThen(task.startDate, () =>
+																			setOpenPopoverId(task._id)
 																		);
 																	}}
 																	ordersForTask={ordersForTask}

@@ -50,6 +50,7 @@ import type * as companyDocuments_rename from "../companyDocuments/rename.js";
 import type * as companyDocuments_renameFolder from "../companyDocuments/renameFolder.js";
 import type * as companyDocuments_shared from "../companyDocuments/shared.js";
 import type * as crons from "../crons.js";
+import type * as dashboard_scheduleOverview from "../dashboard/scheduleOverview.js";
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
@@ -360,6 +361,7 @@ declare const fullApi: ApiFromModules<{
   "companyDocuments/renameFolder": typeof companyDocuments_renameFolder;
   "companyDocuments/shared": typeof companyDocuments_shared;
   crons: typeof crons;
+  "dashboard/scheduleOverview": typeof dashboard_scheduleOverview;
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/get": typeof documentFolders_get;
   "documentFolders/list": typeof documentFolders_list;
