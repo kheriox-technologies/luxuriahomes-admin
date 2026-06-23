@@ -65,12 +65,14 @@ export default function TaskMultiSelectFilter({
 	options,
 	value,
 	onChange,
+	maxSelected,
 }: {
 	id: string;
 	placeholder: string;
 	options: FilterOption[];
 	value: string[];
 	onChange: (next: string[]) => void;
+	maxSelected?: number;
 }) {
 	const [query, setQuery] = useState('');
 	const filter = useComboboxFilter();
@@ -156,6 +158,7 @@ export default function TaskMultiSelectFilter({
 	}, [chipsKey]);
 
 	const hiddenCount = Math.max(value.length - visibleCount, 0);
+	const limitReached = maxSelected !== undefined && value.length >= maxSelected;
 
 	const removeValue = (optionValue: string) => {
 		onChange(value.filter((current) => current !== optionValue));
@@ -214,14 +217,22 @@ export default function TaskMultiSelectFilter({
 				</div>
 			</div>
 			<ComboboxPopup>
-				<ComboboxEmpty>No matches.</ComboboxEmpty>
-				<ComboboxList>
-					{(optionValue: string) => (
-						<ComboboxItem key={optionValue} value={optionValue}>
-							{labelByValue.get(optionValue) ?? optionValue}
-						</ComboboxItem>
-					)}
-				</ComboboxList>
+				{limitReached ? (
+					<p className="p-2 text-center text-muted-foreground text-sm">
+						{maxSelected} projects already selected
+					</p>
+				) : (
+					<>
+						<ComboboxEmpty>No matches.</ComboboxEmpty>
+						<ComboboxList>
+							{(optionValue: string) => (
+								<ComboboxItem key={optionValue} value={optionValue}>
+									{labelByValue.get(optionValue) ?? optionValue}
+								</ComboboxItem>
+							)}
+						</ComboboxList>
+					</>
+				)}
 			</ComboboxPopup>
 		</Combobox>
 	);
