@@ -342,45 +342,47 @@ export default function EditProjectForm({
 									}}
 								</form.Field>
 
-								<form.Field name="status">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Status</FieldLabel>
-												<ProjectStatusCombobox
-													id={field.name}
-													invalid={invalid}
-													onBlur={field.handleBlur}
-													onChange={(next) =>
-														field.handleChange(next as ProjectStatus)
-													}
-													placeholder="Select status"
-													value={field.state.value}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<form.Field name="status">
+										{(field) => {
+											const invalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={invalid}>
+													<FieldLabel htmlFor={field.name}>Status</FieldLabel>
+													<ProjectStatusCombobox
+														id={field.name}
+														invalid={invalid}
+														onBlur={field.handleBlur}
+														onChange={(next) =>
+															field.handleChange(next as ProjectStatus)
+														}
+														placeholder="Select status"
+														value={field.state.value}
+													/>
+													{invalid ? (
+														<FieldError>
+															{formatFieldErrors(field.state.meta.errors)}
+														</FieldError>
+													) : null}
+												</Field>
+											);
+										}}
+									</form.Field>
 
-								<form.Field name="startDate">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>Start Date</FieldLabel>
-											<ProjectStartDatePicker
-												onBlur={field.handleBlur}
-												onChange={(date) => field.handleChange(date as never)}
-												value={field.state.value as Date | undefined}
-											/>
-										</Field>
-									)}
-								</form.Field>
+									<form.Field name="startDate">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor={field.name}>Start Date</FieldLabel>
+												<ProjectStartDatePicker
+													onBlur={field.handleBlur}
+													onChange={(date) => field.handleChange(date as never)}
+													value={field.state.value as Date | undefined}
+												/>
+											</Field>
+										)}
+									</form.Field>
+								</div>
 
 								<p className="font-medium text-muted-foreground text-sm">
 									Address
