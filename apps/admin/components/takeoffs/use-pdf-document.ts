@@ -93,5 +93,38 @@ export function usePdfDocument(url: string) {
 		[doc]
 	);
 
-	return { numPages, renderPage, error, ready: doc !== null };
+	// Render a small thumbnail of a page. Independent of `renderTaskRef` so it
+	// never cancels (or is cancelled by) the main stage render.
+	const renderThumbnail = useCallback(
+		async (
+			pageNumber: number,
+			canvas: HTMLCanvasElement,
+			targetWidth: number
+		): Promise<RenderedSize | null> => {
+			if (!doc) {
+				return null;
+			}
+			const page = await doc.getPage(pageNumber);
+			const natural = page.getViewport({ scale: 1 });
+			const scale = targetWidth / natural.width;
+			const viewport = page.getViewport({ scale });
+
+			const context = canvas.getContext('2d');
+			if (!context) {
+				return null;
+			}
+			canvas.width = Math.floor(viewport.width);
+			canvas.height = Math.floor(viewport.height);
+
+			try {
+				await page.render({ canvasContext: context, viewport }).promise;
+			} catch {
+				return null;
+			}
+			return { width: canvas.width, height: canvas.height };
+		},
+		[doc]
+	);
+
+	return { numPages, renderPage, renderThumbnail, error, ready: doc !== null };
 }

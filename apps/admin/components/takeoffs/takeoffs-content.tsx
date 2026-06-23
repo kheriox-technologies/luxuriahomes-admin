@@ -14,15 +14,7 @@ import {
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import { Separator } from '@workspace/ui/components/separator';
-import {
-	ChevronLeft,
-	ChevronRight,
-	Crosshair,
-	Hand,
-	Hash,
-	Ruler,
-	Shapes,
-} from 'lucide-react';
+import { Crosshair, Hand, Hash, Ruler, Shapes } from 'lucide-react';
 import {
 	type ReactElement,
 	useCallback,
@@ -45,6 +37,7 @@ import type {
 } from '@/lib/takeoffs/types';
 import MeasurementsPanel from './measurements-panel';
 import PdfStage from './pdf-stage';
+import PdfThumbnails from './pdf-thumbnails';
 import { usePdfDocument } from './use-pdf-document';
 
 const PDF_URL = '/sample-plan.pdf';
@@ -80,7 +73,8 @@ function dedupeConsecutive(points: Point[]): Point[] {
 }
 
 export default function TakeoffsContent() {
-	const { numPages, renderPage, error, ready } = usePdfDocument(PDF_URL);
+	const { numPages, renderPage, renderThumbnail, error, ready } =
+		usePdfDocument(PDF_URL);
 
 	const [page, setPage] = useState(1);
 	const [tool, setTool] = useState<ToolId>('pan');
@@ -125,15 +119,9 @@ export default function TakeoffsContent() {
 		[resetDraft]
 	);
 
-	const changePage = useCallback(
-		(delta: number) => {
-			setPage((prev) => {
-				const next = prev + delta;
-				if (next < 1 || (numPages && next > numPages)) {
-					return prev;
-				}
-				return next;
-			});
+	const goToPage = useCallback(
+		(next: number) => {
+			setPage(() => Math.min(Math.max(next, 1), numPages || 1));
 			resetDraft();
 		},
 		[numPages, resetDraft]
@@ -296,32 +284,6 @@ export default function TakeoffsContent() {
 
 				<Separator className="h-6" orientation="vertical" />
 
-				<div className="flex items-center gap-1">
-					<Button
-						aria-label="Previous page"
-						disabled={page <= 1}
-						onClick={() => changePage(-1)}
-						size="icon-sm"
-						variant="outline"
-					>
-						<ChevronLeft />
-					</Button>
-					<span className="min-w-16 text-center text-sm tabular-nums">
-						{page} / {numPages || '–'}
-					</span>
-					<Button
-						aria-label="Next page"
-						disabled={Boolean(numPages) && page >= numPages}
-						onClick={() => changePage(1)}
-						size="icon-sm"
-						variant="outline"
-					>
-						<ChevronRight />
-					</Button>
-				</div>
-
-				<Separator className="h-6" orientation="vertical" />
-
 				<Badge size="lg" variant={isCalibrated ? 'success' : 'warning'}>
 					{isCalibrated
 						? `1 px = ${(metersPerPixel * 1000).toFixed(2)} mm · ${
@@ -357,6 +319,13 @@ export default function TakeoffsContent() {
 			</div>
 
 			<div className="flex min-h-0 flex-1 gap-3">
+				<PdfThumbnails
+					currentPage={page}
+					numPages={numPages}
+					onSelectPage={goToPage}
+					ready={ready}
+					renderThumbnail={renderThumbnail}
+				/>
 				<div className="min-w-0 flex-1">
 					<PdfStage
 						cursor={cursor}
