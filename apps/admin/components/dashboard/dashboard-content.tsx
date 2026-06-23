@@ -123,8 +123,8 @@ export default function DashboardContent() {
 					heading="Dashboard"
 					icon={LayoutDashboard}
 				/>
-				<div className="flex w-full min-w-0 flex-col gap-2 lg:w-auto lg:shrink-0 lg:flex-row lg:items-center lg:justify-end">
-					<div className="w-full sm:min-w-96 lg:max-w-3xl lg:flex-1">
+				<div className="flex w-full min-w-0 flex-col gap-2 lg:flex-1 lg:flex-row lg:items-center">
+					<div className="w-full min-w-0 lg:flex-1">
 						<TaskMultiSelectFilter
 							id="dashboard-projects"
 							onChange={(next) => setSelectedIds(next.slice(0, MAX_PROJECTS))}
