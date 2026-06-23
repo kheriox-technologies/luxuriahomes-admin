@@ -295,6 +295,7 @@ export default function ProjectsList({
 			emptyMessage="No matching projects."
 			key={trimmedSearch}
 			onRowClick={(project) => router.push(`/projects/${project._id}` as Route)}
+			stickyHeader
 		/>
 	);
 }

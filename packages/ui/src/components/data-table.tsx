@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-table';
 import { DataTablePagination } from '@workspace/ui/components/data-table-pagination';
 import { Frame, FrameFooter } from '@workspace/ui/components/frame';
+import { cn } from '@workspace/ui/lib/utils';
 import {
 	Table,
 	TableBody,
@@ -39,6 +40,7 @@ interface DataTableProps<TData, TValue> {
 	initialPageSize?: number;
 	onRowClick?: (row: TData) => void;
 	showPagination?: boolean;
+	stickyHeader?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -48,6 +50,7 @@ export function DataTable<TData, TValue>({
 	onRowClick,
 	emptyMessage = 'No results.',
 	showPagination = true,
+	stickyHeader = false,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -75,9 +78,22 @@ export function DataTable<TData, TValue>({
 		) : undefined;
 
 	return (
-		<Frame className="min-w-0 overflow-hidden">
-			<Table className="w-full table-fixed">
-				<TableHeader>
+		<Frame
+			className={cn('min-w-0 overflow-hidden', stickyHeader && 'h-full min-h-0')}
+		>
+			<Table
+				className="w-full table-fixed"
+				containerClassName={
+					stickyHeader ? 'min-h-0 flex-1 overflow-y-auto' : undefined
+				}
+			>
+				<TableHeader
+					className={
+						stickyHeader
+							? '[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-muted'
+							: undefined
+					}
+				>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id}>
 							{headerGroup.headers.map((header) => {
