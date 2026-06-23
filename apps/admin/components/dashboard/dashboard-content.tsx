@@ -127,6 +127,7 @@ export default function DashboardContent() {
 					<div className="w-full min-w-0 lg:flex-1">
 						<TaskMultiSelectFilter
 							id="dashboard-projects"
+							maxSelected={MAX_PROJECTS}
 							onChange={(next) => setSelectedIds(next.slice(0, MAX_PROJECTS))}
 							options={options}
 							placeholder="Select up to 5 projects…"
