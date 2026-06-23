@@ -27,6 +27,8 @@ export default function MeasurementsPanel({
 	page,
 	measurements,
 	calibrated,
+	metersPerPixel,
+	onUsePdfScale,
 	onDelete,
 	onClearPage,
 	onClearAll,
@@ -34,6 +36,8 @@ export default function MeasurementsPanel({
 	page: number;
 	measurements: Measurement[];
 	calibrated: boolean;
+	metersPerPixel: number | null;
+	onUsePdfScale?: () => void;
 	onDelete: (id: string) => void;
 	onClearPage: () => void;
 	onClearAll: () => void;
@@ -51,11 +55,27 @@ export default function MeasurementsPanel({
 
 	return (
 		<div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-card">
-			<div className="flex items-center justify-between border-b p-3">
-				<h2 className="font-semibold text-sm">Measurements</h2>
-				<Badge size="lg" variant={calibrated ? 'success' : 'warning'}>
-					{calibrated ? 'Calibrated' : 'Not calibrated'}
-				</Badge>
+			<div className="flex flex-col gap-2 border-b p-3">
+				<div className="flex items-center justify-between">
+					<h2 className="font-semibold text-sm">Measurements</h2>
+					<Badge size="lg" variant={calibrated ? 'success' : 'warning'}>
+						{calibrated && metersPerPixel !== null
+							? `1 px = ${(metersPerPixel * 1000).toFixed(2)} mm · ${
+									onUsePdfScale ? 'this page' : 'all pages'
+								}`
+							: 'Not calibrated'}
+					</Badge>
+				</div>
+				{onUsePdfScale && (
+					<Button
+						className="self-start"
+						onClick={onUsePdfScale}
+						size="sm"
+						variant="ghost"
+					>
+						Use PDF scale
+					</Button>
+				)}
 			</div>
 
 			<div className="grid grid-cols-3 gap-2 border-b p-3 text-center">

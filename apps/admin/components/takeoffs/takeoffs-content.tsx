@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Dialog,
@@ -13,7 +12,6 @@ import {
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
-import { Separator } from '@workspace/ui/components/separator';
 import { Crosshair, Hand, Hash, Ruler, Shapes } from 'lucide-react';
 import {
 	type ReactElement,
@@ -282,31 +280,6 @@ export default function TakeoffsContent() {
 					})}
 				</div>
 
-				<Separator className="h-6" orientation="vertical" />
-
-				<Badge size="lg" variant={isCalibrated ? 'success' : 'warning'}>
-					{isCalibrated
-						? `1 px = ${(metersPerPixel * 1000).toFixed(2)} mm · ${
-								pageOverride === null ? 'all pages' : 'this page'
-							}`
-						: 'Not calibrated'}
-				</Badge>
-				{pageOverride !== null && (
-					<Button
-						onClick={() =>
-							setPageCalibrations((prev) => {
-								const next = { ...prev };
-								delete next[page];
-								return next;
-							})
-						}
-						size="sm"
-						variant="ghost"
-					>
-						Use PDF scale
-					</Button>
-				)}
-
 				{canFinish && (
 					<Button onClick={finishDraft} size="sm" variant="secondary">
 						Finish
@@ -347,6 +320,7 @@ export default function TakeoffsContent() {
 				<MeasurementsPanel
 					calibrated={isCalibrated}
 					measurements={measurements}
+					metersPerPixel={metersPerPixel}
 					onClearAll={() => {
 						setMeasurements([]);
 						resetDraft();
@@ -357,6 +331,16 @@ export default function TakeoffsContent() {
 					}}
 					onDelete={(id) =>
 						setMeasurements((prev) => prev.filter((m) => m.id !== id))
+					}
+					onUsePdfScale={
+						pageOverride === null
+							? undefined
+							: () =>
+									setPageCalibrations((prev) => {
+										const next = { ...prev };
+										delete next[page];
+										return next;
+									})
 					}
 					page={page}
 				/>
