@@ -31,6 +31,7 @@ import {
 	ListTodo,
 	type LucideIcon,
 	Package,
+	Ruler,
 	Settings,
 	SquaresIntersect,
 	Wallet,
@@ -111,6 +112,13 @@ const items: SidebarItem[] = [
 		url: '/notifications',
 		path: '/notifications',
 		icon: Bell,
+	},
+	// Temporary: takeoffs PDF measurement test page.
+	{
+		title: 'Takeoffs',
+		url: '/takeoffs',
+		path: '/takeoffs',
+		icon: Ruler,
 	},
 	{
 		title: 'Lists',
