@@ -23,6 +23,7 @@ import {
 	Pentagon,
 	Ruler,
 	Square,
+	Type,
 } from 'lucide-react';
 import {
 	type ReactElement,
@@ -59,6 +60,7 @@ import type {
 	PageGeometry,
 	Point,
 	ScaleSetting,
+	TextAnnotation,
 	ToolId,
 } from '@/lib/takeoffs/types';
 import { AREA_TYPE_SET } from '@/lib/takeoffs/types';
@@ -132,6 +134,7 @@ const TOOLS: ToolDef[] = [
 	{ id: 'circle', label: 'Circle', icon: Circle, needsCalibration: true },
 	{ id: 'polygon', label: 'Polygon', icon: Pentagon, needsCalibration: true },
 	{ id: 'count', label: 'Count', icon: Hash },
+	{ id: 'text', label: 'Text', icon: Type },
 ];
 
 function getAddTitle(isCalibrated: boolean, tool: ToolId): string {
@@ -207,6 +210,11 @@ export default function TakeoffsContent() {
 	// Per-page legend boxes (base-pixel space). In-memory only, matching the rest
 	// of this prototype; one legend per page.
 	const [legends, setLegends] = useState<Record<number, Legend>>({});
+	// Per-page text annotations (base-pixel space). In-memory only, like legends,
+	// but many per page (keyed by id). `newTextId` flags the just-placed box so its
+	// textarea auto-focuses once.
+	const [texts, setTexts] = useState<TextAnnotation[]>([]);
+	const [newTextId, setNewTextId] = useState<string | null>(null);
 	// Mirrors `draft` synchronously so rapid clicks accumulate correctly even
 	// before React re-renders (state reads in handlers would otherwise be stale).
 	const draftRef = useRef<Point[]>([]);
@@ -592,6 +600,28 @@ export default function TakeoffsContent() {
 	const handleStageClick = useCallback(
 		(rawPoint: Point, snap = false, scale = 1) => {
 			const { point } = computeSnap(rawPoint, snap, scale);
+			if (tool === 'text') {
+				const id = crypto.randomUUID();
+				const width = 220;
+				const height = 80;
+				setTexts((prev) => [
+					...prev,
+					{
+						id,
+						page,
+						x: point.x - width / 2,
+						y: point.y - height / 2,
+						width,
+						height,
+						text: '',
+					},
+				]);
+				setNewTextId(id);
+				// Drop back to Select so the box is immediately editable/movable and
+				// further clicks don't keep spawning boxes.
+				selectTool('select');
+				return;
+			}
 			if (tool === 'count') {
 				setMeasurements((prev) => {
 					const existing = prev.find(
@@ -641,7 +671,7 @@ export default function TakeoffsContent() {
 				writeDraft([...draftRef.current, point]);
 			}
 		},
-		[tool, page, calibTargetScope, writeDraft, computeSnap]
+		[tool, page, calibTargetScope, writeDraft, computeSnap, selectTool]
 	);
 
 	// A pointer drag has begun (rectangle/circle draw, or move/resize of a
@@ -1028,6 +1058,34 @@ export default function TakeoffsContent() {
 		[legends]
 	);
 
+	// Text annotation edit/geometry/remove handlers (mirrors the legend ones).
+	const editText = useCallback((id: string, text: string) => {
+		setTexts((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)));
+	}, []);
+
+	const colorText = useCallback((id: string, color: string) => {
+		setTexts((prev) => prev.map((t) => (t.id === id ? { ...t, color } : t)));
+	}, []);
+
+	const updateText = useCallback(
+		(
+			id: string,
+			next: { height: number; width: number; x: number; y: number }
+		) => {
+			setTexts((prev) =>
+				prev.map((t) => (t.id === id ? { ...t, ...next } : t))
+			);
+		},
+		[]
+	);
+
+	const removeText = useCallback((id: string) => {
+		setTexts((prev) => prev.filter((t) => t.id !== id));
+		setNewTextId((cur) => (cur === id ? null : cur));
+	}, []);
+
+	const clearNewText = useCallback(() => setNewTextId(null), []);
+
 	// Begin a drag on the handle between the canvas and the measurements panel.
 	// The panel sits on the right, so dragging left widens it. Width is clamped
 	// to [MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]; the cursor/selection are locked for
@@ -1074,6 +1132,17 @@ export default function TakeoffsContent() {
 	useEffect(() => {
 		const handler = (event: KeyboardEvent) => {
 			if (calibLine) {
+				return;
+			}
+			// Don't hijack keys while typing into a text annotation (or any field):
+			// Enter/Backspace/Escape must edit text, not finish drafts or delete shapes.
+			const target = event.target as HTMLElement | null;
+			if (
+				target &&
+				(target.tagName === 'TEXTAREA' ||
+					target.tagName === 'INPUT' ||
+					target.isContentEditable)
+			) {
 				return;
 			}
 			const editingSelection =
@@ -1214,6 +1283,7 @@ export default function TakeoffsContent() {
 							(m) => m.page === page && !m.hidden
 						)}
 						metersPerPixel={metersPerPixel}
+						newTextId={newTextId}
 						numPages={numPages}
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
@@ -1223,10 +1293,16 @@ export default function TakeoffsContent() {
 						onPointerUp={handlePointerUp}
 						onStageClick={handleStageClick}
 						onStageDoubleClick={finishDraft}
+						onTextAutoFocused={clearNewText}
+						onTextChange={editText}
+						onTextColorChange={colorText}
+						onTextGeometryChange={updateText}
+						onTextRemove={removeText}
 						page={page}
 						ready={ready}
 						renderPage={renderPage}
 						selectedId={selectedId}
+						textAnnotations={texts.filter((t) => t.page === page)}
 						tool={tool}
 					/>
 				</div>

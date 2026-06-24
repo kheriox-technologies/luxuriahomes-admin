@@ -14,7 +14,8 @@ export type ToolId =
 	| 'rectangle'
 	| 'circle'
 	| 'polygon'
-	| 'count';
+	| 'count'
+	| 'text';
 
 export type MeasurementType =
 	| 'linear'
@@ -91,6 +92,28 @@ export interface Calibration {
 export interface Legend {
 	page: number;
 	/** Box width, base px. Font size scales with width; height follows content. */
+	width: number;
+	/** Top-left x, base px. */
+	x: number;
+	/** Top-left y, base px. */
+	y: number;
+}
+
+// A free-text annotation anchored to one page, in BASE canvas-pixel space (same
+// coordinate system as Measurement.points / Legend) so it scales, pans and prints
+// with the page. Unlike Legend there can be many per page (keyed by id) and the
+// box is freely resizable in both axes; the font size is derived from the width at
+// render time (like the legend), so it scales with the box and is not stored.
+export interface TextAnnotation {
+	/** Text colour (hex); falls back to a dark neutral when unset. */
+	color?: string;
+	/** Box height, base px. */
+	height: number;
+	id: string;
+	page: number;
+	/** Text content (plain). */
+	text: string;
+	/** Box width, base px. Font size scales with this. */
 	width: number;
 	/** Top-left x, base px. */
 	x: number;

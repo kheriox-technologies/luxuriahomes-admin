@@ -39,9 +39,11 @@ import {
 	type Legend,
 	type Measurement,
 	type Point,
+	type TextAnnotation,
 	type ToolId,
 } from '@/lib/takeoffs/types';
 import LegendOverlay from './legend-overlay';
+import TextOverlay from './text-overlay';
 import type { RenderedSize } from './use-pdf-document';
 
 const TOOL_COLORS: Record<string, string> = {
@@ -66,6 +68,7 @@ interface PdfStageProps {
 	legend: Legend | null;
 	measurements: Measurement[];
 	metersPerPixel: number | null;
+	newTextId: string | null;
 	numPages: number;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
@@ -75,6 +78,14 @@ interface PdfStageProps {
 	onPointerUp: (point: Point) => void;
 	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
+	onTextAutoFocused: () => void;
+	onTextChange: (id: string, text: string) => void;
+	onTextColorChange: (id: string, color: string) => void;
+	onTextGeometryChange: (
+		id: string,
+		next: { height: number; width: number; x: number; y: number }
+	) => void;
+	onTextRemove: (id: string) => void;
 	page: number;
 	ready: boolean;
 	renderPage: (
@@ -82,6 +93,7 @@ interface PdfStageProps {
 		canvas: HTMLCanvasElement
 	) => Promise<RenderedSize | null>;
 	selectedId: string | null;
+	textAnnotations: TextAnnotation[];
 	tool: ToolId;
 }
 
@@ -308,6 +320,13 @@ export default function PdfStage({
 	onLegendRemove,
 	onPointerUp,
 	onExitToPan,
+	textAnnotations,
+	newTextId,
+	onTextChange,
+	onTextColorChange,
+	onTextGeometryChange,
+	onTextRemove,
+	onTextAutoFocused,
 }: PdfStageProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
@@ -629,6 +648,22 @@ export default function PdfStage({
 								scale={scale}
 							/>
 						)}
+						{size &&
+							textAnnotations.map((annotation) => (
+								<TextOverlay
+									annotation={annotation}
+									autoFocus={annotation.id === newTextId}
+									key={annotation.id}
+									onAutoFocused={onTextAutoFocused}
+									onChange={(next) => onTextGeometryChange(annotation.id, next)}
+									onColorChange={(color) =>
+										onTextColorChange(annotation.id, color)
+									}
+									onRemove={() => onTextRemove(annotation.id)}
+									onTextChange={(text) => onTextChange(annotation.id, text)}
+									scale={scale}
+								/>
+							))}
 					</div>
 				</TransformComponent>
 			</TransformWrapper>
