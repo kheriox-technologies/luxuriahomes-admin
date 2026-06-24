@@ -70,6 +70,34 @@ export interface Calibration {
 	page: number;
 }
 
+// Standard paper sizes, plus 'auto' which reads the PDF's intrinsic media box.
+export type PaperSize = 'A0' | 'A1' | 'A2' | 'A3' | 'A4' | 'auto';
+
+// A known drawing scale (e.g. 1:100 on A3) — resolved to metres-per-pixel using
+// each page's geometry, since render scale and orientation vary per page.
+export interface ScaleSetting {
+	paper: PaperSize;
+	/** Denominator of the scale ratio, e.g. 100 for 1:100. */
+	ratio: number;
+}
+
+// Natural (PDF point) + rendered (base-pixel) geometry of one page.
+export interface PageGeometry {
+	baseHeight: number;
+	baseWidth: number;
+	naturalHeight: number;
+	naturalWidth: number;
+}
+
+// How a page's measurement scale is determined. Calibration resolves to a fixed
+// metres-per-pixel; a drawing scale resolves per page via PageGeometry.
+export type MeasurementMethod =
+	| { kind: 'calibration'; mpp: number }
+	| { kind: 'scale'; scale: ScaleSetting };
+
+// Whether a scale/calibration sets the PDF-wide default or one page's override.
+export type MethodScope = 'all' | 'page';
+
 // An in-progress pointer drag. `draw-*` create a new shape; `move` repositions a
 // committed shape; `handle` resizes one of its points. For every mode the live
 // update is uniform: replace `orig[index]` with the pointer (handle), translate

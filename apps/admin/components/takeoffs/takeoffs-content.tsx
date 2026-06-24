@@ -39,7 +39,9 @@ import {
 	measure,
 	randomShapeColor,
 	rectArea,
+	resolveMpp,
 	type SnapGuide,
+	scaleToMpp,
 	snapPolylinePoint,
 	toMetres,
 	translatePoints,
@@ -49,18 +51,27 @@ import type {
 	DragKind,
 	LengthUnit,
 	Measurement,
+	MeasurementMethod,
 	MeasurementType,
+	MethodScope,
+	PageGeometry,
 	Point,
+	ScaleSetting,
 	ToolId,
 } from '@/lib/takeoffs/types';
 import { AREA_TYPE_SET } from '@/lib/takeoffs/types';
 import MeasurementsPanel from './measurements-panel';
 import PdfStage from './pdf-stage';
 import PdfThumbnails from './pdf-thumbnails';
+import ScaleControl from './scale-control';
+import ScaleDialog from './scale-dialog';
 import { usePdfDocument } from './use-pdf-document';
 
 const PDF_URL = '/sample-plan.pdf';
 const UNITS: LengthUnit[] = ['mm', 'cm', 'm'];
+// Auto-applied default: most plans are A3 at 1:100, so tools work without any
+// manual calibration. The user can change this globally or per page.
+const DEFAULT_SCALE: ScaleSetting = { ratio: 100, paper: 'A3' };
 // Minimum drag size (base px) before a rectangle/circle is committed; smaller
 // drags are treated as an accidental click and discarded.
 const MIN_DRAW_PX = 3;
@@ -86,9 +97,6 @@ const TYPE_LABEL: Record<MeasurementType, string> = {
 	polygon: 'Polygon',
 	count: 'Count',
 };
-
-// Whether a calibration sets the PDF-wide default or overrides a single page.
-type CalibScope = 'all' | 'page';
 
 interface ToolDef {
 	icon: typeof Hand;
@@ -129,8 +137,15 @@ function dedupeConsecutive(points: Point[]): Point[] {
 }
 
 export default function TakeoffsContent() {
-	const { numPages, renderPage, renderThumbnail, extractText, error, ready } =
-		usePdfDocument(PDF_URL);
+	const {
+		numPages,
+		renderPage,
+		renderThumbnail,
+		extractText,
+		getPageGeometry,
+		error,
+		ready,
+	} = usePdfDocument(PDF_URL);
 
 	const [page, setPage] = useState(1);
 	const [tool, setTool] = useState<ToolId>('pan');
@@ -147,13 +162,17 @@ export default function TakeoffsContent() {
 	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
 	// them synchronously to auto-name area shapes.
 	const pageTextRef = useRef<Map<number, TextBox[]>>(new Map());
-	// PDF-wide default scale, plus optional per-page overrides.
-	const [documentCalibration, setDocumentCalibration] = useState<number | null>(
-		null
-	);
-	const [pageCalibrations, setPageCalibrations] = useState<
-		Record<number, number>
+	// PDF-wide default measurement method (scale or calibration), plus optional
+	// per-page overrides. Defaults to a 1:100 A3 drawing scale so tools work
+	// immediately.
+	const [documentMethod, setDocumentMethod] =
+		useState<MeasurementMethod | null>({ kind: 'scale', scale: DEFAULT_SCALE });
+	const [pageMethods, setPageMethods] = useState<
+		Record<number, MeasurementMethod>
 	>({});
+	// Geometry of the current page (natural + base-pixel dims), needed to resolve
+	// a drawing scale into metres-per-pixel.
+	const [pageGeometry, setPageGeometry] = useState<PageGeometry | null>(null);
 	const [draft, setDraft] = useState<Point[]>([]);
 	const [cursor, setCursor] = useState<Point | null>(null);
 	const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
@@ -174,11 +193,26 @@ export default function TakeoffsContent() {
 	const [calibLine, setCalibLine] = useState<[Point, Point] | null>(null);
 	const [calibValue, setCalibValue] = useState('');
 	const [calibUnit, setCalibUnit] = useState<LengthUnit>('mm');
-	const [calibScope, setCalibScope] = useState<CalibScope>('all');
+	const [calibScope, setCalibScope] = useState<MethodScope>('all');
+	// Intended scope captured when a calibration is initiated (toolbar = all,
+	// page chip = page); used to default the dialog's scope selector.
+	const [calibTargetScope, setCalibTargetScope] = useState<MethodScope>('all');
 
-	const pageOverride = pageCalibrations[page] ?? null;
-	const metersPerPixel = pageOverride ?? documentCalibration;
+	// Scale dialog state.
+	const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
+	const [scaleDialogScope, setScaleDialogScope] = useState<MethodScope>('all');
+	const [scaleDialogPage, setScaleDialogPage] = useState(1);
+
+	// Effective method for the current page (override wins over document default).
+	const method = pageMethods[page] ?? documentMethod;
+	const metersPerPixel = method ? resolveMpp(method, pageGeometry) : null;
 	const isCalibrated = metersPerPixel !== null;
+
+	// Method whose scale seeds the scale dialog when it opens.
+	const scaleDialogMethod =
+		scaleDialogScope === 'all'
+			? documentMethod
+			: (pageMethods[scaleDialogPage] ?? documentMethod);
 
 	const resetDraft = useCallback(() => {
 		writeDraft([]);
@@ -293,6 +327,106 @@ export default function TakeoffsContent() {
 			cancelled = true;
 		};
 	}, [ready, page, extractText]);
+
+	// Load the current page's geometry so a drawing scale can be resolved into
+	// metres-per-pixel. Cleared first so stale geometry from the previous page is
+	// never used for the new one.
+	useEffect(() => {
+		if (!ready) {
+			return;
+		}
+		let cancelled = false;
+		setPageGeometry(null);
+		(async () => {
+			const geom = await getPageGeometry(page);
+			if (!cancelled) {
+				setPageGeometry(geom);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [ready, page, getPageGeometry]);
+
+	// Recompute the value/perimeter of every measurement on the given pages using
+	// the supplied method maps. Resolves a drawing scale per page via geometry.
+	const recomputePages = useCallback(
+		async (
+			pagesToUpdate: number[],
+			docMethod: MeasurementMethod | null,
+			pgMethods: Record<number, MeasurementMethod>
+		) => {
+			const mppByPage = new Map<number, number>();
+			for (const p of pagesToUpdate) {
+				const m = pgMethods[p] ?? docMethod;
+				if (!m) {
+					continue;
+				}
+				if (m.kind === 'calibration') {
+					mppByPage.set(p, m.mpp);
+					continue;
+				}
+				const geom = await getPageGeometry(p);
+				if (geom) {
+					mppByPage.set(p, scaleToMpp(m.scale, geom));
+				}
+			}
+			if (mppByPage.size === 0) {
+				return;
+			}
+			setMeasurements((prev) =>
+				prev.map((shape) => {
+					const mpp = mppByPage.get(shape.page);
+					return mpp === undefined
+						? shape
+						: { ...shape, ...measure(shape.type, shape.points, mpp) };
+				})
+			);
+		},
+		[getPageGeometry]
+	);
+
+	// Set the document default (scope 'all', also clearing the target page's
+	// override) or a per-page override (scope 'page'), then recompute affected
+	// measurements with the new method.
+	const applyMethod = useCallback(
+		async (
+			nextMethod: MeasurementMethod,
+			scope: MethodScope,
+			targetPage = page
+		) => {
+			let nextDocument = documentMethod;
+			let nextPageMethods = pageMethods;
+			if (scope === 'all') {
+				nextDocument = nextMethod;
+				nextPageMethods = { ...pageMethods };
+				delete nextPageMethods[targetPage];
+				setDocumentMethod(nextMethod);
+				setPageMethods(nextPageMethods);
+			} else {
+				nextPageMethods = { ...pageMethods, [targetPage]: nextMethod };
+				setPageMethods(nextPageMethods);
+			}
+			const affectedPages =
+				scope === 'all'
+					? [...new Set(measurements.map((m) => m.page))]
+					: [targetPage];
+			await recomputePages(affectedPages, nextDocument, nextPageMethods);
+		},
+		[documentMethod, pageMethods, page, measurements, recomputePages]
+	);
+
+	// Drop a page's override so it follows the document default again, then
+	// recompute that page.
+	const resetPageMethod = useCallback(
+		async (targetPage: number) => {
+			const nextPageMethods = { ...pageMethods };
+			delete nextPageMethods[targetPage];
+			setPageMethods(nextPageMethods);
+			await recomputePages([targetPage], documentMethod, nextPageMethods);
+		},
+		[pageMethods, documentMethod, recomputePages]
+	);
 
 	const commit = useCallback(
 		(type: MeasurementType, points: Point[]) => {
@@ -465,8 +599,8 @@ export default function TakeoffsContent() {
 				const next = [...draftRef.current, point];
 				if (next.length === 2) {
 					setCalibLine([next[0], next[1]]);
-					// Default scope: PDF-wide the first time, page override afterwards.
-					setCalibScope(documentCalibration === null ? 'all' : 'page');
+					// Default to the scope captured when calibration was initiated.
+					setCalibScope(calibTargetScope);
 					writeDraft([]);
 				} else {
 					writeDraft(next);
@@ -478,7 +612,7 @@ export default function TakeoffsContent() {
 				writeDraft([...draftRef.current, point]);
 			}
 		},
-		[tool, page, documentCalibration, writeDraft, computeSnap]
+		[tool, page, calibTargetScope, writeDraft, computeSnap]
 	);
 
 	// A pointer drag has begun (rectangle/circle draw, or move/resize of a
@@ -586,21 +720,36 @@ export default function TakeoffsContent() {
 		const pixels = distance(calibLine[0], calibLine[1]);
 		if (realMeters > 0 && pixels > 0) {
 			const mpp = realMeters / pixels;
-			if (calibScope === 'all') {
-				// Set the PDF-wide default and drop this page's override so it follows it.
-				setDocumentCalibration(mpp);
-				setPageCalibrations((prev) => {
-					const next = { ...prev };
-					delete next[page];
-					return next;
-				});
-			} else {
-				setPageCalibrations((prev) => ({ ...prev, [page]: mpp }));
-			}
+			applyMethod({ kind: 'calibration', mpp }, calibScope).catch(() => {
+				// Recompute failure leaves existing values; nothing to surface.
+			});
 		}
 		setCalibLine(null);
 		setCalibValue('');
-	}, [calibLine, calibValue, calibUnit, calibScope, page]);
+	}, [calibLine, calibValue, calibUnit, calibScope, applyMethod]);
+
+	// Activate the calibrate tool with the intended scope, navigating first when
+	// targeting a different page (calibration must be drawn on that page).
+	const startCalibration = useCallback(
+		(scope: MethodScope, targetPage?: number) => {
+			setCalibTargetScope(scope);
+			if (targetPage !== undefined && targetPage !== page) {
+				goToPage(targetPage);
+			}
+			selectTool('calibrate');
+		},
+		[page, goToPage, selectTool]
+	);
+
+	// Open the drawing-scale dialog for the document default or a specific page.
+	const openScaleDialog = useCallback(
+		(scope: MethodScope, targetPage = page) => {
+			setScaleDialogScope(scope);
+			setScaleDialogPage(targetPage);
+			setScaleDialogOpen(true);
+		},
+		[page]
+	);
 
 	const deleteMeasurement = useCallback((id: string) => {
 		// Deleting a parent also removes its deductions; deleting any group member
@@ -771,9 +920,12 @@ export default function TakeoffsContent() {
 					</Button>
 				)}
 
-				<span className="ml-auto text-muted-foreground text-xs">
-					Scroll to zoom · Select to edit/move · Enter/Esc to finish/cancel
-				</span>
+				<ScaleControl
+					calibrating={tool === 'calibrate' && calibTargetScope === 'all'}
+					method={documentMethod}
+					onCalibrate={() => startCalibration('all')}
+					onOpenScaleDialog={() => openScaleDialog('all')}
+				/>
 			</div>
 
 			<div className="flex min-h-0 flex-1 gap-3">
@@ -809,11 +961,12 @@ export default function TakeoffsContent() {
 				</div>
 
 				<MeasurementsPanel
-					calibrated={isCalibrated}
-					calibrating={tool === 'calibrate'}
+					documentMethod={documentMethod}
 					measurements={measurements}
 					metersPerPixel={metersPerPixel}
-					onCalibrate={() => selectTool('calibrate')}
+					onCalibrate={(scope, targetPage) =>
+						startCalibration(scope, targetPage)
+					}
 					onClearAll={() => {
 						setMeasurements([]);
 						resetDraft();
@@ -827,20 +980,19 @@ export default function TakeoffsContent() {
 						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}
+					onOpenScaleDialog={(scope, targetPage) =>
+						openScaleDialog(scope, targetPage)
+					}
 					onRecolorMeasurement={recolorMeasurement}
 					onRenameMeasurement={renameMeasurement}
+					onResetPage={(targetPage) => {
+						resetPageMethod(targetPage).catch(() => {
+							// Recompute failure leaves existing values unchanged.
+						});
+					}}
 					onSelectMeasurement={focusMeasurement}
-					onUsePdfScale={
-						pageOverride === null
-							? undefined
-							: () =>
-									setPageCalibrations((prev) => {
-										const next = { ...prev };
-										delete next[page];
-										return next;
-									})
-					}
 					page={page}
+					pageMethods={pageMethods}
 					selectedId={selectedId}
 				/>
 			</div>
@@ -859,6 +1011,26 @@ export default function TakeoffsContent() {
 				scope={calibScope}
 				unit={calibUnit}
 				value={calibValue}
+			/>
+
+			<ScaleDialog
+				initialScale={
+					scaleDialogMethod?.kind === 'scale'
+						? scaleDialogMethod.scale
+						: DEFAULT_SCALE
+				}
+				initialScope={scaleDialogScope}
+				onCancel={() => setScaleDialogOpen(false)}
+				onConfirm={(scale, scope) => {
+					applyMethod({ kind: 'scale', scale }, scope, scaleDialogPage).catch(
+						() => {
+							// Recompute failure leaves existing values unchanged.
+						}
+					);
+					setScaleDialogOpen(false);
+				}}
+				open={scaleDialogOpen}
+				page={scaleDialogPage}
 			/>
 		</div>
 	);
@@ -879,15 +1051,15 @@ function CalibrationDialog({
 	open: boolean;
 	value: string;
 	unit: LengthUnit;
-	scope: CalibScope;
+	scope: MethodScope;
 	page: number;
 	onValueChange: (value: string) => void;
 	onUnitChange: (unit: LengthUnit) => void;
-	onScopeChange: (scope: CalibScope) => void;
+	onScopeChange: (scope: MethodScope) => void;
 	onConfirm: () => void;
 	onCancel: () => void;
 }): ReactElement {
-	const scopeOptions: Array<{ id: CalibScope; label: string }> = [
+	const scopeOptions: Array<{ id: MethodScope; label: string }> = [
 		{ id: 'all', label: 'All pages' },
 		{ id: 'page', label: `This page only (${page})` },
 	];

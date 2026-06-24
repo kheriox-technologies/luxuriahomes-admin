@@ -19,6 +19,11 @@ import {
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@workspace/ui/components/popover';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { cn } from '@workspace/ui/lib/utils';
 import {
@@ -31,6 +36,7 @@ import {
 	Layers,
 	MousePointer2,
 	Pentagon,
+	RotateCcw,
 	Ruler,
 	Square,
 	Trash2,
@@ -38,11 +44,17 @@ import {
 import { type ReactElement, useEffect, useRef, useState } from 'react';
 import {
 	formatMeters,
+	formatMethodLabel,
 	formatSqm,
 	netAreaSqm,
 	unionMeasure,
 } from '@/lib/takeoffs/geometry';
-import { AREA_TYPE_SET, type Measurement } from '@/lib/takeoffs/types';
+import {
+	AREA_TYPE_SET,
+	type Measurement,
+	type MeasurementMethod,
+	type MethodScope,
+} from '@/lib/takeoffs/types';
 import ColorSwatchPicker from './color-swatch-picker';
 
 const FALLBACK_COLOR = '#2563eb';
@@ -131,12 +143,13 @@ function buildRows(pageMeasurements: Measurement[]): Row[] {
 export default function MeasurementsPanel({
 	page,
 	measurements,
-	calibrated,
-	calibrating,
+	documentMethod,
+	pageMethods,
 	metersPerPixel,
 	selectedId,
+	onOpenScaleDialog,
 	onCalibrate,
-	onUsePdfScale,
+	onResetPage,
 	onDelete,
 	onClearPage,
 	onClearAll,
@@ -146,12 +159,13 @@ export default function MeasurementsPanel({
 }: {
 	page: number;
 	measurements: Measurement[];
-	calibrated: boolean;
-	calibrating: boolean;
+	documentMethod: MeasurementMethod | null;
+	pageMethods: Record<number, MeasurementMethod>;
 	metersPerPixel: number | null;
 	selectedId: string | null;
-	onCalibrate: () => void;
-	onUsePdfScale?: () => void;
+	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
+	onCalibrate: (scope: MethodScope, targetPage: number) => void;
+	onResetPage: (targetPage: number) => void;
 	onDelete: (id: string) => void;
 	onClearPage: () => void;
 	onClearAll: () => void;
@@ -173,40 +187,8 @@ export default function MeasurementsPanel({
 
 	return (
 		<div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-card">
-			<div className="flex flex-col gap-2 border-b p-3">
-				<div className="flex items-center justify-between">
-					<h2 className="font-semibold text-sm">Measurements</h2>
-					<Button
-						aria-label="Calibrate scale"
-						onClick={onCalibrate}
-						size="icon-sm"
-						title="Calibrate scale — draw a line of known length"
-						variant={calibrating ? 'default' : 'ghost'}
-					>
-						<Crosshair />
-					</Button>
-				</div>
-				<Badge
-					className="self-start"
-					size="lg"
-					variant={calibrated ? 'success' : 'warning'}
-				>
-					{calibrated && metersPerPixel !== null
-						? `1 px = ${(metersPerPixel * 1000).toFixed(2)} mm · ${
-								onUsePdfScale ? 'this page' : 'all pages'
-							}`
-						: 'Not calibrated'}
-				</Badge>
-				{onUsePdfScale && (
-					<Button
-						className="self-start"
-						onClick={onUsePdfScale}
-						size="sm"
-						variant="ghost"
-					>
-						Use PDF scale
-					</Button>
-				)}
+			<div className="flex items-center justify-between border-b p-3">
+				<h2 className="font-semibold text-sm">Measurements</h2>
 			</div>
 
 			{/* Measurements toolbar: expand/collapse + clear actions. */}
@@ -270,10 +252,10 @@ export default function MeasurementsPanel({
 							const rows = buildRows(pageMeasurements);
 							return (
 								<AccordionItem key={pageNumber} value={String(pageNumber)}>
-									<AccordionPrimitive.Header className="flex">
+									<AccordionPrimitive.Header className="flex items-center gap-1 bg-muted/50 pr-2">
 										<AccordionPrimitive.Trigger
 											className={cn(
-												'flex flex-1 cursor-pointer items-center justify-between gap-2 px-3 py-2.5 outline-none transition-colors hover:bg-muted/40',
+												'flex flex-1 cursor-pointer items-center gap-2 px-3 py-2.5 outline-none transition-colors hover:bg-muted/40',
 												'focus-visible:ring-[3px] focus-visible:ring-ring',
 												'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
 											)}
@@ -286,10 +268,19 @@ export default function MeasurementsPanel({
 													data-slot="accordion-indicator"
 												/>
 											</span>
-											<Badge size="lg" variant="outline">
+											<Badge className="ml-auto" size="lg" variant="outline">
 												{rows.length}
 											</Badge>
 										</AccordionPrimitive.Trigger>
+										<PageMethodChip
+											documentMethod={documentMethod}
+											hasOverride={pageMethods[pageNumber] !== undefined}
+											method={pageMethods[pageNumber] ?? documentMethod}
+											onCalibrate={onCalibrate}
+											onOpenScaleDialog={onOpenScaleDialog}
+											onResetPage={onResetPage}
+											page={pageNumber}
+										/>
 									</AccordionPrimitive.Header>
 									<AccordionPanel className="px-2 pt-1 pb-2">
 										<ul className="flex flex-col gap-1">
@@ -338,6 +329,106 @@ export default function MeasurementsPanel({
 				)}
 			</ScrollArea>
 		</div>
+	);
+}
+
+// Per-page scale/calibration chip shown in each accordion header. Reflects the
+// page's effective method (its own override, or the inherited document default)
+// and opens a popover to set an override or reset to the document default.
+function PageMethodChip({
+	page,
+	method,
+	hasOverride,
+	documentMethod,
+	onOpenScaleDialog,
+	onCalibrate,
+	onResetPage,
+}: {
+	page: number;
+	method: MeasurementMethod | null;
+	hasOverride: boolean;
+	documentMethod: MeasurementMethod | null;
+	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
+	onCalibrate: (scope: MethodScope, targetPage: number) => void;
+	onResetPage: (targetPage: number) => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const label = method ? formatMethodLabel(method) : 'Not set';
+
+	return (
+		<Popover onOpenChange={setOpen} open={open}>
+			<PopoverTrigger
+				render={
+					<Button
+						className="h-7 gap-1 px-2 font-medium text-xs"
+						size="sm"
+						title={
+							hasOverride
+								? 'This page has its own scale'
+								: 'Inherited from the document default'
+						}
+						variant={hasOverride ? 'secondary' : 'ghost'}
+					>
+						{method?.kind === 'calibration' ? (
+							<Crosshair className="size-3.5" />
+						) : (
+							<Ruler className="size-3.5" />
+						)}
+						{label}
+					</Button>
+				}
+			/>
+			<PopoverContent align="end" className="w-60">
+				<div className="flex flex-col gap-2">
+					<p className="font-medium text-sm">Scale · Page {page}</p>
+					<p className="text-muted-foreground text-xs">
+						{hasOverride
+							? 'This page overrides the document default.'
+							: 'Following the document default. Set an override below.'}
+					</p>
+					<Button
+						className="justify-start"
+						onClick={() => {
+							setOpen(false);
+							onOpenScaleDialog('page', page);
+						}}
+						size="sm"
+						variant="outline"
+					>
+						<Ruler />
+						Drawing scale…
+					</Button>
+					<Button
+						className="justify-start"
+						onClick={() => {
+							setOpen(false);
+							onCalibrate('page', page);
+						}}
+						size="sm"
+						variant="outline"
+					>
+						<Crosshair />
+						Calibrate from line
+					</Button>
+					{hasOverride && (
+						<Button
+							className="justify-start"
+							onClick={() => {
+								setOpen(false);
+								onResetPage(page);
+							}}
+							size="sm"
+							variant="ghost"
+						>
+							<RotateCcw />
+							{documentMethod
+								? `Reset to default (${formatMethodLabel(documentMethod)})`
+								: 'Reset to document default'}
+						</Button>
+					)}
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 }
 

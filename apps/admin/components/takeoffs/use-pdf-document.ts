@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildTextBoxes, type TextBox } from '@/lib/takeoffs/text-layer';
+import type { PageGeometry } from '@/lib/takeoffs/types';
 
 // pdfjs is imported dynamically (client-only) so it never runs during SSR.
 interface PdfDocument {
@@ -48,6 +49,8 @@ export function usePdfDocument(url: string) {
 	const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
 	// Per-page text boxes, extracted once and reused (getTextContent is costly).
 	const textCacheRef = useRef<Map<number, TextBox[]>>(new Map());
+	// Per-page natural + base-pixel geometry, used to resolve drawing scales.
+	const geometryCacheRef = useRef<Map<number, PageGeometry>>(new Map());
 
 	useEffect(() => {
 		let cancelled = false;
@@ -61,6 +64,7 @@ export function usePdfDocument(url: string) {
 					return;
 				}
 				textCacheRef.current.clear();
+				geometryCacheRef.current.clear();
 				setDoc(loaded);
 				setNumPages(loaded.numPages);
 			} catch (err) {
@@ -171,11 +175,42 @@ export function usePdfDocument(url: string) {
 		[doc]
 	);
 
+	// Natural (point) and rendered (base-pixel) dimensions of a page, in the same
+	// pixel space as renderPage. Cached per page; used to resolve drawing scales.
+	const getPageGeometry = useCallback(
+		async (pageNumber: number): Promise<PageGeometry | null> => {
+			if (!doc) {
+				return null;
+			}
+			const cached = geometryCacheRef.current.get(pageNumber);
+			if (cached) {
+				return cached;
+			}
+			try {
+				const page = await doc.getPage(pageNumber);
+				const natural = page.getViewport({ scale: 1 });
+				const scale = renderScale(natural.width);
+				const geometry: PageGeometry = {
+					naturalWidth: natural.width,
+					naturalHeight: natural.height,
+					baseWidth: Math.floor(natural.width * scale),
+					baseHeight: Math.floor(natural.height * scale),
+				};
+				geometryCacheRef.current.set(pageNumber, geometry);
+				return geometry;
+			} catch {
+				return null;
+			}
+		},
+		[doc]
+	);
+
 	return {
 		numPages,
 		renderPage,
 		renderThumbnail,
 		extractText,
+		getPageGeometry,
 		error,
 		ready: doc !== null,
 	};

@@ -4,8 +4,12 @@ import {
 	AREA_TYPE_SET,
 	type LengthUnit,
 	type Measurement,
+	type MeasurementMethod,
 	type MeasurementType,
+	type PageGeometry,
+	type PaperSize,
 	type Point,
+	type ScaleSetting,
 } from './types';
 
 export function distance(a: Point, b: Point): number {
@@ -443,6 +447,64 @@ const METRES_PER_UNIT: Record<LengthUnit, number> = {
 
 export function toMetres(value: number, unit: LengthUnit): number {
 	return value * METRES_PER_UNIT[unit];
+}
+
+// 1 PDF point = 1/72 inch; 1 inch = 0.0254 m.
+const POINT_TO_METER = 0.0254 / 72;
+
+// [short edge, long edge] in mm for each ISO A-series sheet.
+const PAPER_SIZES_MM: Record<Exclude<PaperSize, 'auto'>, [number, number]> = {
+	A0: [841, 1189],
+	A1: [594, 841],
+	A2: [420, 594],
+	A3: [297, 420],
+	A4: [210, 297],
+};
+
+// A-series sizes offered in the scale picker (excludes the 'auto' option).
+export const PAPER_SIZE_OPTIONS = ['A4', 'A3', 'A2', 'A1', 'A0'] as const;
+
+/**
+ * Convert a drawing scale (e.g. 1:100 on A3) to metres-per-pixel for one page.
+ * The physical paper width is taken from the chosen ISO size (matched to the
+ * page's orientation) or, for 'auto', from the PDF's intrinsic point size; the
+ * scale ratio then maps paper distance to real-world distance.
+ */
+export function scaleToMpp(scale: ScaleSetting, geom: PageGeometry): number {
+	const isLandscape = geom.naturalWidth >= geom.naturalHeight;
+	let paperWidthMeters: number;
+	if (scale.paper === 'auto') {
+		paperWidthMeters = geom.naturalWidth * POINT_TO_METER;
+	} else {
+		const [shortMm, longMm] = PAPER_SIZES_MM[scale.paper];
+		paperWidthMeters = (isLandscape ? longMm : shortMm) / 1000;
+	}
+	return (scale.ratio * paperWidthMeters) / geom.baseWidth;
+}
+
+/** Resolve any method to metres-per-pixel (geometry only needed for scale). */
+export function resolveMpp(
+	method: MeasurementMethod,
+	geom: PageGeometry | null
+): number | null {
+	if (method.kind === 'calibration') {
+		return method.mpp;
+	}
+	return geom ? scaleToMpp(method.scale, geom) : null;
+}
+
+/** Compact label for a drawing scale, e.g. "1:100 · A3" or "1:50 · Auto". */
+export function formatScaleLabel(scale: ScaleSetting): string {
+	const paper = scale.paper === 'auto' ? 'Auto' : scale.paper;
+	return `1:${scale.ratio} · ${paper}`;
+}
+
+/** One-line label for any method (scale label, or calibrated px→mm). */
+export function formatMethodLabel(method: MeasurementMethod): string {
+	if (method.kind === 'scale') {
+		return formatScaleLabel(method.scale);
+	}
+	return `1 px = ${(method.mpp * 1000).toFixed(2)} mm`;
 }
 
 /**
