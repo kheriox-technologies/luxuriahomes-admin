@@ -84,6 +84,20 @@ export interface Calibration {
 	page: number;
 }
 
+// A print-style legend box anchored to one page, in BASE canvas-pixel space (the
+// same coordinate system as Measurement.points) so it scales, pans and prints
+// with the page. Height is not stored — the table auto-fits its rows so printing
+// never clips content; resize adjusts width, move adjusts x/y. One legend per page.
+export interface Legend {
+	page: number;
+	/** Box width, base px. Font size scales with width; height follows content. */
+	width: number;
+	/** Top-left x, base px. */
+	x: number;
+	/** Top-left y, base px. */
+	y: number;
+}
+
 // Standard paper sizes, plus 'auto' which reads the PDF's intrinsic media box.
 export type PaperSize = 'A0' | 'A1' | 'A2' | 'A3' | 'A4' | 'auto';
 

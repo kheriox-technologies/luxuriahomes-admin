@@ -50,6 +50,7 @@ import {
 import { detectLabelForShape, type TextBox } from '@/lib/takeoffs/text-layer';
 import type {
 	DragKind,
+	Legend,
 	LengthUnit,
 	Measurement,
 	MeasurementMethod,
@@ -90,6 +91,14 @@ const MIN_PANEL_WIDTH = 240;
 const MAX_PANEL_WIDTH = 640;
 // Keyboard nudge per arrow-key press on the resize handle (px).
 const PANEL_RESIZE_STEP = 16;
+
+// Default legend box geometry as a fraction of the page's base size (a 3% inset
+// from the top-left, ~28% of the page width). Fallbacks (base px) cover the rare
+// case where the page geometry hasn't loaded yet when a legend is added.
+const LEGEND_INSET_RATIO = 0.03;
+const LEGEND_WIDTH_RATIO = 0.28;
+const LEGEND_FALLBACK_INSET = 24;
+const LEGEND_FALLBACK_WIDTH = 320;
 
 // Tools that draw a measurement and can therefore belong to an "Add" group.
 const DRAWABLE_TOOLS = new Set<ToolId>([
@@ -195,6 +204,9 @@ export default function TakeoffsContent() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	// Width (px) of the measurements panel, adjustable via the drag handle.
 	const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+	// Per-page legend boxes (base-pixel space). In-memory only, matching the rest
+	// of this prototype; one legend per page.
+	const [legends, setLegends] = useState<Record<number, Legend>>({});
 	// Mirrors `draft` synchronously so rapid clicks accumulate correctly even
 	// before React re-renders (state reads in handlers would otherwise be stale).
 	const draftRef = useRef<Point[]>([]);
@@ -946,6 +958,76 @@ export default function TakeoffsContent() {
 		});
 	}, []);
 
+	// Add a legend to a page (no-op if it already has one), sized relative to that
+	// page's geometry. The geometry fetch is async, so this resolves it then writes
+	// the legend; on failure it falls back to fixed base-pixel defaults.
+	const addLegend = useCallback(
+		(targetPage: number) => {
+			if (legends[targetPage]) {
+				return;
+			}
+			const write = (legend: Legend) =>
+				setLegends((prev) =>
+					prev[targetPage] ? prev : { ...prev, [targetPage]: legend }
+				);
+			getPageGeometry(targetPage)
+				.then((geom) => {
+					write(
+						geom
+							? {
+									page: targetPage,
+									x: Math.round(geom.baseWidth * LEGEND_INSET_RATIO),
+									y: Math.round(geom.baseHeight * LEGEND_INSET_RATIO),
+									width: Math.round(geom.baseWidth * LEGEND_WIDTH_RATIO),
+								}
+							: {
+									page: targetPage,
+									x: LEGEND_FALLBACK_INSET,
+									y: LEGEND_FALLBACK_INSET,
+									width: LEGEND_FALLBACK_WIDTH,
+								}
+					);
+				})
+				.catch(() => {
+					write({
+						page: targetPage,
+						x: LEGEND_FALLBACK_INSET,
+						y: LEGEND_FALLBACK_INSET,
+						width: LEGEND_FALLBACK_WIDTH,
+					});
+				});
+		},
+		[legends, getPageGeometry]
+	);
+
+	const removeLegend = useCallback((targetPage: number) => {
+		setLegends((prev) => {
+			const next = { ...prev };
+			delete next[targetPage];
+			return next;
+		});
+	}, []);
+
+	// Patch the current page's legend position/size (from drag-move / resize).
+	const updateLegend = useCallback(
+		(next: { width: number; x: number; y: number }) => {
+			setLegends((prev) => {
+				const current = prev[page];
+				if (!current) {
+					return prev;
+				}
+				return { ...prev, [page]: { ...current, ...next } };
+			});
+		},
+		[page]
+	);
+
+	// Pages that currently have a legend, for the per-page actions menu.
+	const legendPages = useMemo(
+		() => new Set(Object.keys(legends).map(Number)),
+		[legends]
+	);
+
 	// Begin a drag on the handle between the canvas and the measurements panel.
 	// The panel sits on the right, so dragging left widens it. Width is clamped
 	// to [MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]; the cursor/selection are locked for
@@ -1127,6 +1209,7 @@ export default function TakeoffsContent() {
 						draft={draft}
 						error={error}
 						guides={snapGuides}
+						legend={legends[page] ?? null}
 						measurements={measurements.filter(
 							(m) => m.page === page && !m.hidden
 						)}
@@ -1135,6 +1218,8 @@ export default function TakeoffsContent() {
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
 						onExitToPan={() => selectTool('pan')}
+						onLegendChange={updateLegend}
+						onLegendRemove={() => removeLegend(page)}
 						onPointerUp={handlePointerUp}
 						onStageClick={handleStageClick}
 						onStageDoubleClick={finishDraft}
@@ -1159,8 +1244,10 @@ export default function TakeoffsContent() {
 				<MeasurementsPanel
 					documentMethod={documentMethod}
 					globalWastage={globalWastage}
+					legendPages={legendPages}
 					measurements={measurements}
 					metersPerPixel={metersPerPixel}
+					onAddLegend={addLegend}
 					onCalibrate={(scope, targetPage) =>
 						startCalibration(scope, targetPage)
 					}
@@ -1181,6 +1268,7 @@ export default function TakeoffsContent() {
 						openScaleDialog(scope, targetPage)
 					}
 					onRecolorMeasurement={recolorMeasurement}
+					onRemoveLegend={removeLegend}
 					onRenameGroup={renameGroup}
 					onRenameMeasurement={renameMeasurement}
 					onRenamePage={renamePage}

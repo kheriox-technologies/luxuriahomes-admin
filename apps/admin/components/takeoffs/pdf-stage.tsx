@@ -36,10 +36,12 @@ import {
 import {
 	AREA_TYPE_SET,
 	type DragKind,
+	type Legend,
 	type Measurement,
 	type Point,
 	type ToolId,
 } from '@/lib/takeoffs/types';
+import LegendOverlay from './legend-overlay';
 import type { RenderedSize } from './use-pdf-document';
 
 const TOOL_COLORS: Record<string, string> = {
@@ -61,12 +63,15 @@ interface PdfStageProps {
 	draft: Point[];
 	error: string | null;
 	guides: SnapGuide[];
+	legend: Legend | null;
 	measurements: Measurement[];
 	metersPerPixel: number | null;
 	numPages: number;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
 	onExitToPan: () => void;
+	onLegendChange: (next: { width: number; x: number; y: number }) => void;
+	onLegendRemove: () => void;
 	onPointerUp: (point: Point) => void;
 	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
@@ -293,11 +298,14 @@ export default function PdfStage({
 	draft,
 	cursor,
 	guides,
+	legend,
 	selectedId,
 	onStageClick,
 	onStageDoubleClick,
 	onCursorMove,
 	onDragStart,
+	onLegendChange,
+	onLegendRemove,
 	onPointerUp,
 	onExitToPan,
 }: PdfStageProps) {
@@ -611,6 +619,15 @@ export default function PdfStage({
 									vertexRadius={vertexRadius}
 								/>
 							</svg>
+						)}
+						{size && legend && (
+							<LegendOverlay
+								legend={legend}
+								measurements={measurements}
+								onChange={onLegendChange}
+								onRemove={onLegendRemove}
+								scale={scale}
+							/>
 						)}
 					</div>
 				</TransformComponent>

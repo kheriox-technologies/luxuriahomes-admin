@@ -73,6 +73,7 @@ import {
 	RotateCcw,
 	Ruler,
 	Square,
+	Table,
 	Trash2,
 } from 'lucide-react';
 import { type ReactElement, useEffect, useRef, useState } from 'react';
@@ -149,13 +150,13 @@ function formatActual({ value, unit }: NetValue): string {
 	return unit === 'm²' ? formatSqm(value) : formatMeters(value);
 }
 
-type Row =
+export type Row =
 	| { kind: 'group'; groupId: string; label: string; members: Measurement[] }
 	| { kind: 'single'; measurement: Measurement };
 
 // Collapse Add-group members into one row (preserving draw order); ungrouped
 // shapes stay as individual rows. Deductions are folded into their parent.
-function buildRows(pageMeasurements: Measurement[]): Row[] {
+export function buildRows(pageMeasurements: Measurement[]): Row[] {
 	const topLevel = pageMeasurements.filter((m) => !m.parentId);
 	const rows: Row[] = [];
 	const seenGroups = new Map<string, Measurement[]>();
@@ -221,6 +222,9 @@ export default function MeasurementsPanel({
 	onSetMeasurementDescription,
 	onToggleMeasurementHidden,
 	onTogglePageHidden,
+	legendPages,
+	onAddLegend,
+	onRemoveLegend,
 	width,
 }: {
 	page: number;
@@ -252,6 +256,10 @@ export default function MeasurementsPanel({
 	onSetMeasurementDescription: (id: string, description: string) => void;
 	onToggleMeasurementHidden: (id: string) => void;
 	onTogglePageHidden: (targetPage: number) => void;
+	/** Pages that currently have a legend on the canvas. */
+	legendPages: Set<number>;
+	onAddLegend: (targetPage: number) => void;
+	onRemoveLegend: (targetPage: number) => void;
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
 	width: number;
 }) {
@@ -349,10 +357,13 @@ export default function MeasurementsPanel({
 										/>
 										<PageActionsMenu
 											documentMethod={documentMethod}
+											hasLegend={legendPages.has(pageNumber)}
 											hasOverride={pageMethods[pageNumber] !== undefined}
 											method={pageMethods[pageNumber] ?? documentMethod}
+											onAddLegend={onAddLegend}
 											onCalibrate={onCalibrate}
 											onOpenScaleDialog={onOpenScaleDialog}
+											onRemoveLegend={onRemoveLegend}
 											onResetPage={onResetPage}
 											onToggleHidden={() => onTogglePageHidden(pageNumber)}
 											page={pageNumber}
@@ -471,8 +482,11 @@ function PageActionsMenu({
 	pageHidden,
 	method,
 	hasOverride,
+	hasLegend,
 	documentMethod,
 	onToggleHidden,
+	onAddLegend,
+	onRemoveLegend,
 	onOpenScaleDialog,
 	onCalibrate,
 	onResetPage,
@@ -481,8 +495,11 @@ function PageActionsMenu({
 	pageHidden: boolean;
 	method: MeasurementMethod | null;
 	hasOverride: boolean;
+	hasLegend: boolean;
 	documentMethod: MeasurementMethod | null;
 	onToggleHidden: () => void;
+	onAddLegend: (targetPage: number) => void;
+	onRemoveLegend: (targetPage: number) => void;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
@@ -506,6 +523,12 @@ function PageActionsMenu({
 				<MenuItem onClick={onToggleHidden}>
 					{pageHidden ? <Eye /> : <EyeOff />}
 					{pageHidden ? 'Show page on canvas' : 'Hide page on canvas'}
+				</MenuItem>
+				<MenuItem
+					onClick={() => (hasLegend ? onRemoveLegend(page) : onAddLegend(page))}
+				>
+					<Table />
+					{hasLegend ? 'Remove Legend' : 'Add Legend'}
 				</MenuItem>
 				<MenuSeparator />
 				<MenuGroup>
