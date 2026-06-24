@@ -13,6 +13,7 @@ import {
 	DollarSign,
 	FileText,
 	Handshake,
+	Ruler,
 	SquaresIntersect,
 	Users,
 	Wallet,
@@ -27,6 +28,7 @@ import ProjectInclusionsTabContent from '@/components/projects/project-inclusion
 import ProjectQuotationsTabContent from '@/components/projects/project-quotations-tab-content';
 import ProjectScheduleTabContent from '@/components/projects/project-schedule-tab-content';
 import ProjectServiceProvidersTabContent from '@/components/projects/project-service-providers-tab-content';
+import ProjectTakeoffsTabContent from '@/components/projects/project-takeoffs-tab-content';
 import type { QuotationFormValues } from '@/components/quotations/quotation-form-shared';
 
 type ProjectClient = Doc<'projects'>['clients'][number];
@@ -98,6 +100,13 @@ export default function ProjectDetailsTabs({
 				</TabsTab>
 				<TabsTab
 					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
+					value="takeoffs"
+				>
+					<Ruler />
+					Take Offs
+				</TabsTab>
+				<TabsTab
+					className="data-active:text-primary-foreground hover:data-active:text-primary-foreground"
 					value="quotations"
 				>
 					<DollarSign />
@@ -149,6 +158,12 @@ export default function ProjectDetailsTabs({
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="documents">
 				<ProjectDocumentsTabContent projectId={project._id} />
+			</TabsPanel>
+			<TabsPanel
+				className="flex min-h-0 flex-1 overflow-hidden p-4"
+				value="takeoffs"
+			>
+				<ProjectTakeoffsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="quotations">
 				<ProjectQuotationsTabContent

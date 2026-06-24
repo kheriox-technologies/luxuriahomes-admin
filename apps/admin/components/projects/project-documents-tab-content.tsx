@@ -29,12 +29,18 @@ export default function ProjectDocumentsTabContent({
 	const setClientPortalVisibility = useMutation(
 		api.projectDocuments.setClientPortalVisibility.setClientPortalVisibility
 	);
+	const addToTakeoffs = useAction(api.takeoffs.addToTakeoffs.addToTakeoffs);
 
 	return (
 		<ProjectFileManagerTabContent
 			buildQueryArgs={(folderPath) => ({ projectId, folderPath })}
 			emptyTitle="No documents yet"
 			listContentsQuery={api.projectDocuments.listContents.listContents}
+			onAddToTakeoffs={async (fileId) => {
+				await addToTakeoffs({
+					documentId: fileId as Id<'projectDocuments'>,
+				});
+			}}
 			onCreateFile={async (args) => {
 				await createDocument({ ...args, projectId });
 			}}

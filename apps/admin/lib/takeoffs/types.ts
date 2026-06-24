@@ -149,6 +149,19 @@ export type MeasurementMethod =
 // Whether a scale/calibration sets the PDF-wide default or one page's override.
 export type MethodScope = 'all' | 'page';
 
+// The full persistable working set of a takeoff. Mirrors the in-memory state of
+// TakeoffsContent; `legends`, `pageTitles` and `pageMethods` are keyed by page
+// number in memory (converted to/from arrays at the Convex boundary).
+export interface TakeoffPersistState {
+	documentMethod: MeasurementMethod | null;
+	globalWastage: number;
+	legends: Record<number, Legend>;
+	measurements: Measurement[];
+	pageMethods: Record<number, MeasurementMethod>;
+	pageTitles: Record<number, string>;
+	texts: TextAnnotation[];
+}
+
 // An in-progress pointer drag. `draw-*` create a new shape; `move` repositions a
 // committed shape; `handle` resizes one of its points. For every mode the live
 // update is uniform: replace `orig[index]` with the pointer (handle), translate

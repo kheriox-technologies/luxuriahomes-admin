@@ -63,6 +63,85 @@ export const taskStatusValidator = v.union(
 	v.literal('done')
 );
 
+// --- Takeoffs ---
+// Mirrors apps/admin/lib/takeoffs/types.ts. All point coordinates are in BASE
+// canvas-pixel space (the unscaled rendered page), independent of zoom/pan.
+export const takeoffPointValidator = v.object({
+	x: v.number(),
+	y: v.number(),
+});
+
+export const takeoffMeasurementTypeValidator = v.union(
+	v.literal('linear'),
+	v.literal('rectangle'),
+	v.literal('circle'),
+	v.literal('polygon'),
+	v.literal('count')
+);
+
+export const takeoffPaperSizeValidator = v.union(
+	v.literal('A0'),
+	v.literal('A1'),
+	v.literal('A2'),
+	v.literal('A3'),
+	v.literal('A4'),
+	v.literal('auto')
+);
+
+// How a page's measurement scale is determined: a fixed metres-per-pixel from a
+// calibration line, or a drawing scale resolved per page via page geometry.
+export const takeoffMethodValidator = v.union(
+	v.object({ kind: v.literal('calibration'), mpp: v.number() }),
+	v.object({
+		kind: v.literal('scale'),
+		scale: v.object({
+			ratio: v.number(),
+			paper: takeoffPaperSizeValidator,
+		}),
+	})
+);
+
+export const takeoffMeasurementValidator = v.object({
+	id: v.string(),
+	page: v.number(),
+	type: takeoffMeasurementTypeValidator,
+	points: v.array(takeoffPointValidator),
+	label: v.string(),
+	valueMeters: v.optional(v.number()),
+	valueSqm: v.optional(v.number()),
+	perimeterMeters: v.optional(v.number()),
+	count: v.optional(v.number()),
+	description: v.optional(v.string()),
+	color: v.optional(v.string()),
+	hidden: v.optional(v.boolean()),
+	detectedText: v.optional(v.string()),
+	groupId: v.optional(v.string()),
+	groupLabel: v.optional(v.string()),
+	parentId: v.optional(v.string()),
+	heightMeters: v.optional(v.number()),
+	wastagePercent: v.optional(v.number()),
+	areaAddSqm: v.optional(v.number()),
+	areaSubtractSqm: v.optional(v.number()),
+});
+
+export const takeoffLegendValidator = v.object({
+	page: v.number(),
+	x: v.number(),
+	y: v.number(),
+	width: v.number(),
+});
+
+export const takeoffTextValidator = v.object({
+	id: v.string(),
+	page: v.number(),
+	x: v.number(),
+	y: v.number(),
+	width: v.number(),
+	height: v.number(),
+	text: v.string(),
+	color: v.optional(v.string()),
+});
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -194,6 +273,28 @@ export default defineSchema({
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_folder', ['projectId', 'folderPath']),
+	// One row per PDF added to take-offs. Holds the whole working set (the
+	// in-memory prototype state) as a single document, debounce-autosaved from
+	// the client. Record<page, …> shapes are stored as arrays to stay
+	// Convex-friendly (object keys must be strings).
+	takeoffs: defineTable({
+		projectId: v.id('projects'),
+		documentId: v.id('projectDocuments'),
+		s3Key: v.string(),
+		name: v.string(),
+		measurements: v.array(takeoffMeasurementValidator),
+		legends: v.array(takeoffLegendValidator),
+		texts: v.array(takeoffTextValidator),
+		pageTitles: v.array(v.object({ page: v.number(), title: v.string() })),
+		documentMethod: v.optional(takeoffMethodValidator),
+		pageMethods: v.array(
+			v.object({ page: v.number(), method: takeoffMethodValidator })
+		),
+		globalWastage: v.number(),
+		updatedAt: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_document', ['documentId']),
 	companyDocumentFolders: defineTable({
 		name: v.string(),
 		path: v.string(),

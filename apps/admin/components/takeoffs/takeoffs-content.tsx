@@ -14,6 +14,7 @@ import {
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Switch } from '@workspace/ui/components/switch';
+import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import {
 	Circle,
@@ -27,8 +28,10 @@ import {
 } from 'lucide-react';
 import {
 	type ReactElement,
+	type Ref,
 	useCallback,
 	useEffect,
+	useImperativeHandle,
 	useMemo,
 	useRef,
 	useState,
@@ -60,6 +63,7 @@ import type {
 	PageGeometry,
 	Point,
 	ScaleSetting,
+	TakeoffPersistState,
 	TextAnnotation,
 	ToolId,
 } from '@/lib/takeoffs/types';
@@ -72,7 +76,7 @@ import ScaleDialog from './scale-dialog';
 import { usePdfDocument } from './use-pdf-document';
 import WastageControl from './wastage-control';
 
-const PDF_URL = '/sample-plan.pdf';
+const DEFAULT_PDF_URL = '/sample-plan.pdf';
 const UNITS: LengthUnit[] = ['mm', 'cm', 'm'];
 // Auto-applied default: most plans are A3 at 1:100, so tools work without any
 // manual calibration. The user can change this globally or per page.
@@ -158,7 +162,32 @@ function dedupeConsecutive(points: Point[]): Point[] {
 	return result;
 }
 
-export default function TakeoffsContent() {
+// Imperative handle the parent uses to trigger a PDF save from outside the
+// component (e.g. a button next to the PDF-selection combobox).
+export interface TakeoffsHandle {
+	savePdf: () => Promise<void>;
+}
+
+export interface TakeoffsContentProps {
+	/** Persisted working set to hydrate from; omitted for the prototype page. */
+	initial?: TakeoffPersistState;
+	/** Called (debounced by the caller) whenever the persisted state changes. */
+	onPersist?: (state: TakeoffPersistState) => void;
+	/** When provided, the parent can call `ref.savePdf()` to burn the overlays
+	 * into the PDF and receive the bytes to upload. */
+	onSavePdf?: (bytes: Uint8Array) => Promise<void>;
+	/** PDF to load. Defaults to the bundled sample plan (prototype mode). */
+	pdfUrl?: string;
+	ref?: Ref<TakeoffsHandle>;
+}
+
+export default function TakeoffsContent({
+	pdfUrl = DEFAULT_PDF_URL,
+	initial,
+	onPersist,
+	onSavePdf,
+	ref,
+}: TakeoffsContentProps = {}) {
 	const {
 		numPages,
 		renderPage,
@@ -167,7 +196,7 @@ export default function TakeoffsContent() {
 		getPageGeometry,
 		error,
 		ready,
-	} = usePdfDocument(PDF_URL);
+	} = usePdfDocument(pdfUrl);
 
 	const [page, setPage] = useState(1);
 	const [tool, setTool] = useState<ToolId>('pan');
@@ -180,7 +209,9 @@ export default function TakeoffsContent() {
 	// Id of the group currently being drawn into (ref so commit reads it
 	// imperatively without re-running on every change). Null when Add is off.
 	const currentGroupId = useRef<string | null>(null);
-	const [measurements, setMeasurements] = useState<Measurement[]>([]);
+	const [measurements, setMeasurements] = useState<Measurement[]>(
+		initial?.measurements ?? []
+	);
 	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
 	// them synchronously to auto-name area shapes.
 	const pageTextRef = useRef<Map<number, TextBox[]>>(new Map());
@@ -188,15 +219,21 @@ export default function TakeoffsContent() {
 	// per-page overrides. Defaults to a 1:100 A3 drawing scale so tools work
 	// immediately.
 	const [documentMethod, setDocumentMethod] =
-		useState<MeasurementMethod | null>({ kind: 'scale', scale: DEFAULT_SCALE });
+		useState<MeasurementMethod | null>(
+			initial ? initial.documentMethod : { kind: 'scale', scale: DEFAULT_SCALE }
+		);
 	const [pageMethods, setPageMethods] = useState<
 		Record<number, MeasurementMethod>
-	>({});
+	>(initial?.pageMethods ?? {});
 	// Custom per-page titles, keyed by page number; falls back to `Page {n}`.
-	const [pageTitles, setPageTitles] = useState<Record<number, string>>({});
+	const [pageTitles, setPageTitles] = useState<Record<number, string>>(
+		initial?.pageTitles ?? {}
+	);
 	// Default wastage allowance (%) applied to every measurement; individual
 	// measurements may override it via their row in the measurements panel.
-	const [globalWastage, setGlobalWastage] = useState<number>(DEFAULT_WASTAGE);
+	const [globalWastage, setGlobalWastage] = useState<number>(
+		initial?.globalWastage ?? DEFAULT_WASTAGE
+	);
 	// Geometry of the current page (natural + base-pixel dims), needed to resolve
 	// a drawing scale into metres-per-pixel.
 	const [pageGeometry, setPageGeometry] = useState<PageGeometry | null>(null);
@@ -209,11 +246,13 @@ export default function TakeoffsContent() {
 	const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
 	// Per-page legend boxes (base-pixel space). In-memory only, matching the rest
 	// of this prototype; one legend per page.
-	const [legends, setLegends] = useState<Record<number, Legend>>({});
+	const [legends, setLegends] = useState<Record<number, Legend>>(
+		initial?.legends ?? {}
+	);
 	// Per-page text annotations (base-pixel space). In-memory only, like legends,
 	// but many per page (keyed by id). `newTextId` flags the just-placed box so its
 	// textarea auto-focuses once.
-	const [texts, setTexts] = useState<TextAnnotation[]>([]);
+	const [texts, setTexts] = useState<TextAnnotation[]>(initial?.texts ?? []);
 	const [newTextId, setNewTextId] = useState<string | null>(null);
 	// Mirrors `draft` synchronously so rapid clicks accumulate correctly even
 	// before React re-renders (state reads in handlers would otherwise be stale).
@@ -256,6 +295,108 @@ export default function TakeoffsContent() {
 		setCursor(null);
 		setSnapGuides([]);
 	}, [writeDraft]);
+
+	// Persist the working set whenever a persisted slice changes. The caller
+	// supplies a debounced `onPersist`; we skip the first run so hydrating from
+	// `initial` doesn't immediately echo back a redundant save.
+	const onPersistRef = useRef(onPersist);
+	onPersistRef.current = onPersist;
+	const persistHydratedRef = useRef(false);
+	useEffect(() => {
+		if (!onPersistRef.current) {
+			return;
+		}
+		if (!persistHydratedRef.current) {
+			persistHydratedRef.current = true;
+			return;
+		}
+		onPersistRef.current({
+			measurements,
+			legends,
+			texts,
+			pageTitles,
+			documentMethod,
+			pageMethods,
+			globalWastage,
+		});
+	}, [
+		measurements,
+		legends,
+		texts,
+		pageTitles,
+		documentMethod,
+		pageMethods,
+		globalWastage,
+	]);
+
+	// Save PDF: burn the overlays into the PDF and hand the bytes to the caller.
+	// Triggered by the parent via the imperative handle below.
+	const handleSavePdf = useCallback(async () => {
+		if (!onSavePdf) {
+			return;
+		}
+		const toastId = toastManager.add({
+			title: 'Saving PDF…',
+			type: 'loading',
+		});
+		try {
+			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
+			const response = await fetch(pdfUrl);
+			const originalBytes = new Uint8Array(await response.arrayBuffer());
+
+			// Geometry for every page that has any overlay to draw.
+			const pagesWithOverlays = new Set<number>();
+			for (const m of measurements) {
+				pagesWithOverlays.add(m.page);
+			}
+			for (const t of texts) {
+				pagesWithOverlays.add(t.page);
+			}
+			for (const key of Object.keys(legends)) {
+				pagesWithOverlays.add(Number(key));
+			}
+			const geometryByPage = new Map<number, PageGeometry>();
+			for (const pageNumber of pagesWithOverlays) {
+				const geom = await getPageGeometry(pageNumber);
+				if (geom) {
+					geometryByPage.set(pageNumber, geom);
+				}
+			}
+
+			const bytes = await buildAnnotatedPdf(originalBytes, {
+				measurements,
+				legends,
+				texts,
+				pageMethods,
+				documentMethod,
+				globalWastage,
+				geometryByPage,
+			});
+			await onSavePdf(bytes);
+			toastManager.update(toastId, { title: 'PDF saved', type: 'success' });
+		} catch {
+			toastManager.update(toastId, {
+				title: 'Could not save PDF',
+				description: 'Please try again.',
+				type: 'error',
+			});
+		}
+	}, [
+		onSavePdf,
+		pdfUrl,
+		measurements,
+		texts,
+		legends,
+		pageMethods,
+		documentMethod,
+		globalWastage,
+		getPageGeometry,
+	]);
+
+	// Expose the save action to the parent so the button can live alongside the
+	// PDF-selection combobox (the build needs this component's PDF geometry and
+	// live measurement state, so it stays here).
+	useImperativeHandle(ref, () => ({ savePdf: handleSavePdf }), [handleSavePdf]);
 
 	const selectTool = useCallback(
 		(next: ToolId) => {
@@ -1263,7 +1404,7 @@ export default function TakeoffsContent() {
 				</div>
 			</div>
 
-			<div className="flex min-h-0 flex-1 gap-3">
+			<div className="flex min-h-0 min-w-0 flex-1 gap-3">
 				<PdfThumbnails
 					currentPage={page}
 					numPages={numPages}
