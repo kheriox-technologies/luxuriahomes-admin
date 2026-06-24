@@ -1,3 +1,5 @@
+import type { MultiPolygon, Pair, Polygon, Ring } from 'polygon-clipping';
+import polygonClipping from 'polygon-clipping';
 import {
 	AREA_TYPE_SET,
 	type LengthUnit,
@@ -347,6 +349,60 @@ export function netAreaSqm(
 	);
 }
 
+/** Shoelace area of a polygon-clipping ring ([x, y] pairs), in pixels². */
+function ringArea(ring: Ring): number {
+	let sum = 0;
+	for (let i = 0; i < ring.length; i++) {
+		const [ax, ay] = ring[i];
+		const [bx, by] = ring[(i + 1) % ring.length];
+		sum += ax * by - bx * ay;
+	}
+	return Math.abs(sum) / 2;
+}
+
+/** Closed-loop perimeter of a polygon-clipping ring ([x, y] pairs), in pixels. */
+function ringPerimeter(ring: Ring): number {
+	let total = 0;
+	for (let i = 0; i < ring.length; i++) {
+		const [ax, ay] = ring[i];
+		const [bx, by] = ring[(i + 1) % ring.length];
+		total += Math.hypot(bx - ax, by - ay);
+	}
+	return total;
+}
+
+/**
+ * Combined area + perimeter (metres) of a group of area shapes treated as one
+ * via a boolean union, so overlapping regions are counted only once. The result
+ * is a MultiPolygon whose outer rings add area and whose hole rings (enclosed
+ * gaps) subtract it; every ring contributes to the perimeter.
+ */
+export function unionMeasure(
+	members: Measurement[],
+	mpp: number
+): { perimeterMeters: number; valueSqm: number } {
+	const polys = members
+		.filter((m) => AREA_TYPE_SET.has(m.type))
+		.map((m): Polygon => [toPolygonPoints(m).map((p) => [p.x, p.y] as Pair)]);
+	if (polys.length === 0) {
+		return { valueSqm: 0, perimeterMeters: 0 };
+	}
+	const merged: MultiPolygon = polygonClipping.union(
+		polys[0],
+		...polys.slice(1)
+	);
+	let areaPx = 0;
+	let perimeterPx = 0;
+	for (const polygon of merged) {
+		polygon.forEach((ring, index) => {
+			// Ring 0 is the outer boundary (adds area); the rest are holes.
+			areaPx += index === 0 ? ringArea(ring) : -ringArea(ring);
+			perimeterPx += ringPerimeter(ring);
+		});
+	}
+	return { valueSqm: areaPx * mpp ** 2, perimeterMeters: perimeterPx * mpp };
+}
+
 /**
  * Recompute the value/perimeter fields for a measurement from its points and the
  * page scale (metres per pixel). Shared by drawing-commit and edit-commit paths.
@@ -490,4 +546,34 @@ export function formatMeters(value: number): string {
 
 export function formatSqm(value: number): string {
 	return `${value.toFixed(2)} m²`;
+}
+
+// Distinct hues for combined "Add" groups, chosen to stand apart from the
+// per-type stroke colours (blue/green/purple) and the red deduction colour.
+const GROUP_PALETTE = [
+	'#0891b2', // cyan
+	'#ea580c', // orange
+	'#9333ea', // violet
+	'#16a34a', // green
+	'#db2777', // pink
+	'#ca8a04', // amber
+	'#4f46e5', // indigo
+	'#0d9488', // teal
+] as const;
+
+/**
+ * Map every group id on a page to a stable palette colour by its order of
+ * appearance, so all members of a group share one colour and adjacent groups
+ * stay visually distinct.
+ */
+export function groupColorMap(
+	measurements: Measurement[]
+): Map<string, string> {
+	const map = new Map<string, string>();
+	for (const m of measurements) {
+		if (m.groupId && !map.has(m.groupId)) {
+			map.set(m.groupId, GROUP_PALETTE[map.size % GROUP_PALETTE.length]);
+		}
+	}
+	return map;
 }

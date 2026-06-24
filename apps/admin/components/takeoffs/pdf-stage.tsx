@@ -2,6 +2,7 @@
 
 import { Button } from '@workspace/ui/components/button';
 import { Spinner } from '@workspace/ui/components/spinner';
+import { cn } from '@workspace/ui/lib/utils';
 import { Maximize, Minus, Plus } from 'lucide-react';
 import {
 	type ReactElement,
@@ -22,6 +23,7 @@ import {
 	distanceToSegmentSq,
 	formatMeters,
 	formatSqm,
+	groupColorMap,
 	isInsideBody,
 	pointerToBaseCoords,
 	polygonArea,
@@ -64,8 +66,8 @@ interface PdfStageProps {
 	numPages: number;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
+	onExitToPan: () => void;
 	onPointerUp: (point: Point) => void;
-	onSelectShape: (id: string | null) => void;
 	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
 	page: number;
@@ -162,17 +164,51 @@ function hitTest(
 	}
 	for (let i = measurements.length - 1; i >= 0; i--) {
 		const m = measurements[i];
-		if (AREA_TYPE_SET.has(m.type) && isInsideBody(m, point)) {
-			// Moving a parent carries its deductions; deductions move on their own.
-			const children = m.parentId
-				? undefined
-				: measurements
-						.filter((c) => c.parentId === m.id)
-						.map((c) => ({ id: c.id, orig: c.points }));
-			return { mode: 'move', id: m.id, start: point, orig: m.points, children };
+		const grabbable = AREA_TYPE_SET.has(m.type)
+			? isInsideBody(m, point)
+			: m.type === 'linear' && isOnPolyline(point, m.points, tolSq);
+		if (grabbable) {
+			return {
+				mode: 'move',
+				id: m.id,
+				start: point,
+				orig: m.points,
+				children: moveChildren(m, measurements),
+			};
 		}
 	}
 	return null;
+}
+
+/** Whether `point` is within `tolSq` of any segment of a polyline. */
+function isOnPolyline(point: Point, pts: Point[], tolSq: number): boolean {
+	for (let i = 1; i < pts.length; i++) {
+		if (distanceToSegmentSq(point, pts[i - 1], pts[i]) <= tolSq) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Shapes that must translate alongside `m` during a move: every other member of
+ * its Add group, or (for an ungrouped parent) its deductions.
+ */
+function moveChildren(
+	m: Measurement,
+	measurements: Measurement[]
+): { id: string; orig: Point[] }[] | undefined {
+	if (m.groupId) {
+		return measurements
+			.filter((c) => c.id !== m.id && c.groupId === m.groupId)
+			.map((c) => ({ id: c.id, orig: c.points }));
+	}
+	if (m.parentId) {
+		return;
+	}
+	return measurements
+		.filter((c) => c.parentId === m.id)
+		.map((c) => ({ id: c.id, orig: c.points }));
 }
 
 /**
@@ -263,7 +299,7 @@ export default function PdfStage({
 	onCursorMove,
 	onDragStart,
 	onPointerUp,
-	onSelectShape,
+	onExitToPan,
 }: PdfStageProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
@@ -332,6 +368,8 @@ export default function PdfStage({
 	const isInteractive = tool !== 'pan';
 	const isDrawingTool = isInteractive && tool !== 'select';
 	const stroke = TOOL_COLORS[tool] ?? '#2563eb';
+	// Stable colour per Add group so all its members read as one combined shape.
+	const groupColors = groupColorMap(measurements);
 	// Keep stroke/markers a constant screen size regardless of zoom.
 	const strokeWidth = 2 / scale;
 	const vertexRadius = 4 / scale;
@@ -363,7 +401,7 @@ export default function PdfStage({
 		onCursorMove,
 		onDragStart,
 		onPointerUp,
-		onSelectShape,
+		onExitToPan,
 	});
 	useEffect(() => {
 		handlersRef.current = {
@@ -378,7 +416,7 @@ export default function PdfStage({
 			onCursorMove,
 			onDragStart,
 			onPointerUp,
-			onSelectShape,
+			onExitToPan,
 		};
 	});
 	// True between a mousedown that began a drag and the trailing synthetic
@@ -410,7 +448,9 @@ export default function PdfStage({
 				draggingRef.current = true;
 				h.onDragStart(drag);
 			} else if (h.tool === 'select') {
-				h.onSelectShape(null);
+				// Clicking empty space in Select mode drops back to Pan so further
+				// clicks/drags can't accidentally move or edit shapes.
+				h.onExitToPan();
 			}
 		};
 		const handleUp = (event: MouseEvent) => {
@@ -451,8 +491,13 @@ export default function PdfStage({
 			}
 		};
 		const handleLeave = () => {
-			handlersRef.current.onCursorMove(null);
-			if (svgRef.current) {
+			const h = handlersRef.current;
+			h.onCursorMove(null);
+			// Only Select drives the cursor imperatively, so only it needs resetting
+			// on leave. Clobbering it for drawing tools would override the React
+			// inline `crosshair` and never restore it (the style value is unchanged
+			// across drawing-tool switches, so React skips the DOM update).
+			if (svgRef.current && h.tool === 'select') {
 				svgRef.current.style.cursor = 'default';
 			}
 		};
@@ -481,7 +526,14 @@ export default function PdfStage({
 	}
 
 	return (
-		<div className="relative h-full w-full overflow-hidden rounded-lg border bg-muted/40">
+		<div
+			className={cn(
+				'relative h-full w-full overflow-hidden rounded-lg border bg-muted/40',
+				// Pan tool: show a grab/grabbing hand (the overlay is pointer-transparent
+				// in pan mode, so the cursor is inherited from this container).
+				tool === 'pan' && 'cursor-grab active:cursor-grabbing'
+			)}
+		>
 			{(rendering || !size) && (
 				<div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
 					<Spinner />
@@ -525,6 +577,9 @@ export default function PdfStage({
 								{measurements.map((m) => (
 									<CommittedShape
 										fontSize={fontSize}
+										groupColor={
+											m.groupId ? groupColors.get(m.groupId) : undefined
+										}
 										handleRadius={handleRadius}
 										key={m.id}
 										measurement={m}
@@ -628,6 +683,7 @@ function CommittedShape({
 	handleRadius,
 	fontSize,
 	selected,
+	groupColor,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
@@ -635,11 +691,15 @@ function CommittedShape({
 	handleRadius: number;
 	fontSize: number;
 	selected: boolean;
+	groupColor?: string;
 }) {
 	const isDeduction = Boolean(measurement.parentId);
-	const color = isDeduction
-		? DEDUCTION_COLOR
-		: (TOOL_COLORS[measurement.type] ?? '#2563eb');
+	// Group members share one colour (groups never contain deductions).
+	const color =
+		groupColor ??
+		(isDeduction
+			? DEDUCTION_COLOR
+			: (TOOL_COLORS[measurement.type] ?? '#2563eb'));
 	const { points, type } = measurement;
 
 	if (type === 'count') {

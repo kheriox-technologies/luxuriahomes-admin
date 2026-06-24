@@ -43,6 +43,8 @@ export type LengthUnit = 'mm' | 'cm' | 'm';
 export interface Measurement {
 	/** Number of markers (count). */
 	count?: number;
+	/** If set, this shape is part of a combined "Add" group keyed by this id. */
+	groupId?: string;
 	id: string;
 	label: string;
 	page: number;
