@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '@workspace/ui/components/badge';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { cn } from '@workspace/ui/lib/utils';
 import { useEffect, useRef, useState } from 'react';
@@ -154,16 +155,17 @@ function Thumbnail({
 				ref={canvasRef}
 			/>
 			{hasMeasurements && (
-				<span
-					className="absolute top-1 right-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-[10px] text-primary-foreground shadow-sm"
+				<Badge
+					className="absolute top-1 right-1 bg-info/90 text-white shadow-sm"
 					title="Has measurements"
+					variant="info"
 				>
 					M
-				</span>
+				</Badge>
 			)}
-			<span className="absolute right-1 bottom-1 rounded bg-background/90 px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground tabular-nums shadow-sm">
+			<Badge className="absolute right-1 bottom-1" variant="outline">
 				{pageNumber}
-			</span>
+			</Badge>
 		</button>
 	);
 }
