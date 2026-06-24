@@ -17,6 +17,19 @@ export function distanceSq(a: Point, b: Point): number {
 	return dx * dx + dy * dy;
 }
 
+/** Squared distance from a point to the line segment a→b (cheap hit-testing). */
+export function distanceToSegmentSq(p: Point, a: Point, b: Point): number {
+	const dx = b.x - a.x;
+	const dy = b.y - a.y;
+	const lenSq = dx * dx + dy * dy;
+	if (lenSq === 0) {
+		return distanceSq(p, a);
+	}
+	let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+	t = Math.max(0, Math.min(1, t));
+	return distanceSq(p, { x: a.x + t * dx, y: a.y + t * dy });
+}
+
 /** Total length of a polyline through the given points (pixels). */
 export function polylineLength(points: Point[]): number {
 	let total = 0;
@@ -268,6 +281,82 @@ export function pointerToBaseCoords(
 		x: ((event.clientX - rect.left) / rect.width) * baseWidth,
 		y: ((event.clientY - rect.top) / rect.height) * baseHeight,
 	};
+}
+
+const SNAP_ANGLE_STEP = Math.PI / 4; // 45°
+
+/**
+ * Snap a point so the segment from `anchor` to it locks to the nearest
+ * 0°/45°/90°/… direction, preserving the cursor distance. Used while drawing
+ * with Shift held to produce perfectly straight lines.
+ */
+export function snapToAngle(anchor: Point, point: Point): Point {
+	const dx = point.x - anchor.x;
+	const dy = point.y - anchor.y;
+	const dist = Math.hypot(dx, dy);
+	if (dist === 0) {
+		return point;
+	}
+	const snapped =
+		Math.round(Math.atan2(dy, dx) / SNAP_ANGLE_STEP) * SNAP_ANGLE_STEP;
+	return {
+		x: anchor.x + Math.cos(snapped) * dist,
+		y: anchor.y + Math.sin(snapped) * dist,
+	};
+}
+
+export interface SnapGuide {
+	axis: 'x' | 'y';
+	value: number;
+}
+
+function nearestCoord(
+	vertices: Point[],
+	target: number,
+	axis: 'x' | 'y',
+	tolerance: number
+): number | null {
+	let best: number | null = null;
+	let bestDist = tolerance;
+	for (const v of vertices) {
+		const dist = Math.abs(v[axis] - target);
+		if (dist <= bestDist) {
+			bestDist = dist;
+			best = v[axis];
+		}
+	}
+	return best;
+}
+
+/**
+ * Snap a draft point while Shift is held. Combines two behaviours:
+ *  - angle snap relative to `anchor` (the previous vertex), then
+ *  - alignment to any of `vertices` whose x or y the cursor is near (within
+ *    `tolerance`), which both snaps that coordinate and yields a guide line to
+ *    render. This makes it easy to draw right-angled polygons whose vertices
+ *    line up with earlier ones.
+ */
+export function snapPolylinePoint(
+	anchor: Point,
+	point: Point,
+	vertices: Point[],
+	tolerance: number
+): { guides: SnapGuide[]; point: Point } {
+	const base = snapToAngle(anchor, point);
+	let { x, y } = base;
+	const guides: SnapGuide[] = [];
+
+	const alignX = nearestCoord(vertices, point.x, 'x', tolerance);
+	if (alignX !== null) {
+		x = alignX;
+		guides.push({ axis: 'x', value: alignX });
+	}
+	const alignY = nearestCoord(vertices, point.y, 'y', tolerance);
+	if (alignY !== null) {
+		y = alignY;
+		guides.push({ axis: 'y', value: alignY });
+	}
+	return { guides, point: { x, y } };
 }
 
 export function formatMeters(value: number): string {

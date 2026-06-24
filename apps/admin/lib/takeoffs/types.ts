@@ -78,4 +78,12 @@ export type DragKind =
 			orig: Point[];
 			start: Point;
 	  }
-	| { id: string; index: number; mode: 'handle'; orig: Point[] };
+	| { id: string; index: number; mode: 'handle'; orig: Point[] }
+	| {
+			axis: 'x' | 'y';
+			id: string;
+			indices: number[];
+			mode: 'edge';
+			orig: Point[];
+			start: Point;
+	  };

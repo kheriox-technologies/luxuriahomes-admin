@@ -19,6 +19,7 @@ import {
 	circleArea,
 	circleRadius,
 	distanceSq,
+	distanceToSegmentSq,
 	formatMeters,
 	formatSqm,
 	isInsideBody,
@@ -29,6 +30,7 @@ import {
 	rectArea,
 	rectBounds,
 	rectCorners,
+	type SnapGuide,
 	shapeCentroid,
 } from '@/lib/takeoffs/geometry';
 import {
@@ -58,14 +60,15 @@ interface PdfStageProps {
 	cursor: Point | null;
 	draft: Point[];
 	error: string | null;
+	guides: SnapGuide[];
 	measurements: Measurement[];
 	metersPerPixel: number | null;
 	numPages: number;
-	onCursorMove: (point: Point | null) => void;
+	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
 	onPointerUp: (point: Point) => void;
 	onSelectShape: (id: string | null) => void;
-	onStageClick: (point: Point) => void;
+	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
 	page: number;
 	ready: boolean;
@@ -141,6 +144,24 @@ function hitTest(
 			}
 		}
 	}
+	// Dragging a whole edge of the selected polygon/rectangle (after corner
+	// handles, so corners win at their intersections).
+	if (
+		selected &&
+		(selected.type === 'polygon' || selected.type === 'rectangle')
+	) {
+		const edge = edgeHitTest(point, selected, tolSq);
+		if (edge) {
+			return {
+				mode: 'edge',
+				id: selected.id,
+				orig: selected.points,
+				axis: edge.axis,
+				indices: edge.indices,
+				start: point,
+			};
+		}
+	}
 	for (let i = measurements.length - 1; i >= 0; i--) {
 		const m = measurements[i];
 		if (AREA_TYPE_SET.has(m.type) && isInsideBody(m, point)) {
@@ -156,6 +177,76 @@ function hitTest(
 	return null;
 }
 
+/**
+ * Detect whether `point` is near an edge of `shape` (polygon or rectangle). The
+ * returned `axis` is the coordinate that dragging adjusts ('x' for vertical
+ * edges, 'y' for horizontal ones) and `indices` are the points to move along it.
+ */
+function edgeHitTest(
+	point: Point,
+	shape: Measurement,
+	tolSq: number
+): { axis: 'x' | 'y'; indices: number[] } | null {
+	if (shape.type === 'polygon') {
+		const pts = shape.points;
+		for (let i = 0; i < pts.length; i++) {
+			const a = pts[i];
+			const b = pts[(i + 1) % pts.length];
+			if (distanceToSegmentSq(point, a, b) <= tolSq) {
+				const axis: 'x' | 'y' =
+					Math.abs(b.y - a.y) >= Math.abs(b.x - a.x) ? 'x' : 'y';
+				return { axis, indices: [i, (i + 1) % pts.length] };
+			}
+		}
+		return null;
+	}
+	if (shape.type === 'rectangle') {
+		const pts = shape.points;
+		const c = rectCorners(pts); // TL, TR, BR, BL
+		const sides = [
+			{ a: c[0], b: c[1], axis: 'y' as const, far: false }, // top → min y
+			{ a: c[1], b: c[2], axis: 'x' as const, far: true }, // right → max x
+			{ a: c[2], b: c[3], axis: 'y' as const, far: true }, // bottom → max y
+			{ a: c[3], b: c[0], axis: 'x' as const, far: false }, // left → min x
+		];
+		for (const s of sides) {
+			if (distanceToSegmentSq(point, s.a, s.b) > tolSq) {
+				continue;
+			}
+			// Pick the stored corner that owns this side, so moving it drags the
+			// whole edge (the other corner is derived from the bounds).
+			const lowFirst = pts[0][s.axis] <= pts[1][s.axis];
+			const wantsHigh = s.far ? lowFirst : !lowFirst;
+			return { axis: s.axis, indices: [wantsHigh ? 1 : 0] };
+		}
+		return null;
+	}
+	return null;
+}
+
+/** Cursor for the Select tool based on what's under the pointer. */
+function selectCursor(
+	point: Point,
+	measurements: Measurement[],
+	selectedId: string | null,
+	scale: number
+): string {
+	const drag = hitTest(point, measurements, selectedId, scale);
+	if (!drag) {
+		return 'default';
+	}
+	if (drag.mode === 'edge') {
+		return drag.axis === 'x' ? 'ew-resize' : 'ns-resize';
+	}
+	if (drag.mode === 'handle') {
+		return 'grab';
+	}
+	if (drag.mode === 'move') {
+		return 'move';
+	}
+	return 'default';
+}
+
 export default function PdfStage({
 	page,
 	numPages,
@@ -167,6 +258,7 @@ export default function PdfStage({
 	measurements,
 	draft,
 	cursor,
+	guides,
 	selectedId,
 	onStageClick,
 	onStageDoubleClick,
@@ -341,17 +433,31 @@ export default function PdfStage({
 			}
 			const point = h.toBase(event);
 			if (point) {
-				h.onStageClick(point);
+				h.onStageClick(point, event.shiftKey, h.scale);
 			}
 		};
 		const handleDoubleClick = () => handlersRef.current.onStageDoubleClick();
 		const handleMove = (event: MouseEvent) => {
 			const h = handlersRef.current;
-			if (h.isInteractive) {
-				h.onCursorMove(h.toBase(event));
+			if (!h.isInteractive) {
+				return;
+			}
+			const point = h.toBase(event);
+			h.onCursorMove(point, event.shiftKey, h.scale);
+			// In Select mode, reflect what's under the pointer (resize edges, grab
+			// handles, move bodies) by driving the cursor imperatively.
+			if (h.tool === 'select' && svgRef.current) {
+				svgRef.current.style.cursor = point
+					? selectCursor(point, h.measurements, h.selectedId, h.scale)
+					: 'default';
 			}
 		};
-		const handleLeave = () => handlersRef.current.onCursorMove(null);
+		const handleLeave = () => {
+			handlersRef.current.onCursorMove(null);
+			if (svgRef.current) {
+				svgRef.current.style.cursor = 'default';
+			}
+		};
 		svg.addEventListener('mousedown', handleDown);
 		svg.addEventListener('mouseup', handleUp);
 		svg.addEventListener('click', handleClick);
@@ -408,7 +514,11 @@ export default function PdfStage({
 								role="img"
 								style={{
 									pointerEvents: isInteractive ? 'auto' : 'none',
-									cursor: isDrawingTool ? 'crosshair' : 'default',
+									// Select mode drives the cursor imperatively (see handleMove);
+									// leaving it unset here keeps React from resetting it per render.
+									...(tool === 'select'
+										? {}
+										: { cursor: isDrawingTool ? 'crosshair' : 'default' }),
 								}}
 								viewBox={`0 0 ${size.width} ${size.height}`}
 								width={size.width}
@@ -436,6 +546,18 @@ export default function PdfStage({
 										/>
 									);
 								})}
+								{guides.map((g) => (
+									<line
+										key={`${g.axis}-${g.value}`}
+										stroke="#ec4899"
+										strokeDasharray={`${4 / scale} ${4 / scale}`}
+										strokeWidth={strokeWidth}
+										x1={g.axis === 'x' ? g.value : 0}
+										x2={g.axis === 'x' ? g.value : size.width}
+										y1={g.axis === 'y' ? g.value : 0}
+										y2={g.axis === 'y' ? g.value : size.height}
+									/>
+								))}
 								<DraftShape
 									cursor={cursor}
 									fontSize={fontSize}

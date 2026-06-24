@@ -36,6 +36,8 @@ import {
 	findParentId,
 	measure,
 	rectArea,
+	type SnapGuide,
+	snapPolylinePoint,
 	toMetres,
 	translatePoints,
 } from '@/lib/takeoffs/geometry';
@@ -58,6 +60,11 @@ const UNITS: LengthUnit[] = ['mm', 'cm', 'm'];
 // Minimum drag size (base px) before a rectangle/circle is committed; smaller
 // drags are treated as an accidental click and discarded.
 const MIN_DRAW_PX = 3;
+
+// Screen-pixel tolerance for snapping a new vertex to an earlier vertex's
+// row/column while Shift is held (divided by zoom scale at the call site to
+// stay constant on screen).
+const ALIGN_SNAP_PX = 8;
 
 // Human-readable label prefix per measurement type.
 const TYPE_LABEL: Record<MeasurementType, string> = {
@@ -132,6 +139,7 @@ export default function TakeoffsContent() {
 	>({});
 	const [draft, setDraft] = useState<Point[]>([]);
 	const [cursor, setCursor] = useState<Point | null>(null);
+	const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
 	// Currently selected committed shape (Select tool) for editing/move.
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	// Mirrors `draft` synchronously so rapid clicks accumulate correctly even
@@ -158,6 +166,7 @@ export default function TakeoffsContent() {
 	const resetDraft = useCallback(() => {
 		writeDraft([]);
 		setCursor(null);
+		setSnapGuides([]);
 	}, [writeDraft]);
 
 	const selectTool = useCallback(
@@ -280,10 +289,39 @@ export default function TakeoffsContent() {
 		}
 		writeDraft([]);
 		setCursor(null);
+		setSnapGuides([]);
 	}, [tool, commit, writeDraft]);
 
+	// Hold Shift to (1) lock the current segment to the nearest 0°/45°/90°/…
+	// direction relative to the last placed vertex, and (2) align the new point
+	// with any earlier vertex's row/column (with a guide line) so right-angled
+	// polygons are easy to draw. `scale` keeps the alignment tolerance constant
+	// on screen across zoom levels.
+	const computeSnap = useCallback(
+		(
+			point: Point,
+			snap: boolean,
+			scale: number
+		): { guides: SnapGuide[]; point: Point } => {
+			if (
+				!snap ||
+				(tool !== 'linear' && tool !== 'polygon' && tool !== 'calibrate')
+			) {
+				return { guides: [], point };
+			}
+			const prev = draftRef.current.at(-1);
+			if (!prev) {
+				return { guides: [], point };
+			}
+			const others = draftRef.current.slice(0, -1);
+			return snapPolylinePoint(prev, point, others, ALIGN_SNAP_PX / scale);
+		},
+		[tool]
+	);
+
 	const handleStageClick = useCallback(
-		(point: Point) => {
+		(rawPoint: Point, snap = false, scale = 1) => {
+			const { point } = computeSnap(rawPoint, snap, scale);
 			if (tool === 'count') {
 				setMeasurements((prev) => {
 					const existing = prev.find(
@@ -332,7 +370,7 @@ export default function TakeoffsContent() {
 				writeDraft([...draftRef.current, point]);
 			}
 		},
-		[tool, page, documentCalibration, writeDraft]
+		[tool, page, documentCalibration, writeDraft, computeSnap]
 	);
 
 	// A pointer drag has begun (rectangle/circle draw, or move/resize of a
@@ -353,7 +391,7 @@ export default function TakeoffsContent() {
 	// Pointer moved. Apply the active drag live, or update the draft cursor for
 	// multi-click tools (linear/polygon/calibrate).
 	const handleCursorMove = useCallback(
-		(point: Point | null) => {
+		(point: Point | null, snap = false, scale = 1) => {
 			const drag = dragRef.current;
 			if (drag && point) {
 				if (drag.mode === 'draw-rect' || drag.mode === 'draw-circle') {
@@ -369,26 +407,64 @@ export default function TakeoffsContent() {
 							translatePoints(child.orig, dx, dy)
 						);
 					}
-				} else {
+				} else if (drag.mode === 'edge') {
+					// Slide the whole edge along its perpendicular axis: shift the
+					// owning vertices by the pointer's delta on that axis.
+					const delta = point[drag.axis] - drag.start[drag.axis];
+					const owners = new Set(drag.indices);
 					updateMeasurementPoints(
 						drag.id,
-						drag.orig.map((p, i) => (i === drag.index ? point : p))
+						drag.orig.map((p, i) =>
+							owners.has(i) ? { ...p, [drag.axis]: p[drag.axis] + delta } : p
+						)
 					);
+				} else {
+					// Dragging a single vertex handle. With Shift held, lock its motion
+					// to horizontal/vertical (relative to its original position) and
+					// align it to the shape's other vertices, showing guide lines.
+					const shape = measurements.find((m) => m.id === drag.id);
+					let next = point;
+					let guides: SnapGuide[] = [];
+					if (snap && (shape?.type === 'polygon' || shape?.type === 'linear')) {
+						const anchor = drag.orig[drag.index];
+						const others = drag.orig.filter((_, i) => i !== drag.index);
+						const result = snapPolylinePoint(
+							anchor,
+							point,
+							others,
+							ALIGN_SNAP_PX / scale
+						);
+						next = result.point;
+						guides = result.guides;
+					}
+					updateMeasurementPoints(
+						drag.id,
+						drag.orig.map((p, i) => (i === drag.index ? next : p))
+					);
+					setSnapGuides(guides);
 				}
 				return;
 			}
 			if (tool === 'linear' || tool === 'polygon' || tool === 'calibrate') {
-				setCursor(point);
+				if (point) {
+					const { point: snapped, guides } = computeSnap(point, snap, scale);
+					setCursor(snapped);
+					setSnapGuides(guides);
+				} else {
+					setCursor(null);
+					setSnapGuides([]);
+				}
 			}
 		},
-		[tool, writeDraft, updateMeasurementPoints]
+		[tool, writeDraft, updateMeasurementPoints, computeSnap, measurements]
 	);
 
 	// Pointer released — commit a rectangle/circle draw; move/resize already
-	// applied live, so just clear the drag.
+	// applied live, so just clear the drag and any alignment guides.
 	const handlePointerUp = useCallback(() => {
 		const drag = dragRef.current;
 		dragRef.current = null;
+		setSnapGuides([]);
 		if (drag?.mode === 'draw-rect' || drag?.mode === 'draw-circle') {
 			finishDraft();
 		}
@@ -548,6 +624,7 @@ export default function TakeoffsContent() {
 						cursor={cursor}
 						draft={draft}
 						error={error}
+						guides={snapGuides}
 						measurements={measurements.filter((m) => m.page === page)}
 						metersPerPixel={metersPerPixel}
 						numPages={numPages}
