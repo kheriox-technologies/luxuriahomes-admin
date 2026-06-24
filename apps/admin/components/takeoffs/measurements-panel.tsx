@@ -67,6 +67,7 @@ import {
 	type MeasurementMethod,
 	type MethodScope,
 } from '@/lib/takeoffs/types';
+import CalculatorPopover from './calculator-popover';
 import ColorSwatchPicker from './color-swatch-picker';
 
 const FALLBACK_COLOR = '#2563eb';
@@ -242,6 +243,7 @@ export default function MeasurementsPanel({
 		>
 			<div className="flex items-center justify-between border-b p-3">
 				<h2 className="font-semibold text-sm">Measurements</h2>
+				<CalculatorPopover />
 			</div>
 
 			{/* Measurements toolbar: expand/collapse + clear actions. */}
