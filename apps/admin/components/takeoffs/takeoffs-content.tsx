@@ -12,7 +12,16 @@ import {
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
-import { Crosshair, Hand, Hash, Ruler, Shapes } from 'lucide-react';
+import {
+	Circle,
+	Crosshair,
+	Hand,
+	Hash,
+	MousePointer2,
+	Pentagon,
+	Ruler,
+	Square,
+} from 'lucide-react';
 import {
 	type ReactElement,
 	useCallback,
@@ -21,15 +30,18 @@ import {
 	useState,
 } from 'react';
 import {
+	circleRadius,
 	distance,
-	polygonArea,
-	polygonPerimeter,
-	polylineLength,
+	measure,
+	rectArea,
 	toMetres,
+	translatePoints,
 } from '@/lib/takeoffs/geometry';
 import type {
+	DragKind,
 	LengthUnit,
 	Measurement,
+	MeasurementType,
 	Point,
 	ToolId,
 } from '@/lib/takeoffs/types';
@@ -40,6 +52,18 @@ import { usePdfDocument } from './use-pdf-document';
 
 const PDF_URL = '/sample-plan.pdf';
 const UNITS: LengthUnit[] = ['mm', 'cm', 'm'];
+// Minimum drag size (base px) before a rectangle/circle is committed; smaller
+// drags are treated as an accidental click and discarded.
+const MIN_DRAW_PX = 3;
+
+// Human-readable label prefix per measurement type.
+const TYPE_LABEL: Record<MeasurementType, string> = {
+	linear: 'Linear',
+	rectangle: 'Rectangle',
+	circle: 'Circle',
+	polygon: 'Polygon',
+	count: 'Count',
+};
 
 // Whether a calibration sets the PDF-wide default or overrides a single page.
 type CalibScope = 'all' | 'page';
@@ -53,9 +77,12 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
 	{ id: 'pan', label: 'Pan', icon: Hand },
+	{ id: 'select', label: 'Select', icon: MousePointer2 },
 	{ id: 'calibrate', label: 'Calibrate', icon: Crosshair },
 	{ id: 'linear', label: 'Linear', icon: Ruler, needsCalibration: true },
-	{ id: 'area', label: 'Area', icon: Shapes, needsCalibration: true },
+	{ id: 'rectangle', label: 'Rectangle', icon: Square, needsCalibration: true },
+	{ id: 'circle', label: 'Circle', icon: Circle, needsCalibration: true },
+	{ id: 'polygon', label: 'Polygon', icon: Pentagon, needsCalibration: true },
 	{ id: 'count', label: 'Count', icon: Hash },
 ];
 
@@ -86,9 +113,14 @@ export default function TakeoffsContent() {
 	>({});
 	const [draft, setDraft] = useState<Point[]>([]);
 	const [cursor, setCursor] = useState<Point | null>(null);
+	// Currently selected committed shape (Select tool) for editing/move.
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 	// Mirrors `draft` synchronously so rapid clicks accumulate correctly even
 	// before React re-renders (state reads in handlers would otherwise be stale).
 	const draftRef = useRef<Point[]>([]);
+	// Active pointer drag (draw / move / resize). Ref-driven like `draftRef` so
+	// native SVG listeners read the latest value without stale closures.
+	const dragRef = useRef<DragKind | null>(null);
 	const writeDraft = useCallback((points: Point[]) => {
 		draftRef.current = points;
 		setDraft(points);
@@ -113,6 +145,7 @@ export default function TakeoffsContent() {
 		(next: ToolId) => {
 			setTool(next);
 			resetDraft();
+			setSelectedId(null);
 		},
 		[resetDraft]
 	);
@@ -121,41 +154,75 @@ export default function TakeoffsContent() {
 		(next: number) => {
 			setPage(() => Math.min(Math.max(next, 1), numPages || 1));
 			resetDraft();
+			setSelectedId(null);
 		},
 		[numPages, resetDraft]
 	);
 
+	// Replace a committed shape's points and recompute its value/perimeter live.
+	const updateMeasurementPoints = useCallback(
+		(id: string, points: Point[]) => {
+			setMeasurements((prev) =>
+				prev.map((m) =>
+					m.id === id
+						? {
+								...m,
+								points,
+								...(metersPerPixel
+									? measure(m.type, points, metersPerPixel)
+									: {}),
+							}
+						: m
+				)
+			);
+		},
+		[metersPerPixel]
+	);
+
+	const commit = useCallback(
+		(type: MeasurementType, points: Point[]) => {
+			if (!metersPerPixel) {
+				return;
+			}
+			setMeasurements((prev) => [
+				...prev,
+				{
+					id: crypto.randomUUID(),
+					page,
+					type,
+					points,
+					...measure(type, points, metersPerPixel),
+					label: `${TYPE_LABEL[type]} ${
+						prev.filter((m) => m.type === type).length + 1
+					}`,
+				},
+			]);
+		},
+		[page, metersPerPixel]
+	);
+
 	const finishDraft = useCallback(() => {
 		const points = dedupeConsecutive(draftRef.current);
-		if (tool === 'linear' && points.length >= 2 && metersPerPixel) {
-			setMeasurements((prev) => [
-				...prev,
-				{
-					id: crypto.randomUUID(),
-					page,
-					type: 'linear',
-					points,
-					valueMeters: polylineLength(points) * metersPerPixel,
-					label: `Linear ${prev.filter((m) => m.type === 'linear').length + 1}`,
-				},
-			]);
-		} else if (tool === 'area' && points.length >= 3 && metersPerPixel) {
-			setMeasurements((prev) => [
-				...prev,
-				{
-					id: crypto.randomUUID(),
-					page,
-					type: 'area',
-					points,
-					valueSqm: polygonArea(points) * metersPerPixel ** 2,
-					perimeterMeters: polygonPerimeter(points) * metersPerPixel,
-					label: `Area ${prev.filter((m) => m.type === 'area').length + 1}`,
-				},
-			]);
+		if (tool === 'linear' && points.length >= 2) {
+			commit('linear', points);
+		} else if (tool === 'polygon' && points.length >= 3) {
+			commit('polygon', points);
+		} else if (
+			tool === 'rectangle' &&
+			points.length >= 2 &&
+			rectArea(points) > MIN_DRAW_PX ** 2
+		) {
+			commit('rectangle', points);
+		} else if (
+			tool === 'circle' &&
+			points.length >= 2 &&
+			circleRadius(points) >= MIN_DRAW_PX
+		) {
+			commit('circle', points);
 		}
 		writeDraft([]);
 		setCursor(null);
-	}, [tool, page, metersPerPixel, writeDraft]);
+	}, [tool, commit, writeDraft]);
 
 	const handleStageClick = useCallback(
 		(point: Point) => {
@@ -203,12 +270,69 @@ export default function TakeoffsContent() {
 				return;
 			}
 
-			if (tool === 'linear' || tool === 'area') {
+			if (tool === 'linear' || tool === 'polygon') {
 				writeDraft([...draftRef.current, point]);
 			}
 		},
 		[tool, page, documentCalibration, writeDraft]
 	);
+
+	// A pointer drag has begun (rectangle/circle draw, or move/resize of a
+	// committed shape via the Select tool). Hit-testing happens in PdfStage,
+	// which has the page scale; here we just record the drag and select.
+	const handleDragStart = useCallback(
+		(drag: DragKind) => {
+			dragRef.current = drag;
+			if (drag.mode === 'draw-rect' || drag.mode === 'draw-circle') {
+				writeDraft([drag.start]);
+			} else {
+				setSelectedId(drag.id);
+			}
+		},
+		[writeDraft]
+	);
+
+	// Pointer moved. Apply the active drag live, or update the draft cursor for
+	// multi-click tools (linear/polygon/calibrate).
+	const handleCursorMove = useCallback(
+		(point: Point | null) => {
+			const drag = dragRef.current;
+			if (drag && point) {
+				if (drag.mode === 'draw-rect' || drag.mode === 'draw-circle') {
+					writeDraft([drag.start, point]);
+				} else if (drag.mode === 'move') {
+					updateMeasurementPoints(
+						drag.id,
+						translatePoints(
+							drag.orig,
+							point.x - drag.start.x,
+							point.y - drag.start.y
+						)
+					);
+				} else {
+					updateMeasurementPoints(
+						drag.id,
+						drag.orig.map((p, i) => (i === drag.index ? point : p))
+					);
+				}
+				return;
+			}
+			if (tool === 'linear' || tool === 'polygon' || tool === 'calibrate') {
+				setCursor(point);
+			}
+		},
+		[tool, writeDraft, updateMeasurementPoints]
+	);
+
+	// Pointer released — commit a rectangle/circle draw; move/resize already
+	// applied live, so just clear the drag.
+	const handlePointerUp = useCallback(() => {
+		const drag = dragRef.current;
+		dragRef.current = null;
+		if (drag?.mode === 'draw-rect' || drag?.mode === 'draw-circle') {
+			finishDraft();
+		}
+	}, [finishDraft]);
 
 	const confirmCalibration = useCallback(() => {
 		if (!calibLine) {
@@ -234,16 +358,32 @@ export default function TakeoffsContent() {
 		setCalibValue('');
 	}, [calibLine, calibValue, calibUnit, calibScope, page]);
 
-	// Keyboard shortcuts for drawing.
+	const deleteMeasurement = useCallback((id: string) => {
+		setMeasurements((prev) => prev.filter((m) => m.id !== id));
+		setSelectedId((current) => (current === id ? null : current));
+	}, []);
+
+	// Keyboard shortcuts for drawing and editing.
 	useEffect(() => {
 		const handler = (event: KeyboardEvent) => {
 			if (calibLine) {
 				return;
 			}
+			const editingSelection =
+				tool === 'select' &&
+				selectedId !== null &&
+				draftRef.current.length === 0;
 			if (event.key === 'Enter') {
 				finishDraft();
 			} else if (event.key === 'Escape') {
 				resetDraft();
+				setSelectedId(null);
+			} else if (
+				(event.key === 'Delete' || event.key === 'Backspace') &&
+				editingSelection
+			) {
+				event.preventDefault();
+				deleteMeasurement(selectedId);
 			} else if (event.key === 'Backspace' && draftRef.current.length > 0) {
 				event.preventDefault();
 				writeDraft(draftRef.current.slice(0, -1));
@@ -251,11 +391,19 @@ export default function TakeoffsContent() {
 		};
 		window.addEventListener('keydown', handler);
 		return () => window.removeEventListener('keydown', handler);
-	}, [finishDraft, resetDraft, writeDraft, calibLine]);
+	}, [
+		finishDraft,
+		resetDraft,
+		writeDraft,
+		calibLine,
+		tool,
+		selectedId,
+		deleteMeasurement,
+	]);
 
 	const canFinish =
 		(tool === 'linear' && draft.length >= 2) ||
-		(tool === 'area' && draft.length >= 3);
+		(tool === 'polygon' && draft.length >= 3);
 
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col gap-3">
@@ -287,7 +435,7 @@ export default function TakeoffsContent() {
 				)}
 
 				<span className="ml-auto text-muted-foreground text-xs">
-					Scroll to zoom · Pan tool to drag · Enter/Esc to finish/cancel
+					Scroll to zoom · Select to edit/move · Enter/Esc to finish/cancel
 				</span>
 			</div>
 
@@ -307,12 +455,16 @@ export default function TakeoffsContent() {
 						measurements={measurements.filter((m) => m.page === page)}
 						metersPerPixel={metersPerPixel}
 						numPages={numPages}
-						onCursorMove={setCursor}
+						onCursorMove={handleCursorMove}
+						onDragStart={handleDragStart}
+						onPointerUp={handlePointerUp}
+						onSelectShape={setSelectedId}
 						onStageClick={handleStageClick}
 						onStageDoubleClick={finishDraft}
 						page={page}
 						ready={ready}
 						renderPage={renderPage}
+						selectedId={selectedId}
 						tool={tool}
 					/>
 				</div>
@@ -324,14 +476,14 @@ export default function TakeoffsContent() {
 					onClearAll={() => {
 						setMeasurements([]);
 						resetDraft();
+						setSelectedId(null);
 					}}
 					onClearPage={() => {
 						setMeasurements((prev) => prev.filter((m) => m.page !== page));
 						resetDraft();
+						setSelectedId(null);
 					}}
-					onDelete={(id) =>
-						setMeasurements((prev) => prev.filter((m) => m.id !== id))
-					}
+					onDelete={deleteMeasurement}
 					onUsePdfScale={
 						pageOverride === null
 							? undefined

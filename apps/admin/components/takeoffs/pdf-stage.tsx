@@ -3,28 +3,56 @@
 import { Button } from '@workspace/ui/components/button';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { Maximize, Minus, Plus } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+	type ReactElement,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
 import {
 	type ReactZoomPanPinchRef,
 	TransformComponent,
 	TransformWrapper,
 } from 'react-zoom-pan-pinch';
 import {
+	circleArea,
+	circleRadius,
+	distanceSq,
 	formatMeters,
 	formatSqm,
 	pointerToBaseCoords,
+	pointInPolygon,
 	polygonArea,
 	polylineLength,
+	rectArea,
+	rectBounds,
+	rectCorners,
 } from '@/lib/takeoffs/geometry';
-import type { Measurement, Point, ToolId } from '@/lib/takeoffs/types';
+import {
+	AREA_TYPES,
+	type DragKind,
+	type Measurement,
+	type Point,
+	type ToolId,
+} from '@/lib/takeoffs/types';
 import type { RenderedSize } from './use-pdf-document';
 
 const TOOL_COLORS: Record<string, string> = {
 	calibrate: '#f59e0b',
 	linear: '#2563eb',
-	area: '#059669',
+	rectangle: '#059669',
+	circle: '#059669',
+	polygon: '#059669',
 	count: '#7c3aed',
 };
+
+// Handle visual radius and grab tolerance in *screen* pixels (divided by the
+// zoom scale to stay constant on screen).
+const HANDLE_PX = 5;
+const HANDLE_HIT_PX = 10;
+
+const AREA_TYPE_SET = new Set<Measurement['type']>(AREA_TYPES);
 
 interface PdfStageProps {
 	cursor: Point | null;
@@ -34,6 +62,9 @@ interface PdfStageProps {
 	metersPerPixel: number | null;
 	numPages: number;
 	onCursorMove: (point: Point | null) => void;
+	onDragStart: (drag: DragKind) => void;
+	onPointerUp: (point: Point) => void;
+	onSelectShape: (id: string | null) => void;
 	onStageClick: (point: Point) => void;
 	onStageDoubleClick: () => void;
 	page: number;
@@ -42,6 +73,7 @@ interface PdfStageProps {
 		pageNumber: number,
 		canvas: HTMLCanvasElement
 	) => Promise<RenderedSize | null>;
+	selectedId: string | null;
 	tool: ToolId;
 }
 
@@ -57,6 +89,86 @@ function midpoint(a: Point, b: Point): Point {
 	return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
+/** Whether a base-pixel point lies inside an area-like shape's body. */
+function isInsideBody(measurement: Measurement, point: Point): boolean {
+	const { type, points } = measurement;
+	if (type === 'rectangle') {
+		const b = rectBounds(points);
+		return (
+			point.x >= b.x &&
+			point.x <= b.x + b.width &&
+			point.y >= b.y &&
+			point.y <= b.y + b.height
+		);
+	}
+	if (type === 'circle') {
+		const r = circleRadius(points);
+		return distanceSq(points[0], point) <= r * r;
+	}
+	return pointInPolygon(point, points);
+}
+
+/**
+ * Resolve a Select-tool pointer-down into a drag intent: a resize handle of the
+ * selected shape (tested first, with a screen-constant tolerance), then the body
+ * of any area-like shape (topmost first), else null (deselect).
+ */
+function hitTest(
+	point: Point,
+	measurements: Measurement[],
+	selectedId: string | null,
+	scale: number
+): DragKind | null {
+	const tolSq = (HANDLE_HIT_PX / scale) ** 2;
+	const selected = selectedId
+		? measurements.find((m) => m.id === selectedId)
+		: undefined;
+	if (selected && AREA_TYPE_SET.has(selected.type)) {
+		if (selected.type === 'rectangle') {
+			const corners = rectCorners(selected.points);
+			for (let k = 0; k < corners.length; k++) {
+				if (distanceSq(point, corners[k]) <= tolSq) {
+					// Keep the opposite corner fixed; resize stays axis-aligned.
+					const opposite = corners[(k + 2) % corners.length];
+					return {
+						mode: 'handle',
+						id: selected.id,
+						index: 1,
+						orig: [opposite, corners[k]],
+					};
+				}
+			}
+		} else if (selected.type === 'circle') {
+			if (distanceSq(point, selected.points[1]) <= tolSq) {
+				return {
+					mode: 'handle',
+					id: selected.id,
+					index: 1,
+					orig: selected.points,
+				};
+			}
+		} else {
+			for (let k = 0; k < selected.points.length; k++) {
+				if (distanceSq(point, selected.points[k]) <= tolSq) {
+					return {
+						mode: 'handle',
+						id: selected.id,
+						index: k,
+						orig: selected.points,
+					};
+				}
+			}
+		}
+	}
+	for (let i = measurements.length - 1; i >= 0; i--) {
+		const m = measurements[i];
+		if (AREA_TYPE_SET.has(m.type) && isInsideBody(m, point)) {
+			return { mode: 'move', id: m.id, start: point, orig: m.points };
+		}
+	}
+	return null;
+}
+
 export default function PdfStage({
 	page,
 	numPages,
@@ -68,9 +180,13 @@ export default function PdfStage({
 	measurements,
 	draft,
 	cursor,
+	selectedId,
 	onStageClick,
 	onStageDoubleClick,
 	onCursorMove,
+	onDragStart,
+	onPointerUp,
+	onSelectShape,
 }: PdfStageProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
@@ -134,11 +250,15 @@ export default function PdfStage({
 		return () => window.removeEventListener('resize', handler);
 	}, [fitToWindow]);
 
-	const isDrawingTool = tool !== 'pan';
+	// Any non-pan tool captures pointer events on the overlay (and disables
+	// panning). `select` edits committed shapes; the rest draw.
+	const isInteractive = tool !== 'pan';
+	const isDrawingTool = isInteractive && tool !== 'select';
 	const stroke = TOOL_COLORS[tool] ?? '#2563eb';
 	// Keep stroke/markers a constant screen size regardless of zoom.
 	const strokeWidth = 2 / scale;
 	const vertexRadius = 4 / scale;
+	const handleRadius = HANDLE_PX / scale;
 	const fontSize = 13 / scale;
 
 	const toBase = (event: {
@@ -155,21 +275,39 @@ export default function PdfStage({
 	// delegated root listener, so React's onClick/onMouseMove on the overlay
 	// never fire. Bind native listeners directly on the SVG element instead.
 	const handlersRef = useRef({
-		isDrawingTool,
+		isInteractive,
+		tool,
+		scale,
+		measurements,
+		selectedId,
 		toBase,
 		onStageClick,
 		onStageDoubleClick,
 		onCursorMove,
+		onDragStart,
+		onPointerUp,
+		onSelectShape,
 	});
 	useEffect(() => {
 		handlersRef.current = {
-			isDrawingTool,
+			isInteractive,
+			tool,
+			scale,
+			measurements,
+			selectedId,
 			toBase,
 			onStageClick,
 			onStageDoubleClick,
 			onCursorMove,
+			onDragStart,
+			onPointerUp,
+			onSelectShape,
 		};
 	});
+	// True between a mousedown that began a drag and the trailing synthetic
+	// click, so that click is swallowed (it would otherwise add a stray point
+	// or re-trigger selection).
+	const draggingRef = useRef(false);
 	// Stable callback ref: attaches native listeners when the SVG mounts and
 	// returns its cleanup (React 19 ref-cleanup), so it never re-binds per render.
 	const setOverlayRef = useCallback((svg: SVGSVGElement | null) => {
@@ -177,9 +315,41 @@ export default function PdfStage({
 		if (!svg) {
 			return;
 		}
+		const handleDown = (event: MouseEvent) => {
+			const h = handlersRef.current;
+			const point = h.toBase(event);
+			if (!point) {
+				return;
+			}
+			let drag: DragKind | null = null;
+			if (h.tool === 'rectangle') {
+				drag = { mode: 'draw-rect', start: point };
+			} else if (h.tool === 'circle') {
+				drag = { mode: 'draw-circle', start: point };
+			} else if (h.tool === 'select') {
+				drag = hitTest(point, h.measurements, h.selectedId, h.scale);
+			}
+			if (drag) {
+				draggingRef.current = true;
+				h.onDragStart(drag);
+			} else if (h.tool === 'select') {
+				h.onSelectShape(null);
+			}
+		};
+		const handleUp = (event: MouseEvent) => {
+			const h = handlersRef.current;
+			const point = h.toBase(event);
+			if (point) {
+				h.onPointerUp(point);
+			}
+		};
 		const handleClick = (event: MouseEvent) => {
 			const h = handlersRef.current;
-			if (!h.isDrawingTool) {
+			if (draggingRef.current) {
+				draggingRef.current = false;
+				return;
+			}
+			if (!h.isInteractive) {
 				return;
 			}
 			const point = h.toBase(event);
@@ -190,16 +360,20 @@ export default function PdfStage({
 		const handleDoubleClick = () => handlersRef.current.onStageDoubleClick();
 		const handleMove = (event: MouseEvent) => {
 			const h = handlersRef.current;
-			if (h.isDrawingTool) {
+			if (h.isInteractive) {
 				h.onCursorMove(h.toBase(event));
 			}
 		};
 		const handleLeave = () => handlersRef.current.onCursorMove(null);
+		svg.addEventListener('mousedown', handleDown);
+		svg.addEventListener('mouseup', handleUp);
 		svg.addEventListener('click', handleClick);
 		svg.addEventListener('dblclick', handleDoubleClick);
 		svg.addEventListener('mousemove', handleMove);
 		svg.addEventListener('mouseleave', handleLeave);
 		return () => {
+			svg.removeEventListener('mousedown', handleDown);
+			svg.removeEventListener('mouseup', handleUp);
 			svg.removeEventListener('click', handleClick);
 			svg.removeEventListener('dblclick', handleDoubleClick);
 			svg.removeEventListener('mousemove', handleMove);
@@ -228,7 +402,7 @@ export default function PdfStage({
 				maxScale={fitScale * 16}
 				minScale={fitScale * 0.5}
 				onTransform={(_ref, state) => setScale(state.scale)}
-				panning={{ disabled: isDrawingTool }}
+				panning={{ disabled: isInteractive }}
 				ref={transformRef}
 				wheel={{ step: 0.04 }}
 			>
@@ -246,7 +420,7 @@ export default function PdfStage({
 								ref={setOverlayRef}
 								role="img"
 								style={{
-									pointerEvents: isDrawingTool ? 'auto' : 'none',
+									pointerEvents: isInteractive ? 'auto' : 'none',
 									cursor: isDrawingTool ? 'crosshair' : 'default',
 								}}
 								viewBox={`0 0 ${size.width} ${size.height}`}
@@ -256,8 +430,10 @@ export default function PdfStage({
 								{measurements.map((m) => (
 									<CommittedShape
 										fontSize={fontSize}
+										handleRadius={handleRadius}
 										key={m.id}
 										measurement={m}
+										selected={m.id === selectedId}
 										strokeWidth={strokeWidth}
 										vertexRadius={vertexRadius}
 									/>
@@ -313,16 +489,43 @@ export default function PdfStage({
 	);
 }
 
+function EditHandle({
+	pos,
+	radius,
+	strokeWidth,
+	color,
+}: {
+	pos: Point;
+	radius: number;
+	strokeWidth: number;
+	color: string;
+}) {
+	return (
+		<circle
+			cx={pos.x}
+			cy={pos.y}
+			fill="#fff"
+			r={radius}
+			stroke={color}
+			strokeWidth={strokeWidth}
+		/>
+	);
+}
+
 function CommittedShape({
 	measurement,
 	strokeWidth,
 	vertexRadius,
+	handleRadius,
 	fontSize,
+	selected,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
 	vertexRadius: number;
+	handleRadius: number;
 	fontSize: number;
+	selected: boolean;
 }) {
 	const color = TOOL_COLORS[measurement.type] ?? '#2563eb';
 	const { points, type } = measurement;
@@ -348,47 +551,84 @@ function CommittedShape({
 		);
 	}
 
-	const isArea = type === 'area';
-	const pointsAttr = points.map((p) => `${p.x},${p.y}`).join(' ');
-	const labelPos = isArea
-		? centroid(points)
-		: midpoint(points[0], points.at(-1) as Point);
-	const labelText = isArea
-		? formatSqm(measurement.valueSqm ?? 0)
-		: formatMeters(measurement.valueMeters ?? 0);
+	if (type === 'linear') {
+		return (
+			<g>
+				<polyline
+					fill="none"
+					points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+					stroke={color}
+					strokeWidth={strokeWidth}
+				/>
+				{points.map((p) => (
+					<circle
+						cx={p.x}
+						cy={p.y}
+						fill={color}
+						key={`${p.x}-${p.y}`}
+						r={vertexRadius}
+					/>
+				))}
+			</g>
+		);
+	}
+
+	// Area-like shapes: rectangle, circle, polygon.
+	const fill = `${color}22`;
+	let body: ReactElement;
+	let handlePoints: Point[];
+	if (type === 'rectangle') {
+		const b = rectBounds(points);
+		body = (
+			<rect
+				fill={fill}
+				height={b.height}
+				stroke={color}
+				strokeWidth={strokeWidth}
+				width={b.width}
+				x={b.x}
+				y={b.y}
+			/>
+		);
+		handlePoints = rectCorners(points);
+	} else if (type === 'circle') {
+		const r = circleRadius(points);
+		body = (
+			<circle
+				cx={points[0].x}
+				cy={points[0].y}
+				fill={fill}
+				r={r}
+				stroke={color}
+				strokeWidth={strokeWidth}
+			/>
+		);
+		handlePoints = [points[1]];
+	} else {
+		body = (
+			<polygon
+				fill={fill}
+				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+				stroke={color}
+				strokeWidth={strokeWidth}
+			/>
+		);
+		handlePoints = points;
+	}
 
 	return (
 		<g>
-			{isArea ? (
-				<polygon
-					fill={`${color}22`}
-					points={pointsAttr}
-					stroke={color}
-					strokeWidth={strokeWidth}
-				/>
-			) : (
-				<polyline
-					fill="none"
-					points={pointsAttr}
-					stroke={color}
-					strokeWidth={strokeWidth}
-				/>
-			)}
-			{points.map((p) => (
-				<circle
-					cx={p.x}
-					cy={p.y}
-					fill={color}
-					key={`${p.x}-${p.y}`}
-					r={vertexRadius}
-				/>
-			))}
-			<ShapeLabel
-				color={color}
-				fontSize={fontSize}
-				pos={labelPos}
-				text={labelText}
-			/>
+			{body}
+			{selected &&
+				handlePoints.map((p) => (
+					<EditHandle
+						color={color}
+						key={`${p.x}-${p.y}`}
+						pos={p}
+						radius={handleRadius}
+						strokeWidth={strokeWidth}
+					/>
+				))}
 		</g>
 	);
 }
@@ -412,29 +652,110 @@ function DraftShape({
 	fontSize: number;
 	metersPerPixel: number | null;
 }) {
-	if (tool === 'pan' || tool === 'count' || points.length === 0) {
+	if (
+		tool === 'pan' ||
+		tool === 'select' ||
+		tool === 'count' ||
+		points.length === 0
+	) {
 		return null;
 	}
 
+	const dash = `${strokeWidth * 3} ${strokeWidth * 2}`;
+
+	// Rectangle / circle: drag-drawn from a two-point draft [start, current].
+	if (tool === 'rectangle') {
+		if (points.length < 2) {
+			return null;
+		}
+		const b = rectBounds(points);
+		const label = metersPerPixel
+			? formatSqm(rectArea(points) * metersPerPixel ** 2)
+			: null;
+		return (
+			<g>
+				<rect
+					fill={`${stroke}1a`}
+					height={b.height}
+					stroke={stroke}
+					strokeDasharray={dash}
+					strokeWidth={strokeWidth}
+					width={b.width}
+					x={b.x}
+					y={b.y}
+				/>
+				{label && (
+					<ShapeLabel
+						color={stroke}
+						fontSize={fontSize}
+						pos={{ x: b.x + b.width / 2, y: b.y + b.height / 2 }}
+						text={label}
+					/>
+				)}
+			</g>
+		);
+	}
+
+	if (tool === 'circle') {
+		if (points.length < 2) {
+			return null;
+		}
+		const r = circleRadius(points);
+		const label = metersPerPixel
+			? formatSqm(circleArea(points) * metersPerPixel ** 2)
+			: null;
+		return (
+			<g>
+				<circle
+					cx={points[0].x}
+					cy={points[0].y}
+					fill={`${stroke}1a`}
+					r={r}
+					stroke={stroke}
+					strokeDasharray={dash}
+					strokeWidth={strokeWidth}
+				/>
+				<circle
+					cx={points[0].x}
+					cy={points[0].y}
+					fill={stroke}
+					r={vertexRadius}
+				/>
+				{label && (
+					<ShapeLabel
+						color={stroke}
+						fontSize={fontSize}
+						pos={points[0]}
+						text={label}
+					/>
+				)}
+			</g>
+		);
+	}
+
+	// Polygon / linear / calibrate: click-to-add with a live cursor segment.
 	const livePoints = cursor ? [...points, cursor] : points;
 	const pointsAttr = livePoints.map((p) => `${p.x},${p.y}`).join(' ');
-	const isArea = tool === 'area';
+	const isPolygon = tool === 'polygon';
 
 	let label: string | null = null;
 	let labelPos: Point = points[0];
 	if (metersPerPixel) {
-		if (isArea && livePoints.length >= 3) {
+		if (isPolygon && livePoints.length >= 3) {
 			label = formatSqm(polygonArea(livePoints) * metersPerPixel ** 2);
 			labelPos = centroid(livePoints);
-		} else if (!isArea && livePoints.length >= 2) {
+		} else if (tool === 'linear' && livePoints.length >= 2) {
 			label = formatMeters(polylineLength(livePoints) * metersPerPixel);
 			labelPos = midpoint(
 				livePoints.at(-2) as Point,
 				livePoints.at(-1) as Point
 			);
-		} else if (tool === 'calibrate' && livePoints.length === 2) {
+		} else if (tool === 'calibrate' && livePoints.length >= 2) {
 			label = `${polylineLength(livePoints).toFixed(0)} px`;
-			labelPos = midpoint(livePoints[0], livePoints[1]);
+			labelPos = midpoint(
+				livePoints.at(-2) as Point,
+				livePoints.at(-1) as Point
+			);
 		}
 	} else if (tool === 'calibrate' && livePoints.length >= 2) {
 		label = `${polylineLength(livePoints).toFixed(0)} px`;
@@ -443,12 +764,12 @@ function DraftShape({
 
 	return (
 		<g>
-			{isArea && livePoints.length >= 3 ? (
+			{isPolygon && livePoints.length >= 3 ? (
 				<polygon
 					fill={`${stroke}1a`}
 					points={pointsAttr}
 					stroke={stroke}
-					strokeDasharray={`${strokeWidth * 3} ${strokeWidth * 2}`}
+					strokeDasharray={dash}
 					strokeWidth={strokeWidth}
 				/>
 			) : (
@@ -456,7 +777,7 @@ function DraftShape({
 					fill="none"
 					points={pointsAttr}
 					stroke={stroke}
-					strokeDasharray={`${strokeWidth * 3} ${strokeWidth * 2}`}
+					strokeDasharray={dash}
 					strokeWidth={strokeWidth}
 				/>
 			)}

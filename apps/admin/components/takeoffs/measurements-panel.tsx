@@ -3,18 +3,22 @@
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Separator } from '@workspace/ui/components/separator';
-import { Hash, Ruler, Shapes, Trash2 } from 'lucide-react';
+import { Circle, Hash, Pentagon, Ruler, Square, Trash2 } from 'lucide-react';
 import { formatMeters, formatSqm } from '@/lib/takeoffs/geometry';
-import type { Measurement } from '@/lib/takeoffs/types';
+import { AREA_TYPES, type Measurement } from '@/lib/takeoffs/types';
+
+const AREA_TYPE_SET = new Set<Measurement['type']>(AREA_TYPES);
 
 const TYPE_META = {
 	linear: { icon: Ruler, label: 'Linear' },
-	area: { icon: Shapes, label: 'Area' },
+	rectangle: { icon: Square, label: 'Rectangle' },
+	circle: { icon: Circle, label: 'Circle' },
+	polygon: { icon: Pentagon, label: 'Polygon' },
 	count: { icon: Hash, label: 'Count' },
 } as const;
 
 function measurementValue(m: Measurement): string {
-	if (m.type === 'area') {
+	if (AREA_TYPE_SET.has(m.type)) {
 		return `${formatSqm(m.valueSqm ?? 0)} · ${formatMeters(m.perimeterMeters ?? 0)} perim`;
 	}
 	if (m.type === 'linear') {
@@ -44,7 +48,7 @@ export default function MeasurementsPanel({
 }) {
 	const pageMeasurements = measurements.filter((m) => m.page === page);
 	const totalArea = pageMeasurements
-		.filter((m) => m.type === 'area')
+		.filter((m) => AREA_TYPE_SET.has(m.type))
 		.reduce((sum, m) => sum + (m.valueSqm ?? 0), 0);
 	const totalLength = pageMeasurements
 		.filter((m) => m.type === 'linear')
@@ -56,16 +60,18 @@ export default function MeasurementsPanel({
 	return (
 		<div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-card">
 			<div className="flex flex-col gap-2 border-b p-3">
-				<div className="flex items-center justify-between">
-					<h2 className="font-semibold text-sm">Measurements</h2>
-					<Badge size="lg" variant={calibrated ? 'success' : 'warning'}>
-						{calibrated && metersPerPixel !== null
-							? `1 px = ${(metersPerPixel * 1000).toFixed(2)} mm · ${
-									onUsePdfScale ? 'this page' : 'all pages'
-								}`
-							: 'Not calibrated'}
-					</Badge>
-				</div>
+				<h2 className="font-semibold text-sm">Measurements</h2>
+				<Badge
+					className="self-start"
+					size="lg"
+					variant={calibrated ? 'success' : 'warning'}
+				>
+					{calibrated && metersPerPixel !== null
+						? `1 px = ${(metersPerPixel * 1000).toFixed(2)} mm · ${
+								onUsePdfScale ? 'this page' : 'all pages'
+							}`
+						: 'Not calibrated'}
+				</Badge>
 				{onUsePdfScale && (
 					<Button
 						className="self-start"
