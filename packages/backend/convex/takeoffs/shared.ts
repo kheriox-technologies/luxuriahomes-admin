@@ -30,6 +30,13 @@ export const getTakeoffById = internalQuery({
 	},
 });
 
+export const deleteTakeoffRecord = internalMutation({
+	args: { takeoffId: v.id('takeoffs') },
+	handler: async (ctx, args) => {
+		await ctx.db.delete(args.takeoffId);
+	},
+});
+
 // Ensures the project's "Take Offs" folder exists, records the copied PDF as a
 // projectDocument inside it, and creates the linked takeoff row. Called from the
 // addToTakeoffs node action (which cannot touch the db directly).

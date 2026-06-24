@@ -2,6 +2,16 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import {
+	AlertDialog,
+	AlertDialogClose,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
@@ -18,10 +28,12 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { useQuery } from 'convex/react';
-import { Ruler, Save } from 'lucide-react';
+import { toastManager } from '@workspace/ui/components/toast';
+import { useAction, useQuery } from 'convex/react';
+import { Ruler, Save, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TakeoffsHandle } from '@/components/takeoffs/takeoffs-content';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 import ProjectTakeoffWorkspace from './project-takeoff-workspace';
 
 export default function ProjectTakeoffsTabContent({
@@ -33,6 +45,8 @@ export default function ProjectTakeoffsTabContent({
 	const [selectedId, setSelectedId] = useState<Id<'takeoffs'> | null>(null);
 	const contentRef = useRef<TakeoffsHandle>(null);
 	const [savingPdf, setSavingPdf] = useState(false);
+	const [deletingTakeoff, setDeletingTakeoff] = useState(false);
+	const removeTakeoff = useAction(api.takeoffs.remove.remove);
 
 	const onSavePdf = async () => {
 		setSavingPdf(true);
@@ -40,6 +54,31 @@ export default function ProjectTakeoffsTabContent({
 			await contentRef.current?.savePdf();
 		} finally {
 			setSavingPdf(false);
+		}
+	};
+
+	const onDeleteTakeoff = async () => {
+		if (!selectedId) {
+			return;
+		}
+		setDeletingTakeoff(true);
+		try {
+			await removeTakeoff({ takeoffId: selectedId });
+			toastManager.add({
+				title: 'Take-off deleted',
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete take-off. Please try again in a moment.'
+				),
+				title: 'Could not delete take-off',
+				type: 'error',
+			});
+		} finally {
+			setDeletingTakeoff(false);
 		}
 	};
 
@@ -111,16 +150,56 @@ export default function ProjectTakeoffsTabContent({
 					</Combobox>
 				</div>
 				{selectedId ? (
-					<Button
-						loading={savingPdf}
-						onClick={() => onSavePdf().catch(() => undefined)}
-						size="sm"
-						type="button"
-						variant="outline"
-					>
-						<Save />
-						Save PDF
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button
+							loading={savingPdf}
+							onClick={() => onSavePdf().catch(() => undefined)}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<Save />
+							Save PDF
+						</Button>
+						<AlertDialog>
+							<AlertDialogTrigger
+								render={
+									<Button size="sm" type="button" variant="destructive-outline">
+										<Trash2 />
+										Delete Take Off
+									</Button>
+								}
+							/>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete take-off?</AlertDialogTitle>
+									<AlertDialogDescription>
+										{`This will permanently delete ${
+											labelById.get(selectedId) ?? 'this take-off'
+										} and its PDF. This action cannot be undone.`}
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogClose
+										render={<Button type="button" variant="outline" />}
+									>
+										Cancel
+									</AlertDialogClose>
+									<Button
+										loading={deletingTakeoff}
+										onClick={() => {
+											onDeleteTakeoff().catch(() => {
+												/* Error is handled in onDeleteTakeoff */
+											});
+										}}
+										variant="destructive"
+									>
+										Delete Take Off
+									</Button>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+					</div>
 				) : null}
 			</div>
 			<div className="min-h-0 w-full min-w-0 flex-1">

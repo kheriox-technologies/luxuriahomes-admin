@@ -1,0 +1,54 @@
+'use node';
+
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { v } from 'convex/values';
+import { internal } from '../_generated/api';
+import { action } from '../_generated/server';
+import { requireAdmin } from '../lib/checkIdentity';
+
+export const remove = action({
+	args: {
+		takeoffId: v.id('takeoffs'),
+	},
+	handler: async (ctx, args): Promise<void> => {
+		await requireAdmin(ctx);
+
+		const region = process.env.AWS_REGION;
+		const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+		const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+		const bucket = process.env.CDN_BUCKET_NAME;
+
+		if (!(region && accessKeyId && secretAccessKey && bucket)) {
+			throw new Error('Missing AWS configuration');
+		}
+
+		const takeoff = await ctx.runQuery(
+			internal.takeoffs.shared.getTakeoffById,
+			{
+				takeoffId: args.takeoffId,
+			}
+		);
+
+		const client = new S3Client({
+			region,
+			credentials: { accessKeyId, secretAccessKey },
+			requestChecksumCalculation: 'WHEN_REQUIRED',
+			responseChecksumValidation: 'WHEN_REQUIRED',
+		});
+
+		// The takeoff row and its linked projectDocument share a single S3 object,
+		// so one delete covers both.
+		await client.send(
+			new DeleteObjectCommand({ Bucket: bucket, Key: takeoff.s3Key })
+		);
+
+		await ctx.runMutation(
+			internal.projectDocuments.shared.deleteDocumentRecord,
+			{ documentId: takeoff.documentId }
+		);
+
+		await ctx.runMutation(internal.takeoffs.shared.deleteTakeoffRecord, {
+			takeoffId: args.takeoffId,
+		});
+	},
+});
