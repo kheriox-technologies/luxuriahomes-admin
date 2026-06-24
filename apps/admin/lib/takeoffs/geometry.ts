@@ -177,28 +177,153 @@ export function shapeCentroid(measurement: Measurement): Point {
 	return { x: sum.x / points.length, y: sum.y / points.length };
 }
 
+// Number of segments used to approximate a circle as a convex polygon when
+// clipping a deduction against (or as) a circular parent.
+const CIRCLE_CLIP_SEGMENTS = 64;
+
+/** A circle stored as [center, edgePoint] approximated as a convex N-gon. */
+function circleToPolygon(points: Point[]): Point[] {
+	const [center] = points;
+	const r = circleRadius(points);
+	const result: Point[] = [];
+	for (let i = 0; i < CIRCLE_CLIP_SEGMENTS; i++) {
+		const angle = (i / CIRCLE_CLIP_SEGMENTS) * 2 * Math.PI;
+		result.push({
+			x: center.x + Math.cos(angle) * r,
+			y: center.y + Math.sin(angle) * r,
+		});
+	}
+	return result;
+}
+
+/** Any area shape → a polygon vertex list (rect→4 corners, circle→N-gon). */
+export function toPolygonPoints(
+	shape: Pick<Measurement, 'points' | 'type'>
+): Point[] {
+	if (shape.type === 'rectangle') {
+		return rectCorners(shape.points);
+	}
+	if (shape.type === 'circle') {
+		return circleToPolygon(shape.points);
+	}
+	return shape.points;
+}
+
+/** Signed area of a polygon; its sign encodes the winding direction. */
+function signedArea(poly: Point[]): number {
+	let sum = 0;
+	for (let i = 0; i < poly.length; i++) {
+		const a = poly[i];
+		const b = poly[(i + 1) % poly.length];
+		sum += a.x * b.y - b.x * a.y;
+	}
+	return sum / 2;
+}
+
+/** Intersection of segment p1→p2 with the infinite line through a→b. */
+function lineIntersection(p1: Point, p2: Point, a: Point, b: Point): Point {
+	const a1 = b.y - a.y;
+	const b1 = a.x - b.x;
+	const c1 = a1 * a.x + b1 * a.y;
+	const a2 = p2.y - p1.y;
+	const b2 = p1.x - p2.x;
+	const c2 = a2 * p1.x + b2 * p1.y;
+	const det = a1 * b2 - a2 * b1;
+	if (det === 0) {
+		return p2;
+	}
+	return { x: (b2 * c1 - b1 * c2) / det, y: (a1 * c2 - a2 * c1) / det };
+}
+
 /**
- * The topmost non-deduction area shape on `page` whose body contains the centroid
- * of `candidate` — i.e. the shape a freshly drawn deduction should attach to.
+ * Clip `subject` against a CONVEX `clip` polygon (Sutherland–Hodgman),
+ * returning the intersection polygon (possibly empty). The inside test is
+ * compared against the clip polygon's own winding, so either vertex order
+ * works. Exact for convex clips (rectangles, circles); a concave parent
+ * polygon is only approximated.
  */
-export function findParentId(
+export function clipPolygon(subject: Point[], clip: Point[]): Point[] {
+	if (subject.length < 3 || clip.length < 3) {
+		return [];
+	}
+	// Positive winding ⇒ a point is "inside" when it lies to the left of each
+	// directed clip edge (cross product ≥ 0); flip the test for the other winding.
+	const sign = signedArea(clip) >= 0 ? 1 : -1;
+	const inside = (p: Point, a: Point, b: Point): boolean =>
+		sign * ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) >= 0;
+
+	let output = subject;
+	for (let i = 0; i < clip.length; i++) {
+		if (output.length === 0) {
+			break;
+		}
+		const a = clip[i];
+		const b = clip[(i + 1) % clip.length];
+		const input = output;
+		output = [];
+		for (let j = 0; j < input.length; j++) {
+			const current = input[j];
+			const prevPoint = input[(j + input.length - 1) % input.length];
+			const currentInside = inside(current, a, b);
+			const prevInside = inside(prevPoint, a, b);
+			if (currentInside) {
+				if (!prevInside) {
+					output.push(lineIntersection(prevPoint, current, a, b));
+				}
+				output.push(current);
+			} else if (prevInside) {
+				output.push(lineIntersection(prevPoint, current, a, b));
+			}
+		}
+	}
+	return output;
+}
+
+/**
+ * For a candidate deduction in subtract mode, pick the eligible parent
+ * (topmost, non-deduction, area-like, same page) with the largest overlap and
+ * return the candidate clipped to it. A candidate fully inside its parent keeps
+ * its native type/points (so a circle stays a circle); otherwise the clipped
+ * intersection is returned as a polygon. Returns null when no parent overlaps.
+ */
+export function clipToParent(
 	candidate: Pick<Measurement, 'points' | 'type'>,
 	measurements: Measurement[],
 	page: number
-): string | undefined {
-	const c = shapeCentroid(candidate as Measurement);
+): { parentId: string; points: Point[]; type: MeasurementType } | null {
+	const subj = toPolygonPoints(candidate);
+	let best: { overlap: number; parent: Measurement } | null = null;
+	// Iterate topmost-first so equal overlaps favour the shape drawn last.
 	for (let i = measurements.length - 1; i >= 0; i--) {
 		const m = measurements[i];
-		if (
-			m.page === page &&
-			!m.parentId &&
-			AREA_TYPE_SET.has(m.type) &&
-			isInsideBody(m, c)
-		) {
-			return m.id;
+		if (m.page !== page || m.parentId || !AREA_TYPE_SET.has(m.type)) {
+			continue;
+		}
+		const overlap = polygonArea(clipPolygon(subj, toPolygonPoints(m)));
+		if (overlap > 0 && (!best || overlap > best.overlap)) {
+			best = { overlap, parent: m };
 		}
 	}
-	return;
+	if (!best) {
+		return null;
+	}
+	const { parent } = best;
+	if (subj.every((p) => isInsideBody(parent, p))) {
+		return {
+			parentId: parent.id,
+			type: candidate.type,
+			points: candidate.points,
+		};
+	}
+	const clipped = clipPolygon(subj, toPolygonPoints(parent));
+	if (clipped.length < 3) {
+		return {
+			parentId: parent.id,
+			type: candidate.type,
+			points: candidate.points,
+		};
+	}
+	return { parentId: parent.id, type: 'polygon', points: clipped };
 }
 
 /** Sum of the gross areas (m²) of every deduction belonging to a parent. */

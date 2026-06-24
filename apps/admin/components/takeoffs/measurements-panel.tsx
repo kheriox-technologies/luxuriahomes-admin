@@ -3,7 +3,15 @@
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Separator } from '@workspace/ui/components/separator';
-import { Circle, Hash, Pentagon, Ruler, Square, Trash2 } from 'lucide-react';
+import {
+	Circle,
+	Crosshair,
+	Hash,
+	Pentagon,
+	Ruler,
+	Square,
+	Trash2,
+} from 'lucide-react';
 import { formatMeters, formatSqm, netAreaSqm } from '@/lib/takeoffs/geometry';
 import { AREA_TYPE_SET, type Measurement } from '@/lib/takeoffs/types';
 
@@ -30,7 +38,9 @@ export default function MeasurementsPanel({
 	page,
 	measurements,
 	calibrated,
+	calibrating,
 	metersPerPixel,
+	onCalibrate,
 	onUsePdfScale,
 	onDelete,
 	onClearPage,
@@ -39,7 +49,9 @@ export default function MeasurementsPanel({
 	page: number;
 	measurements: Measurement[];
 	calibrated: boolean;
+	calibrating: boolean;
 	metersPerPixel: number | null;
+	onCalibrate: () => void;
 	onUsePdfScale?: () => void;
 	onDelete: (id: string) => void;
 	onClearPage: () => void;
@@ -61,7 +73,18 @@ export default function MeasurementsPanel({
 	return (
 		<div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-card">
 			<div className="flex flex-col gap-2 border-b p-3">
-				<h2 className="font-semibold text-sm">Measurements</h2>
+				<div className="flex items-center justify-between">
+					<h2 className="font-semibold text-sm">Measurements</h2>
+					<Button
+						aria-label="Calibrate scale"
+						onClick={onCalibrate}
+						size="icon-sm"
+						title="Calibrate scale — draw a line of known length"
+						variant={calibrating ? 'default' : 'ghost'}
+					>
+						<Crosshair />
+					</Button>
+				</div>
 				<Badge
 					className="self-start"
 					size="lg"

@@ -12,16 +12,17 @@ import {
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import { Switch } from '@workspace/ui/components/switch';
+import { cn } from '@workspace/ui/lib/utils';
 import {
 	Circle,
-	Crosshair,
 	Hand,
 	Hash,
 	MousePointer2,
 	Pentagon,
 	Ruler,
 	Square,
-	SquareMinus,
 } from 'lucide-react';
 import {
 	type ReactElement,
@@ -32,8 +33,8 @@ import {
 } from 'react';
 import {
 	circleRadius,
+	clipToParent,
 	distance,
-	findParentId,
 	measure,
 	rectArea,
 	type SnapGuide,
@@ -88,23 +89,11 @@ interface ToolDef {
 const TOOLS: ToolDef[] = [
 	{ id: 'pan', label: 'Pan', icon: Hand },
 	{ id: 'select', label: 'Select', icon: MousePointer2 },
-	{ id: 'calibrate', label: 'Calibrate', icon: Crosshair },
 	{ id: 'linear', label: 'Linear', icon: Ruler, needsCalibration: true },
 	{ id: 'rectangle', label: 'Rectangle', icon: Square, needsCalibration: true },
 	{ id: 'circle', label: 'Circle', icon: Circle, needsCalibration: true },
 	{ id: 'polygon', label: 'Polygon', icon: Pentagon, needsCalibration: true },
 	{ id: 'count', label: 'Count', icon: Hash },
-];
-
-// Area shapes that can be drawn as a deduction while Subtract mode is on.
-const SUBTRACT_SHAPES: {
-	icon: typeof Hand;
-	id: MeasurementType;
-	label: string;
-}[] = [
-	{ id: 'rectangle', label: 'Rectangle', icon: Square },
-	{ id: 'circle', label: 'Circle', icon: Circle },
-	{ id: 'polygon', label: 'Polygon', icon: Pentagon },
 ];
 
 function dedupeConsecutive(points: Point[]): Point[] {
@@ -124,11 +113,9 @@ export default function TakeoffsContent() {
 
 	const [page, setPage] = useState(1);
 	const [tool, setTool] = useState<ToolId>('pan');
-	// When on, area shapes are drawn as deductions of the parent that contains
-	// them; `subtractShape` is which area shape the selector draws.
+	// When on, area shapes drawn from the main toolbar are clipped to and
+	// subtracted from the parent shape that contains them.
 	const [subtractMode, setSubtractMode] = useState(false);
-	const [subtractShape, setSubtractShape] =
-		useState<MeasurementType>('rectangle');
 	const [measurements, setMeasurements] = useState<Measurement[]>([]);
 	// PDF-wide default scale, plus optional per-page overrides.
 	const [documentCalibration, setDocumentCalibration] = useState<number | null>(
@@ -172,33 +159,20 @@ export default function TakeoffsContent() {
 	const selectTool = useCallback(
 		(next: ToolId) => {
 			setTool(next);
-			// Picking from the main tool row means normal (non-deduction) drawing.
-			setSubtractMode(false);
+			// Keep Subtract mode active when switching to an area shape (so the main
+			// toolbar icons draw deductions); any other tool exits Subtract mode.
+			setSubtractMode((on) => on && AREA_TYPE_SET.has(next as MeasurementType));
 			resetDraft();
 			setSelectedId(null);
 		},
 		[resetDraft]
 	);
 
-	// Turn Subtract mode on/off. Turning it on switches to the chosen area shape so
-	// the user can immediately draw deductions.
-	const toggleSubtract = useCallback(() => {
-		setSubtractMode((on) => {
-			const next = !on;
-			if (next) {
-				setTool(subtractShape);
-			}
-			return next;
-		});
-		resetDraft();
-		setSelectedId(null);
-	}, [subtractShape, resetDraft]);
-
-	// Pick which area shape the subtract selector draws (also makes it active).
-	const selectSubtractShape = useCallback(
-		(shape: MeasurementType) => {
-			setSubtractShape(shape);
-			setTool(shape);
+	// Toggle Subtract mode. Only reachable from Select mode (the switch is
+	// disabled otherwise), so it just sets the flag without changing the tool.
+	const setSubtract = useCallback(
+		(on: boolean) => {
+			setSubtractMode(on);
 			resetDraft();
 			setSelectedId(null);
 		},
@@ -240,25 +214,33 @@ export default function TakeoffsContent() {
 				return;
 			}
 			setMeasurements((prev) => {
-				// In subtract mode, attach the new area shape to the parent that
-				// contains it; if none contains it, it commits as a normal area.
-				const parentId =
-					subtractMode && AREA_TYPE_SET.has(type)
-						? findParentId({ type, points }, prev, page)
-						: undefined;
+				// In subtract mode, clip the new area shape to the parent it overlaps
+				// and store it as that parent's deduction; if none overlaps, it commits
+				// as a normal area shape.
+				let finalType = type;
+				let finalPoints = points;
+				let parentId: string | undefined;
+				if (subtractMode && AREA_TYPE_SET.has(type)) {
+					const clipped = clipToParent({ type, points }, prev, page);
+					if (clipped) {
+						parentId = clipped.parentId;
+						finalType = clipped.type;
+						finalPoints = clipped.points;
+					}
+				}
 				const label = parentId
 					? `Deduction ${prev.filter((m) => m.parentId).length + 1}`
-					: `${TYPE_LABEL[type]} ${
-							prev.filter((m) => m.type === type && !m.parentId).length + 1
+					: `${TYPE_LABEL[finalType]} ${
+							prev.filter((m) => m.type === finalType && !m.parentId).length + 1
 						}`;
 				return [
 					...prev,
 					{
 						id: crypto.randomUUID(),
 						page,
-						type,
-						points,
-						...measure(type, points, metersPerPixel),
+						type: finalType,
+						points: finalPoints,
+						...measure(finalType, finalPoints, metersPerPixel),
 						parentId,
 						label,
 					},
@@ -543,6 +525,8 @@ export default function TakeoffsContent() {
 	const canFinish =
 		(tool === 'linear' && draft.length >= 2) ||
 		(tool === 'polygon' && draft.length >= 3);
+	// Subtract can only be toggled from Select mode on a calibrated page.
+	const subtractDisabled = tool !== 'select' || !isCalibrated;
 
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col gap-3">
@@ -567,37 +551,24 @@ export default function TakeoffsContent() {
 					})}
 				</div>
 
-				<div className="flex items-center gap-1 rounded-lg border bg-card p-1">
-					<Button
-						disabled={!isCalibrated}
-						onClick={toggleSubtract}
-						size="sm"
-						title={
-							isCalibrated
-								? 'Subtract shapes from the parent they sit inside'
-								: 'Calibrate this page first'
-						}
-						variant={subtractMode ? 'default' : 'ghost'}
-					>
-						<SquareMinus />
-						Subtract
-					</Button>
-					{subtractMode &&
-						SUBTRACT_SHAPES.map((shape) => {
-							const Icon = shape.icon;
-							return (
-								<Button
-									key={shape.id}
-									onClick={() => selectSubtractShape(shape.id)}
-									size="sm"
-									title={shape.label}
-									variant={subtractShape === shape.id ? 'default' : 'ghost'}
-								>
-									<Icon />
-									{shape.label}
-								</Button>
-							);
-						})}
+				<div
+					className={cn(
+						'flex items-center gap-2 px-3 py-1.5',
+						subtractDisabled && 'opacity-64'
+					)}
+					title={
+						isCalibrated
+							? 'In Select mode, toggle Subtract then draw an area shape to deduct it'
+							: 'Calibrate this page first'
+					}
+				>
+					<Switch
+						checked={subtractMode}
+						disabled={subtractDisabled}
+						id="subtract-toggle"
+						onCheckedChange={setSubtract}
+					/>
+					<Label htmlFor="subtract-toggle">Subtract</Label>
 				</div>
 
 				{canFinish && (
@@ -644,8 +615,10 @@ export default function TakeoffsContent() {
 
 				<MeasurementsPanel
 					calibrated={isCalibrated}
+					calibrating={tool === 'calibrate'}
 					measurements={measurements}
 					metersPerPixel={metersPerPixel}
+					onCalibrate={() => selectTool('calibrate')}
 					onClearAll={() => {
 						setMeasurements([]);
 						resetDraft();

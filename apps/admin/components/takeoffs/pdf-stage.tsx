@@ -23,7 +23,6 @@ import {
 	formatMeters,
 	formatSqm,
 	isInsideBody,
-	netAreaSqm,
 	pointerToBaseCoords,
 	polygonArea,
 	polylineLength,
@@ -31,7 +30,6 @@ import {
 	rectBounds,
 	rectCorners,
 	type SnapGuide,
-	shapeCentroid,
 } from '@/lib/takeoffs/geometry';
 import {
 	AREA_TYPE_SET,
@@ -524,28 +522,17 @@ export default function PdfStage({
 								width={size.width}
 							>
 								<title>Measurement overlay</title>
-								{measurements.map((m) => {
-									// Show a net-area label only on parents that have deductions.
-									const hasDeductions =
-										!m.parentId &&
-										measurements.some((c) => c.parentId === m.id);
-									const netLabel =
-										hasDeductions && metersPerPixel
-											? formatSqm(netAreaSqm(m, measurements))
-											: undefined;
-									return (
-										<CommittedShape
-											fontSize={fontSize}
-											handleRadius={handleRadius}
-											key={m.id}
-											measurement={m}
-											netLabel={netLabel}
-											selected={m.id === selectedId}
-											strokeWidth={strokeWidth}
-											vertexRadius={vertexRadius}
-										/>
-									);
-								})}
+								{measurements.map((m) => (
+									<CommittedShape
+										fontSize={fontSize}
+										handleRadius={handleRadius}
+										key={m.id}
+										measurement={m}
+										selected={m.id === selectedId}
+										strokeWidth={strokeWidth}
+										vertexRadius={vertexRadius}
+									/>
+								))}
 								{guides.map((g) => (
 									<line
 										key={`${g.axis}-${g.value}`}
@@ -641,7 +628,6 @@ function CommittedShape({
 	handleRadius,
 	fontSize,
 	selected,
-	netLabel,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
@@ -649,7 +635,6 @@ function CommittedShape({
 	handleRadius: number;
 	fontSize: number;
 	selected: boolean;
-	netLabel?: string;
 }) {
 	const isDeduction = Boolean(measurement.parentId);
 	const color = isDeduction
@@ -750,19 +735,9 @@ function CommittedShape({
 		handlePoints = points;
 	}
 
-	const labelPos = shapeCentroid(measurement);
-
 	return (
 		<g>
 			{body}
-			{netLabel && (
-				<ShapeLabel
-					color={TOOL_COLORS[measurement.type] ?? '#2563eb'}
-					fontSize={fontSize}
-					pos={labelPos}
-					text={netLabel}
-				/>
-			)}
 			{selected &&
 				handlePoints.map((p) => (
 					<EditHandle
