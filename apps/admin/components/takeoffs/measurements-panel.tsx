@@ -190,6 +190,7 @@ export default function MeasurementsPanel({
 	onSetMeasurementHeight,
 	onToggleMeasurementHidden,
 	onTogglePageHidden,
+	width,
 }: {
 	page: number;
 	measurements: Measurement[];
@@ -212,6 +213,8 @@ export default function MeasurementsPanel({
 	onSetMeasurementHeight: (id: string, heightMeters: number | null) => void;
 	onToggleMeasurementHidden: (id: string) => void;
 	onTogglePageHidden: (targetPage: number) => void;
+	/** Panel width in pixels, controlled by the drag handle in the parent. */
+	width: number;
 }) {
 	// Pages that hold at least one measurement, in order.
 	const pages = [...new Set(measurements.map((m) => m.page))].sort(
@@ -226,7 +229,10 @@ export default function MeasurementsPanel({
 	}, [page]);
 
 	return (
-		<div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-card">
+		<div
+			className="flex h-full shrink-0 flex-col rounded-lg border bg-card"
+			style={{ width }}
+		>
 			<div className="flex items-center justify-between border-b p-3">
 				<h2 className="font-semibold text-sm">Measurements</h2>
 			</div>

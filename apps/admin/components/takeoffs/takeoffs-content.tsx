@@ -83,6 +83,14 @@ const MIN_DRAW_PX = 3;
 // stay constant on screen).
 const ALIGN_SNAP_PX = 8;
 
+// Measurements panel width (px): default plus the bounds enforced by the drag
+// handle between the canvas and the panel.
+const DEFAULT_PANEL_WIDTH = 288;
+const MIN_PANEL_WIDTH = 240;
+const MAX_PANEL_WIDTH = 640;
+// Keyboard nudge per arrow-key press on the resize handle (px).
+const PANEL_RESIZE_STEP = 16;
+
 // Tools that draw a measurement and can therefore belong to an "Add" group.
 const DRAWABLE_TOOLS = new Set<ToolId>([
 	'linear',
@@ -183,6 +191,8 @@ export default function TakeoffsContent() {
 	const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
 	// Currently selected committed shape (Select tool) for editing/move.
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	// Width (px) of the measurements panel, adjustable via the drag handle.
+	const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
 	// Mirrors `draft` synchronously so rapid clicks accumulate correctly even
 	// before React re-renders (state reads in handlers would otherwise be stale).
 	const draftRef = useRef<Point[]>([]);
@@ -894,6 +904,48 @@ export default function TakeoffsContent() {
 		});
 	}, []);
 
+	// Begin a drag on the handle between the canvas and the measurements panel.
+	// The panel sits on the right, so dragging left widens it. Width is clamped
+	// to [MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]; the cursor/selection are locked for
+	// the duration so the drag stays smooth.
+	const startPanelResize = useCallback(
+		(event: React.PointerEvent) => {
+			event.preventDefault();
+			const startX = event.clientX;
+			const startWidth = panelWidth;
+			const prevCursor = document.body.style.cursor;
+			const prevSelect = document.body.style.userSelect;
+			document.body.style.cursor = 'col-resize';
+			document.body.style.userSelect = 'none';
+			const onMove = (moveEvent: PointerEvent) => {
+				const next = startWidth + (startX - moveEvent.clientX);
+				setPanelWidth(
+					Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, next))
+				);
+			};
+			const onUp = () => {
+				window.removeEventListener('pointermove', onMove);
+				window.removeEventListener('pointerup', onUp);
+				document.body.style.cursor = prevCursor;
+				document.body.style.userSelect = prevSelect;
+			};
+			window.addEventListener('pointermove', onMove);
+			window.addEventListener('pointerup', onUp);
+		},
+		[panelWidth]
+	);
+
+	// Keyboard resizing for the panel handle: Left widens, Right narrows.
+	const handlePanelResizeKey = useCallback((event: React.KeyboardEvent) => {
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			setPanelWidth((w) => Math.min(MAX_PANEL_WIDTH, w + PANEL_RESIZE_STEP));
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			setPanelWidth((w) => Math.max(MIN_PANEL_WIDTH, w - PANEL_RESIZE_STEP));
+		}
+	}, []);
+
 	// Keyboard shortcuts for drawing and editing.
 	useEffect(() => {
 		const handler = (event: KeyboardEvent) => {
@@ -1050,6 +1102,16 @@ export default function TakeoffsContent() {
 					/>
 				</div>
 
+				<button
+					aria-label="Resize measurements panel"
+					className="group -mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center bg-transparent outline-none"
+					onKeyDown={handlePanelResizeKey}
+					onPointerDown={startPanelResize}
+					type="button"
+				>
+					<span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
+				</button>
+
 				<MeasurementsPanel
 					documentMethod={documentMethod}
 					globalWastage={globalWastage}
@@ -1090,6 +1152,7 @@ export default function TakeoffsContent() {
 					page={page}
 					pageMethods={pageMethods}
 					selectedId={selectedId}
+					width={panelWidth}
 				/>
 			</div>
 
