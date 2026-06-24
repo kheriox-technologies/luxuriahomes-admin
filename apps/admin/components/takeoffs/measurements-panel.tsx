@@ -18,6 +18,7 @@ import {
 	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
+import { ButtonGroup } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
@@ -38,6 +39,8 @@ import {
 	ChevronsUpIcon,
 	Circle,
 	Crosshair,
+	Eye,
+	EyeOff,
 	Hash,
 	Layers,
 	MousePointer2,
@@ -158,7 +161,8 @@ function buildRows(pageMeasurements: Measurement[]): Row[] {
 			const fallback = isArea
 				? `Area group ${++areaGroupCount}`
 				: `Linear group ${++linearGroupCount}`;
-			row.label = row.members[0].detectedText ?? fallback;
+			const customLabel = row.members.find((m) => m.groupLabel)?.groupLabel;
+			row.label = customLabel ?? row.members[0].detectedText ?? fallback;
 		}
 	}
 	return rows;
@@ -180,9 +184,12 @@ export default function MeasurementsPanel({
 	onClearAll,
 	onSelectMeasurement,
 	onRenameMeasurement,
+	onRenameGroup,
 	onRecolorMeasurement,
 	onSetMeasurementWastage,
 	onSetMeasurementHeight,
+	onToggleMeasurementHidden,
+	onTogglePageHidden,
 }: {
 	page: number;
 	measurements: Measurement[];
@@ -199,9 +206,12 @@ export default function MeasurementsPanel({
 	onClearAll: () => void;
 	onSelectMeasurement: (id: string) => void;
 	onRenameMeasurement: (id: string, label: string) => void;
+	onRenameGroup: (groupId: string, label: string) => void;
 	onRecolorMeasurement: (id: string, color: string) => void;
 	onSetMeasurementWastage: (id: string, percent: number | null) => void;
 	onSetMeasurementHeight: (id: string, heightMeters: number | null) => void;
+	onToggleMeasurementHidden: (id: string) => void;
+	onTogglePageHidden: (targetPage: number) => void;
 }) {
 	// Pages that hold at least one measurement, in order.
 	const pages = [...new Set(measurements.map((m) => m.page))].sort(
@@ -280,6 +290,9 @@ export default function MeasurementsPanel({
 								(m) => m.page === pageNumber
 							);
 							const rows = buildRows(pageMeasurements);
+							const pageHidden =
+								pageMeasurements.length > 0 &&
+								pageMeasurements.every((m) => m.hidden);
 							return (
 								<AccordionItem key={pageNumber} value={String(pageNumber)}>
 									<AccordionPrimitive.Header className="flex items-center gap-1 bg-muted/50 pr-2">
@@ -299,6 +312,25 @@ export default function MeasurementsPanel({
 												/>
 											</span>
 										</AccordionPrimitive.Trigger>
+										<Button
+											aria-label={
+												pageHidden
+													? `Show all shapes on page ${pageNumber}`
+													: `Hide all shapes on page ${pageNumber}`
+											}
+											onClick={() => onTogglePageHidden(pageNumber)}
+											size="icon-sm"
+											title={
+												pageHidden ? 'Show page shapes' : 'Hide page shapes'
+											}
+											variant="ghost"
+										>
+											{pageHidden ? (
+												<EyeOff className="size-4" />
+											) : (
+												<Eye className="size-4" />
+											)}
+										</Button>
 										<PageMethodChip
 											documentMethod={documentMethod}
 											hasOverride={pageMethods[pageNumber] !== undefined}
@@ -317,6 +349,7 @@ export default function MeasurementsPanel({
 														color={row.members[0].color ?? FALLBACK_COLOR}
 														globalWastage={globalWastage}
 														heightMeters={row.members[0].heightMeters}
+														hidden={row.members[0].hidden}
 														key={row.groupId}
 														label={row.label}
 														net={groupNetValue(
@@ -327,6 +360,9 @@ export default function MeasurementsPanel({
 														onDelete={() => onDelete(row.members[0].id)}
 														onRecolor={(color) =>
 															onRecolorMeasurement(row.members[0].id, color)
+														}
+														onRename={(label) =>
+															onRenameGroup(row.groupId, label)
 														}
 														onSelect={() =>
 															onSelectMeasurement(row.members[0].id)
@@ -339,6 +375,9 @@ export default function MeasurementsPanel({
 																row.members[0].id,
 																percent
 															)
+														}
+														onToggleHidden={() =>
+															onToggleMeasurementHidden(row.members[0].id)
 														}
 														selected={row.members.some(
 															(m) => m.id === selectedId
@@ -356,6 +395,7 @@ export default function MeasurementsPanel({
 														onSelect={onSelectMeasurement}
 														onSetHeight={onSetMeasurementHeight}
 														onSetWastage={onSetMeasurementWastage}
+														onToggleHidden={onToggleMeasurementHidden}
 														pageMeasurements={pageMeasurements}
 														selectedId={selectedId}
 													/>
@@ -484,6 +524,7 @@ function MeasurementRow({
 	onRecolor,
 	onSetWastage,
 	onSetHeight,
+	onToggleHidden,
 }: {
 	measurement: Measurement;
 	pageMeasurements: Measurement[];
@@ -495,6 +536,7 @@ function MeasurementRow({
 	onRecolor: (id: string, color: string) => void;
 	onSetWastage: (id: string, percent: number | null) => void;
 	onSetHeight: (id: string, heightMeters: number | null) => void;
+	onToggleHidden: (id: string) => void;
 }) {
 	const Icon = TYPE_META[m.type].icon;
 	const deductions = pageMeasurements.filter((d) => d.parentId === m.id);
@@ -513,7 +555,8 @@ function MeasurementRow({
 		<li
 			className={cn(
 				'flex flex-col gap-1 rounded-md p-1',
-				selected && 'bg-accent ring-1 ring-ring ring-inset'
+				selected && 'bg-accent ring-1 ring-ring ring-inset',
+				m.hidden && 'opacity-60'
 			)}
 			ref={ref}
 		>
@@ -532,16 +575,24 @@ function MeasurementRow({
 						onRename={(label) => onRename(m.id, label)}
 						value={m.label}
 					/>
-					<ColorSwatchPicker
-						label={`Colour for ${m.label}`}
-						onChange={(next) => onRecolor(m.id, next)}
-						value={color}
-					/>
-					<DeleteConfirm
-						description="This permanently removes the measurement. This can't be undone."
-						label="Delete measurement"
-						onConfirm={() => onDelete(m.id)}
-					/>
+					<ButtonGroup>
+						<HiddenToggle
+							hidden={m.hidden}
+							label={m.label}
+							onToggle={() => onToggleHidden(m.id)}
+							variant="outline"
+						/>
+						<ColorSwatchPicker
+							label={`Colour for ${m.label}`}
+							onChange={(next) => onRecolor(m.id, next)}
+							value={color}
+						/>
+						<DeleteConfirm
+							description="This permanently removes the measurement. This can't be undone."
+							label="Delete measurement"
+							onConfirm={() => onDelete(m.id)}
+						/>
+					</ButtonGroup>
 				</div>
 				<div className="flex items-start justify-between gap-2">
 					{net ? (
@@ -615,12 +666,15 @@ function GroupRow({
 	globalWastage,
 	wastagePercent,
 	heightMeters,
+	hidden,
 	selected,
 	onSelect,
 	onDelete,
 	onRecolor,
+	onRename,
 	onSetWastage,
 	onSetHeight,
+	onToggleHidden,
 }: {
 	label: string;
 	net: NetValue | null;
@@ -628,12 +682,15 @@ function GroupRow({
 	globalWastage: number;
 	wastagePercent?: number;
 	heightMeters?: number;
+	hidden?: boolean;
 	selected: boolean;
 	onSelect: () => void;
 	onDelete: () => void;
 	onRecolor: (color: string) => void;
+	onRename: (label: string) => void;
 	onSetWastage: (percent: number | null) => void;
 	onSetHeight: (heightMeters: number | null) => void;
+	onToggleHidden: () => void;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
 	useEffect(() => {
@@ -648,7 +705,8 @@ function GroupRow({
 				'flex flex-col gap-1.5 rounded-md px-2 py-1.5',
 				selected
 					? 'bg-accent ring-1 ring-ring ring-inset'
-					: 'hover:bg-accent/50'
+					: 'hover:bg-accent/50',
+				hidden && 'opacity-60'
 			)}
 			ref={ref}
 		>
@@ -656,17 +714,29 @@ function GroupRow({
 				<span className="shrink-0" style={{ color }}>
 					<Layers className="size-4" />
 				</span>
-				<p className="min-w-0 flex-1 truncate font-medium text-sm">{label}</p>
-				<ColorSwatchPicker
-					label={`Colour for ${label}`}
-					onChange={onRecolor}
-					value={color}
+				<InlineTitle
+					className="min-w-0 flex-1"
+					onRename={onRename}
+					value={label}
 				/>
-				<DeleteConfirm
-					description="This permanently removes the whole group. This can't be undone."
-					label="Delete group"
-					onConfirm={onDelete}
-				/>
+				<ButtonGroup>
+					<HiddenToggle
+						hidden={hidden}
+						label={label}
+						onToggle={onToggleHidden}
+						variant="outline"
+					/>
+					<ColorSwatchPicker
+						label={`Colour for ${label}`}
+						onChange={onRecolor}
+						value={color}
+					/>
+					<DeleteConfirm
+						description="This permanently removes the whole group. This can't be undone."
+						label="Delete group"
+						onConfirm={onDelete}
+					/>
+				</ButtonGroup>
 			</div>
 			<div className="flex items-start justify-between gap-2">
 				{net ? (
@@ -978,6 +1048,32 @@ function InlineTitle({
 		>
 			{value}
 		</button>
+	);
+}
+
+// Eye toggle that shows/hides a shape (or group/page) on the canvas without
+// removing it from the measurements panel.
+function HiddenToggle({
+	hidden,
+	label,
+	onToggle,
+	variant = 'ghost',
+}: {
+	hidden?: boolean;
+	label: string;
+	onToggle: () => void;
+	variant?: 'ghost' | 'outline';
+}): ReactElement {
+	return (
+		<Button
+			aria-label={hidden ? `Show ${label}` : `Hide ${label}`}
+			onClick={onToggle}
+			size="icon-sm"
+			title={hidden ? 'Show on canvas' : 'Hide on canvas'}
+			variant={variant}
+		>
+			{hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+		</Button>
 	);
 }
 

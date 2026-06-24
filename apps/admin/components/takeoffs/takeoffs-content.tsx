@@ -801,6 +801,12 @@ export default function TakeoffsContent() {
 		);
 	}, []);
 
+	const renameGroup = useCallback((groupId: string, label: string) => {
+		setMeasurements((prev) =>
+			prev.map((m) => (m.groupId === groupId ? { ...m, groupLabel: label } : m))
+		);
+	}, []);
+
 	// Recolour a shape; if it belongs to an Add group, recolour the whole group.
 	const recolorMeasurement = useCallback((id: string, color: string) => {
 		setMeasurements((prev) => {
@@ -855,6 +861,38 @@ export default function TakeoffsContent() {
 		},
 		[]
 	);
+
+	// Toggle a shape's canvas visibility (panel still lists it). If the shape
+	// belongs to an Add group, toggle the whole group; a parent also toggles its
+	// deductions so they stay in sync.
+	const toggleMeasurementHidden = useCallback((id: string) => {
+		setMeasurements((prev) => {
+			const target = prev.find((m) => m.id === id);
+			if (!target) {
+				return prev;
+			}
+			const gid = target.groupId;
+			const next = !target.hidden;
+			return prev.map((m) => {
+				const inScope = gid
+					? m.groupId === gid
+					: m.id === id || m.parentId === id;
+				return inScope ? { ...m, hidden: next } : m;
+			});
+		});
+	}, []);
+
+	// Toggle canvas visibility for every shape on a page. If all are already
+	// hidden, show them all; otherwise hide them all.
+	const togglePageHidden = useCallback((targetPage: number) => {
+		setMeasurements((prev) => {
+			const onPage = prev.filter((m) => m.page === targetPage);
+			const allHidden = onPage.length > 0 && onPage.every((m) => m.hidden);
+			return prev.map((m) =>
+				m.page === targetPage ? { ...m, hidden: !allHidden } : m
+			);
+		});
+	}, []);
 
 	// Keyboard shortcuts for drawing and editing.
 	useEffect(() => {
@@ -993,7 +1031,9 @@ export default function TakeoffsContent() {
 						draft={draft}
 						error={error}
 						guides={snapGuides}
-						measurements={measurements.filter((m) => m.page === page)}
+						measurements={measurements.filter(
+							(m) => m.page === page && !m.hidden
+						)}
 						metersPerPixel={metersPerPixel}
 						numPages={numPages}
 						onCursorMove={handleCursorMove}
@@ -1035,6 +1075,7 @@ export default function TakeoffsContent() {
 						openScaleDialog(scope, targetPage)
 					}
 					onRecolorMeasurement={recolorMeasurement}
+					onRenameGroup={renameGroup}
 					onRenameMeasurement={renameMeasurement}
 					onResetPage={(targetPage) => {
 						resetPageMethod(targetPage).catch(() => {
@@ -1044,6 +1085,8 @@ export default function TakeoffsContent() {
 					onSelectMeasurement={focusMeasurement}
 					onSetMeasurementHeight={setMeasurementHeight}
 					onSetMeasurementWastage={setMeasurementWastage}
+					onToggleMeasurementHidden={toggleMeasurementHidden}
+					onTogglePageHidden={togglePageHidden}
 					page={page}
 					pageMethods={pageMethods}
 					selectedId={selectedId}

@@ -49,8 +49,12 @@ export interface Measurement {
 	detectedText?: string;
 	/** If set, this shape is part of a combined "Add" group keyed by this id. */
 	groupId?: string;
+	/** Custom name for the "Add" group this shape belongs to; overrides detectedText/fallback. */
+	groupLabel?: string;
 	/** Wall height in metres for linear measurements; drives a computed wall area. */
 	heightMeters?: number;
+	/** When true, the shape is not drawn on the canvas (still listed in the panel). */
+	hidden?: boolean;
 	id: string;
 	label: string;
 	page: number;
