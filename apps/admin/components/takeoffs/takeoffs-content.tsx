@@ -211,6 +211,9 @@ export default function TakeoffsContent() {
 				setAddMode(false);
 				currentGroupId.current = null;
 			}
+			// Drop focus off the toggle so a subsequent Enter commits the draft via
+			// the global handler instead of re-toggling this still-focused switch.
+			(document.activeElement as HTMLElement | null)?.blur();
 			resetDraft();
 			setSelectedId(null);
 		},
@@ -228,6 +231,9 @@ export default function TakeoffsContent() {
 			} else {
 				currentGroupId.current = null;
 			}
+			// Drop focus off the toggle so a subsequent Enter commits the draft via
+			// the global handler instead of re-toggling this still-focused switch.
+			(document.activeElement as HTMLElement | null)?.blur();
 			resetDraft();
 			setSelectedId(null);
 		},

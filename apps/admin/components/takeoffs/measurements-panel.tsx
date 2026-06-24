@@ -369,13 +369,17 @@ function MeasurementRow({
 	}, [selected]);
 
 	return (
-		<li className="flex flex-col gap-1" ref={ref}>
+		<li
+			className={cn(
+				'flex flex-col gap-1 rounded-md p-1',
+				selected && 'bg-accent ring-1 ring-ring ring-inset'
+			)}
+			ref={ref}
+		>
 			<div
 				className={cn(
 					'flex flex-col gap-1.5 rounded-md px-2 py-1.5',
-					selected
-						? 'bg-accent ring-1 ring-ring ring-inset'
-						: 'hover:bg-accent/50'
+					!selected && 'hover:bg-accent/50'
 				)}
 			>
 				<div className="flex items-center gap-2">
@@ -417,9 +421,11 @@ function MeasurementRow({
 							>
 								<DeductionIcon className="size-3.5 shrink-0 text-destructive" />
 								<div className="min-w-0 flex-1">
-									<p className="truncate font-medium text-destructive text-xs">
-										{d.label}
-									</p>
+									<InlineTitle
+										className="w-full text-destructive text-xs"
+										onRename={(label) => onRename(d.id, label)}
+										value={d.label}
+									/>
 									<p className="truncate text-muted-foreground text-xs">
 										− {formatSqm(d.valueSqm ?? 0)}
 									</p>
