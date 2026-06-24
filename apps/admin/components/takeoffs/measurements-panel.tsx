@@ -47,7 +47,9 @@ import {
 	formatMethodLabel,
 	formatSqm,
 	netAreaSqm,
+	roundUpWithWastage,
 	unionMeasure,
+	WASTAGE_OPTIONS,
 } from '@/lib/takeoffs/geometry';
 import {
 	AREA_TYPE_SET,
@@ -67,32 +69,48 @@ const TYPE_META = {
 	count: { icon: Hash, label: 'Count' },
 } as const;
 
-function measurementValue(m: Measurement, all: Measurement[]): string {
-	if (AREA_TYPE_SET.has(m.type)) {
-		// Parents report net area (gross when they have no deductions).
-		return formatSqm(netAreaSqm(m, all));
-	}
-	if (m.type === 'linear') {
-		return formatMeters(m.valueMeters ?? 0);
-	}
-	return `${m.count ?? 0} markers`;
+// A measured value with its unit. Area-like shapes report m², linear reports m.
+interface NetValue {
+	unit: 'm' | 'm²';
+	value: number;
 }
 
-// Combined value of an Add group: union area for area groups, or the summed
-// length for linear groups.
-function groupValue(
+// Net measured value of a single shape: net area (after deductions) for area
+// shapes, length for linear, or null for counts (which carry no wastage).
+function measurementNetValue(
+	m: Measurement,
+	all: Measurement[]
+): NetValue | null {
+	if (AREA_TYPE_SET.has(m.type)) {
+		// Parents report net area (gross when they have no deductions).
+		return { value: netAreaSqm(m, all), unit: 'm²' };
+	}
+	if (m.type === 'linear') {
+		return { value: m.valueMeters ?? 0, unit: 'm' };
+	}
+	return null;
+}
+
+// Combined net value of an Add group: union area for area groups, or the summed
+// length for linear groups. Null when an area group has no resolvable scale.
+function groupNetValue(
 	members: Measurement[],
 	isArea: boolean,
 	mpp: number | null
-): string {
+): NetValue | null {
 	if (isArea) {
 		if (!mpp) {
-			return '—';
+			return null;
 		}
-		return formatSqm(unionMeasure(members, mpp).valueSqm);
+		return { value: unionMeasure(members, mpp).valueSqm, unit: 'm²' };
 	}
 	const total = members.reduce((sum, m) => sum + (m.valueMeters ?? 0), 0);
-	return formatMeters(total);
+	return { value: total, unit: 'm' };
+}
+
+// Actual value formatted with two decimals and its unit.
+function formatActual({ value, unit }: NetValue): string {
+	return unit === 'm²' ? formatSqm(value) : formatMeters(value);
 }
 
 type Row =
@@ -146,6 +164,7 @@ export default function MeasurementsPanel({
 	documentMethod,
 	pageMethods,
 	metersPerPixel,
+	globalWastage,
 	selectedId,
 	onOpenScaleDialog,
 	onCalibrate,
@@ -156,12 +175,14 @@ export default function MeasurementsPanel({
 	onSelectMeasurement,
 	onRenameMeasurement,
 	onRecolorMeasurement,
+	onSetMeasurementWastage,
 }: {
 	page: number;
 	measurements: Measurement[];
 	documentMethod: MeasurementMethod | null;
 	pageMethods: Record<number, MeasurementMethod>;
 	metersPerPixel: number | null;
+	globalWastage: number;
 	selectedId: string | null;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
@@ -172,6 +193,7 @@ export default function MeasurementsPanel({
 	onSelectMeasurement: (id: string) => void;
 	onRenameMeasurement: (id: string, label: string) => void;
 	onRecolorMeasurement: (id: string, color: string) => void;
+	onSetMeasurementWastage: (id: string, percent: number | null) => void;
 }) {
 	// Pages that hold at least one measurement, in order.
 	const pages = [...new Set(measurements.map((m) => m.page))].sort(
@@ -288,9 +310,14 @@ export default function MeasurementsPanel({
 												row.kind === 'group' ? (
 													<GroupRow
 														color={row.members[0].color ?? FALLBACK_COLOR}
-														isArea={AREA_TYPE_SET.has(row.members[0].type)}
+														globalWastage={globalWastage}
 														key={row.groupId}
 														label={row.label}
+														net={groupNetValue(
+															row.members,
+															AREA_TYPE_SET.has(row.members[0].type),
+															metersPerPixel
+														)}
 														onDelete={() => onDelete(row.members[0].id)}
 														onRecolor={(color) =>
 															onRecolorMeasurement(row.members[0].id, color)
@@ -298,23 +325,27 @@ export default function MeasurementsPanel({
 														onSelect={() =>
 															onSelectMeasurement(row.members[0].id)
 														}
+														onSetWastage={(percent) =>
+															onSetMeasurementWastage(
+																row.members[0].id,
+																percent
+															)
+														}
 														selected={row.members.some(
 															(m) => m.id === selectedId
 														)}
-														value={groupValue(
-															row.members,
-															AREA_TYPE_SET.has(row.members[0].type),
-															metersPerPixel
-														)}
+														wastagePercent={row.members[0].wastagePercent}
 													/>
 												) : (
 													<MeasurementRow
+														globalWastage={globalWastage}
 														key={row.measurement.id}
 														measurement={row.measurement}
 														onDelete={onDelete}
 														onRecolor={onRecolorMeasurement}
 														onRename={onRenameMeasurement}
 														onSelect={onSelectMeasurement}
+														onSetWastage={onSetMeasurementWastage}
 														pageMeasurements={pageMeasurements}
 														selectedId={selectedId}
 													/>
@@ -436,23 +467,28 @@ function MeasurementRow({
 	measurement: m,
 	pageMeasurements,
 	selectedId,
+	globalWastage,
 	onDelete,
 	onSelect,
 	onRename,
 	onRecolor,
+	onSetWastage,
 }: {
 	measurement: Measurement;
 	pageMeasurements: Measurement[];
 	selectedId: string | null;
+	globalWastage: number;
 	onDelete: (id: string) => void;
 	onSelect: (id: string) => void;
 	onRename: (id: string, label: string) => void;
 	onRecolor: (id: string, color: string) => void;
+	onSetWastage: (id: string, percent: number | null) => void;
 }) {
 	const Icon = TYPE_META[m.type].icon;
 	const deductions = pageMeasurements.filter((d) => d.parentId === m.id);
 	const color = m.color ?? FALLBACK_COLOR;
 	const selected = m.id === selectedId;
+	const net = measurementNetValue(m, pageMeasurements);
 	const ref = useRef<HTMLLIElement>(null);
 
 	useEffect(() => {
@@ -484,23 +520,34 @@ function MeasurementRow({
 						onRename={(label) => onRename(m.id, label)}
 						value={m.label}
 					/>
+					<ColorSwatchPicker
+						label={`Colour for ${m.label}`}
+						onChange={(next) => onRecolor(m.id, next)}
+						value={color}
+					/>
 					<DeleteConfirm
 						description="This permanently removes the measurement. This can't be undone."
 						label="Delete measurement"
 						onConfirm={() => onDelete(m.id)}
 					/>
 				</div>
-				<div className="flex items-center justify-between gap-2">
-					<ValueBadge
-						color={color}
-						onSelect={() => onSelect(m.id)}
-						value={measurementValue(m, pageMeasurements)}
-					/>
-					<ColorSwatchPicker
-						label={`Colour for ${m.label}`}
-						onChange={(next) => onRecolor(m.id, next)}
-						value={color}
-					/>
+				<div className="flex items-start justify-between gap-2">
+					{net ? (
+						<MeasurementBadges
+							color={color}
+							globalWastage={globalWastage}
+							net={net}
+							onSelect={() => onSelect(m.id)}
+							onSetWastage={(percent) => onSetWastage(m.id, percent)}
+							wastagePercent={m.wastagePercent}
+						/>
+					) : (
+						<ValueBadge
+							color={color}
+							onSelect={() => onSelect(m.id)}
+							value={`${m.count ?? 0} markers`}
+						/>
+					)}
 				</div>
 			</div>
 			{deductions.length > 0 && (
@@ -539,21 +586,26 @@ function MeasurementRow({
 
 function GroupRow({
 	label,
-	value,
+	net,
 	color,
+	globalWastage,
+	wastagePercent,
 	selected,
 	onSelect,
 	onDelete,
 	onRecolor,
+	onSetWastage,
 }: {
 	label: string;
-	value: string;
+	net: NetValue | null;
 	color: string;
-	isArea: boolean;
+	globalWastage: number;
+	wastagePercent?: number;
 	selected: boolean;
 	onSelect: () => void;
 	onDelete: () => void;
 	onRecolor: (color: string) => void;
+	onSetWastage: (percent: number | null) => void;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
 	useEffect(() => {
@@ -577,21 +629,148 @@ function GroupRow({
 					<Layers className="size-4" />
 				</span>
 				<p className="min-w-0 flex-1 truncate font-medium text-sm">{label}</p>
+				<ColorSwatchPicker
+					label={`Colour for ${label}`}
+					onChange={onRecolor}
+					value={color}
+				/>
 				<DeleteConfirm
 					description="This permanently removes the whole group. This can't be undone."
 					label="Delete group"
 					onConfirm={onDelete}
 				/>
 			</div>
-			<div className="flex items-center justify-between gap-2">
-				<ValueBadge color={color} onSelect={onSelect} value={value} />
-				<ColorSwatchPicker
-					label={`Colour for ${label}`}
-					onChange={onRecolor}
-					value={color}
-				/>
+			<div className="flex items-start justify-between gap-2">
+				{net ? (
+					<MeasurementBadges
+						color={color}
+						globalWastage={globalWastage}
+						net={net}
+						onSelect={onSelect}
+						onSetWastage={onSetWastage}
+						wastagePercent={wastagePercent}
+					/>
+				) : (
+					<ValueBadge color={color} onSelect={onSelect} value="—" />
+				)}
 			</div>
 		</li>
+	);
+}
+
+// The badges for a value-bearing measurement: actual (A) and rounded-with-
+// wastage (R) on the left, and a clickable wastage badge (W) on the right that
+// overrides this measurement's wastage. Counts use a plain ValueBadge instead
+// (they carry no wastage).
+function MeasurementBadges({
+	net,
+	color,
+	globalWastage,
+	wastagePercent,
+	onSelect,
+	onSetWastage,
+}: {
+	net: NetValue;
+	color: string;
+	globalWastage: number;
+	wastagePercent?: number;
+	onSelect: () => void;
+	onSetWastage: (percent: number | null) => void;
+}) {
+	const effectiveWastage = wastagePercent ?? globalWastage;
+	const rounded = roundUpWithWastage(net.value, effectiveWastage);
+	return (
+		<div className="flex flex-1 items-start justify-between gap-2">
+			<div className="flex flex-wrap items-center gap-1">
+				<ValueBadge
+					color={color}
+					onSelect={onSelect}
+					showIcon={false}
+					title="Actual measured value"
+					value={`A ${formatActual(net)}`}
+				/>
+				<ValueBadge
+					color={color}
+					onSelect={onSelect}
+					showIcon={false}
+					title={`Rounded up — incl. ${effectiveWastage}% wastage`}
+					value={`R ${rounded} ${net.unit}`}
+				/>
+			</div>
+			<WastageBadge
+				effectiveWastage={effectiveWastage}
+				globalWastage={globalWastage}
+				onSelect={onSetWastage}
+				overridden={wastagePercent !== undefined}
+			/>
+		</div>
+	);
+}
+
+// Clickable wastage % badge. Shows the effective wastage and opens a popover to
+// override it for this measurement, or reset it to the global default.
+function WastageBadge({
+	effectiveWastage,
+	globalWastage,
+	overridden,
+	onSelect,
+}: {
+	effectiveWastage: number;
+	globalWastage: number;
+	overridden: boolean;
+	onSelect: (percent: number | null) => void;
+}) {
+	const [open, setOpen] = useState(false);
+	return (
+		<Popover onOpenChange={setOpen} open={open}>
+			<PopoverTrigger
+				render={
+					<button
+						className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-input bg-background px-2 py-0.5 font-medium text-foreground text-xs transition-colors hover:bg-accent"
+						title={
+							overridden
+								? 'Custom wastage for this measurement'
+								: 'Using the global wastage default'
+						}
+						type="button"
+					>
+						W {effectiveWastage}%
+					</button>
+				}
+			/>
+			<PopoverContent align="end" className="w-60">
+				<div className="flex flex-col gap-2">
+					<p className="font-medium text-sm">Wastage allowance</p>
+					<div className="grid grid-cols-4 gap-1">
+						{WASTAGE_OPTIONS.map((option) => (
+							<Button
+								key={option}
+								onClick={() => {
+									setOpen(false);
+									onSelect(option);
+								}}
+								size="sm"
+								variant={effectiveWastage === option ? 'default' : 'outline'}
+							>
+								{option}%
+							</Button>
+						))}
+					</div>
+					<Button
+						className="justify-start"
+						onClick={() => {
+							setOpen(false);
+							onSelect(null);
+						}}
+						size="sm"
+						variant="ghost"
+					>
+						<RotateCcw />
+						Use global default ({globalWastage}%)
+					</Button>
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 }
 
@@ -601,10 +780,14 @@ function ValueBadge({
 	value,
 	color,
 	onSelect,
+	showIcon = true,
+	title = 'Select on canvas',
 }: {
 	value: string;
 	color: string;
 	onSelect: () => void;
+	showIcon?: boolean;
+	title?: string;
 }) {
 	return (
 		<button
@@ -615,10 +798,10 @@ function ValueBadge({
 				borderColor: `${color}55`,
 				color,
 			}}
-			title="Select on canvas"
+			title={title}
 			type="button"
 		>
-			<MousePointer2 className="size-3 shrink-0" />
+			{showIcon && <MousePointer2 className="size-3 shrink-0" />}
 			{value}
 		</button>
 	);

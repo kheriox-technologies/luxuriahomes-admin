@@ -35,6 +35,7 @@ import {
 import {
 	circleRadius,
 	clipToParent,
+	DEFAULT_WASTAGE,
 	distance,
 	measure,
 	randomShapeColor,
@@ -66,6 +67,7 @@ import PdfThumbnails from './pdf-thumbnails';
 import ScaleControl from './scale-control';
 import ScaleDialog from './scale-dialog';
 import { usePdfDocument } from './use-pdf-document';
+import WastageControl from './wastage-control';
 
 const PDF_URL = '/sample-plan.pdf';
 const UNITS: LengthUnit[] = ['mm', 'cm', 'm'];
@@ -170,6 +172,9 @@ export default function TakeoffsContent() {
 	const [pageMethods, setPageMethods] = useState<
 		Record<number, MeasurementMethod>
 	>({});
+	// Default wastage allowance (%) applied to every measurement; individual
+	// measurements may override it via their row in the measurements panel.
+	const [globalWastage, setGlobalWastage] = useState<number>(DEFAULT_WASTAGE);
 	// Geometry of the current page (natural + base-pixel dims), needed to resolve
 	// a drawing scale into metres-per-pixel.
 	const [pageGeometry, setPageGeometry] = useState<PageGeometry | null>(null);
@@ -809,6 +814,27 @@ export default function TakeoffsContent() {
 		});
 	}, []);
 
+	// Override a measurement's wastage %, or clear it (null) to follow the global
+	// default. If the shape belongs to an Add group, apply to the whole group.
+	const setMeasurementWastage = useCallback(
+		(id: string, percent: number | null) => {
+			setMeasurements((prev) => {
+				const gid = prev.find((m) => m.id === id)?.groupId;
+				return prev.map((m) => {
+					if (gid ? m.groupId === gid : m.id === id) {
+						if (percent === null) {
+							const { wastagePercent: _removed, ...rest } = m;
+							return rest;
+						}
+						return { ...m, wastagePercent: percent };
+					}
+					return m;
+				});
+			});
+		},
+		[]
+	);
+
 	// Keyboard shortcuts for drawing and editing.
 	useEffect(() => {
 		const handler = (event: KeyboardEvent) => {
@@ -920,12 +946,15 @@ export default function TakeoffsContent() {
 					</Button>
 				)}
 
-				<ScaleControl
-					calibrating={tool === 'calibrate' && calibTargetScope === 'all'}
-					method={documentMethod}
-					onCalibrate={() => startCalibration('all')}
-					onOpenScaleDialog={() => openScaleDialog('all')}
-				/>
+				<div className="ml-auto flex items-center gap-2">
+					<WastageControl onChange={setGlobalWastage} value={globalWastage} />
+					<ScaleControl
+						calibrating={tool === 'calibrate' && calibTargetScope === 'all'}
+						method={documentMethod}
+						onCalibrate={() => startCalibration('all')}
+						onOpenScaleDialog={() => openScaleDialog('all')}
+					/>
+				</div>
 			</div>
 
 			<div className="flex min-h-0 flex-1 gap-3">
@@ -962,6 +991,7 @@ export default function TakeoffsContent() {
 
 				<MeasurementsPanel
 					documentMethod={documentMethod}
+					globalWastage={globalWastage}
 					measurements={measurements}
 					metersPerPixel={metersPerPixel}
 					onCalibrate={(scope, targetPage) =>
@@ -991,6 +1021,7 @@ export default function TakeoffsContent() {
 						});
 					}}
 					onSelectMeasurement={focusMeasurement}
+					onSetMeasurementWastage={setMeasurementWastage}
 					page={page}
 					pageMethods={pageMethods}
 					selectedId={selectedId}

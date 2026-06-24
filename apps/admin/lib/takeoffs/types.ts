@@ -62,6 +62,8 @@ export interface Measurement {
 	valueMeters?: number;
 	/** Area in square metres (area-like: rectangle/circle/polygon). */
 	valueSqm?: number;
+	/** Per-measurement wastage % override; falls back to the global default when unset. */
+	wastagePercent?: number;
 }
 
 // Per-page scale derived from a calibration line.

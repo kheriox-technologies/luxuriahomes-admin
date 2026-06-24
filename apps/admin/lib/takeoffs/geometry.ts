@@ -610,6 +610,23 @@ export function formatSqm(value: number): string {
 	return `${value.toFixed(2)} m²`;
 }
 
+// Default global wastage allowance (%) applied to every measurement until the
+// user overrides it globally or per measurement.
+export const DEFAULT_WASTAGE = 10;
+
+// Selectable wastage allowances: 0% to 50% in 5% steps.
+export const WASTAGE_OPTIONS = [
+	0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50,
+] as const;
+
+/** Apply a wastage allowance to a measured value and round UP to a whole unit. */
+export function roundUpWithWastage(
+	value: number,
+	wastagePercent: number
+): number {
+	return Math.ceil(value * (1 + wastagePercent / 100));
+}
+
 // Vibrant palette for shape colours, randomly assigned on commit. Excludes the
 // red deduction colour (#dc2626) so deductions stay visually distinct.
 export const SHAPE_PALETTE = [

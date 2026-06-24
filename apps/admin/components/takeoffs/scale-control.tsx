@@ -36,7 +36,6 @@ export default function ScaleControl({
 			<PopoverTrigger
 				render={
 					<Button
-						className="ml-auto"
 						size="sm"
 						title="Set the measurement scale for all pages"
 						variant="outline"
