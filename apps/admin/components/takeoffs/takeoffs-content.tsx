@@ -1057,40 +1057,42 @@ export default function TakeoffsContent() {
 					})}
 				</div>
 
-				<div
-					className={cn(
-						'flex items-center gap-2 px-3 py-1.5',
-						addDisabled && 'opacity-64'
-					)}
-					title={getAddTitle(isCalibrated, tool)}
-				>
-					<Switch
-						checked={addMode}
-						disabled={addDisabled}
-						id="add-toggle"
-						onCheckedChange={setAdd}
-					/>
-					<Label htmlFor="add-toggle">Add</Label>
-				</div>
+				<div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+					<div
+						className={cn(
+							'flex items-center gap-2 px-3 py-1.5',
+							addDisabled && 'opacity-64'
+						)}
+						title={getAddTitle(isCalibrated, tool)}
+					>
+						<Switch
+							checked={addMode}
+							disabled={addDisabled}
+							id="add-toggle"
+							onCheckedChange={setAdd}
+						/>
+						<Label htmlFor="add-toggle">Add</Label>
+					</div>
 
-				<div
-					className={cn(
-						'flex items-center gap-2 px-3 py-1.5',
-						subtractDisabled && 'opacity-64'
-					)}
-					title={
-						isCalibrated
-							? 'In Select mode, toggle Subtract then draw an area shape to deduct it'
-							: 'Calibrate this page first'
-					}
-				>
-					<Switch
-						checked={subtractMode}
-						disabled={subtractDisabled}
-						id="subtract-toggle"
-						onCheckedChange={setSubtract}
-					/>
-					<Label htmlFor="subtract-toggle">Subtract</Label>
+					<div
+						className={cn(
+							'flex items-center gap-2 px-3 py-1.5',
+							subtractDisabled && 'opacity-64'
+						)}
+						title={
+							isCalibrated
+								? 'In Select mode, toggle Subtract then draw an area shape to deduct it'
+								: 'Calibrate this page first'
+						}
+					>
+						<Switch
+							checked={subtractMode}
+							disabled={subtractDisabled}
+							id="subtract-toggle"
+							onCheckedChange={setSubtract}
+						/>
+						<Label htmlFor="subtract-toggle">Subtract</Label>
+					</div>
 				</div>
 
 				{canFinish && (
