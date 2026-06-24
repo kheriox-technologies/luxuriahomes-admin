@@ -180,6 +180,8 @@ export default function TakeoffsContent() {
 	const [pageMethods, setPageMethods] = useState<
 		Record<number, MeasurementMethod>
 	>({});
+	// Custom per-page titles, keyed by page number; falls back to `Page {n}`.
+	const [pageTitles, setPageTitles] = useState<Record<number, string>>({});
 	// Default wastage allowance (%) applied to every measurement; individual
 	// measurements may override it via their row in the measurements panel.
 	const [globalWastage, setGlobalWastage] = useState<number>(DEFAULT_WASTAGE);
@@ -811,10 +813,25 @@ export default function TakeoffsContent() {
 		);
 	}, []);
 
+	const setMeasurementDescription = useCallback(
+		(id: string, description: string) => {
+			setMeasurements((prev) =>
+				prev.map((m) =>
+					m.id === id ? { ...m, description: description || undefined } : m
+				)
+			);
+		},
+		[]
+	);
+
 	const renameGroup = useCallback((groupId: string, label: string) => {
 		setMeasurements((prev) =>
 			prev.map((m) => (m.groupId === groupId ? { ...m, groupLabel: label } : m))
 		);
+	}, []);
+
+	const renamePage = useCallback((targetPage: number, title: string) => {
+		setPageTitles((prev) => ({ ...prev, [targetPage]: title }));
 	}, []);
 
 	// Recolour a shape; if it belongs to an Add group, recolour the whole group.
@@ -1164,6 +1181,7 @@ export default function TakeoffsContent() {
 					onRecolorMeasurement={recolorMeasurement}
 					onRenameGroup={renameGroup}
 					onRenameMeasurement={renameMeasurement}
+					onRenamePage={renamePage}
 					onResetPage={(targetPage) => {
 						resetPageMethod(targetPage).catch(() => {
 							// Recompute failure leaves existing values unchanged.
@@ -1171,12 +1189,14 @@ export default function TakeoffsContent() {
 					}}
 					onSelectMeasurement={focusMeasurement}
 					onSetMeasurementAreaAdjust={setMeasurementAreaAdjust}
+					onSetMeasurementDescription={setMeasurementDescription}
 					onSetMeasurementHeight={setMeasurementHeight}
 					onSetMeasurementWastage={setMeasurementWastage}
 					onToggleMeasurementHidden={toggleMeasurementHidden}
 					onTogglePageHidden={togglePageHidden}
 					page={page}
 					pageMethods={pageMethods}
+					pageTitles={pageTitles}
 					selectedId={selectedId}
 					width={panelWidth}
 				/>

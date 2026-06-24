@@ -18,7 +18,16 @@ import {
 	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
-import { ButtonGroup } from '@workspace/ui/components/group';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogPanel,
+	DialogTitle,
+} from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
@@ -27,11 +36,24 @@ import {
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
 import {
+	Menu,
+	MenuGroup,
+	MenuGroupLabel,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuSub,
+	MenuSubPopup,
+	MenuSubTrigger,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
+import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from '@workspace/ui/components/popover';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
+import { Textarea } from '@workspace/ui/components/textarea';
 import { cn } from '@workspace/ui/lib/utils';
 import {
 	ChevronDownIcon,
@@ -39,11 +61,14 @@ import {
 	ChevronsUpIcon,
 	Circle,
 	Crosshair,
+	EllipsisVertical,
 	Eye,
 	EyeOff,
+	FileText,
 	Hash,
 	Layers,
 	MousePointer2,
+	Palette,
 	Pentagon,
 	RotateCcw,
 	Ruler,
@@ -58,6 +83,7 @@ import {
 	formatSqm,
 	netAreaSqm,
 	roundUpWithWastage,
+	SHAPE_PALETTE,
 	unionMeasure,
 	WASTAGE_OPTIONS,
 } from '@/lib/takeoffs/geometry';
@@ -68,7 +94,6 @@ import {
 	type MethodScope,
 } from '@/lib/takeoffs/types';
 import CalculatorPopover from './calculator-popover';
-import ColorSwatchPicker from './color-swatch-picker';
 
 const FALLBACK_COLOR = '#2563eb';
 
@@ -175,6 +200,7 @@ export default function MeasurementsPanel({
 	measurements,
 	documentMethod,
 	pageMethods,
+	pageTitles,
 	metersPerPixel,
 	globalWastage,
 	selectedId,
@@ -187,10 +213,12 @@ export default function MeasurementsPanel({
 	onSelectMeasurement,
 	onRenameMeasurement,
 	onRenameGroup,
+	onRenamePage,
 	onRecolorMeasurement,
 	onSetMeasurementWastage,
 	onSetMeasurementHeight,
 	onSetMeasurementAreaAdjust,
+	onSetMeasurementDescription,
 	onToggleMeasurementHidden,
 	onTogglePageHidden,
 	width,
@@ -199,6 +227,7 @@ export default function MeasurementsPanel({
 	measurements: Measurement[];
 	documentMethod: MeasurementMethod | null;
 	pageMethods: Record<number, MeasurementMethod>;
+	pageTitles: Record<number, string>;
 	metersPerPixel: number | null;
 	globalWastage: number;
 	selectedId: string | null;
@@ -211,6 +240,7 @@ export default function MeasurementsPanel({
 	onSelectMeasurement: (id: string) => void;
 	onRenameMeasurement: (id: string, label: string) => void;
 	onRenameGroup: (groupId: string, label: string) => void;
+	onRenamePage: (targetPage: number, title: string) => void;
 	onRecolorMeasurement: (id: string, color: string) => void;
 	onSetMeasurementWastage: (id: string, percent: number | null) => void;
 	onSetMeasurementHeight: (id: string, heightMeters: number | null) => void;
@@ -219,6 +249,7 @@ export default function MeasurementsPanel({
 		field: 'areaAddSqm' | 'areaSubtractSqm',
 		value: number | null
 	) => void;
+	onSetMeasurementDescription: (id: string, description: string) => void;
 	onToggleMeasurementHidden: (id: string) => void;
 	onTogglePageHidden: (targetPage: number) => void;
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
@@ -310,40 +341,36 @@ export default function MeasurementsPanel({
 								pageMeasurements.every((m) => m.hidden);
 							return (
 								<AccordionItem key={pageNumber} value={String(pageNumber)}>
-									<AccordionPrimitive.Header className="flex items-center gap-1 bg-muted/50 pr-2">
+									<AccordionPrimitive.Header className="flex items-center gap-2 bg-muted/50 px-3 py-2.5">
+										<InlineTitle
+											className="min-w-0 flex-1"
+											onRename={(title) => onRenamePage(pageNumber, title)}
+											value={pageTitles[pageNumber] ?? `Page ${pageNumber}`}
+										/>
+										<PageActionsMenu
+											documentMethod={documentMethod}
+											hasOverride={pageMethods[pageNumber] !== undefined}
+											method={pageMethods[pageNumber] ?? documentMethod}
+											onCalibrate={onCalibrate}
+											onOpenScaleDialog={onOpenScaleDialog}
+											onResetPage={onResetPage}
+											onToggleHidden={() => onTogglePageHidden(pageNumber)}
+											page={pageNumber}
+											pageHidden={pageHidden}
+										/>
 										<AccordionPrimitive.Trigger
 											className={cn(
-												'flex flex-1 cursor-pointer items-center gap-2 px-3 py-2.5 outline-none transition-colors hover:bg-muted/40',
+												'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
 												'focus-visible:ring-[3px] focus-visible:ring-ring',
 												'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
 											)}
 											type="button"
 										>
-											<span className="flex items-center gap-2 font-medium text-sm">
-												Page {pageNumber}
-												<ChevronDownIcon
-													className="size-4 shrink-0 opacity-70 transition-transform duration-200"
-													data-slot="accordion-indicator"
-												/>
-											</span>
+											<ChevronDownIcon
+												className="size-4 shrink-0 opacity-70 transition-transform duration-200"
+												data-slot="accordion-indicator"
+											/>
 										</AccordionPrimitive.Trigger>
-										<ButtonGroup>
-											<HiddenToggle
-												hidden={pageHidden}
-												label={`all shapes on page ${pageNumber}`}
-												onToggle={() => onTogglePageHidden(pageNumber)}
-												variant="outline"
-											/>
-											<PageMethodChip
-												documentMethod={documentMethod}
-												hasOverride={pageMethods[pageNumber] !== undefined}
-												method={pageMethods[pageNumber] ?? documentMethod}
-												onCalibrate={onCalibrate}
-												onOpenScaleDialog={onOpenScaleDialog}
-												onResetPage={onResetPage}
-												page={pageNumber}
-											/>
-										</ButtonGroup>
 									</AccordionPrimitive.Header>
 									<AccordionPanel className="pt-1 pb-2">
 										<ul className="flex flex-col divide-y">
@@ -353,6 +380,7 @@ export default function MeasurementsPanel({
 														areaAddSqm={row.members[0].areaAddSqm}
 														areaSubtractSqm={row.members[0].areaSubtractSqm}
 														color={row.members[0].color ?? FALLBACK_COLOR}
+														description={row.members[0].description}
 														globalWastage={globalWastage}
 														heightMeters={row.members[0].heightMeters}
 														hidden={row.members[0].hidden}
@@ -378,6 +406,12 @@ export default function MeasurementsPanel({
 																row.members[0].id,
 																field,
 																value
+															)
+														}
+														onSetDescription={(description) =>
+															onSetMeasurementDescription(
+																row.members[0].id,
+																description
 															)
 														}
 														onSetHeight={(height) =>
@@ -407,6 +441,7 @@ export default function MeasurementsPanel({
 														onRename={onRenameMeasurement}
 														onSelect={onSelectMeasurement}
 														onSetAreaAdjust={onSetMeasurementAreaAdjust}
+														onSetDescription={onSetMeasurementDescription}
 														onSetHeight={onSetMeasurementHeight}
 														onSetWastage={onSetMeasurementWastage}
 														onToggleHidden={onToggleMeasurementHidden}
@@ -427,102 +462,75 @@ export default function MeasurementsPanel({
 	);
 }
 
-// Per-page scale/calibration chip shown in each accordion header. Reflects the
-// page's effective method (its own override, or the inherited document default)
-// and opens a popover to set an override or reset to the document default.
-function PageMethodChip({
+// The right-justified actions menu for a page accordion header: a 3-dot trigger
+// opening a popup that toggles visibility of all the page's shapes and exposes
+// the page's scale actions (set a drawing scale, calibrate from a line, or reset
+// to the document default). The current effective scale is shown as a label.
+function PageActionsMenu({
 	page,
+	pageHidden,
 	method,
 	hasOverride,
 	documentMethod,
+	onToggleHidden,
 	onOpenScaleDialog,
 	onCalibrate,
 	onResetPage,
 }: {
 	page: number;
+	pageHidden: boolean;
 	method: MeasurementMethod | null;
 	hasOverride: boolean;
 	documentMethod: MeasurementMethod | null;
+	onToggleHidden: () => void;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const label = method ? formatMethodLabel(method) : 'Not set';
+}): ReactElement {
+	const scaleLabel = method ? formatMethodLabel(method) : 'Not set';
 
 	return (
-		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger
+		<Menu>
+			<MenuTrigger
 				render={
 					<Button
-						aria-label={`Scale: ${label}`}
+						aria-label={`Actions for page ${page}`}
 						size="icon-sm"
-						title={
-							hasOverride
-								? `This page has its own scale (${label})`
-								: `Inherited from the document default (${label})`
-						}
-						variant={hasOverride ? 'secondary' : 'outline'}
+						variant="ghost"
 					>
-						{method?.kind === 'calibration' ? (
-							<Crosshair className="size-4" />
-						) : (
-							<Ruler className="size-4" />
-						)}
+						<EllipsisVertical />
 					</Button>
 				}
 			/>
-			<PopoverContent align="end" className="w-60">
-				<div className="flex flex-col gap-2">
-					<p className="font-medium text-sm">Scale · Page {page}</p>
-					<p className="text-muted-foreground text-xs">
-						{hasOverride
-							? 'This page overrides the document default.'
-							: 'Following the document default. Set an override below.'}
-					</p>
-					<Button
-						className="justify-start"
-						onClick={() => {
-							setOpen(false);
-							onOpenScaleDialog('page', page);
-						}}
-						size="sm"
-						variant="outline"
-					>
+			<MenuPopup align="end">
+				<MenuItem onClick={onToggleHidden}>
+					{pageHidden ? <Eye /> : <EyeOff />}
+					{pageHidden ? 'Show page on canvas' : 'Hide page on canvas'}
+				</MenuItem>
+				<MenuSeparator />
+				<MenuGroup>
+					<MenuGroupLabel>
+						Scale · {hasOverride ? scaleLabel : `${scaleLabel} (default)`}
+					</MenuGroupLabel>
+					<MenuItem onClick={() => onOpenScaleDialog('page', page)}>
 						<Ruler />
 						Drawing scale…
-					</Button>
-					<Button
-						className="justify-start"
-						onClick={() => {
-							setOpen(false);
-							onCalibrate('page', page);
-						}}
-						size="sm"
-						variant="outline"
-					>
+					</MenuItem>
+					<MenuItem onClick={() => onCalibrate('page', page)}>
 						<Crosshair />
 						Calibrate from line
-					</Button>
+					</MenuItem>
 					{hasOverride && (
-						<Button
-							className="justify-start"
-							onClick={() => {
-								setOpen(false);
-								onResetPage(page);
-							}}
-							size="sm"
-							variant="ghost"
-						>
+						<MenuItem onClick={() => onResetPage(page)}>
 							<RotateCcw />
 							{documentMethod
 								? `Reset to default (${formatMethodLabel(documentMethod)})`
 								: 'Reset to document default'}
-						</Button>
+						</MenuItem>
 					)}
-				</div>
-			</PopoverContent>
-		</Popover>
+				</MenuGroup>
+			</MenuPopup>
+		</Menu>
 	);
 }
 
@@ -538,6 +546,7 @@ function MeasurementRow({
 	onSetWastage,
 	onSetHeight,
 	onSetAreaAdjust,
+	onSetDescription,
 	onToggleHidden,
 }: {
 	measurement: Measurement;
@@ -555,6 +564,7 @@ function MeasurementRow({
 		field: 'areaAddSqm' | 'areaSubtractSqm',
 		value: number | null
 	) => void;
+	onSetDescription: (id: string, description: string) => void;
 	onToggleHidden: (id: string) => void;
 }) {
 	const Icon = TYPE_META[m.type].icon;
@@ -594,24 +604,20 @@ function MeasurementRow({
 						onRename={(label) => onRename(m.id, label)}
 						value={m.label}
 					/>
-					<ButtonGroup>
-						<HiddenToggle
-							hidden={m.hidden}
-							label={m.label}
-							onToggle={() => onToggleHidden(m.id)}
-							variant="outline"
-						/>
-						<ColorSwatchPicker
-							label={`Colour for ${m.label}`}
-							onChange={(next) => onRecolor(m.id, next)}
-							value={color}
-						/>
-						<DeleteConfirm
-							description="This permanently removes the measurement. This can't be undone."
-							label="Delete measurement"
-							onConfirm={() => onDelete(m.id)}
-						/>
-					</ButtonGroup>
+					<RowActionsMenu
+						color={color}
+						deleteDescription="This permanently removes the measurement. This can't be undone."
+						deleteLabel="Delete measurement"
+						description={m.description}
+						hidden={m.hidden}
+						label={m.label}
+						onDelete={() => onDelete(m.id)}
+						onRecolor={(next) => onRecolor(m.id, next)}
+						onSetDescription={(description) =>
+							onSetDescription(m.id, description)
+						}
+						onToggleHidden={() => onToggleHidden(m.id)}
+					/>
 				</div>
 				<div className="flex items-start justify-between gap-2">
 					{net ? (
@@ -699,6 +705,7 @@ function GroupRow({
 	label,
 	net,
 	color,
+	description,
 	globalWastage,
 	wastagePercent,
 	heightMeters,
@@ -713,11 +720,13 @@ function GroupRow({
 	onSetWastage,
 	onSetHeight,
 	onSetAreaAdjust,
+	onSetDescription,
 	onToggleHidden,
 }: {
 	label: string;
 	net: NetValue | null;
 	color: string;
+	description?: string;
 	globalWastage: number;
 	wastagePercent?: number;
 	heightMeters?: number;
@@ -735,6 +744,7 @@ function GroupRow({
 		field: 'areaAddSqm' | 'areaSubtractSqm',
 		value: number | null
 	) => void;
+	onSetDescription: (description: string) => void;
 	onToggleHidden: () => void;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
@@ -764,24 +774,18 @@ function GroupRow({
 					onRename={onRename}
 					value={label}
 				/>
-				<ButtonGroup>
-					<HiddenToggle
-						hidden={hidden}
-						label={label}
-						onToggle={onToggleHidden}
-						variant="outline"
-					/>
-					<ColorSwatchPicker
-						label={`Colour for ${label}`}
-						onChange={onRecolor}
-						value={color}
-					/>
-					<DeleteConfirm
-						description="This permanently removes the whole group. This can't be undone."
-						label="Delete group"
-						onConfirm={onDelete}
-					/>
-				</ButtonGroup>
+				<RowActionsMenu
+					color={color}
+					deleteDescription="This permanently removes the whole group. This can't be undone."
+					deleteLabel="Delete group"
+					description={description}
+					hidden={hidden}
+					label={label}
+					onDelete={onDelete}
+					onRecolor={onRecolor}
+					onSetDescription={onSetDescription}
+					onToggleHidden={onToggleHidden}
+				/>
 			</div>
 			<div className="flex items-start justify-between gap-2">
 				{net ? (
@@ -1237,32 +1241,6 @@ function InlineTitle({
 	);
 }
 
-// Eye toggle that shows/hides a shape (or group/page) on the canvas without
-// removing it from the measurements panel.
-function HiddenToggle({
-	hidden,
-	label,
-	onToggle,
-	variant = 'ghost',
-}: {
-	hidden?: boolean;
-	label: string;
-	onToggle: () => void;
-	variant?: 'ghost' | 'outline';
-}): ReactElement {
-	return (
-		<Button
-			aria-label={hidden ? `Show ${label}` : `Hide ${label}`}
-			onClick={onToggle}
-			size="icon-sm"
-			title={hidden ? 'Show on canvas' : 'Hide on canvas'}
-			variant={variant}
-		>
-			{hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-		</Button>
-	);
-}
-
 function DeleteConfirm({
 	label,
 	description,
@@ -1304,6 +1282,196 @@ function DeleteConfirm({
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
+	);
+}
+
+// The right-justified actions menu for a measurement or Add-group row: a 3-dot
+// trigger opening a popup with a colour submenu, a hide/show toggle, a
+// description editor, and a delete action. The description dialog and the delete
+// confirmation are driven by controlled open state (Base UI menu items close the
+// menu on click, so the dialogs can't live as nested triggers).
+function RowActionsMenu({
+	label,
+	hidden,
+	color,
+	description,
+	deleteLabel,
+	deleteDescription,
+	onToggleHidden,
+	onRecolor,
+	onDelete,
+	onSetDescription,
+}: {
+	label: string;
+	hidden?: boolean;
+	color: string;
+	description?: string;
+	deleteLabel: string;
+	deleteDescription: string;
+	onToggleHidden: () => void;
+	onRecolor: (color: string) => void;
+	onDelete: () => void;
+	onSetDescription: (description: string) => void;
+}): ReactElement {
+	const [descOpen, setDescOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+
+	return (
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label={`Actions for ${label}`}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<EllipsisVertical />
+						</Button>
+					}
+				/>
+				<MenuPopup align="end">
+					<MenuSub>
+						<MenuSubTrigger>
+							<Palette />
+							Colour
+						</MenuSubTrigger>
+						<MenuSubPopup>
+							<div className="grid grid-cols-6 gap-1.5 p-1">
+								{SHAPE_PALETTE.map((swatch) => (
+									<button
+										aria-label={swatch}
+										className={cn(
+											'size-6 rounded-full border transition-transform hover:scale-110',
+											color.toLowerCase() === swatch.toLowerCase() &&
+												'ring-2 ring-ring ring-offset-1 ring-offset-popover'
+										)}
+										key={swatch}
+										onClick={() => onRecolor(swatch)}
+										style={{ backgroundColor: swatch }}
+										type="button"
+									/>
+								))}
+								<label className="col-span-6 flex items-center justify-between gap-2 text-muted-foreground text-xs">
+									Custom
+									<input
+										className="size-6 cursor-pointer rounded border bg-transparent p-0"
+										onChange={(event) => onRecolor(event.target.value)}
+										type="color"
+										value={color}
+									/>
+								</label>
+							</div>
+						</MenuSubPopup>
+					</MenuSub>
+					<MenuItem onClick={onToggleHidden}>
+						{hidden ? <Eye /> : <EyeOff />}
+						{hidden ? 'Show on canvas' : 'Hide on canvas'}
+					</MenuItem>
+					<MenuItem onClick={() => setDescOpen(true)}>
+						<FileText />
+						View / Edit Description
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						{deleteLabel}
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+
+			<DescriptionDialog
+				label={label}
+				onOpenChange={setDescOpen}
+				onSave={onSetDescription}
+				open={descOpen}
+				value={description ?? ''}
+			/>
+
+			<AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>{deleteLabel}?</AlertDialogTitle>
+						<AlertDialogDescription>{deleteDescription}</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogClose
+							render={<Button type="button" variant="outline" />}
+						>
+							Cancel
+						</AlertDialogClose>
+						<AlertDialogClose
+							render={
+								<Button
+									onClick={onDelete}
+									type="button"
+									variant="destructive"
+								/>
+							}
+						>
+							{deleteLabel}
+						</AlertDialogClose>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
+	);
+}
+
+// Dialog with a textarea to add/edit a measurement's description. The draft is
+// seeded from the saved value each time the dialog opens; Save commits it.
+function DescriptionDialog({
+	open,
+	onOpenChange,
+	label,
+	value,
+	onSave,
+}: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	label: string;
+	value: string;
+	onSave: (description: string) => void;
+}): ReactElement {
+	const [draft, setDraft] = useState(value);
+
+	// Resync the draft with the saved value whenever the dialog (re)opens.
+	useEffect(() => {
+		if (open) {
+			setDraft(value);
+		}
+	}, [open, value]);
+
+	const save = () => {
+		onSave(draft.trim());
+		onOpenChange(false);
+	};
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Description</DialogTitle>
+					<DialogDescription>{label}</DialogDescription>
+				</DialogHeader>
+				<DialogPanel>
+					<Textarea
+						aria-label={`Description for ${label}`}
+						onChange={(event) => setDraft(event.target.value)}
+						placeholder="Add a description…"
+						value={draft}
+					/>
+				</DialogPanel>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button onClick={save} type="button">
+						Save
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
