@@ -134,7 +134,7 @@ export interface ProjectFileManagerTabContentProps {
 	emptyTitle?: string;
 	listContentsQuery: ListContentsQuery;
 	// When provided, PDF files gain an "Add to take-offs" action.
-	onAddToTakeoffs?: (fileId: string) => Promise<void>;
+	onAddToTakeoffs?: (fileId: string, title: string) => Promise<void>;
 	onCreateFile: (args: FileManagerCreateArgs) => Promise<void>;
 	onCreateFolder: (args: { name: string; parentPath: string }) => Promise<void>;
 	onDeleteFolder: (folderId: string) => Promise<void>;
@@ -634,6 +634,84 @@ function RenameDialog({
 	);
 }
 
+// ---------- Add to Take-offs Dialog ----------
+
+function AddToTakeoffsDialog({
+	open,
+	onOpenChange,
+	initialTitle,
+	onAdd,
+}: {
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+	initialTitle: string;
+	onAdd: (title: string) => Promise<void>;
+}) {
+	const [title, setTitle] = useState(initialTitle);
+	const [loading, setLoading] = useState(false);
+
+	const onSubmit = async () => {
+		const trimmed = title.trim();
+		if (!trimmed) {
+			return;
+		}
+		setLoading(true);
+		try {
+			await onAdd(trimmed);
+			onOpenChange(false);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	return (
+		<Dialog
+			onOpenChange={(next) => {
+				onOpenChange(next);
+				if (next) {
+					setTitle(initialTitle);
+				}
+			}}
+			open={open}
+		>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Add to take-offs</DialogTitle>
+					<DialogDescription>
+						Enter a title for this take-off.
+					</DialogDescription>
+				</DialogHeader>
+				<div className="px-6 pb-2">
+					<Input
+						autoFocus
+						onChange={(e) => setTitle(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') {
+								onSubmit().catch(() => undefined);
+							}
+						}}
+						placeholder="e.g. Ground Floor Plan"
+						value={title}
+					/>
+				</div>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						disabled={!title.trim() || loading}
+						loading={loading}
+						onClick={() => onSubmit().catch(() => undefined)}
+						type="button"
+					>
+						Add to take-offs
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 // ---------- Move Dialog ----------
 
 function MoveFolderPicker({
@@ -903,12 +981,13 @@ function FileRowActions({
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [moveOpen, setMoveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [addTakeoffOpen, setAddTakeoffOpen] = useState(false);
 
 	const isPdf = item.mimeType?.includes('pdf') ?? false;
 
-	const onAddTakeoff = async () => {
+	const onAddTakeoff = async (title: string) => {
 		try {
-			await onAddToTakeoffs?.(item._id);
+			await onAddToTakeoffs?.(item._id, title);
 			toastManager.add({ title: 'Added to take-offs', type: 'success' });
 		} catch (error) {
 			toastManager.add({
@@ -916,6 +995,7 @@ function FileRowActions({
 				description: getConvexErrorMessage(error, 'Please try again.'),
 				type: 'error',
 			});
+			throw error;
 		}
 	};
 
@@ -1008,7 +1088,7 @@ function FileRowActions({
 						Move
 					</MenuItem>
 					{onAddToTakeoffs && isPdf ? (
-						<MenuItem onClick={() => onAddTakeoff().catch(() => undefined)}>
+						<MenuItem onClick={() => setAddTakeoffOpen(true)}>
 							<Ruler />
 							Add to take-offs
 						</MenuItem>
@@ -1050,6 +1130,14 @@ function FileRowActions({
 				onRemove={onRemoveFile}
 				open={deleteOpen}
 			/>
+			{onAddToTakeoffs ? (
+				<AddToTakeoffsDialog
+					initialTitle={item.name}
+					onAdd={onAddTakeoff}
+					onOpenChange={setAddTakeoffOpen}
+					open={addTakeoffOpen}
+				/>
+			) : null}
 		</>
 	);
 }

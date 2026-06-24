@@ -60,6 +60,14 @@ const TOOL_COLORS: Record<string, string> = {
 const HANDLE_PX = 5;
 const HANDLE_HIT_PX = 10;
 
+// Mouse-wheel zoom tuning. The built-in react-zoom-pan-pinch wheel zoom multiplies
+// the step by the raw deltaY and applies it additively, which jumps wildly between
+// devices. Instead we do our own cursor-centred, multiplicative zoom: each event
+// scales by exp(-clampedDeltaY * ZOOM_INTENSITY), giving a consistent geometric
+// step regardless of how large a device's deltaY is.
+const ZOOM_INTENSITY = 0.0015;
+const MAX_WHEEL_DELTA = 50;
+
 interface PdfStageProps {
 	cursor: Point | null;
 	draft: Point[];
@@ -328,6 +336,7 @@ export default function PdfStage({
 	onTextRemove,
 	onTextAutoFocused,
 }: PdfStageProps) {
+	const containerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
 	const transformRef = useRef<ReactZoomPanPinchRef>(null);
@@ -360,6 +369,48 @@ export default function PdfStage({
 		},
 		[size]
 	);
+
+	// Smooth, cursor-centred mouse-wheel zoom. We use a native non-passive listener
+	// because React's synthetic onWheel is passive and can't reliably preventDefault.
+	// The library's own wheel zoom is disabled (see TransformWrapper below); everything
+	// is read fresh from the ref per event so there is no stale state to track.
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) {
+			return;
+		}
+		const handleWheel = (e: WheelEvent) => {
+			const instance = transformRef.current?.instance;
+			const wrapper = instance?.wrapperComponent;
+			if (!(instance && wrapper)) {
+				return;
+			}
+			e.preventDefault();
+
+			const { scale, positionX, positionY } = instance.state;
+			const { minScale, maxScale } = instance.setup;
+
+			const clampedDelta = Math.max(
+				-MAX_WHEEL_DELTA,
+				Math.min(MAX_WHEEL_DELTA, e.deltaY)
+			);
+			const factor = Math.exp(-clampedDelta * ZOOM_INTENSITY);
+			const newScale = Math.min(maxScale, Math.max(minScale, scale * factor));
+			if (newScale === scale) {
+				return;
+			}
+
+			// Keep the point under the cursor fixed while zooming.
+			const rect = wrapper.getBoundingClientRect();
+			const mouseX = e.clientX - rect.left;
+			const mouseY = e.clientY - rect.top;
+			const newX = mouseX - ((mouseX - positionX) / scale) * newScale;
+			const newY = mouseY - ((mouseY - positionY) / scale) * newScale;
+			transformRef.current?.setTransform(newX, newY, newScale, 0);
+		};
+		container.addEventListener('wheel', handleWheel, { passive: false });
+		return () => container.removeEventListener('wheel', handleWheel);
+	}, []);
 
 	useEffect(() => {
 		if (!(ready && canvasRef.current)) {
@@ -560,6 +611,7 @@ export default function PdfStage({
 				// in pan mode, so the cursor is inherited from this container).
 				tool === 'pan' && 'cursor-grab active:cursor-grabbing'
 			)}
+			ref={containerRef}
 		>
 			{(rendering || !size) && (
 				<div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
@@ -574,7 +626,7 @@ export default function PdfStage({
 				onTransform={(_ref, state) => setScale(state.scale)}
 				panning={{ disabled: isInteractive }}
 				ref={transformRef}
-				wheel={{ step: 0.04 }}
+				wheel={{ disabled: true }}
 			>
 				<TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
 					<div

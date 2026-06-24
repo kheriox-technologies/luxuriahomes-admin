@@ -36,9 +36,10 @@ export default function ProjectDocumentsTabContent({
 			buildQueryArgs={(folderPath) => ({ projectId, folderPath })}
 			emptyTitle="No documents yet"
 			listContentsQuery={api.projectDocuments.listContents.listContents}
-			onAddToTakeoffs={async (fileId) => {
+			onAddToTakeoffs={async (fileId, title) => {
 				await addToTakeoffs({
 					documentId: fileId as Id<'projectDocuments'>,
+					title,
 				});
 			}}
 			onCreateFile={async (args) => {

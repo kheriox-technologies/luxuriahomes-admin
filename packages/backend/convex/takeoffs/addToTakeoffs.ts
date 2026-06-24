@@ -28,6 +28,7 @@ const MAX_DEDUPE_ATTEMPTS = 50;
 export const addToTakeoffs = action({
 	args: {
 		documentId: v.id('projectDocuments'),
+		title: v.string(),
 	},
 	returns: v.object({
 		takeoffId: v.id('takeoffs'),
@@ -109,6 +110,7 @@ export const addToTakeoffs = action({
 			{
 				projectId: doc.projectId,
 				name: doc.name,
+				takeoffName: args.title,
 				kebabName,
 				s3Key: newS3Key,
 				size: doc.size,

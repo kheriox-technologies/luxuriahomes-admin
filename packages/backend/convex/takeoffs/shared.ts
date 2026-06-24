@@ -44,6 +44,7 @@ export const createCopyAndTakeoff = internalMutation({
 	args: {
 		projectId: v.id('projects'),
 		name: v.string(),
+		takeoffName: v.string(),
 		kebabName: v.string(),
 		s3Key: v.string(),
 		size: v.optional(v.number()),
@@ -88,7 +89,7 @@ export const createCopyAndTakeoff = internalMutation({
 			projectId: args.projectId,
 			documentId,
 			s3Key: args.s3Key,
-			name: args.name,
+			name: args.takeoffName,
 			measurements: [],
 			legends: [],
 			texts: [],

@@ -129,78 +129,91 @@ export default function ProjectTakeoffsTabContent({
 	return (
 		<div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
 			<div className="flex w-full items-center justify-between gap-2">
-				<div className="w-full max-w-sm">
-					<Combobox<Id<'takeoffs'>>
-						items={items}
-						itemToStringLabel={(item) => labelById.get(item) ?? ''}
-						onValueChange={(next) => setSelectedId(next ?? null)}
-						value={selectedId}
-					>
-						<ComboboxInput placeholder="Select a PDF" />
-						<ComboboxPopup>
-							<ComboboxEmpty>No take-offs available.</ComboboxEmpty>
-							<ComboboxList>
-								{(item: Id<'takeoffs'>) => (
-									<ComboboxItem key={item} value={item}>
-										{labelById.get(item) ?? item}
-									</ComboboxItem>
-								)}
-							</ComboboxList>
-						</ComboboxPopup>
-					</Combobox>
-				</div>
-				{selectedId ? (
-					<div className="flex items-center gap-2">
-						<Button
-							loading={savingPdf}
-							onClick={() => onSavePdf().catch(() => undefined)}
-							size="sm"
-							type="button"
-							variant="outline"
+				<h2 className="min-w-0 truncate font-semibold text-lg">
+					{selectedId ? (
+						(labelById.get(selectedId) ?? 'Untitled take-off')
+					) : (
+						<span className="text-muted-foreground">No take-off selected</span>
+					)}
+				</h2>
+				<div className="flex shrink-0 items-center gap-2">
+					<div className="w-full max-w-sm">
+						<Combobox<Id<'takeoffs'>>
+							items={items}
+							itemToStringLabel={(item) => labelById.get(item) ?? ''}
+							onValueChange={(next) => setSelectedId(next ?? null)}
+							value={selectedId}
 						>
-							<Save />
-							Save PDF
-						</Button>
-						<AlertDialog>
-							<AlertDialogTrigger
-								render={
-									<Button size="sm" type="button" variant="destructive-outline">
-										<Trash2 />
-										Delete Take Off
-									</Button>
-								}
-							/>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>Delete take-off?</AlertDialogTitle>
-									<AlertDialogDescription>
-										{`This will permanently delete ${
-											labelById.get(selectedId) ?? 'this take-off'
-										} and its PDF. This action cannot be undone.`}
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogClose
-										render={<Button type="button" variant="outline" />}
-									>
-										Cancel
-									</AlertDialogClose>
-									<Button
-										loading={deletingTakeoff}
-										onClick={() => {
-											onDeleteTakeoff().catch(() => {
-												/* Error is handled in onDeleteTakeoff */
-											});
-										}}
-										variant="destructive"
-									>
-										Delete Take Off
-									</Button>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
+							<ComboboxInput placeholder="Select a PDF" />
+							<ComboboxPopup>
+								<ComboboxEmpty>No take-offs available.</ComboboxEmpty>
+								<ComboboxList>
+									{(item: Id<'takeoffs'>) => (
+										<ComboboxItem key={item} value={item}>
+											{labelById.get(item) ?? item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
 					</div>
-				) : null}
+					{selectedId ? (
+						<>
+							<Button
+								loading={savingPdf}
+								onClick={() => onSavePdf().catch(() => undefined)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<Save />
+								Save PDF
+							</Button>
+							<AlertDialog>
+								<AlertDialogTrigger
+									render={
+										<Button
+											size="sm"
+											type="button"
+											variant="destructive-outline"
+										>
+											<Trash2 />
+											Delete Take Off
+										</Button>
+									}
+								/>
+								<AlertDialogContent>
+									<AlertDialogHeader>
+										<AlertDialogTitle>Delete take-off?</AlertDialogTitle>
+										<AlertDialogDescription>
+											{`This will permanently delete ${
+												labelById.get(selectedId) ?? 'this take-off'
+											} and its PDF. This action cannot be undone.`}
+										</AlertDialogDescription>
+									</AlertDialogHeader>
+									<AlertDialogFooter>
+										<AlertDialogClose
+											render={<Button type="button" variant="outline" />}
+										>
+											Cancel
+										</AlertDialogClose>
+										<Button
+											loading={deletingTakeoff}
+											onClick={() => {
+												onDeleteTakeoff().catch(() => {
+													/* Error is handled in onDeleteTakeoff */
+												});
+											}}
+											variant="destructive"
+										>
+											Delete Take Off
+										</Button>
+									</AlertDialogFooter>
+								</AlertDialogContent>
+							</AlertDialog>
+						</>
+					) : null}
+				</div>
 			</div>
 			<div className="min-h-0 w-full min-w-0 flex-1">
 				{selectedId ? (
