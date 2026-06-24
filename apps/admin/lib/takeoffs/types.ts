@@ -26,6 +26,9 @@ export type MeasurementType =
 // Area-like measurement types — all populate valueSqm + perimeterMeters.
 export const AREA_TYPES = ['rectangle', 'circle', 'polygon'] as const;
 
+// Shared set for "is this an area-like type?" checks across the feature.
+export const AREA_TYPE_SET = new Set<MeasurementType>(AREA_TYPES);
+
 export type LengthUnit = 'mm' | 'cm' | 'm';
 
 // All point coordinates are stored in BASE canvas pixel space (the unscaled
@@ -43,6 +46,8 @@ export interface Measurement {
 	id: string;
 	label: string;
 	page: number;
+	/** If set, this area shape is a deduction subtracted from the parent's area. */
+	parentId?: string;
 	/** Perimeter in metres (area-like: rectangle/circle/polygon). */
 	perimeterMeters?: number;
 	points: Point[];
@@ -66,5 +71,11 @@ export interface Calibration {
 export type DragKind =
 	| { mode: 'draw-rect'; start: Point }
 	| { mode: 'draw-circle'; start: Point }
-	| { id: string; mode: 'move'; orig: Point[]; start: Point }
+	| {
+			children?: { id: string; orig: Point[] }[];
+			id: string;
+			mode: 'move';
+			orig: Point[];
+			start: Point;
+	  }
 	| { id: string; index: number; mode: 'handle'; orig: Point[] };

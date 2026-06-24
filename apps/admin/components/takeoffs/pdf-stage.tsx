@@ -21,16 +21,18 @@ import {
 	distanceSq,
 	formatMeters,
 	formatSqm,
+	isInsideBody,
+	netAreaSqm,
 	pointerToBaseCoords,
-	pointInPolygon,
 	polygonArea,
 	polylineLength,
 	rectArea,
 	rectBounds,
 	rectCorners,
+	shapeCentroid,
 } from '@/lib/takeoffs/geometry';
 import {
-	AREA_TYPES,
+	AREA_TYPE_SET,
 	type DragKind,
 	type Measurement,
 	type Point,
@@ -51,8 +53,6 @@ const TOOL_COLORS: Record<string, string> = {
 // zoom scale to stay constant on screen).
 const HANDLE_PX = 5;
 const HANDLE_HIT_PX = 10;
-
-const AREA_TYPE_SET = new Set<Measurement['type']>(AREA_TYPES);
 
 interface PdfStageProps {
 	cursor: Point | null;
@@ -87,25 +87,6 @@ function centroid(points: Point[]): Point {
 
 function midpoint(a: Point, b: Point): Point {
 	return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-}
-
-/** Whether a base-pixel point lies inside an area-like shape's body. */
-function isInsideBody(measurement: Measurement, point: Point): boolean {
-	const { type, points } = measurement;
-	if (type === 'rectangle') {
-		const b = rectBounds(points);
-		return (
-			point.x >= b.x &&
-			point.x <= b.x + b.width &&
-			point.y >= b.y &&
-			point.y <= b.y + b.height
-		);
-	}
-	if (type === 'circle') {
-		const r = circleRadius(points);
-		return distanceSq(points[0], point) <= r * r;
-	}
-	return pointInPolygon(point, points);
 }
 
 /**
@@ -163,7 +144,13 @@ function hitTest(
 	for (let i = measurements.length - 1; i >= 0; i--) {
 		const m = measurements[i];
 		if (AREA_TYPE_SET.has(m.type) && isInsideBody(m, point)) {
-			return { mode: 'move', id: m.id, start: point, orig: m.points };
+			// Moving a parent carries its deductions; deductions move on their own.
+			const children = m.parentId
+				? undefined
+				: measurements
+						.filter((c) => c.parentId === m.id)
+						.map((c) => ({ id: c.id, orig: c.points }));
+			return { mode: 'move', id: m.id, start: point, orig: m.points, children };
 		}
 	}
 	return null;
@@ -427,17 +414,28 @@ export default function PdfStage({
 								width={size.width}
 							>
 								<title>Measurement overlay</title>
-								{measurements.map((m) => (
-									<CommittedShape
-										fontSize={fontSize}
-										handleRadius={handleRadius}
-										key={m.id}
-										measurement={m}
-										selected={m.id === selectedId}
-										strokeWidth={strokeWidth}
-										vertexRadius={vertexRadius}
-									/>
-								))}
+								{measurements.map((m) => {
+									// Show a net-area label only on parents that have deductions.
+									const hasDeductions =
+										!m.parentId &&
+										measurements.some((c) => c.parentId === m.id);
+									const netLabel =
+										hasDeductions && metersPerPixel
+											? formatSqm(netAreaSqm(m, measurements))
+											: undefined;
+									return (
+										<CommittedShape
+											fontSize={fontSize}
+											handleRadius={handleRadius}
+											key={m.id}
+											measurement={m}
+											netLabel={netLabel}
+											selected={m.id === selectedId}
+											strokeWidth={strokeWidth}
+											vertexRadius={vertexRadius}
+										/>
+									);
+								})}
 								<DraftShape
 									cursor={cursor}
 									fontSize={fontSize}
@@ -512,6 +510,8 @@ function EditHandle({
 	);
 }
 
+const DEDUCTION_COLOR = '#dc2626';
+
 function CommittedShape({
 	measurement,
 	strokeWidth,
@@ -519,6 +519,7 @@ function CommittedShape({
 	handleRadius,
 	fontSize,
 	selected,
+	netLabel,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
@@ -526,8 +527,12 @@ function CommittedShape({
 	handleRadius: number;
 	fontSize: number;
 	selected: boolean;
+	netLabel?: string;
 }) {
-	const color = TOOL_COLORS[measurement.type] ?? '#2563eb';
+	const isDeduction = Boolean(measurement.parentId);
+	const color = isDeduction
+		? DEDUCTION_COLOR
+		: (TOOL_COLORS[measurement.type] ?? '#2563eb');
 	const { points, type } = measurement;
 
 	if (type === 'count') {
@@ -573,8 +578,12 @@ function CommittedShape({
 		);
 	}
 
-	// Area-like shapes: rectangle, circle, polygon.
-	const fill = `${color}22`;
+	// Area-like shapes: rectangle, circle, polygon. Deductions read as "holes":
+	// dashed red outline over a light red fill.
+	const fill = isDeduction ? `${color}1f` : `${color}22`;
+	const dash = isDeduction
+		? `${strokeWidth * 3} ${strokeWidth * 2}`
+		: undefined;
 	let body: ReactElement;
 	let handlePoints: Point[];
 	if (type === 'rectangle') {
@@ -584,6 +593,7 @@ function CommittedShape({
 				fill={fill}
 				height={b.height}
 				stroke={color}
+				strokeDasharray={dash}
 				strokeWidth={strokeWidth}
 				width={b.width}
 				x={b.x}
@@ -600,6 +610,7 @@ function CommittedShape({
 				fill={fill}
 				r={r}
 				stroke={color}
+				strokeDasharray={dash}
 				strokeWidth={strokeWidth}
 			/>
 		);
@@ -610,15 +621,26 @@ function CommittedShape({
 				fill={fill}
 				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
 				stroke={color}
+				strokeDasharray={dash}
 				strokeWidth={strokeWidth}
 			/>
 		);
 		handlePoints = points;
 	}
 
+	const labelPos = shapeCentroid(measurement);
+
 	return (
 		<g>
 			{body}
+			{netLabel && (
+				<ShapeLabel
+					color={TOOL_COLORS[measurement.type] ?? '#2563eb'}
+					fontSize={fontSize}
+					pos={labelPos}
+					text={netLabel}
+				/>
+			)}
 			{selected &&
 				handlePoints.map((p) => (
 					<EditHandle

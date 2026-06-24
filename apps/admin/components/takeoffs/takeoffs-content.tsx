@@ -21,6 +21,7 @@ import {
 	Pentagon,
 	Ruler,
 	Square,
+	SquareMinus,
 } from 'lucide-react';
 import {
 	type ReactElement,
@@ -32,6 +33,7 @@ import {
 import {
 	circleRadius,
 	distance,
+	findParentId,
 	measure,
 	rectArea,
 	toMetres,
@@ -45,6 +47,7 @@ import type {
 	Point,
 	ToolId,
 } from '@/lib/takeoffs/types';
+import { AREA_TYPE_SET } from '@/lib/takeoffs/types';
 import MeasurementsPanel from './measurements-panel';
 import PdfStage from './pdf-stage';
 import PdfThumbnails from './pdf-thumbnails';
@@ -86,6 +89,17 @@ const TOOLS: ToolDef[] = [
 	{ id: 'count', label: 'Count', icon: Hash },
 ];
 
+// Area shapes that can be drawn as a deduction while Subtract mode is on.
+const SUBTRACT_SHAPES: {
+	icon: typeof Hand;
+	id: MeasurementType;
+	label: string;
+}[] = [
+	{ id: 'rectangle', label: 'Rectangle', icon: Square },
+	{ id: 'circle', label: 'Circle', icon: Circle },
+	{ id: 'polygon', label: 'Polygon', icon: Pentagon },
+];
+
 function dedupeConsecutive(points: Point[]): Point[] {
 	const result: Point[] = [];
 	for (const p of points) {
@@ -103,6 +117,11 @@ export default function TakeoffsContent() {
 
 	const [page, setPage] = useState(1);
 	const [tool, setTool] = useState<ToolId>('pan');
+	// When on, area shapes are drawn as deductions of the parent that contains
+	// them; `subtractShape` is which area shape the selector draws.
+	const [subtractMode, setSubtractMode] = useState(false);
+	const [subtractShape, setSubtractShape] =
+		useState<MeasurementType>('rectangle');
 	const [measurements, setMeasurements] = useState<Measurement[]>([]);
 	// PDF-wide default scale, plus optional per-page overrides.
 	const [documentCalibration, setDocumentCalibration] = useState<number | null>(
@@ -144,6 +163,33 @@ export default function TakeoffsContent() {
 	const selectTool = useCallback(
 		(next: ToolId) => {
 			setTool(next);
+			// Picking from the main tool row means normal (non-deduction) drawing.
+			setSubtractMode(false);
+			resetDraft();
+			setSelectedId(null);
+		},
+		[resetDraft]
+	);
+
+	// Turn Subtract mode on/off. Turning it on switches to the chosen area shape so
+	// the user can immediately draw deductions.
+	const toggleSubtract = useCallback(() => {
+		setSubtractMode((on) => {
+			const next = !on;
+			if (next) {
+				setTool(subtractShape);
+			}
+			return next;
+		});
+		resetDraft();
+		setSelectedId(null);
+	}, [subtractShape, resetDraft]);
+
+	// Pick which area shape the subtract selector draws (also makes it active).
+	const selectSubtractShape = useCallback(
+		(shape: MeasurementType) => {
+			setSubtractShape(shape);
+			setTool(shape);
 			resetDraft();
 			setSelectedId(null);
 		},
@@ -184,21 +230,33 @@ export default function TakeoffsContent() {
 			if (!metersPerPixel) {
 				return;
 			}
-			setMeasurements((prev) => [
-				...prev,
-				{
-					id: crypto.randomUUID(),
-					page,
-					type,
-					points,
-					...measure(type, points, metersPerPixel),
-					label: `${TYPE_LABEL[type]} ${
-						prev.filter((m) => m.type === type).length + 1
-					}`,
-				},
-			]);
+			setMeasurements((prev) => {
+				// In subtract mode, attach the new area shape to the parent that
+				// contains it; if none contains it, it commits as a normal area.
+				const parentId =
+					subtractMode && AREA_TYPE_SET.has(type)
+						? findParentId({ type, points }, prev, page)
+						: undefined;
+				const label = parentId
+					? `Deduction ${prev.filter((m) => m.parentId).length + 1}`
+					: `${TYPE_LABEL[type]} ${
+							prev.filter((m) => m.type === type && !m.parentId).length + 1
+						}`;
+				return [
+					...prev,
+					{
+						id: crypto.randomUUID(),
+						page,
+						type,
+						points,
+						...measure(type, points, metersPerPixel),
+						parentId,
+						label,
+					},
+				];
+			});
 		},
-		[page, metersPerPixel]
+		[page, metersPerPixel, subtractMode]
 	);
 
 	const finishDraft = useCallback(() => {
@@ -301,14 +359,16 @@ export default function TakeoffsContent() {
 				if (drag.mode === 'draw-rect' || drag.mode === 'draw-circle') {
 					writeDraft([drag.start, point]);
 				} else if (drag.mode === 'move') {
-					updateMeasurementPoints(
-						drag.id,
-						translatePoints(
-							drag.orig,
-							point.x - drag.start.x,
-							point.y - drag.start.y
-						)
-					);
+					const dx = point.x - drag.start.x;
+					const dy = point.y - drag.start.y;
+					updateMeasurementPoints(drag.id, translatePoints(drag.orig, dx, dy));
+					// Move the parent's deductions along with it.
+					for (const child of drag.children ?? []) {
+						updateMeasurementPoints(
+							child.id,
+							translatePoints(child.orig, dx, dy)
+						);
+					}
 				} else {
 					updateMeasurementPoints(
 						drag.id,
@@ -359,7 +419,10 @@ export default function TakeoffsContent() {
 	}, [calibLine, calibValue, calibUnit, calibScope, page]);
 
 	const deleteMeasurement = useCallback((id: string) => {
-		setMeasurements((prev) => prev.filter((m) => m.id !== id));
+		// Deleting a parent also removes its deductions.
+		setMeasurements((prev) =>
+			prev.filter((m) => m.id !== id && m.parentId !== id)
+		);
 		setSelectedId((current) => (current === id ? null : current));
 	}, []);
 
@@ -426,6 +489,39 @@ export default function TakeoffsContent() {
 							</Button>
 						);
 					})}
+				</div>
+
+				<div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+					<Button
+						disabled={!isCalibrated}
+						onClick={toggleSubtract}
+						size="sm"
+						title={
+							isCalibrated
+								? 'Subtract shapes from the parent they sit inside'
+								: 'Calibrate this page first'
+						}
+						variant={subtractMode ? 'default' : 'ghost'}
+					>
+						<SquareMinus />
+						Subtract
+					</Button>
+					{subtractMode &&
+						SUBTRACT_SHAPES.map((shape) => {
+							const Icon = shape.icon;
+							return (
+								<Button
+									key={shape.id}
+									onClick={() => selectSubtractShape(shape.id)}
+									size="sm"
+									title={shape.label}
+									variant={subtractShape === shape.id ? 'default' : 'ghost'}
+								>
+									<Icon />
+									{shape.label}
+								</Button>
+							);
+						})}
 				</div>
 
 				{canFinish && (

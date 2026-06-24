@@ -4,10 +4,8 @@ import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Separator } from '@workspace/ui/components/separator';
 import { Circle, Hash, Pentagon, Ruler, Square, Trash2 } from 'lucide-react';
-import { formatMeters, formatSqm } from '@/lib/takeoffs/geometry';
-import { AREA_TYPES, type Measurement } from '@/lib/takeoffs/types';
-
-const AREA_TYPE_SET = new Set<Measurement['type']>(AREA_TYPES);
+import { formatMeters, formatSqm, netAreaSqm } from '@/lib/takeoffs/geometry';
+import { AREA_TYPE_SET, type Measurement } from '@/lib/takeoffs/types';
 
 const TYPE_META = {
 	linear: { icon: Ruler, label: 'Linear' },
@@ -17,9 +15,10 @@ const TYPE_META = {
 	count: { icon: Hash, label: 'Count' },
 } as const;
 
-function measurementValue(m: Measurement): string {
+function measurementValue(m: Measurement, all: Measurement[]): string {
 	if (AREA_TYPE_SET.has(m.type)) {
-		return `${formatSqm(m.valueSqm ?? 0)} · ${formatMeters(m.perimeterMeters ?? 0)} perim`;
+		// Parents report net area (gross when they have no deductions).
+		return `${formatSqm(netAreaSqm(m, all))} · ${formatMeters(m.perimeterMeters ?? 0)} perim`;
 	}
 	if (m.type === 'linear') {
 		return formatMeters(m.valueMeters ?? 0);
@@ -47,9 +46,11 @@ export default function MeasurementsPanel({
 	onClearAll: () => void;
 }) {
 	const pageMeasurements = measurements.filter((m) => m.page === page);
-	const totalArea = pageMeasurements
+	// Top-level shapes only (deductions are folded into their parent's net area).
+	const topLevel = pageMeasurements.filter((m) => !m.parentId);
+	const totalArea = topLevel
 		.filter((m) => AREA_TYPE_SET.has(m.type))
-		.reduce((sum, m) => sum + (m.valueSqm ?? 0), 0);
+		.reduce((sum, m) => sum + netAreaSqm(m, pageMeasurements), 0);
 	const totalLength = pageMeasurements
 		.filter((m) => m.type === 'linear')
 		.reduce((sum, m) => sum + (m.valueMeters ?? 0), 0);
@@ -97,29 +98,62 @@ export default function MeasurementsPanel({
 					</p>
 				) : (
 					<ul className="flex flex-col gap-1">
-						{pageMeasurements.map((m) => {
+						{topLevel.map((m) => {
 							const meta = TYPE_META[m.type];
 							const Icon = meta.icon;
+							const deductions = pageMeasurements.filter(
+								(d) => d.parentId === m.id
+							);
 							return (
-								<li
-									className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50"
-									key={m.id}
-								>
-									<Icon className="size-4 shrink-0 text-muted-foreground" />
-									<div className="min-w-0 flex-1">
-										<p className="truncate font-medium text-sm">{m.label}</p>
-										<p className="truncate text-muted-foreground text-xs">
-											{measurementValue(m)}
-										</p>
+								<li className="flex flex-col gap-1" key={m.id}>
+									<div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50">
+										<Icon className="size-4 shrink-0 text-muted-foreground" />
+										<div className="min-w-0 flex-1">
+											<p className="truncate font-medium text-sm">{m.label}</p>
+											<p className="truncate text-muted-foreground text-xs">
+												{measurementValue(m, pageMeasurements)}
+											</p>
+										</div>
+										<Button
+											aria-label="Delete measurement"
+											onClick={() => onDelete(m.id)}
+											size="icon-sm"
+											variant="ghost"
+										>
+											<Trash2 />
+										</Button>
 									</div>
-									<Button
-										aria-label="Delete measurement"
-										onClick={() => onDelete(m.id)}
-										size="icon-sm"
-										variant="ghost"
-									>
-										<Trash2 />
-									</Button>
+									{deductions.length > 0 && (
+										<ul className="ml-4 flex flex-col gap-1 border-l pl-2">
+											{deductions.map((d) => {
+												const DeductionIcon = TYPE_META[d.type].icon;
+												return (
+													<li
+														className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent/50"
+														key={d.id}
+													>
+														<DeductionIcon className="size-3.5 shrink-0 text-destructive" />
+														<div className="min-w-0 flex-1">
+															<p className="truncate font-medium text-destructive text-xs">
+																{d.label}
+															</p>
+															<p className="truncate text-muted-foreground text-xs">
+																− {formatSqm(d.valueSqm ?? 0)}
+															</p>
+														</div>
+														<Button
+															aria-label="Delete deduction"
+															onClick={() => onDelete(d.id)}
+															size="icon-sm"
+															variant="ghost"
+														>
+															<Trash2 />
+														</Button>
+													</li>
+												);
+											})}
+										</ul>
+									)}
 								</li>
 							);
 						})}

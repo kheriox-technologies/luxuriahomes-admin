@@ -1,4 +1,10 @@
-import type { LengthUnit, MeasurementType, Point } from './types';
+import {
+	AREA_TYPE_SET,
+	type LengthUnit,
+	type Measurement,
+	type MeasurementType,
+	type Point,
+} from './types';
 
 export function distance(a: Point, b: Point): number {
 	return Math.hypot(b.x - a.x, b.y - a.y);
@@ -120,6 +126,87 @@ export function pointInPolygon(pt: Point, polygon: Point[]): boolean {
 		}
 	}
 	return inside;
+}
+
+/** Whether a base-pixel point lies inside an area-like shape's body. */
+export function isInsideBody(measurement: Measurement, point: Point): boolean {
+	const { type, points } = measurement;
+	if (type === 'rectangle') {
+		const b = rectBounds(points);
+		return (
+			point.x >= b.x &&
+			point.x <= b.x + b.width &&
+			point.y >= b.y &&
+			point.y <= b.y + b.height
+		);
+	}
+	if (type === 'circle') {
+		const r = circleRadius(points);
+		return distanceSq(points[0], point) <= r * r;
+	}
+	return pointInPolygon(point, points);
+}
+
+/** Geometric centre of an area shape — used to find its containing parent. */
+export function shapeCentroid(measurement: Measurement): Point {
+	const { type, points } = measurement;
+	if (type === 'rectangle') {
+		const b = rectBounds(points);
+		return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+	}
+	if (type === 'circle') {
+		return points[0];
+	}
+	const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), {
+		x: 0,
+		y: 0,
+	});
+	return { x: sum.x / points.length, y: sum.y / points.length };
+}
+
+/**
+ * The topmost non-deduction area shape on `page` whose body contains the centroid
+ * of `candidate` — i.e. the shape a freshly drawn deduction should attach to.
+ */
+export function findParentId(
+	candidate: Pick<Measurement, 'points' | 'type'>,
+	measurements: Measurement[],
+	page: number
+): string | undefined {
+	const c = shapeCentroid(candidate as Measurement);
+	for (let i = measurements.length - 1; i >= 0; i--) {
+		const m = measurements[i];
+		if (
+			m.page === page &&
+			!m.parentId &&
+			AREA_TYPE_SET.has(m.type) &&
+			isInsideBody(m, c)
+		) {
+			return m.id;
+		}
+	}
+	return;
+}
+
+/** Sum of the gross areas (m²) of every deduction belonging to a parent. */
+export function deductionSumSqm(
+	parentId: string,
+	measurements: Measurement[]
+): number {
+	return measurements
+		.filter((m) => m.parentId === parentId)
+		.reduce((sum, m) => sum + (m.valueSqm ?? 0), 0);
+}
+
+/** Net area (m²) of a parent shape after subtracting its deductions (≥ 0). */
+export function netAreaSqm(
+	parent: Measurement,
+	measurements: Measurement[]
+): number {
+	return Math.max(
+		0,
+		(parent.valueSqm ?? 0) - deductionSumSqm(parent.id, measurements)
+	);
 }
 
 /**
