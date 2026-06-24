@@ -312,34 +312,23 @@ export default function MeasurementsPanel({
 												/>
 											</span>
 										</AccordionPrimitive.Trigger>
-										<Button
-											aria-label={
-												pageHidden
-													? `Show all shapes on page ${pageNumber}`
-													: `Hide all shapes on page ${pageNumber}`
-											}
-											onClick={() => onTogglePageHidden(pageNumber)}
-											size="icon-sm"
-											title={
-												pageHidden ? 'Show page shapes' : 'Hide page shapes'
-											}
-											variant="ghost"
-										>
-											{pageHidden ? (
-												<EyeOff className="size-4" />
-											) : (
-												<Eye className="size-4" />
-											)}
-										</Button>
-										<PageMethodChip
-											documentMethod={documentMethod}
-											hasOverride={pageMethods[pageNumber] !== undefined}
-											method={pageMethods[pageNumber] ?? documentMethod}
-											onCalibrate={onCalibrate}
-											onOpenScaleDialog={onOpenScaleDialog}
-											onResetPage={onResetPage}
-											page={pageNumber}
-										/>
+										<ButtonGroup>
+											<HiddenToggle
+												hidden={pageHidden}
+												label={`all shapes on page ${pageNumber}`}
+												onToggle={() => onTogglePageHidden(pageNumber)}
+												variant="outline"
+											/>
+											<PageMethodChip
+												documentMethod={documentMethod}
+												hasOverride={pageMethods[pageNumber] !== undefined}
+												method={pageMethods[pageNumber] ?? documentMethod}
+												onCalibrate={onCalibrate}
+												onOpenScaleDialog={onOpenScaleDialog}
+												onResetPage={onResetPage}
+												page={pageNumber}
+											/>
+										</ButtonGroup>
 									</AccordionPrimitive.Header>
 									<AccordionPanel className="px-2 pt-1 pb-2">
 										<ul className="flex flex-col gap-1">
@@ -441,21 +430,20 @@ function PageMethodChip({
 			<PopoverTrigger
 				render={
 					<Button
-						className="h-7 gap-1 px-2 font-medium text-xs"
-						size="sm"
+						aria-label={`Scale: ${label}`}
+						size="icon-sm"
 						title={
 							hasOverride
-								? 'This page has its own scale'
-								: 'Inherited from the document default'
+								? `This page has its own scale (${label})`
+								: `Inherited from the document default (${label})`
 						}
-						variant={hasOverride ? 'secondary' : 'ghost'}
+						variant={hasOverride ? 'secondary' : 'outline'}
 					>
 						{method?.kind === 'calibration' ? (
-							<Crosshair className="size-3.5" />
+							<Crosshair className="size-4" />
 						) : (
-							<Ruler className="size-3.5" />
+							<Ruler className="size-4" />
 						)}
-						{label}
 					</Button>
 				}
 			/>
