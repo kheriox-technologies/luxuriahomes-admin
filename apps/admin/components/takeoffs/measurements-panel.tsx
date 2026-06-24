@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { type ReactElement, useEffect, useRef, useState } from 'react';
 import {
+	adjustArea,
 	formatMeters,
 	formatMethodLabel,
 	formatSqm,
@@ -188,6 +189,7 @@ export default function MeasurementsPanel({
 	onRecolorMeasurement,
 	onSetMeasurementWastage,
 	onSetMeasurementHeight,
+	onSetMeasurementAreaAdjust,
 	onToggleMeasurementHidden,
 	onTogglePageHidden,
 	width,
@@ -211,6 +213,11 @@ export default function MeasurementsPanel({
 	onRecolorMeasurement: (id: string, color: string) => void;
 	onSetMeasurementWastage: (id: string, percent: number | null) => void;
 	onSetMeasurementHeight: (id: string, heightMeters: number | null) => void;
+	onSetMeasurementAreaAdjust: (
+		id: string,
+		field: 'areaAddSqm' | 'areaSubtractSqm',
+		value: number | null
+	) => void;
 	onToggleMeasurementHidden: (id: string) => void;
 	onTogglePageHidden: (targetPage: number) => void;
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
@@ -336,11 +343,13 @@ export default function MeasurementsPanel({
 											/>
 										</ButtonGroup>
 									</AccordionPrimitive.Header>
-									<AccordionPanel className="px-2 pt-1 pb-2">
-										<ul className="flex flex-col gap-1">
+									<AccordionPanel className="pt-1 pb-2">
+										<ul className="flex flex-col divide-y">
 											{rows.map((row) =>
 												row.kind === 'group' ? (
 													<GroupRow
+														areaAddSqm={row.members[0].areaAddSqm}
+														areaSubtractSqm={row.members[0].areaSubtractSqm}
 														color={row.members[0].color ?? FALLBACK_COLOR}
 														globalWastage={globalWastage}
 														heightMeters={row.members[0].heightMeters}
@@ -361,6 +370,13 @@ export default function MeasurementsPanel({
 														}
 														onSelect={() =>
 															onSelectMeasurement(row.members[0].id)
+														}
+														onSetAreaAdjust={(field, value) =>
+															onSetMeasurementAreaAdjust(
+																row.members[0].id,
+																field,
+																value
+															)
 														}
 														onSetHeight={(height) =>
 															onSetMeasurementHeight(row.members[0].id, height)
@@ -388,6 +404,7 @@ export default function MeasurementsPanel({
 														onRecolor={onRecolorMeasurement}
 														onRename={onRenameMeasurement}
 														onSelect={onSelectMeasurement}
+														onSetAreaAdjust={onSetMeasurementAreaAdjust}
 														onSetHeight={onSetMeasurementHeight}
 														onSetWastage={onSetMeasurementWastage}
 														onToggleHidden={onToggleMeasurementHidden}
@@ -518,6 +535,7 @@ function MeasurementRow({
 	onRecolor,
 	onSetWastage,
 	onSetHeight,
+	onSetAreaAdjust,
 	onToggleHidden,
 }: {
 	measurement: Measurement;
@@ -530,6 +548,11 @@ function MeasurementRow({
 	onRecolor: (id: string, color: string) => void;
 	onSetWastage: (id: string, percent: number | null) => void;
 	onSetHeight: (id: string, heightMeters: number | null) => void;
+	onSetAreaAdjust: (
+		id: string,
+		field: 'areaAddSqm' | 'areaSubtractSqm',
+		value: number | null
+	) => void;
 	onToggleHidden: (id: string) => void;
 }) {
 	const Icon = TYPE_META[m.type].icon;
@@ -591,6 +614,8 @@ function MeasurementRow({
 				<div className="flex items-start justify-between gap-2">
 					{net ? (
 						<MeasurementBadges
+							areaAddSqm={m.areaAddSqm}
+							areaSubtractSqm={m.areaSubtractSqm}
 							color={color}
 							globalWastage={globalWastage}
 							net={net}
@@ -606,11 +631,26 @@ function MeasurementRow({
 						/>
 					)}
 				</div>
+				{net?.unit === 'm²' && (
+					<AreaAdjustRow
+						addSqm={m.areaAddSqm}
+						onSetAdd={(value) => onSetAreaAdjust(m.id, 'areaAddSqm', value)}
+						onSetSubtract={(value) =>
+							onSetAreaAdjust(m.id, 'areaSubtractSqm', value)
+						}
+						subtractSqm={m.areaSubtractSqm}
+					/>
+				)}
 				{m.type === 'linear' && net && (
 					<HeightAreaRow
+						areaAddSqm={m.areaAddSqm}
+						areaSubtractSqm={m.areaSubtractSqm}
 						color={color}
 						heightMeters={m.heightMeters}
 						onSelect={() => onSelect(m.id)}
+						onSetAreaAdjust={(field, value) =>
+							onSetAreaAdjust(m.id, field, value)
+						}
 						onSetHeight={(height) => onSetHeight(m.id, height)}
 						roundedLength={roundUpWithWastage(
 							net.value,
@@ -660,6 +700,8 @@ function GroupRow({
 	globalWastage,
 	wastagePercent,
 	heightMeters,
+	areaAddSqm,
+	areaSubtractSqm,
 	hidden,
 	selected,
 	onSelect,
@@ -668,6 +710,7 @@ function GroupRow({
 	onRename,
 	onSetWastage,
 	onSetHeight,
+	onSetAreaAdjust,
 	onToggleHidden,
 }: {
 	label: string;
@@ -676,6 +719,8 @@ function GroupRow({
 	globalWastage: number;
 	wastagePercent?: number;
 	heightMeters?: number;
+	areaAddSqm?: number;
+	areaSubtractSqm?: number;
 	hidden?: boolean;
 	selected: boolean;
 	onSelect: () => void;
@@ -684,6 +729,10 @@ function GroupRow({
 	onRename: (label: string) => void;
 	onSetWastage: (percent: number | null) => void;
 	onSetHeight: (heightMeters: number | null) => void;
+	onSetAreaAdjust: (
+		field: 'areaAddSqm' | 'areaSubtractSqm',
+		value: number | null
+	) => void;
 	onToggleHidden: () => void;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
@@ -735,6 +784,8 @@ function GroupRow({
 			<div className="flex items-start justify-between gap-2">
 				{net ? (
 					<MeasurementBadges
+						areaAddSqm={areaAddSqm}
+						areaSubtractSqm={areaSubtractSqm}
 						color={color}
 						globalWastage={globalWastage}
 						net={net}
@@ -746,11 +797,22 @@ function GroupRow({
 					<ValueBadge color={color} onSelect={onSelect} value="—" />
 				)}
 			</div>
+			{net?.unit === 'm²' && (
+				<AreaAdjustRow
+					addSqm={areaAddSqm}
+					onSetAdd={(value) => onSetAreaAdjust('areaAddSqm', value)}
+					onSetSubtract={(value) => onSetAreaAdjust('areaSubtractSqm', value)}
+					subtractSqm={areaSubtractSqm}
+				/>
+			)}
 			{net?.unit === 'm' && (
 				<HeightAreaRow
+					areaAddSqm={areaAddSqm}
+					areaSubtractSqm={areaSubtractSqm}
 					color={color}
 					heightMeters={heightMeters}
 					onSelect={onSelect}
+					onSetAreaAdjust={onSetAreaAdjust}
 					onSetHeight={onSetHeight}
 					roundedLength={roundUpWithWastage(
 						net.value,
@@ -771,6 +833,8 @@ function MeasurementBadges({
 	color,
 	globalWastage,
 	wastagePercent,
+	areaAddSqm,
+	areaSubtractSqm,
 	onSelect,
 	onSetWastage,
 }: {
@@ -778,11 +842,23 @@ function MeasurementBadges({
 	color: string;
 	globalWastage: number;
 	wastagePercent?: number;
+	areaAddSqm?: number;
+	areaSubtractSqm?: number;
 	onSelect: () => void;
 	onSetWastage: (percent: number | null) => void;
 }) {
 	const effectiveWastage = wastagePercent ?? globalWastage;
-	const rounded = roundUpWithWastage(net.value, effectiveWastage);
+	const roundedRaw = roundUpWithWastage(net.value, effectiveWastage);
+	// Manual +/− adjustments apply only to area values (length is never adjusted).
+	const adjusted = areaAddSqm !== undefined || areaSubtractSqm !== undefined;
+	const rounded =
+		net.unit === 'm²'
+			? adjustArea(roundedRaw, areaAddSqm, areaSubtractSqm)
+			: roundedRaw;
+	const roundedTitle =
+		net.unit === 'm²' && adjusted
+			? `Rounded up — incl. ${effectiveWastage}% wastage and manual adjustments`
+			: `Rounded up — incl. ${effectiveWastage}% wastage`;
 	return (
 		<div className="flex flex-1 items-start justify-between gap-2">
 			<div className="flex flex-wrap items-center gap-1">
@@ -797,7 +873,7 @@ function MeasurementBadges({
 					color={color}
 					onSelect={onSelect}
 					showIcon={false}
-					title={`Rounded up — incl. ${effectiveWastage}% wastage`}
+					title={roundedTitle}
 					value={`R ${rounded} ${net.unit}`}
 				/>
 			</div>
@@ -814,19 +890,30 @@ function MeasurementBadges({
 // Optional wall-height input for a linear measurement (or linear group). Height
 // is entered and stored in metres. When a positive height is set, a wall-area
 // badge is shown beside it: rounded length × height, rounded up to whole m²
-// (the rounded length already includes wastage, so it isn't applied again).
+// (the rounded length already includes wastage, so it isn't applied again), plus
+// any manual +/− adjustments. The adjustment inputs appear only once a height is
+// set, since they act on the height-based area.
 function HeightAreaRow({
 	color,
 	heightMeters,
 	roundedLength,
+	areaAddSqm,
+	areaSubtractSqm,
 	onSelect,
 	onSetHeight,
+	onSetAreaAdjust,
 }: {
 	color: string;
 	heightMeters?: number;
 	roundedLength: number;
+	areaAddSqm?: number;
+	areaSubtractSqm?: number;
 	onSelect: () => void;
 	onSetHeight: (heightMeters: number | null) => void;
+	onSetAreaAdjust: (
+		field: 'areaAddSqm' | 'areaSubtractSqm',
+		value: number | null
+	) => void;
 }) {
 	const [draft, setDraft] = useState(heightMeters ? String(heightMeters) : '');
 
@@ -849,40 +936,143 @@ function HeightAreaRow({
 
 	const area =
 		heightMeters && heightMeters > 0
-			? Math.ceil(roundedLength * heightMeters)
+			? adjustArea(
+					Math.ceil(roundedLength * heightMeters),
+					areaAddSqm,
+					areaSubtractSqm
+				)
 			: null;
 
 	return (
-		<div className="flex items-center gap-2">
-			<InputGroup className="flex-1">
-				<InputGroupInput
-					aria-label="Wall height in metres"
-					inputMode="decimal"
-					onBlur={commit}
-					onChange={(event) => setDraft(event.target.value)}
-					onKeyDown={(event) => {
-						if (event.key === 'Enter') {
-							commit();
-						}
-					}}
-					placeholder="Height"
-					size="sm"
-					value={draft}
-				/>
-				<InputGroupAddon align="inline-end">
-					<InputGroupText>m</InputGroupText>
-				</InputGroupAddon>
-			</InputGroup>
+		<div className="flex flex-col gap-2">
+			<div className="flex items-center gap-2">
+				<InputGroup className="flex-1">
+					<InputGroupInput
+						aria-label="Wall height in metres"
+						inputMode="decimal"
+						onBlur={commit}
+						onChange={(event) => setDraft(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === 'Enter') {
+								commit();
+							}
+						}}
+						placeholder="Height"
+						size="sm"
+						value={draft}
+					/>
+					<InputGroupAddon align="inline-end">
+						<InputGroupText>m</InputGroupText>
+					</InputGroupAddon>
+				</InputGroup>
+				{area !== null && (
+					<ValueBadge
+						color={color}
+						onSelect={onSelect}
+						showIcon={false}
+						title="Wall area — rounded length × height, incl. adjustments"
+						value={`${area} m²`}
+					/>
+				)}
+			</div>
 			{area !== null && (
-				<ValueBadge
-					color={color}
-					onSelect={onSelect}
-					showIcon={false}
-					title="Wall area — rounded length × height"
-					value={`${area} m²`}
+				<AreaAdjustRow
+					addSqm={areaAddSqm}
+					onSetAdd={(value) => onSetAreaAdjust('areaAddSqm', value)}
+					onSetSubtract={(value) => onSetAreaAdjust('areaSubtractSqm', value)}
+					subtractSqm={areaSubtractSqm}
 				/>
 			)}
 		</div>
+	);
+}
+
+// Two small inputs for manually adjusting an area: a `+` and a `−`, each suffixed
+// with m². Empty/invalid clears the adjustment (null). Mirrors HeightAreaRow's
+// draft/commit pattern so values commit on blur or Enter.
+function AreaAdjustRow({
+	addSqm,
+	subtractSqm,
+	onSetAdd,
+	onSetSubtract,
+}: {
+	addSqm?: number;
+	subtractSqm?: number;
+	onSetAdd: (value: number | null) => void;
+	onSetSubtract: (value: number | null) => void;
+}) {
+	return (
+		<div className="flex items-center gap-2">
+			<AdjustInput
+				ariaLabel="Area to add in square metres"
+				onCommit={onSetAdd}
+				sign="+"
+				value={addSqm}
+			/>
+			<AdjustInput
+				ariaLabel="Area to subtract in square metres"
+				onCommit={onSetSubtract}
+				sign="−"
+				value={subtractSqm}
+			/>
+		</div>
+	);
+}
+
+// A single signed area-adjustment input: sign prefix, decimal field, m² suffix.
+function AdjustInput({
+	sign,
+	value,
+	ariaLabel,
+	onCommit,
+}: {
+	sign: '+' | '−';
+	value?: number;
+	ariaLabel: string;
+	onCommit: (value: number | null) => void;
+}) {
+	const [draft, setDraft] = useState(value ? String(value) : '');
+
+	// Resync when the value changes elsewhere (e.g. group members share one).
+	useEffect(() => {
+		setDraft(value ? String(value) : '');
+	}, [value]);
+
+	const commit = () => {
+		const parsed = Number.parseFloat(draft);
+		if (Number.isFinite(parsed) && parsed > 0) {
+			if (parsed !== value) {
+				onCommit(parsed);
+			}
+		} else {
+			onCommit(null);
+			setDraft('');
+		}
+	};
+
+	return (
+		<InputGroup className="flex-1">
+			<InputGroupAddon align="inline-start">
+				<InputGroupText>{sign}</InputGroupText>
+			</InputGroupAddon>
+			<InputGroupInput
+				aria-label={ariaLabel}
+				inputMode="decimal"
+				onBlur={commit}
+				onChange={(event) => setDraft(event.target.value)}
+				onKeyDown={(event) => {
+					if (event.key === 'Enter') {
+						commit();
+					}
+				}}
+				placeholder="0"
+				size="sm"
+				value={draft}
+			/>
+			<InputGroupAddon align="inline-end">
+				<InputGroupText>m²</InputGroupText>
+			</InputGroupAddon>
+		</InputGroup>
 	);
 }
 

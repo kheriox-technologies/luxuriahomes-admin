@@ -41,6 +41,10 @@ export type LengthUnit = 'mm' | 'cm' | 'm';
 // - polygon:   vertices (shoelace area)
 // - count:     marker positions
 export interface Measurement {
+	/** Manual area (m²) ADDED to the rounded value; for linear, added to the height-based area. */
+	areaAddSqm?: number;
+	/** Manual area (m²) SUBTRACTED from the rounded value; for linear, from the height-based area. */
+	areaSubtractSqm?: number;
 	/** Stroke/fill colour for this shape (hex). Group members share one colour. */
 	color?: string;
 	/** Number of markers (count). */

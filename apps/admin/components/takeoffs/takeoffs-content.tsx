@@ -872,6 +872,31 @@ export default function TakeoffsContent() {
 		[]
 	);
 
+	// Set or clear a manual +/− area adjustment (m²) on a measurement. If the
+	// shape belongs to an Add group, apply to the whole group (like height).
+	const setMeasurementAreaAdjust = useCallback(
+		(
+			id: string,
+			field: 'areaAddSqm' | 'areaSubtractSqm',
+			value: number | null
+		) => {
+			setMeasurements((prev) => {
+				const gid = prev.find((m) => m.id === id)?.groupId;
+				return prev.map((m) => {
+					if (gid ? m.groupId === gid : m.id === id) {
+						const next = { ...m, [field]: value };
+						if (value === null) {
+							delete next[field];
+						}
+						return next;
+					}
+					return m;
+				});
+			});
+		},
+		[]
+	);
+
 	// Toggle a shape's canvas visibility (panel still lists it). If the shape
 	// belongs to an Add group, toggle the whole group; a parent also toggles its
 	// deductions so they stay in sync.
@@ -1145,6 +1170,7 @@ export default function TakeoffsContent() {
 						});
 					}}
 					onSelectMeasurement={focusMeasurement}
+					onSetMeasurementAreaAdjust={setMeasurementAreaAdjust}
 					onSetMeasurementHeight={setMeasurementHeight}
 					onSetMeasurementWastage={setMeasurementWastage}
 					onToggleMeasurementHidden={toggleMeasurementHidden}

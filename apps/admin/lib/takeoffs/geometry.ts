@@ -627,6 +627,15 @@ export function roundUpWithWastage(
 	return Math.ceil(value * (1 + wastagePercent / 100));
 }
 
+/** Apply manual +/− area adjustments to a rounded area, clamped at zero. */
+export function adjustArea(
+	rounded: number,
+	addSqm?: number,
+	subtractSqm?: number
+): number {
+	return Math.max(0, rounded + (addSqm ?? 0) - (subtractSqm ?? 0));
+}
+
 // Vibrant palette for shape colours, randomly assigned on commit. Excludes the
 // red deduction colour (#dc2626) so deductions stay visually distinct.
 export const SHAPE_PALETTE = [
