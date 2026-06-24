@@ -49,6 +49,8 @@ export interface Measurement {
 	detectedText?: string;
 	/** If set, this shape is part of a combined "Add" group keyed by this id. */
 	groupId?: string;
+	/** Wall height in metres for linear measurements; drives a computed wall area. */
+	heightMeters?: number;
 	id: string;
 	label: string;
 	page: number;

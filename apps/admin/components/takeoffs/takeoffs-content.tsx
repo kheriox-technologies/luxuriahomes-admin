@@ -835,6 +835,27 @@ export default function TakeoffsContent() {
 		[]
 	);
 
+	// Set a linear measurement's wall height (metres), or clear it (null). If the
+	// shape belongs to an Add group, apply to the whole group.
+	const setMeasurementHeight = useCallback(
+		(id: string, heightMeters: number | null) => {
+			setMeasurements((prev) => {
+				const gid = prev.find((m) => m.id === id)?.groupId;
+				return prev.map((m) => {
+					if (gid ? m.groupId === gid : m.id === id) {
+						if (heightMeters === null) {
+							const { heightMeters: _removed, ...rest } = m;
+							return rest;
+						}
+						return { ...m, heightMeters };
+					}
+					return m;
+				});
+			});
+		},
+		[]
+	);
+
 	// Keyboard shortcuts for drawing and editing.
 	useEffect(() => {
 		const handler = (event: KeyboardEvent) => {
@@ -1021,6 +1042,7 @@ export default function TakeoffsContent() {
 						});
 					}}
 					onSelectMeasurement={focusMeasurement}
+					onSetMeasurementHeight={setMeasurementHeight}
 					onSetMeasurementWastage={setMeasurementWastage}
 					page={page}
 					pageMethods={pageMethods}

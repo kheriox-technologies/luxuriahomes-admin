@@ -1,4 +1,5 @@
 'use client';
+'use no memo';
 
 import {
 	Accordion,
@@ -16,9 +17,14 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
-import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import {
 	Popover,
 	PopoverContent,
@@ -176,6 +182,7 @@ export default function MeasurementsPanel({
 	onRenameMeasurement,
 	onRecolorMeasurement,
 	onSetMeasurementWastage,
+	onSetMeasurementHeight,
 }: {
 	page: number;
 	measurements: Measurement[];
@@ -194,6 +201,7 @@ export default function MeasurementsPanel({
 	onRenameMeasurement: (id: string, label: string) => void;
 	onRecolorMeasurement: (id: string, color: string) => void;
 	onSetMeasurementWastage: (id: string, percent: number | null) => void;
+	onSetMeasurementHeight: (id: string, heightMeters: number | null) => void;
 }) {
 	// Pages that hold at least one measurement, in order.
 	const pages = [...new Set(measurements.map((m) => m.page))].sort(
@@ -290,9 +298,6 @@ export default function MeasurementsPanel({
 													data-slot="accordion-indicator"
 												/>
 											</span>
-											<Badge className="ml-auto" size="lg" variant="outline">
-												{rows.length}
-											</Badge>
 										</AccordionPrimitive.Trigger>
 										<PageMethodChip
 											documentMethod={documentMethod}
@@ -311,6 +316,7 @@ export default function MeasurementsPanel({
 													<GroupRow
 														color={row.members[0].color ?? FALLBACK_COLOR}
 														globalWastage={globalWastage}
+														heightMeters={row.members[0].heightMeters}
 														key={row.groupId}
 														label={row.label}
 														net={groupNetValue(
@@ -324,6 +330,9 @@ export default function MeasurementsPanel({
 														}
 														onSelect={() =>
 															onSelectMeasurement(row.members[0].id)
+														}
+														onSetHeight={(height) =>
+															onSetMeasurementHeight(row.members[0].id, height)
 														}
 														onSetWastage={(percent) =>
 															onSetMeasurementWastage(
@@ -345,6 +354,7 @@ export default function MeasurementsPanel({
 														onRecolor={onRecolorMeasurement}
 														onRename={onRenameMeasurement}
 														onSelect={onSelectMeasurement}
+														onSetHeight={onSetMeasurementHeight}
 														onSetWastage={onSetMeasurementWastage}
 														pageMeasurements={pageMeasurements}
 														selectedId={selectedId}
@@ -473,6 +483,7 @@ function MeasurementRow({
 	onRename,
 	onRecolor,
 	onSetWastage,
+	onSetHeight,
 }: {
 	measurement: Measurement;
 	pageMeasurements: Measurement[];
@@ -483,6 +494,7 @@ function MeasurementRow({
 	onRename: (id: string, label: string) => void;
 	onRecolor: (id: string, color: string) => void;
 	onSetWastage: (id: string, percent: number | null) => void;
+	onSetHeight: (id: string, heightMeters: number | null) => void;
 }) {
 	const Icon = TYPE_META[m.type].icon;
 	const deductions = pageMeasurements.filter((d) => d.parentId === m.id);
@@ -549,6 +561,18 @@ function MeasurementRow({
 						/>
 					)}
 				</div>
+				{m.type === 'linear' && net && (
+					<HeightAreaRow
+						color={color}
+						heightMeters={m.heightMeters}
+						onSelect={() => onSelect(m.id)}
+						onSetHeight={(height) => onSetHeight(m.id, height)}
+						roundedLength={roundUpWithWastage(
+							net.value,
+							m.wastagePercent ?? globalWastage
+						)}
+					/>
+				)}
 			</div>
 			{deductions.length > 0 && (
 				<ul className="ml-4 flex flex-col gap-1 border-l pl-2">
@@ -590,22 +614,26 @@ function GroupRow({
 	color,
 	globalWastage,
 	wastagePercent,
+	heightMeters,
 	selected,
 	onSelect,
 	onDelete,
 	onRecolor,
 	onSetWastage,
+	onSetHeight,
 }: {
 	label: string;
 	net: NetValue | null;
 	color: string;
 	globalWastage: number;
 	wastagePercent?: number;
+	heightMeters?: number;
 	selected: boolean;
 	onSelect: () => void;
 	onDelete: () => void;
 	onRecolor: (color: string) => void;
 	onSetWastage: (percent: number | null) => void;
+	onSetHeight: (heightMeters: number | null) => void;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
 	useEffect(() => {
@@ -654,6 +682,18 @@ function GroupRow({
 					<ValueBadge color={color} onSelect={onSelect} value="—" />
 				)}
 			</div>
+			{net?.unit === 'm' && (
+				<HeightAreaRow
+					color={color}
+					heightMeters={heightMeters}
+					onSelect={onSelect}
+					onSetHeight={onSetHeight}
+					roundedLength={roundUpWithWastage(
+						net.value,
+						wastagePercent ?? globalWastage
+					)}
+				/>
+			)}
 		</li>
 	);
 }
@@ -703,6 +743,81 @@ function MeasurementBadges({
 				onSelect={onSetWastage}
 				overridden={wastagePercent !== undefined}
 			/>
+		</div>
+	);
+}
+
+// Optional wall-height input for a linear measurement (or linear group). Height
+// is entered and stored in metres. When a positive height is set, a wall-area
+// badge is shown beside it: rounded length × height, rounded up to whole m²
+// (the rounded length already includes wastage, so it isn't applied again).
+function HeightAreaRow({
+	color,
+	heightMeters,
+	roundedLength,
+	onSelect,
+	onSetHeight,
+}: {
+	color: string;
+	heightMeters?: number;
+	roundedLength: number;
+	onSelect: () => void;
+	onSetHeight: (heightMeters: number | null) => void;
+}) {
+	const [draft, setDraft] = useState(heightMeters ? String(heightMeters) : '');
+
+	// Resync when the height changes elsewhere (e.g. group members share one).
+	useEffect(() => {
+		setDraft(heightMeters ? String(heightMeters) : '');
+	}, [heightMeters]);
+
+	const commit = () => {
+		const parsed = Number.parseFloat(draft);
+		if (Number.isFinite(parsed) && parsed > 0) {
+			if (parsed !== heightMeters) {
+				onSetHeight(parsed);
+			}
+		} else {
+			onSetHeight(null);
+			setDraft('');
+		}
+	};
+
+	const area =
+		heightMeters && heightMeters > 0
+			? Math.ceil(roundedLength * heightMeters)
+			: null;
+
+	return (
+		<div className="flex items-center gap-2">
+			<InputGroup className="flex-1">
+				<InputGroupInput
+					aria-label="Wall height in metres"
+					inputMode="decimal"
+					onBlur={commit}
+					onChange={(event) => setDraft(event.target.value)}
+					onKeyDown={(event) => {
+						if (event.key === 'Enter') {
+							commit();
+						}
+					}}
+					placeholder="Height"
+					size="sm"
+					value={draft}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupText>m</InputGroupText>
+				</InputGroupAddon>
+			</InputGroup>
+			{area !== null && (
+				<ValueBadge
+					color={color}
+					onSelect={onSelect}
+					showIcon={false}
+					title="Wall area — rounded length × height"
+					value={`${area} m²`}
+				/>
+			)}
 		</div>
 	);
 }
