@@ -46,6 +46,9 @@ export const generateSaveUrl = action({
 				Bucket: bucket,
 				Key: takeoff.s3Key,
 				ContentType: 'application/pdf',
+				// Take-off PDFs are overwritten in place on every save, so CloudFront
+				// must revalidate rather than serve a stale (pre-annotation) copy.
+				CacheControl: 'no-cache',
 			}),
 			{ expiresIn: 300 }
 		);

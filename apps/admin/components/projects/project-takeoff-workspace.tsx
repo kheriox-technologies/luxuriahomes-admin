@@ -81,7 +81,11 @@ export default function ProjectTakeoffWorkspace({
 			const res = await fetch(uploadUrl, {
 				method: 'PUT',
 				body: new Blob([bytes as BlobPart], { type: 'application/pdf' }),
-				headers: { 'Content-Type': 'application/pdf' },
+				// Cache-Control must match the value signed into the presigned PUT.
+				headers: {
+					'Content-Type': 'application/pdf',
+					'Cache-Control': 'no-cache',
+				},
 			});
 			if (!res.ok) {
 				throw new Error(`Upload failed (${res.status})`);

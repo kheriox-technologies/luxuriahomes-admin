@@ -96,6 +96,11 @@ export const addToTakeoffs = action({
 				Bucket: bucket,
 				CopySource: `${bucket}/${doc.s3Key}`,
 				Key: newS3Key,
+				// The copy is overwritten in place by every "Save PDF", so it must not
+				// be cached by CloudFront or saves won't be visible on download.
+				CacheControl: 'no-cache',
+				MetadataDirective: 'REPLACE',
+				ContentType: doc.mimeType ?? 'application/pdf',
 			})
 		);
 
