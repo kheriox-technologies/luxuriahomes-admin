@@ -112,15 +112,17 @@ function buildRows(pageMeasurements: Measurement[]): Row[] {
 			rows.push({ kind: 'single', measurement: m });
 		}
 	}
-	// Number groups per family in appearance order.
+	// Number groups per family in appearance order, but prefer the text detected
+	// on the group's first shape when available.
 	let areaGroupCount = 0;
 	let linearGroupCount = 0;
 	for (const row of rows) {
 		if (row.kind === 'group') {
 			const isArea = AREA_TYPE_SET.has(row.members[0].type);
-			row.label = isArea
+			const fallback = isArea
 				? `Area group ${++areaGroupCount}`
 				: `Linear group ${++linearGroupCount}`;
+			row.label = row.members[0].detectedText ?? fallback;
 		}
 	}
 	return rows;

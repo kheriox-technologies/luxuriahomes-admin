@@ -45,6 +45,8 @@ export interface Measurement {
 	color?: string;
 	/** Number of markers (count). */
 	count?: number;
+	/** Text auto-detected from the PDF inside this shape (drives the group label). */
+	detectedText?: string;
 	/** If set, this shape is part of a combined "Add" group keyed by this id. */
 	groupId?: string;
 	id: string;

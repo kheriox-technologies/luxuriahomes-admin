@@ -44,6 +44,7 @@ import {
 	toMetres,
 	translatePoints,
 } from '@/lib/takeoffs/geometry';
+import { detectLabelForShape, type TextBox } from '@/lib/takeoffs/text-layer';
 import type {
 	DragKind,
 	LengthUnit,
@@ -128,7 +129,7 @@ function dedupeConsecutive(points: Point[]): Point[] {
 }
 
 export default function TakeoffsContent() {
-	const { numPages, renderPage, renderThumbnail, error, ready } =
+	const { numPages, renderPage, renderThumbnail, extractText, error, ready } =
 		usePdfDocument(PDF_URL);
 
 	const [page, setPage] = useState(1);
@@ -143,6 +144,9 @@ export default function TakeoffsContent() {
 	// imperatively without re-running on every change). Null when Add is off.
 	const currentGroupId = useRef<string | null>(null);
 	const [measurements, setMeasurements] = useState<Measurement[]>([]);
+	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
+	// them synchronously to auto-name area shapes.
+	const pageTextRef = useRef<Map<number, TextBox[]>>(new Map());
 	// PDF-wide default scale, plus optional per-page overrides.
 	const [documentCalibration, setDocumentCalibration] = useState<number | null>(
 		null
@@ -272,6 +276,24 @@ export default function TakeoffsContent() {
 		[metersPerPixel]
 	);
 
+	// Prefetch the current page's text layer so commit() can auto-name shapes
+	// without awaiting. Naming silently falls back to defaults until it resolves.
+	useEffect(() => {
+		if (!ready) {
+			return;
+		}
+		let cancelled = false;
+		(async () => {
+			const boxes = await extractText(page);
+			if (!cancelled) {
+				pageTextRef.current.set(page, boxes);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [ready, page, extractText]);
+
 	const commit = useCallback(
 		(type: MeasurementType, points: Point[]) => {
 			if (!metersPerPixel) {
@@ -311,11 +333,19 @@ export default function TakeoffsContent() {
 						finalPoints = clipped.points;
 					}
 				}
-				const label = parentId
+				// Auto-name area shapes from the PDF text inside them; fall back to the
+				// generic numbered label when no text is detected.
+				const detectedText =
+					detectLabelForShape(
+						{ type: finalType, points: finalPoints },
+						pageTextRef.current.get(page) ?? []
+					) ?? undefined;
+				const fallbackLabel = parentId
 					? `Deduction ${prev.filter((m) => m.parentId).length + 1}`
 					: `${TYPE_LABEL[finalType]} ${
 							prev.filter((m) => m.type === finalType && !m.parentId).length + 1
 						}`;
+				const label = detectedText ?? fallbackLabel;
 				// Deductions render red; every other shape gets a colour. Group members
 				// reuse the group's existing colour so the whole group stays uniform.
 				let color: string | undefined;
@@ -337,6 +367,7 @@ export default function TakeoffsContent() {
 						groupId,
 						color,
 						label,
+						detectedText,
 					},
 				];
 			});
