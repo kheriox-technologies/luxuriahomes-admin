@@ -694,12 +694,15 @@ function CommittedShape({
 	groupColor?: string;
 }) {
 	const isDeduction = Boolean(measurement.parentId);
-	// Group members share one colour (groups never contain deductions).
-	const color =
-		groupColor ??
-		(isDeduction
-			? DEDUCTION_COLOR
-			: (TOOL_COLORS[measurement.type] ?? '#2563eb'));
+	// Deductions always render red. Otherwise prefer the shape's stored colour,
+	// falling back to the group colour then the per-type default for any legacy
+	// measurement drawn before colours were persisted.
+	const color = isDeduction
+		? DEDUCTION_COLOR
+		: (measurement.color ??
+			groupColor ??
+			TOOL_COLORS[measurement.type] ??
+			'#2563eb');
 	const { points, type } = measurement;
 
 	if (type === 'count') {

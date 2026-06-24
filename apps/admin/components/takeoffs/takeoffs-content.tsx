@@ -28,6 +28,7 @@ import {
 	type ReactElement,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from 'react';
@@ -36,6 +37,7 @@ import {
 	clipToParent,
 	distance,
 	measure,
+	randomShapeColor,
 	rectArea,
 	type SnapGuide,
 	snapPolylinePoint,
@@ -308,6 +310,15 @@ export default function TakeoffsContent() {
 					: `${TYPE_LABEL[finalType]} ${
 							prev.filter((m) => m.type === finalType && !m.parentId).length + 1
 						}`;
+				// Deductions render red; every other shape gets a colour. Group members
+				// reuse the group's existing colour so the whole group stays uniform.
+				let color: string | undefined;
+				if (!parentId) {
+					color = groupId
+						? (prev.find((m) => m.groupId === groupId)?.color ??
+							randomShapeColor())
+						: randomShapeColor();
+				}
 				return [
 					...prev,
 					{
@@ -318,6 +329,7 @@ export default function TakeoffsContent() {
 						...measure(finalType, finalPoints, metersPerPixel),
 						parentId,
 						groupId,
+						color,
 						label,
 					},
 				];
@@ -404,6 +416,7 @@ export default function TakeoffsContent() {
 							type: 'count',
 							points: [point],
 							count: 1,
+							color: randomShapeColor(),
 							label: 'Count',
 						},
 					];
@@ -565,6 +578,51 @@ export default function TakeoffsContent() {
 		setSelectedId((current) => (current === id ? null : current));
 	}, []);
 
+	// Pages that currently hold at least one measurement (for the thumbnail "M"
+	// indicator and the per-page accordion in the measurements panel).
+	const pagesWithMeasurements = useMemo(
+		() => new Set(measurements.map((m) => m.page)),
+		[measurements]
+	);
+
+	// Jump to a measurement: switch to Select, navigate to its page, and select
+	// it. Done inline (not via goToPage/selectTool) so the selection isn't cleared.
+	const focusMeasurement = useCallback(
+		(id: string) => {
+			const target = measurements.find((m) => m.id === id);
+			if (!target) {
+				return;
+			}
+			setTool('select');
+			setSubtractMode(false);
+			setAddMode(false);
+			currentGroupId.current = null;
+			setPage(Math.min(Math.max(target.page, 1), numPages || 1));
+			resetDraft();
+			setSelectedId(id);
+		},
+		[measurements, numPages, resetDraft]
+	);
+
+	const renameMeasurement = useCallback((id: string, label: string) => {
+		setMeasurements((prev) =>
+			prev.map((m) => (m.id === id ? { ...m, label } : m))
+		);
+	}, []);
+
+	// Recolour a shape; if it belongs to an Add group, recolour the whole group.
+	const recolorMeasurement = useCallback((id: string, color: string) => {
+		setMeasurements((prev) => {
+			const gid = prev.find((m) => m.id === id)?.groupId;
+			return prev.map((m) => {
+				if (gid ? m.groupId === gid : m.id === id) {
+					return { ...m, color };
+				}
+				return m;
+			});
+		});
+	}, []);
+
 	// Keyboard shortcuts for drawing and editing.
 	useEffect(() => {
 		const handler = (event: KeyboardEvent) => {
@@ -686,6 +744,7 @@ export default function TakeoffsContent() {
 					currentPage={page}
 					numPages={numPages}
 					onSelectPage={goToPage}
+					pagesWithMeasurements={pagesWithMeasurements}
 					ready={ready}
 					renderThumbnail={renderThumbnail}
 				/>
@@ -731,6 +790,9 @@ export default function TakeoffsContent() {
 						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}
+					onRecolorMeasurement={recolorMeasurement}
+					onRenameMeasurement={renameMeasurement}
+					onSelectMeasurement={focusMeasurement}
 					onUsePdfScale={
 						pageOverride === null
 							? undefined
@@ -742,6 +804,7 @@ export default function TakeoffsContent() {
 									})
 					}
 					page={page}
+					selectedId={selectedId}
 				/>
 			</div>
 

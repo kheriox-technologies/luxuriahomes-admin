@@ -16,6 +16,7 @@ interface PdfThumbnailsProps {
 	currentPage: number;
 	numPages: number;
 	onSelectPage: (page: number) => void;
+	pagesWithMeasurements: Set<number>;
 	ready: boolean;
 	renderThumbnail: (
 		pageNumber: number,
@@ -28,6 +29,7 @@ export default function PdfThumbnails({
 	numPages,
 	currentPage,
 	onSelectPage,
+	pagesWithMeasurements,
 	renderThumbnail,
 	ready,
 }: PdfThumbnailsProps) {
@@ -47,6 +49,7 @@ export default function PdfThumbnails({
 					(pageNumber) => (
 						<Thumbnail
 							active={pageNumber === currentPage}
+							hasMeasurements={pagesWithMeasurements.has(pageNumber)}
 							key={pageNumber}
 							onSelect={onSelectPage}
 							pageNumber={pageNumber}
@@ -64,6 +67,7 @@ export default function PdfThumbnails({
 function Thumbnail({
 	pageNumber,
 	active,
+	hasMeasurements,
 	onSelect,
 	renderThumbnail,
 	ready,
@@ -71,6 +75,7 @@ function Thumbnail({
 }: {
 	pageNumber: number;
 	active: boolean;
+	hasMeasurements: boolean;
 	onSelect: (page: number) => void;
 	renderThumbnail: PdfThumbnailsProps['renderThumbnail'];
 	ready: boolean;
@@ -148,6 +153,14 @@ function Thumbnail({
 				className="absolute inset-0 h-full w-full object-contain"
 				ref={canvasRef}
 			/>
+			{hasMeasurements && (
+				<span
+					className="absolute top-1 right-1 rounded bg-primary px-1.5 py-0.5 font-semibold text-[10px] text-primary-foreground shadow-sm"
+					title="Has measurements"
+				>
+					M
+				</span>
+			)}
 			<span className="absolute right-1 bottom-1 rounded bg-background/90 px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground tabular-nums shadow-sm">
 				{pageNumber}
 			</span>

@@ -41,6 +41,8 @@ export type LengthUnit = 'mm' | 'cm' | 'm';
 // - polygon:   vertices (shoelace area)
 // - count:     marker positions
 export interface Measurement {
+	/** Stroke/fill colour for this shape (hex). Group members share one colour. */
+	color?: string;
 	/** Number of markers (count). */
 	count?: number;
 	/** If set, this shape is part of a combined "Add" group keyed by this id. */

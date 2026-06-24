@@ -548,6 +548,28 @@ export function formatSqm(value: number): string {
 	return `${value.toFixed(2)} m²`;
 }
 
+// Vibrant palette for shape colours, randomly assigned on commit. Excludes the
+// red deduction colour (#dc2626) so deductions stay visually distinct.
+export const SHAPE_PALETTE = [
+	'#2563eb', // blue
+	'#059669', // emerald
+	'#7c3aed', // violet
+	'#0891b2', // cyan
+	'#ea580c', // orange
+	'#9333ea', // purple
+	'#16a34a', // green
+	'#db2777', // pink
+	'#ca8a04', // amber
+	'#4f46e5', // indigo
+	'#0d9488', // teal
+	'#0284c7', // sky
+] as const;
+
+/** Pick a random colour from the shape palette. */
+export function randomShapeColor(): string {
+	return SHAPE_PALETTE[Math.floor(Math.random() * SHAPE_PALETTE.length)];
+}
+
 // Distinct hues for combined "Add" groups, chosen to stand apart from the
 // per-type stroke colours (blue/green/purple) and the red deduction colour.
 const GROUP_PALETTE = [
