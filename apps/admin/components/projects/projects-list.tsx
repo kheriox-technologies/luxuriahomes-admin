@@ -1,7 +1,6 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
-import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { DataTable } from '@workspace/ui/components/data-table';
@@ -12,14 +11,10 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { useQuery } from 'convex/react';
-import { Building2, SearchIcon } from 'lucide-react';
+import { Building2, ChevronRight, SearchIcon } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { formatAud } from '@/lib/currency';
-
-/** Set to `false` before commit — forces the "no projects yet" empty UI. */
-const FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING = false;
 
 type Project = Doc<'projects'>;
 
@@ -35,6 +30,25 @@ function NoProjectsYetEmpty() {
 					<EmptyDescription>
 						Create a project to track builds, clients, and site details in one
 						place. Use the Add project button above to get started.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		</div>
+	);
+}
+
+function NoMatchEmpty() {
+	return (
+		<div className="flex min-h-0 flex-1 flex-col">
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<SearchIcon aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No matching projects</EmptyTitle>
+					<EmptyDescription>
+						Try another name, address, suburb, postcode, or client detail — or
+						clear the status filter.
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
@@ -81,30 +95,55 @@ function formatDuration(startDate: number): string {
 
 	const parts: string[] = [];
 	if (months > 0) {
-		parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+		parts.push(`${months} ${months === 1 ? 'month' : 'months'}`);
 	}
 	if (days > 0) {
-		parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+		parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
 	}
 	return parts.length > 0 ? parts.join(' ') : 'Today';
+}
+
+const RightHeader = ({ label }: { label: string }) => (
+	<div className="text-right">{label}</div>
+);
+
+function MoneyDelta({
+	amount,
+	positiveSuffix,
+	negativeSuffix,
+}: {
+	amount: number;
+	positiveSuffix: string;
+	negativeSuffix: string;
+}) {
+	const isPositive = amount >= 0;
+	return (
+		<p
+			className={
+				isPositive
+					? 'text-success-foreground text-xs'
+					: 'text-destructive-foreground text-xs'
+			}
+		>
+			{isPositive
+				? `${formatAud(amount)} ${positiveSuffix}`
+				: `${formatAud(Math.abs(amount))} ${negativeSuffix}`}
+		</p>
+	);
 }
 
 const columns: ColumnDef<Project>[] = [
 	{
 		accessorKey: 'name',
-		header: 'Name',
-		cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
-	},
-	{
-		id: 'address',
-		header: 'Address',
+		header: 'Project',
 		cell: ({ row }) => {
-			const { street, suburb, state, postcode } = row.original.address;
+			const { name, address } = row.original;
 			return (
-				<div className="space-y-0.5">
-					<p>{street}</p>
-					<p className="text-muted-foreground text-xs">
-						{suburb}, {state} {postcode}
+				<div className="min-w-0 space-y-0.5">
+					<p className="truncate font-medium">{name}</p>
+					<p className="truncate text-muted-foreground text-xs">
+						{address.street}, {address.suburb} {address.state}{' '}
+						{address.postcode}
 					</p>
 				</div>
 			);
@@ -113,44 +152,49 @@ const columns: ColumnDef<Project>[] = [
 	{
 		accessorKey: 'status',
 		header: 'Status',
-		size: 130,
+		size: 150,
 		cell: ({ row }) => {
-			const badge = statusBadgeProps(row.original.status);
+			const { status, startDate } = row.original;
+			const badge = statusBadgeProps(status);
+			const showDuration = status === 'in_progress' && startDate;
 			return (
-				<Badge size="lg" variant={badge.variant}>
-					{badge.label}
-				</Badge>
+				<div className="space-y-1">
+					<Badge size="lg" variant={badge.variant}>
+						<span
+							aria-hidden
+							className="size-1.5 rounded-full bg-current opacity-70"
+						/>
+						{badge.label}
+					</Badge>
+					{showDuration ? (
+						<p className="text-muted-foreground text-xs">
+							{formatDuration(startDate)}
+						</p>
+					) : null}
+				</div>
 			);
 		},
 	},
 	{
 		id: 'quotePrice',
-		header: 'Quote Price',
-		size: 140,
+		header: () => <RightHeader label="Quote" />,
+		size: 130,
 		cell: ({ row }) => {
 			const { quotePrice, expenses } = row.original;
 			if (quotePrice === undefined) {
-				return null;
+				return <div className="text-right text-muted-foreground">—</div>;
 			}
 			const remaining =
 				expenses === undefined ? undefined : quotePrice - expenses;
 			return (
-				<div className="space-y-1">
-					<Badge size="lg" variant="purple">
-						{formatAud(quotePrice)}
-					</Badge>
+				<div className="space-y-0.5 text-right tabular-nums">
+					<p className="font-medium">{formatAud(quotePrice)}</p>
 					{remaining === undefined ? null : (
-						<p
-							className={
-								remaining >= 0
-									? 'text-success-foreground text-xs'
-									: 'text-destructive-foreground text-xs'
-							}
-						>
-							{remaining >= 0
-								? `${formatAud(remaining)} Left`
-								: `${formatAud(Math.abs(remaining))} Over`}
-						</p>
+						<MoneyDelta
+							amount={remaining}
+							negativeSuffix="over"
+							positiveSuffix="left"
+						/>
 					)}
 				</div>
 			);
@@ -158,108 +202,94 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'expenses',
-		header: 'Expenses',
-		size: 140,
+		header: () => <RightHeader label="Spent" />,
+		size: 120,
 		cell: ({ row }) => {
 			const { expenses } = row.original;
-			if (expenses === undefined) {
-				return null;
-			}
 			return (
-				<Badge size="lg" variant="secondary">
-					{formatAud(expenses)}
-				</Badge>
-			);
-		},
-	},
-	{
-		id: 'received',
-		header: 'Received',
-		size: 140,
-		cell: ({ row }) => {
-			const { received, expenses } = row.original;
-			if (received === undefined) {
-				return null;
-			}
-			const profit = expenses === undefined ? undefined : received - expenses;
-			return (
-				<div className="space-y-1">
-					<Badge size="lg" variant="secondary">
-						{formatAud(received)}
-					</Badge>
-					{profit === undefined ? null : (
-						<p
-							className={
-								profit >= 0
-									? 'text-success-foreground text-xs'
-									: 'text-destructive-foreground text-xs'
-							}
-						>
-							{profit >= 0
-								? `${formatAud(profit)} Profit`
-								: `${formatAud(Math.abs(profit))} Loss`}
-						</p>
+				<div className="text-right tabular-nums">
+					{expenses === undefined ? (
+						<span className="text-muted-foreground">—</span>
+					) : (
+						<span className="font-medium">{formatAud(expenses)}</span>
 					)}
 				</div>
 			);
 		},
 	},
 	{
-		id: 'duration',
-		header: 'Duration',
-		size: 140,
+		id: 'received',
+		header: () => <RightHeader label="Received" />,
+		size: 130,
 		cell: ({ row }) => {
-			const { status, startDate } = row.original;
-			if (status !== 'in_progress' || !startDate) {
-				return null;
+			const { received, expenses } = row.original;
+			if (received === undefined) {
+				return <div className="text-right text-muted-foreground">—</div>;
 			}
+			const profit = expenses === undefined ? undefined : received - expenses;
 			return (
-				<span className="text-muted-foreground text-sm">
-					{formatDuration(startDate)}
-				</span>
+				<div className="space-y-0.5 text-right tabular-nums">
+					<p className="font-medium">{formatAud(received)}</p>
+					{profit === undefined ? null : (
+						<MoneyDelta
+							amount={profit}
+							negativeSuffix="loss"
+							positiveSuffix="profit"
+						/>
+					)}
+				</div>
 			);
 		},
 	},
 	{
 		id: 'clients',
-		header: 'Clients',
-		cell: ({ row }) => (
-			<div className="space-y-3">
-				{row.original.clients.map((client, i) => (
-					<div className="space-y-0.5" key={`${client.email}-${i}`}>
-						<p className="font-medium">
-							{client.firstName} {client.lastName}
+		header: 'Client',
+		size: 180,
+		cell: ({ row }) => {
+			const { clients } = row.original;
+			const [primary, ...rest] = clients;
+			if (!primary) {
+				return <span className="text-muted-foreground text-sm">—</span>;
+			}
+			return (
+				<div className="min-w-0 space-y-0.5">
+					<p className="truncate font-medium">
+						{primary.firstName} {primary.lastName}
+					</p>
+					<p className="truncate text-muted-foreground text-xs">
+						{primary.email}
+					</p>
+					{rest.length > 0 ? (
+						<p className="text-muted-foreground text-xs">
+							+{rest.length} more {rest.length === 1 ? 'client' : 'clients'}
 						</p>
-						<p className="text-muted-foreground text-xs">{client.email}</p>
-						<p className="text-muted-foreground text-xs">{client.phone}</p>
-					</div>
-				))}
+					) : null}
+				</div>
+			);
+		},
+	},
+	{
+		id: 'chevron',
+		header: '',
+		size: 44,
+		cell: () => (
+			<div className="flex justify-end text-muted-foreground">
+				<ChevronRight aria-hidden className="size-4" />
 			</div>
 		),
 	},
 ];
 
 export default function ProjectsList({
-	searchQuery = '',
+	projects,
+	isFiltered,
+	resetKey = '',
 }: {
-	searchQuery?: string;
+	projects: Project[] | undefined;
+	isFiltered: boolean;
+	resetKey?: string;
 }) {
 	const router = useRouter();
-	const trimmedSearch = searchQuery.trim();
-
-	const listResults = useQuery(
-		api.projects.list.list,
-		trimmedSearch === '' ? {} : 'skip'
-	);
-	const searchResults = useQuery(
-		api.projects.search.search,
-		trimmedSearch !== '' ? { query: trimmedSearch } : 'skip'
-	);
-	const projects = trimmedSearch === '' ? listResults : searchResults;
-
-	if (FORCE_SHOW_PROJECTS_EMPTY_FOR_TESTING) {
-		return <NoProjectsYetEmpty />;
-	}
 
 	if (projects === undefined) {
 		return (
@@ -268,24 +298,7 @@ export default function ProjectsList({
 	}
 
 	if (projects.length === 0) {
-		if (trimmedSearch === '') {
-			return <NoProjectsYetEmpty />;
-		}
-		return (
-			<div className="flex min-h-0 flex-1 flex-col">
-				<Empty>
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<SearchIcon aria-hidden />
-						</EmptyMedia>
-						<EmptyTitle>No matching projects</EmptyTitle>
-						<EmptyDescription>
-							Try another name, address, suburb, postcode, or client detail.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			</div>
-		);
+		return isFiltered ? <NoMatchEmpty /> : <NoProjectsYetEmpty />;
 	}
 
 	return (
@@ -293,7 +306,7 @@ export default function ProjectsList({
 			columns={columns}
 			data={projects}
 			emptyMessage="No matching projects."
-			key={trimmedSearch}
+			key={resetKey}
 			onRowClick={(project) => router.push(`/projects/${project._id}` as Route)}
 			stickyHeader
 		/>
