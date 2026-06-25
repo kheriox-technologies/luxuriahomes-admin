@@ -4,7 +4,6 @@ import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -71,39 +70,31 @@ export default function ProjectDetailView({
 	return (
 		<div className={cn('flex h-full w-full flex-col')}>
 			<PageHeading
+				backLink="/projects"
 				description={formatAddressLine(project.address)}
 				heading={project.name}
 				rightSlot={
-					<Group>
+					<div className="flex items-center gap-2">
 						<EditProjectForm
 							projectId={projectId}
 							trigger={
-								<Button
-									aria-label="Edit project"
-									size="icon"
-									type="button"
-									variant="outline"
-								>
+								<Button type="button" variant="outline">
 									<Pencil />
+									Edit
 								</Button>
 							}
 						/>
-						<GroupSeparator />
 						<DeleteProject
 							projectId={projectId}
 							projectName={project.name}
 							trigger={
-								<Button
-									aria-label="Delete project"
-									size="icon"
-									type="button"
-									variant="destructive-outline"
-								>
+								<Button type="button" variant="destructive-outline">
 									<Trash2 />
+									Delete
 								</Button>
 							}
 						/>
-					</Group>
+					</div>
 				}
 				titleTrailing={
 					<div className="flex shrink-0 items-center gap-3">
