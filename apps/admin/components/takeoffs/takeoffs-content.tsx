@@ -37,6 +37,7 @@ import {
 	useState,
 } from 'react';
 import type { PageIndexedState } from '@/lib/takeoffs/edit-pdf';
+import type { AnnotatedPdfInput } from '@/lib/takeoffs/export-pdf';
 import {
 	circleRadius,
 	clipToParent,
@@ -163,9 +164,24 @@ function dedupeConsecutive(points: Point[]): Point[] {
 	return result;
 }
 
-// Imperative handle the parent uses to trigger a PDF save from outside the
-// component (e.g. a button next to the PDF-selection combobox).
+// How long to keep a download blob URL alive after opening it in a new tab, so
+// the tab has time to load the PDF before the URL is revoked.
+const TAB_REVOKE_MS = 60_000;
+
+// Open the given PDF bytes in a new browser tab via a blob URL. Called only
+// once the bytes are ready so the user never sees a blank loading tab.
+function openPdfBytesInTab(bytes: Uint8Array) {
+	const url = URL.createObjectURL(
+		new Blob([bytes as BlobPart], { type: 'application/pdf' })
+	);
+	window.open(url, '_blank', 'noopener');
+	setTimeout(() => URL.revokeObjectURL(url), TAB_REVOKE_MS);
+}
+
+// Imperative handle the parent uses to trigger a PDF save/download from outside
+// the component (e.g. buttons next to the PDF-selection combobox).
 export interface TakeoffsHandle {
+	downloadPdf: () => Promise<void>;
 	savePdf: () => Promise<void>;
 }
 
@@ -396,6 +412,57 @@ export default function TakeoffsContent({
 		}
 	}, []);
 
+	// Gather the un-annotated working bytes plus the overlay input (measurements,
+	// legends, texts, and per-page geometry) that the PDF exporters consume.
+	// Shared by Save PDF, Download PDF, and Download Page.
+	const buildInput = useCallback(async (): Promise<{
+		originalBytes: Uint8Array;
+		input: AnnotatedPdfInput;
+	}> => {
+		const originalBytes = await currentWorkingBytes();
+
+		// Geometry for every page that has any overlay to draw.
+		const pagesWithOverlays = new Set<number>();
+		for (const m of measurements) {
+			pagesWithOverlays.add(m.page);
+		}
+		for (const t of texts) {
+			pagesWithOverlays.add(t.page);
+		}
+		for (const key of Object.keys(legends)) {
+			pagesWithOverlays.add(Number(key));
+		}
+		const geometryByPage = new Map<number, PageGeometry>();
+		for (const pageNumber of pagesWithOverlays) {
+			const geom = await getPageGeometry(pageNumber);
+			if (geom) {
+				geometryByPage.set(pageNumber, geom);
+			}
+		}
+
+		return {
+			originalBytes,
+			input: {
+				measurements,
+				legends,
+				texts,
+				pageMethods,
+				documentMethod,
+				globalWastage,
+				geometryByPage,
+			},
+		};
+	}, [
+		currentWorkingBytes,
+		measurements,
+		texts,
+		legends,
+		pageMethods,
+		documentMethod,
+		globalWastage,
+		getPageGeometry,
+	]);
+
 	// Save PDF: burn the overlays into the PDF and hand the bytes to the caller.
 	// Triggered by the parent via the imperative handle below.
 	const handleSavePdf = useCallback(async () => {
@@ -408,36 +475,8 @@ export default function TakeoffsContent({
 		});
 		try {
 			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
-			const originalBytes = await currentWorkingBytes();
-
-			// Geometry for every page that has any overlay to draw.
-			const pagesWithOverlays = new Set<number>();
-			for (const m of measurements) {
-				pagesWithOverlays.add(m.page);
-			}
-			for (const t of texts) {
-				pagesWithOverlays.add(t.page);
-			}
-			for (const key of Object.keys(legends)) {
-				pagesWithOverlays.add(Number(key));
-			}
-			const geometryByPage = new Map<number, PageGeometry>();
-			for (const pageNumber of pagesWithOverlays) {
-				const geom = await getPageGeometry(pageNumber);
-				if (geom) {
-					geometryByPage.set(pageNumber, geom);
-				}
-			}
-
-			const bytes = await buildAnnotatedPdf(originalBytes, {
-				measurements,
-				legends,
-				texts,
-				pageMethods,
-				documentMethod,
-				globalWastage,
-				geometryByPage,
-			});
+			const { originalBytes, input } = await buildInput();
+			const bytes = await buildAnnotatedPdf(originalBytes, input);
 			await onSavePdf(bytes);
 			toastManager.update(toastId, { title: 'PDF saved', type: 'success' });
 		} catch {
@@ -447,22 +486,78 @@ export default function TakeoffsContent({
 				type: 'error',
 			});
 		}
-	}, [
-		onSavePdf,
-		currentWorkingBytes,
-		measurements,
-		texts,
-		legends,
-		pageMethods,
-		documentMethod,
-		globalWastage,
-		getPageGeometry,
-	]);
+	}, [onSavePdf, buildInput]);
 
-	// Expose the save action to the parent so the button can live alongside the
-	// PDF-selection combobox (the build needs this component's PDF geometry and
-	// live measurement state, so it stays here).
-	useImperativeHandle(ref, () => ({ savePdf: handleSavePdf }), [handleSavePdf]);
+	// Download PDF: save the annotated document, then open it in a new tab once
+	// the bytes are ready (so the user never sees a blank loading tab).
+	const handleDownloadPdf = useCallback(async () => {
+		if (!onSavePdf) {
+			return;
+		}
+		const toastId = toastManager.add({
+			title: 'Preparing PDF…',
+			type: 'loading',
+		});
+		try {
+			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
+			const { originalBytes, input } = await buildInput();
+			const bytes = await buildAnnotatedPdf(originalBytes, input);
+			await onSavePdf(bytes);
+			openPdfBytesInTab(bytes);
+			toastManager.update(toastId, { title: 'PDF saved', type: 'success' });
+		} catch {
+			toastManager.update(toastId, {
+				title: 'Could not download PDF',
+				description: 'Please try again.',
+				type: 'error',
+			});
+		}
+	}, [onSavePdf, buildInput]);
+
+	// Download Page: save the full annotated document, then open just the given
+	// page (with its overlays) in a new tab so the user can view/download it.
+	const handleDownloadPage = useCallback(
+		async (pageNumber: number) => {
+			if (!onSavePdf) {
+				return;
+			}
+			const toastId = toastManager.add({
+				title: `Preparing page ${pageNumber}…`,
+				type: 'loading',
+			});
+			try {
+				const { buildAnnotatedPdf, buildPageAnnotatedPdf } = await import(
+					'@/lib/takeoffs/export-pdf'
+				);
+				const { originalBytes, input } = await buildInput();
+				const fullBytes = await buildAnnotatedPdf(originalBytes, input);
+				await onSavePdf(fullBytes);
+				const pageBytes = await buildPageAnnotatedPdf(
+					originalBytes,
+					input,
+					pageNumber
+				);
+				openPdfBytesInTab(pageBytes);
+				toastManager.update(toastId, { title: 'PDF saved', type: 'success' });
+			} catch {
+				toastManager.update(toastId, {
+					title: 'Could not download page',
+					description: 'Please try again.',
+					type: 'error',
+				});
+			}
+		},
+		[onSavePdf, buildInput]
+	);
+
+	// Expose the save/download actions to the parent so the buttons can live
+	// alongside the PDF-selection combobox (the build needs this component's PDF
+	// geometry and live measurement state, so it stays here).
+	useImperativeHandle(
+		ref,
+		() => ({ savePdf: handleSavePdf, downloadPdf: handleDownloadPdf }),
+		[handleSavePdf, handleDownloadPdf]
+	);
 
 	const selectTool = useCallback(
 		(next: ToolId) => {
@@ -1687,6 +1782,7 @@ export default function TakeoffsContent({
 						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}
+					onDownloadPage={handleDownloadPage}
 					onOpenScaleDialog={(scope, targetPage) =>
 						openScaleDialog(scope, targetPage)
 					}

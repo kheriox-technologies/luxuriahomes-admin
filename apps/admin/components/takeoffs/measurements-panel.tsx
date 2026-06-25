@@ -61,6 +61,7 @@ import {
 	ChevronsUpIcon,
 	Circle,
 	Crosshair,
+	Download,
 	EllipsisVertical,
 	Eye,
 	EyeOff,
@@ -225,6 +226,7 @@ export default function MeasurementsPanel({
 	legendPages,
 	onAddLegend,
 	onRemoveLegend,
+	onDownloadPage,
 	width,
 }: {
 	page: number;
@@ -260,6 +262,7 @@ export default function MeasurementsPanel({
 	legendPages: Set<number>;
 	onAddLegend: (targetPage: number) => void;
 	onRemoveLegend: (targetPage: number) => void;
+	onDownloadPage: (targetPage: number) => void;
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
 	width: number;
 }) {
@@ -362,6 +365,7 @@ export default function MeasurementsPanel({
 											method={pageMethods[pageNumber] ?? documentMethod}
 											onAddLegend={onAddLegend}
 											onCalibrate={onCalibrate}
+											onDownloadPage={onDownloadPage}
 											onOpenScaleDialog={onOpenScaleDialog}
 											onRemoveLegend={onRemoveLegend}
 											onResetPage={onResetPage}
@@ -487,6 +491,7 @@ function PageActionsMenu({
 	onToggleHidden,
 	onAddLegend,
 	onRemoveLegend,
+	onDownloadPage,
 	onOpenScaleDialog,
 	onCalibrate,
 	onResetPage,
@@ -500,6 +505,7 @@ function PageActionsMenu({
 	onToggleHidden: () => void;
 	onAddLegend: (targetPage: number) => void;
 	onRemoveLegend: (targetPage: number) => void;
+	onDownloadPage: (targetPage: number) => void;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
@@ -529,6 +535,10 @@ function PageActionsMenu({
 				>
 					<Table />
 					{hasLegend ? 'Remove Legend' : 'Add Legend'}
+				</MenuItem>
+				<MenuItem onClick={() => onDownloadPage(page)}>
+					<Download />
+					Download Page
 				</MenuItem>
 				<MenuSeparator />
 				<MenuGroup>

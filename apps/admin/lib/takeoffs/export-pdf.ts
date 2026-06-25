@@ -410,6 +410,55 @@ function drawTextAnnotation(
 	}
 }
 
+// Draw every overlay (shapes, text, legend) for a single page onto an already
+// laid-out PDFPage. Shared by the full-document export and the single-page
+// export so both render overlays identically.
+function annotatePage(
+	page: PDFPage,
+	pageNumber: number,
+	geometry: PageGeometry,
+	input: AnnotatedPdfInput,
+	font: PDFFont,
+	boldFont: PDFFont,
+	groupColors: Map<string, string>
+) {
+	const pageHeight = page.getHeight();
+	// base-pixel → PDF point scale.
+	const scaleFactor = geometry.naturalWidth / geometry.baseWidth;
+
+	const pageMeasurements = input.measurements.filter(
+		(m) => m.page === pageNumber && !m.hidden
+	);
+	for (const m of pageMeasurements) {
+		drawShape(
+			page,
+			m,
+			resolveColor(m, groupColors),
+			scaleFactor,
+			pageHeight,
+			font
+		);
+	}
+
+	for (const annotation of input.texts.filter((t) => t.page === pageNumber)) {
+		drawTextAnnotation(page, annotation, scaleFactor, pageHeight, font);
+	}
+
+	const legend = input.legends[pageNumber];
+	if (legend) {
+		drawLegend(
+			page,
+			legend,
+			// Legend mirrors the on-screen one: page-filtered, non-hidden.
+			pageMeasurements,
+			scaleFactor,
+			pageHeight,
+			font,
+			boldFont
+		);
+	}
+}
+
 export async function buildAnnotatedPdf(
 	originalBytes: Uint8Array,
 	input: AnnotatedPdfInput
@@ -426,43 +475,48 @@ export async function buildAnnotatedPdf(
 		if (!geometry) {
 			continue;
 		}
-		const page = pages[i];
-		const pageHeight = page.getHeight();
-		// base-pixel → PDF point scale.
-		const scaleFactor = geometry.naturalWidth / geometry.baseWidth;
-
-		const pageMeasurements = input.measurements.filter(
-			(m) => m.page === pageNumber && !m.hidden
+		annotatePage(
+			pages[i],
+			pageNumber,
+			geometry,
+			input,
+			font,
+			boldFont,
+			groupColors
 		);
-		for (const m of pageMeasurements) {
-			drawShape(
-				page,
-				m,
-				resolveColor(m, groupColors),
-				scaleFactor,
-				pageHeight,
-				font
-			);
-		}
-
-		for (const annotation of input.texts.filter((t) => t.page === pageNumber)) {
-			drawTextAnnotation(page, annotation, scaleFactor, pageHeight, font);
-		}
-
-		const legend = input.legends[pageNumber];
-		if (legend) {
-			drawLegend(
-				page,
-				legend,
-				// Legend mirrors the on-screen one: page-filtered, non-hidden.
-				pageMeasurements,
-				scaleFactor,
-				pageHeight,
-				font,
-				boldFont
-			);
-		}
 	}
 
 	return await pdf.save();
+}
+
+// Build a single-page PDF containing only `pageNumber` (1-indexed) with its
+// overlays burned in. Used by the "Download Page" action so the user can view
+// and download one page on its own.
+export async function buildPageAnnotatedPdf(
+	originalBytes: Uint8Array,
+	input: AnnotatedPdfInput,
+	pageNumber: number
+): Promise<Uint8Array> {
+	const src = await PDFDocument.load(originalBytes);
+	const out = await PDFDocument.create();
+	// 1-indexed page → 0-indexed array.
+	const [copied] = await out.copyPages(src, [pageNumber - 1]);
+	out.addPage(copied);
+
+	const geometry = input.geometryByPage.get(pageNumber);
+	if (geometry) {
+		const font = await out.embedFont(StandardFonts.Helvetica);
+		const boldFont = await out.embedFont(StandardFonts.HelveticaBold);
+		annotatePage(
+			copied,
+			pageNumber,
+			geometry,
+			input,
+			font,
+			boldFont,
+			groupColorMap(input.measurements)
+		);
+	}
+
+	return await out.save();
 }
