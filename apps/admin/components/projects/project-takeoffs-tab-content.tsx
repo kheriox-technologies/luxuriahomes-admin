@@ -30,7 +30,7 @@ import {
 } from '@workspace/ui/components/empty';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useQuery } from 'convex/react';
-import { Download, Ruler, Save, Trash2 } from 'lucide-react';
+import { Download, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TakeoffsHandle } from '@/components/takeoffs/takeoffs-content';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -44,19 +44,9 @@ export default function ProjectTakeoffsTabContent({
 	const takeoffs = useQuery(api.takeoffs.list.list, { projectId });
 	const [selectedId, setSelectedId] = useState<Id<'takeoffs'> | null>(null);
 	const contentRef = useRef<TakeoffsHandle>(null);
-	const [savingPdf, setSavingPdf] = useState(false);
 	const [downloadingPdf, setDownloadingPdf] = useState(false);
 	const [deletingTakeoff, setDeletingTakeoff] = useState(false);
 	const removeTakeoff = useAction(api.takeoffs.remove.remove);
-
-	const onSavePdf = async () => {
-		setSavingPdf(true);
-		try {
-			await contentRef.current?.savePdf();
-		} finally {
-			setSavingPdf(false);
-		}
-	};
 
 	const onDownloadPdf = async () => {
 		setDownloadingPdf(true);
@@ -169,16 +159,6 @@ export default function ProjectTakeoffsTabContent({
 					</div>
 					{selectedId ? (
 						<>
-							<Button
-								loading={savingPdf}
-								onClick={() => onSavePdf().catch(() => undefined)}
-								size="sm"
-								type="button"
-								variant="outline"
-							>
-								<Save />
-								Save PDF
-							</Button>
 							<Button
 								loading={downloadingPdf}
 								onClick={() => onDownloadPdf().catch(() => undefined)}
