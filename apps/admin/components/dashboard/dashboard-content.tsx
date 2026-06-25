@@ -4,17 +4,30 @@
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@workspace/ui/components/empty';
+import { Frame, FrameHeader, FramePanel } from '@workspace/ui/components/frame';
+import {
 	Select,
 	SelectItem,
 	SelectPopup,
 	SelectTrigger,
 	SelectValue,
 } from '@workspace/ui/components/select';
+import { Skeleton } from '@workspace/ui/components/skeleton';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { LayoutDashboard } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DashboardProjectColumn from '@/components/dashboard/dashboard-project-column';
+import {
+	SCHEDULE_TYPE_META,
+	SCHEDULE_TYPES,
+} from '@/components/dashboard/schedule-type';
 import PageHeading from '@/components/page-heading';
 import TaskMultiSelectFilter from '@/components/tasks/task-multi-select-filter';
 
@@ -57,6 +70,110 @@ function getWindowRange(windowKey: WindowKey) {
 			break;
 	}
 	return { rangeStart: start, rangeEnd: end.getTime() };
+}
+
+function ScheduleLegend() {
+	return (
+		<div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+			{SCHEDULE_TYPES.map((type) => {
+				const meta = SCHEDULE_TYPE_META[type];
+				const { Icon } = meta;
+				return (
+					<div
+						className="flex items-center gap-1.5 text-muted-foreground text-xs"
+						key={type}
+					>
+						<span
+							aria-hidden
+							className={cn('size-2 rounded-full', meta.accentClass)}
+						/>
+						<Icon aria-hidden className="size-3.5" />
+						<span>{meta.label}</span>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+function ColumnsSkeleton({ count }: { count: number }) {
+	const placeholders = Array.from({ length: count }, (_, index) => index);
+	return (
+		<div className="grid h-full min-h-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+			{placeholders.map((key) => (
+				<Frame className="flex h-full min-h-0 min-w-0 flex-col" key={key}>
+					<FrameHeader className="flex-row items-center justify-between gap-2 py-3">
+						<Skeleton className="h-4 w-28" />
+						<Skeleton className="h-5 w-6 rounded-md" />
+					</FrameHeader>
+					<FramePanel className="flex min-h-24 flex-1 flex-col gap-2 p-3">
+						{['a', 'b', 'c'].map((cardKey) => (
+							<Skeleton className="h-24 w-full rounded-xl" key={cardKey} />
+						))}
+					</FramePanel>
+				</Frame>
+			))}
+		</div>
+	);
+}
+
+type ProjectOverview = NonNullable<
+	ReturnType<typeof useScheduleOverview>
+>[number];
+
+function useScheduleOverview(
+	args:
+		| { projectIds: Id<'projects'>[]; rangeStart: number; rangeEnd: number }
+		| 'skip'
+) {
+	return useQuery(api.dashboard.scheduleOverview.scheduleOverview, args);
+}
+
+function DashboardBody({
+	hasSelection,
+	isLoading,
+	overview,
+	selectionCount,
+	windowLabel,
+}: {
+	hasSelection: boolean;
+	isLoading: boolean;
+	overview: ProjectOverview[] | undefined;
+	selectionCount: number;
+	windowLabel: string;
+}) {
+	if (!hasSelection) {
+		return (
+			<Empty className="h-full">
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<LayoutDashboard aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No projects selected</EmptyTitle>
+					<EmptyDescription>
+						Select up to {MAX_PROJECTS} projects above to see their tasks, order
+						tasks, and orders for the chosen time window.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		);
+	}
+
+	if (isLoading) {
+		return <ColumnsSkeleton count={selectionCount} />;
+	}
+
+	return (
+		<div className="grid h-full min-h-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+			{(overview ?? []).map((projectOverview) => (
+				<DashboardProjectColumn
+					key={projectOverview.projectId}
+					overview={projectOverview}
+					windowLabel={windowLabel}
+				/>
+			))}
+		</div>
+	);
 }
 
 export default function DashboardContent() {
@@ -104,8 +221,7 @@ export default function DashboardContent() {
 		WINDOW_OPTIONS.find((option) => option.value === windowKey)?.label ?? ''
 	).toLowerCase();
 
-	const overview = useQuery(
-		api.dashboard.scheduleOverview.scheduleOverview,
+	const overview = useScheduleOverview(
 		selectedIds.length > 0
 			? {
 					projectIds: selectedIds as Id<'projects'>[],
@@ -114,6 +230,9 @@ export default function DashboardContent() {
 				}
 			: 'skip'
 	);
+
+	const hasSelection = selectedIds.length > 0;
+	const isLoading = hasSelection && overview === undefined;
 
 	return (
 		<div className={cn('flex h-full min-h-0 w-full flex-col')}>
@@ -139,7 +258,12 @@ export default function DashboardContent() {
 						value={windowKey}
 					>
 						<SelectTrigger className="w-40 shrink-0">
-							<SelectValue />
+							<SelectValue>
+								{(value) =>
+									WINDOW_OPTIONS.find((option) => option.value === value)
+										?.label ?? value
+								}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectPopup>
 							{WINDOW_OPTIONS.map((option) => (
@@ -152,22 +276,24 @@ export default function DashboardContent() {
 				</div>
 			</div>
 
-			<div className="min-h-0 flex-1">
-				{selectedIds.length === 0 ? (
-					<p className="py-12 text-center text-muted-foreground text-sm">
-						Select one or more projects to see their schedule.
+			{hasSelection ? (
+				<div className="mb-3 flex items-center justify-between gap-3 border-border/60 border-b pb-3">
+					<p className="text-muted-foreground text-sm">
+						Showing the schedule for the{' '}
+						<span className="font-medium text-foreground">{windowLabel}</span>
 					</p>
-				) : (
-					<div className="grid h-full min-h-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-						{(overview ?? []).map((projectOverview) => (
-							<DashboardProjectColumn
-								key={projectOverview.projectId}
-								overview={projectOverview}
-								windowLabel={windowLabel}
-							/>
-						))}
-					</div>
-				)}
+					<ScheduleLegend />
+				</div>
+			) : null}
+
+			<div className="min-h-0 flex-1">
+				<DashboardBody
+					hasSelection={hasSelection}
+					isLoading={isLoading}
+					overview={overview}
+					selectionCount={selectedIds.length}
+					windowLabel={windowLabel}
+				/>
 			</div>
 		</div>
 	);
