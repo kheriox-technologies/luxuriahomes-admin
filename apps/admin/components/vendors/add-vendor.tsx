@@ -18,7 +18,10 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { type ReactElement, useState } from 'react';
+import { PlusIcon } from 'lucide-react';
+import { type ReactElement, useRef, useState } from 'react';
+import { PendingItemsList } from '@/components/lists/pending-items-list';
+import { useMultiAdd } from '@/components/lists/use-multi-add';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyVendorFormValues,
@@ -34,7 +37,11 @@ export default function AddVendor({
 	trigger?: ReactElement;
 } = {}) {
 	const [open, setOpen] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
+	const multi = useMultiAdd();
+	const nameInputRef = useRef<HTMLInputElement>(null);
 	const addVendor = useMutation(api.vendors.add.add);
+	const addManyVendors = useMutation(api.vendors.addMany.addMany);
 
 	const form = useForm({
 		defaultValues: emptyVendorFormValues,
@@ -54,6 +61,7 @@ export default function AddVendor({
 					type: 'success',
 				});
 				form.reset();
+				multi.reset();
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
@@ -65,10 +73,54 @@ export default function AddVendor({
 					type: 'error',
 				});
 				form.reset();
+				multi.reset();
 				setOpen(false);
 			}
 		},
 	});
+
+	const addCurrentName = (value: string) => {
+		if (multi.addItem(value)) {
+			form.resetField('name');
+			nameInputRef.current?.focus();
+		}
+	};
+
+	const saveMultiple = async () => {
+		if (isSaving) {
+			return;
+		}
+		const names = [...multi.items];
+		const trailing = form.state.values.name.trim();
+		if (trailing) {
+			names.push(trailing);
+		}
+		if (names.length === 0) {
+			return;
+		}
+		setIsSaving(true);
+		try {
+			await addManyVendors({ names });
+			toastManager.add({
+				title: `${names.length} vendors added`,
+				type: 'success',
+			});
+			form.reset();
+			multi.reset();
+			setOpen(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not add vendors. Please try again in a moment.'
+				),
+				title: 'Could not add vendors',
+				type: 'error',
+			});
+		} finally {
+			setIsSaving(false);
+		}
+	};
 
 	return (
 		<Dialog
@@ -76,6 +128,7 @@ export default function AddVendor({
 				setOpen(nextOpen);
 				if (!nextOpen) {
 					form.reset();
+					multi.reset();
 				}
 			}}
 			open={open}
@@ -98,21 +151,43 @@ export default function AddVendor({
 						<form.Field name="name">
 							{(field) => {
 								const invalid =
-									field.state.meta.isTouched && !field.state.meta.isValid;
+									!multi.isMultiAdd &&
+									field.state.meta.isTouched &&
+									!field.state.meta.isValid;
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Name</FieldLabel>
-										<Input
-											aria-invalid={invalid}
-											autoFocus
-											id={field.name}
-											name={field.name}
-											nativeInput
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="Vendor name"
-											value={field.state.value}
-										/>
+										<div className="flex w-full items-center gap-2">
+											<div className="flex-1">
+												<Input
+													aria-invalid={invalid}
+													autoFocus
+													id={field.name}
+													name={field.name}
+													nativeInput
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													onKeyDown={(e) => {
+														if (e.key === 'Enter') {
+															e.preventDefault();
+															addCurrentName(field.state.value);
+														}
+													}}
+													placeholder="Vendor name"
+													ref={nameInputRef}
+													value={field.state.value}
+												/>
+											</div>
+											<Button
+												aria-label="Add to list"
+												onClick={() => addCurrentName(field.state.value)}
+												size="icon"
+												type="button"
+												variant="outline"
+											>
+												<PlusIcon />
+											</Button>
+										</div>
 										{invalid ? (
 											<FieldError>
 												{vendorFormFieldError(field.state.meta.errors)}
@@ -122,67 +197,78 @@ export default function AddVendor({
 								);
 							}}
 						</form.Field>
-						<form.Field name="description">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Description
-										<span className="ml-1 text-muted-foreground text-xs">
-											(optional)
-										</span>
-									</FieldLabel>
-									<Textarea
-										id={field.name}
-										name={field.name}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Brief description of this vendor"
-										rows={3}
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
-						</form.Field>
-						<form.Field name="link">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Link
-										<span className="ml-1 text-muted-foreground text-xs">
-											(optional)
-										</span>
-									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="https://example.com"
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
-						</form.Field>
+						<PendingItemsList items={multi.items} onRemove={multi.removeItem} />
+						{multi.isMultiAdd ? null : (
+							<>
+								<form.Field name="description">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Description
+												<span className="ml-1 text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Textarea
+												id={field.name}
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Brief description of this vendor"
+												rows={3}
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<form.Field name="link">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Link
+												<span className="ml-1 text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Input
+												id={field.name}
+												name={field.name}
+												nativeInput
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="https://example.com"
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+							</>
+						)}
 					</DialogPanel>
 				</form>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
 						Cancel
 					</DialogClose>
-					<Button
-						disabled={
-							!(
-								form.state.isValid &&
-								!form.state.isValidating &&
-								!form.state.isSubmitting
-							)
-						}
-						form={FORM_ID}
-						type="submit"
-					>
-						Add Vendor
-					</Button>
+					{multi.isMultiAdd ? (
+						<Button disabled={isSaving} onClick={saveMultiple} type="button">
+							{`Add ${multi.items.length} Vendors`}
+						</Button>
+					) : (
+						<Button
+							disabled={
+								!(
+									form.state.isValid &&
+									!form.state.isValidating &&
+									!form.state.isSubmitting
+								)
+							}
+							form={FORM_ID}
+							type="submit"
+						>
+							Add Vendor
+						</Button>
+					)}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
