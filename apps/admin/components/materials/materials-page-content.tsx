@@ -168,7 +168,7 @@ function buildColumns(): ColumnDef<MaterialRow>[] {
 						rel="noopener noreferrer"
 						target="_blank"
 					>
-						<ExternalLink className="h-3 w-3 shrink-0" />
+						<ExternalLink className="size-3 shrink-0" />
 						<span className="max-w-32 truncate">{row.original.link}</span>
 					</a>
 				) : (
@@ -259,7 +259,7 @@ export default function MaterialsPageContent() {
 		);
 	} else {
 		content = (
-			<div className="flex flex-col gap-8">
+			<div className="flex flex-col gap-6">
 				{groups.map(([tradeName, rows]) => (
 					<div className="flex flex-col gap-3" key={tradeName}>
 						<div className="flex items-center gap-2">
@@ -287,23 +287,26 @@ export default function MaterialsPageContent() {
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<PageHeading
 				heading="Materials"
-				headingActions={
-					<InputGroup className="w-full sm:min-w-60 sm:max-w-xs">
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>
-								<SearchIcon aria-hidden />
-							</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-label="Search materials"
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search materials…"
-							type="search"
-							value={search}
-						/>
-					</InputGroup>
+				icon={Package}
+				rightSlot={
+					<>
+						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>
+									<SearchIcon aria-hidden />
+								</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-label="Search materials"
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder="Search materials…"
+								type="search"
+								value={search}
+							/>
+						</InputGroup>
+						<AddMaterial />
+					</>
 				}
-				rightSlot={<AddMaterial />}
 			/>
 			{content}
 		</div>

@@ -40,9 +40,9 @@ export default function TasksPageContent() {
 	);
 
 	return (
-		<div className={cn('flex h-full min-h-0 w-full flex-col')}>
+		<div className={cn('flex h-full min-h-0 w-full flex-col gap-4')}>
 			<PageHeading heading="Tasks" icon={ListTodo} rightSlot={<AddTask />} />
-			<div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-start">
+			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-start">
 				<InputGroup className="w-full sm:w-[30%] sm:shrink-0">
 					<InputGroupAddon align="inline-start">
 						<InputGroupText>

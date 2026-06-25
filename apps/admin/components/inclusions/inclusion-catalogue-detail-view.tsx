@@ -487,10 +487,9 @@ export default function InclusionCatalogueDetailView({
 	const { categoryName, inclusion } = data;
 
 	return (
-		<div className={cn('flex h-full w-full flex-col gap-6')}>
+		<div className={cn('flex h-full w-full flex-col gap-4')}>
 			<PageHeading
 				backLink={backLink}
-				className="mb-0"
 				heading={inclusion.title}
 				headingActions={
 					<>
