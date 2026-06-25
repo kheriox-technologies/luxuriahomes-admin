@@ -81,6 +81,7 @@ import {
 import { type ReactElement, useEffect, useRef, useState } from 'react';
 import {
 	adjustArea,
+	deductionSumSqm,
 	formatMeters,
 	formatMethodLabel,
 	formatSqm,
@@ -130,18 +131,25 @@ function measurementNetValue(
 	return null;
 }
 
-// Combined net value of an Add group: union area for area groups, or the summed
-// length for linear groups. Null when an area group has no resolvable scale.
+// Combined net value of an Add group: union area minus every member's
+// deductions for area groups, or the summed length for linear groups. Null when
+// an area group has no resolvable scale.
 function groupNetValue(
 	members: Measurement[],
 	isArea: boolean,
-	mpp: number | null
+	mpp: number | null,
+	all: Measurement[]
 ): NetValue | null {
 	if (isArea) {
 		if (!mpp) {
 			return null;
 		}
-		return { value: unionMeasure(members, mpp).valueSqm, unit: 'm²' };
+		const gross = unionMeasure(members, mpp).valueSqm;
+		const deducted = members.reduce(
+			(sum, m) => sum + deductionSumSqm(m.id, all),
+			0
+		);
+		return { value: Math.max(0, gross - deducted), unit: 'm²' };
 	}
 	const total = members.reduce((sum, m) => sum + (m.valueMeters ?? 0), 0);
 	return { value: total, unit: 'm' };
@@ -275,11 +283,12 @@ function singleMeasurementText(
 function groupMeasurementText(
 	members: Measurement[],
 	globalWastage: number,
-	mpp: number | null
+	mpp: number | null,
+	all: Measurement[]
 ): string {
 	const head = members[0];
 	const isArea = AREA_TYPE_SET.has(head.type);
-	const net = groupNetValue(members, isArea, mpp);
+	const net = groupNetValue(members, isArea, mpp, all);
 	if (!net) {
 		return '';
 	}
@@ -316,7 +325,12 @@ export function buildLegendEntries(
 				color: row.members[0].color ?? FALLBACK_COLOR,
 				name: row.label,
 				description: row.members.find((m) => m.description)?.description ?? '',
-				measurement: groupMeasurementText(row.members, globalWastage, mpp),
+				measurement: groupMeasurementText(
+					row.members,
+					globalWastage,
+					mpp,
+					measurements
+				),
 			};
 		}
 		const m = row.measurement;
@@ -522,12 +536,37 @@ export default function MeasurementsPanel({
 									</AccordionPrimitive.Header>
 									<AccordionPanel className="pt-1 pb-2">
 										<ul className="flex flex-col divide-y">
-											{rows.map((row) =>
-												row.kind === 'group' ? (
+											{rows.map((row) => {
+												if (row.kind !== 'group') {
+													return (
+														<MeasurementRow
+															globalWastage={globalWastage}
+															key={row.measurement.id}
+															measurement={row.measurement}
+															onDelete={onDelete}
+															onRecolor={onRecolorMeasurement}
+															onRename={onRenameMeasurement}
+															onSelect={onSelectMeasurement}
+															onSetAreaAdjust={onSetMeasurementAreaAdjust}
+															onSetDescription={onSetMeasurementDescription}
+															onSetHeight={onSetMeasurementHeight}
+															onSetWastage={onSetMeasurementWastage}
+															onToggleHidden={onToggleMeasurementHidden}
+															pageMeasurements={pageMeasurements}
+															selectedId={selectedId}
+														/>
+													);
+												}
+												const memberIds = new Set(row.members.map((m) => m.id));
+												const groupDeductions = pageMeasurements.filter(
+													(d) => d.parentId && memberIds.has(d.parentId)
+												);
+												return (
 													<GroupRow
 														areaAddSqm={row.members[0].areaAddSqm}
 														areaSubtractSqm={row.members[0].areaSubtractSqm}
 														color={row.members[0].color ?? FALLBACK_COLOR}
+														deductions={groupDeductions}
 														description={row.members[0].description}
 														globalWastage={globalWastage}
 														heightMeters={row.members[0].heightMeters}
@@ -537,15 +576,18 @@ export default function MeasurementsPanel({
 														net={groupNetValue(
 															row.members,
 															AREA_TYPE_SET.has(row.members[0].type),
-															metersPerPixel
+															metersPerPixel,
+															pageMeasurements
 														)}
 														onDelete={() => onDelete(row.members[0].id)}
+														onDeleteDeduction={onDelete}
 														onRecolor={(color) =>
 															onRecolorMeasurement(row.members[0].id, color)
 														}
 														onRename={(label) =>
 															onRenameGroup(row.groupId, label)
 														}
+														onRenameDeduction={onRenameMeasurement}
 														onSelect={() =>
 															onSelectMeasurement(row.members[0].id)
 														}
@@ -579,25 +621,8 @@ export default function MeasurementsPanel({
 														)}
 														wastagePercent={row.members[0].wastagePercent}
 													/>
-												) : (
-													<MeasurementRow
-														globalWastage={globalWastage}
-														key={row.measurement.id}
-														measurement={row.measurement}
-														onDelete={onDelete}
-														onRecolor={onRecolorMeasurement}
-														onRename={onRenameMeasurement}
-														onSelect={onSelectMeasurement}
-														onSetAreaAdjust={onSetMeasurementAreaAdjust}
-														onSetDescription={onSetMeasurementDescription}
-														onSetHeight={onSetMeasurementHeight}
-														onSetWastage={onSetMeasurementWastage}
-														onToggleHidden={onToggleMeasurementHidden}
-														pageMeasurements={pageMeasurements}
-														selectedId={selectedId}
-													/>
-												)
-											)}
+												);
+											})}
 										</ul>
 									</AccordionPanel>
 								</AccordionItem>
@@ -956,6 +981,7 @@ function GroupRow({
 	label,
 	net,
 	color,
+	deductions,
 	description,
 	globalWastage,
 	wastagePercent,
@@ -966,8 +992,10 @@ function GroupRow({
 	selected,
 	onSelect,
 	onDelete,
+	onDeleteDeduction,
 	onRecolor,
 	onRename,
+	onRenameDeduction,
 	onSetWastage,
 	onSetHeight,
 	onSetAreaAdjust,
@@ -977,6 +1005,7 @@ function GroupRow({
 	label: string;
 	net: NetValue | null;
 	color: string;
+	deductions: Measurement[];
 	description?: string;
 	globalWastage: number;
 	wastagePercent?: number;
@@ -987,8 +1016,10 @@ function GroupRow({
 	selected: boolean;
 	onSelect: () => void;
 	onDelete: () => void;
+	onDeleteDeduction: (id: string) => void;
 	onRecolor: (color: string) => void;
 	onRename: (label: string) => void;
+	onRenameDeduction: (id: string, label: string) => void;
 	onSetWastage: (percent: number | null) => void;
 	onSetHeight: (heightMeters: number | null) => void;
 	onSetAreaAdjust: (
@@ -1076,6 +1107,36 @@ function GroupRow({
 						wastagePercent ?? globalWastage
 					)}
 				/>
+			)}
+			{deductions.length > 0 && (
+				<ul className="ml-4 flex flex-col gap-1 border-l pl-2">
+					{deductions.map((d) => {
+						const DeductionIcon = TYPE_META[d.type].icon;
+						return (
+							<li
+								className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent/50"
+								key={d.id}
+							>
+								<DeductionIcon className="size-3.5 shrink-0 text-destructive" />
+								<div className="min-w-0 flex-1">
+									<InlineTitle
+										className="w-full text-destructive text-xs"
+										onRename={(label) => onRenameDeduction(d.id, label)}
+										value={d.label}
+									/>
+									<p className="truncate text-muted-foreground text-xs">
+										− {formatSqm(d.valueSqm ?? 0)}
+									</p>
+								</div>
+								<DeleteConfirm
+									description="This permanently removes the deduction. This can't be undone."
+									label="Delete deduction"
+									onConfirm={() => onDeleteDeduction(d.id)}
+								/>
+							</li>
+						);
+					})}
+				</ul>
 			)}
 		</li>
 	);

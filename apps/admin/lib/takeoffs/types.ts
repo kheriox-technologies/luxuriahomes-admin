@@ -8,7 +8,6 @@ export interface Point {
 
 export type ToolId =
 	| 'pan'
-	| 'select'
 	| 'calibrate'
 	| 'linear'
 	| 'rectangle'
@@ -178,7 +177,6 @@ export type DragKind =
 	| { mode: 'draw-rect'; start: Point }
 	| { mode: 'draw-circle'; start: Point }
 	| {
-			children?: { id: string; orig: Point[] }[];
 			id: string;
 			mode: 'move';
 			orig: Point[];

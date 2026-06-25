@@ -11,6 +11,8 @@ import {
 	groupColorMap,
 	rectBounds,
 	resolveMpp,
+	shapeTopCenter,
+	shapeValueLabel,
 } from '@/lib/takeoffs/geometry';
 import type {
 	Legend,
@@ -51,6 +53,8 @@ export interface AnnotatedPdfInput {
 	legends: Record<number, Legend>;
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
+	// Burn each shape's actual measured value into a badge at its top edge.
+	showMeasurements?: boolean;
 	texts: TextAnnotation[];
 }
 
@@ -197,6 +201,51 @@ function drawShape(
 		borderColor: rgbColor,
 		borderWidth: stroke,
 		borderDashArray: dash,
+	});
+}
+
+// Burn a shape's actual measured value as a small badge centred above its top
+// edge, mirroring the on-canvas MeasurementBadge. Skips counts (no value).
+function drawValueBadge(
+	page: PDFPage,
+	m: Measurement,
+	color: string,
+	scaleFactor: number,
+	pageHeight: number,
+	font: PDFFont
+) {
+	const label = shapeValueLabel(m);
+	if (label === null) {
+		return;
+	}
+	const sizePts = COUNT_FONT_BASE * scaleFactor;
+	const padX = sizePts * 0.4;
+	const padY = sizePts * 0.22;
+	const tw = font.widthOfTextAtSize(label, sizePts);
+	const width = tw + 2 * padX;
+	const height = sizePts + 2 * padY;
+	const gap = sizePts * 0.4;
+	const top = shapeTopCenter(m);
+	// PDF space: x scales directly; y flips about the page height. The shape's
+	// top edge has the smallest base-y, so the badge sits above it (higher PDF y).
+	const cx = top.x * scaleFactor;
+	const baseY = pageHeight - top.y * scaleFactor + gap;
+	page.drawRectangle({
+		x: cx - width / 2,
+		y: baseY,
+		width,
+		height,
+		color: rgb(1, 1, 1),
+		opacity: 0.92,
+		borderColor: hexToRgb(color),
+		borderWidth: sizePts * 0.08,
+	});
+	page.drawText(label, {
+		x: cx - tw / 2,
+		y: baseY + padY,
+		size: sizePts,
+		font,
+		color: hexToRgb(color),
 	});
 }
 
@@ -484,6 +533,19 @@ function annotatePage(
 			pageHeight,
 			font
 		);
+	}
+	// Value badges in a second pass so they sit above every shape body.
+	if (input.showMeasurements) {
+		for (const m of pageMeasurements) {
+			drawValueBadge(
+				page,
+				m,
+				resolveColor(m, groupColors),
+				scaleFactor,
+				pageHeight,
+				font
+			);
+		}
 	}
 
 	for (const annotation of input.texts.filter((t) => t.page === pageNumber)) {
