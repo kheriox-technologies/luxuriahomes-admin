@@ -107,6 +107,8 @@ interface PdfStageProps {
 		canvas: HTMLCanvasElement
 	) => Promise<RenderedSize | null>;
 	selectedId: string | null;
+	// Index of the selected marker within the selected count (else null).
+	selectedMarkerIndex: number | null;
 	// Burn each shape's actual measured value into a badge at its top edge.
 	showMeasurements: boolean;
 	textAnnotations: TextAnnotation[];
@@ -140,6 +142,20 @@ function hitTest(
 	const selected = selectedId
 		? measurements.find((m) => m.id === selectedId)
 		: undefined;
+	// A selected count: re-grab one of its markers first, so an already-selected
+	// marker stays grabbable even when other shapes overlap it.
+	if (selected && selected.type === 'count') {
+		for (let k = 0; k < selected.points.length; k++) {
+			if (distanceSq(point, selected.points[k]) <= tolSq) {
+				return {
+					mode: 'marker',
+					id: selected.id,
+					index: k,
+					orig: selected.points,
+				};
+			}
+		}
+	}
 	if (selected && AREA_TYPE_SET.has(selected.type)) {
 		if (selected.type === 'rectangle') {
 			const corners = rectCorners(selected.points);
@@ -197,6 +213,15 @@ function hitTest(
 	}
 	for (let i = measurements.length - 1; i >= 0; i--) {
 		const m = measurements[i];
+		// Count markers are grabbed individually (select/move/delete one marker).
+		if (m.type === 'count') {
+			for (let k = 0; k < m.points.length; k++) {
+				if (distanceSq(point, m.points[k]) <= tolSq) {
+					return { mode: 'marker', id: m.id, index: k, orig: m.points };
+				}
+			}
+			continue;
+		}
 		const grabbable = AREA_TYPE_SET.has(m.type)
 			? isInsideBody(m, point)
 			: m.type === 'linear' && isOnPolyline(point, m.points, tolSq);
@@ -286,7 +311,7 @@ function selectCursor(
 	if (drag.mode === 'handle') {
 		return 'grab';
 	}
-	if (drag.mode === 'move') {
+	if (drag.mode === 'move' || drag.mode === 'marker') {
 		return 'move';
 	}
 	return 'default';
@@ -308,6 +333,7 @@ export default function PdfStage({
 	highlightIds,
 	legend,
 	selectedId,
+	selectedMarkerIndex,
 	showMeasurements,
 	onStageClick,
 	onStageDoubleClick,
@@ -726,6 +752,9 @@ export default function PdfStage({
 										key={m.id}
 										measurement={m}
 										selected={m.id === selectedId}
+										selectedMarkerIndex={
+											m.id === selectedId ? selectedMarkerIndex : null
+										}
 										strokeWidth={strokeWidth}
 										valueLabel={showMeasurements ? shapeValueLabel(m) : null}
 										vertexRadius={vertexRadius}
@@ -907,6 +936,7 @@ function CommittedShape({
 	handleRadius,
 	fontSize,
 	selected,
+	selectedMarkerIndex,
 	highlighted,
 	groupColor,
 	valueLabel,
@@ -917,6 +947,7 @@ function CommittedShape({
 	handleRadius: number;
 	fontSize: number;
 	selected: boolean;
+	selectedMarkerIndex: number | null;
 	highlighted: boolean;
 	groupColor?: string;
 	valueLabel: string | null;
@@ -946,33 +977,58 @@ function CommittedShape({
 		);
 
 	if (type === 'count') {
+		// First letter of the measurement name prefixes each marker label, so a
+		// "Count" reads C1, C2… and renaming to "Electrical" makes it E1, E2…
+		const prefix = (measurement.label.trim().charAt(0) || 'C').toUpperCase();
 		return (
 			<g>
-				{points.map((p, index) => (
-					<g key={`${p.x}-${p.y}`}>
-						{highlighted && (
-							<circle
-								cx={p.x}
-								cy={p.y}
-								fill="none"
-								r={vertexRadius * 2.6}
-								stroke={HIGHLIGHT_COLOR}
-								strokeOpacity={HIGHLIGHT_OPACITY}
-								strokeWidth={haloWidth}
-							/>
-						)}
-						<circle cx={p.x} cy={p.y} fill={color} r={vertexRadius * 1.6} />
-						<text
-							fill="#fff"
-							fontSize={fontSize}
-							textAnchor="middle"
-							x={p.x}
-							y={p.y - vertexRadius * 2.2}
-						>
-							{index + 1}
-						</text>
-					</g>
-				))}
+				{points.map((p, index) => {
+					const label = `${prefix}${index + 1}`;
+					// Grow the dot so multi-character labels (C12) stay legible; the
+					// radius is driven by the screen-constant fontSize, so it stays a
+					// constant size on screen across zoom.
+					const r = Math.max(
+						vertexRadius * 1.8,
+						fontSize * 0.55 + label.length * fontSize * 0.32
+					);
+					const markerSelected = selected && index === selectedMarkerIndex;
+					return (
+						<g key={`${p.x}-${p.y}`}>
+							{highlighted && (
+								<circle
+									cx={p.x}
+									cy={p.y}
+									fill="none"
+									r={r + vertexRadius}
+									stroke={HIGHLIGHT_COLOR}
+									strokeOpacity={HIGHLIGHT_OPACITY}
+									strokeWidth={haloWidth}
+								/>
+							)}
+							<circle cx={p.x} cy={p.y} fill={color} r={r} />
+							{markerSelected && (
+								<circle
+									cx={p.x}
+									cy={p.y}
+									fill="none"
+									r={r + strokeWidth * 1.5}
+									stroke={color}
+									strokeWidth={strokeWidth * 1.5}
+								/>
+							)}
+							<text
+								dominantBaseline="central"
+								fill="#fff"
+								fontSize={fontSize}
+								textAnchor="middle"
+								x={p.x}
+								y={p.y}
+							>
+								{label}
+							</text>
+						</g>
+					);
+				})}
 			</g>
 		);
 	}

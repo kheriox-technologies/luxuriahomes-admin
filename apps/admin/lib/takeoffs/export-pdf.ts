@@ -139,22 +139,32 @@ function drawShape(
 	const dash = isDeduction ? [stroke * 3, stroke * 2] : undefined;
 
 	if (m.type === 'count') {
+		// Each marker reads as the measurement name's first letter + its sequence
+		// number (e.g. "Count" → C1, C2; "Electrical" → E1, E2), white-on-colour
+		// inside the dot — mirroring the on-canvas markers.
+		const prefix = (m.label.trim().charAt(0) || 'C').toUpperCase();
+		const sizePts = COUNT_FONT_BASE * scaleFactor;
 		for (let i = 0; i < m.points.length; i++) {
 			const p = m.points[i];
-			page.drawSvgPath(circlePath(sp(p), COUNT_DOT_R_BASE * scaleFactor), {
+			const label = `${prefix}${i + 1}`;
+			// Grow the dot so multi-character labels (C12) stay legible.
+			const rBase = Math.max(
+				COUNT_DOT_R_BASE * 1.15,
+				COUNT_FONT_BASE * 0.55 + label.length * COUNT_FONT_BASE * 0.32
+			);
+			page.drawSvgPath(circlePath(sp(p), rBase * scaleFactor), {
 				...anchor,
 				color: rgbColor,
 				borderWidth: 0,
 			});
-			const label = String(i + 1);
-			const sizePts = COUNT_FONT_BASE * scaleFactor;
 			const tw = font.widthOfTextAtSize(label, sizePts);
 			page.drawText(label, {
 				x: p.x * scaleFactor - tw / 2,
-				y: pageHeight - (p.y - COUNT_DOT_R_BASE * 2.2) * scaleFactor,
+				// Centre the baseline within the dot (≈0.35·size below the centre).
+				y: pageHeight - p.y * scaleFactor - sizePts * 0.35,
 				size: sizePts,
 				font,
-				color: rgbColor,
+				color: rgb(1, 1, 1),
 			});
 		}
 		return;

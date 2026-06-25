@@ -74,6 +74,7 @@ import {
 	Pentagon,
 	RotateCcw,
 	Ruler,
+	SlidersHorizontal,
 	Square,
 	Table,
 	Trash2,
@@ -158,6 +159,22 @@ function groupNetValue(
 // Actual value formatted with two decimals and its unit.
 function formatActual({ value, unit }: NetValue): string {
 	return unit === 'm²' ? formatSqm(value) : formatMeters(value);
+}
+
+// An adjustable measurement can take area +/− (and height, for linear) inputs.
+// Counts have no net value, so there is nothing to adjust.
+function isAdjustable(m: Measurement): boolean {
+	return m.type !== 'count';
+}
+
+// Whether a measurement already carries a manual adjustment. Used to decide if
+// its adjustment inputs show by default — empty ones stay hidden to save space.
+function hasAdjustmentValues(m: Measurement): boolean {
+	return (
+		(m.areaAddSqm ?? 0) > 0 ||
+		(m.areaSubtractSqm ?? 0) > 0 ||
+		(m.heightMeters ?? 0) > 0
+	);
 }
 
 export type Row =
@@ -425,6 +442,28 @@ export default function MeasurementsPanel({
 		setOpenPages([String(page)]);
 	}, [page]);
 
+	// Per-measurement override for adjustment-input visibility (session only).
+	// Measurements without an override default to shown only when they already
+	// carry an adjustment value, so empty inputs stay hidden.
+	const [adjustOverride, setAdjustOverride] = useState<Record<string, boolean>>(
+		{}
+	);
+	const adjustShown = (m: Measurement) =>
+		adjustOverride[m.id] ?? hasAdjustmentValues(m);
+	const toggleAdjust = (m: Measurement) =>
+		setAdjustOverride((prev) => ({
+			...prev,
+			[m.id]: !(prev[m.id] ?? hasAdjustmentValues(m)),
+		}));
+	const setAdjustForAll = (members: Measurement[], shown: boolean) =>
+		setAdjustOverride((prev) => {
+			const next = { ...prev };
+			for (const m of members) {
+				next[m.id] = shown;
+			}
+			return next;
+		});
+
 	return (
 		<div
 			className="flex h-full shrink-0 flex-col rounded-lg border bg-card"
@@ -497,6 +536,15 @@ export default function MeasurementsPanel({
 							const pageHidden =
 								pageMeasurements.length > 0 &&
 								pageMeasurements.every((m) => m.hidden);
+							// Representative measurement of each row that can take
+							// adjustments — drives the page-level show/hide-all action.
+							const adjustableReps = rows
+								.map((row) =>
+									row.kind === 'group' ? row.members[0] : row.measurement
+								)
+								.filter(isAdjustable);
+							const pageAdjustShown =
+								adjustableReps.length > 0 && adjustableReps.every(adjustShown);
 							return (
 								<AccordionItem key={pageNumber} value={String(pageNumber)}>
 									<AccordionPrimitive.Header className="flex items-center gap-2 bg-muted/50 px-3 py-2.5">
@@ -506,6 +554,8 @@ export default function MeasurementsPanel({
 											value={pageTitles[pageNumber] ?? `Page ${pageNumber}`}
 										/>
 										<PageActionsMenu
+											adjustable={adjustableReps.length > 0}
+											adjustmentsShown={pageAdjustShown}
 											documentMethod={documentMethod}
 											hasLegend={legendPages.has(pageNumber)}
 											hasOverride={pageMethods[pageNumber] !== undefined}
@@ -516,6 +566,9 @@ export default function MeasurementsPanel({
 											onOpenScaleDialog={onOpenScaleDialog}
 											onRemoveLegend={onRemoveLegend}
 											onResetPage={onResetPage}
+											onToggleAdjustments={() =>
+												setAdjustForAll(adjustableReps, !pageAdjustShown)
+											}
 											onToggleHidden={() => onTogglePageHidden(pageNumber)}
 											page={pageNumber}
 											pageHidden={pageHidden}
@@ -534,12 +587,13 @@ export default function MeasurementsPanel({
 											/>
 										</AccordionPrimitive.Trigger>
 									</AccordionPrimitive.Header>
-									<AccordionPanel className="pt-1 pb-2">
+									<AccordionPanel className="px-2 pt-1 pb-2">
 										<ul className="flex flex-col divide-y">
 											{rows.map((row) => {
 												if (row.kind !== 'group') {
 													return (
 														<MeasurementRow
+															adjustmentsShown={adjustShown(row.measurement)}
 															globalWastage={globalWastage}
 															key={row.measurement.id}
 															measurement={row.measurement}
@@ -551,6 +605,9 @@ export default function MeasurementsPanel({
 															onSetDescription={onSetMeasurementDescription}
 															onSetHeight={onSetMeasurementHeight}
 															onSetWastage={onSetMeasurementWastage}
+															onToggleAdjustments={() =>
+																toggleAdjust(row.measurement)
+															}
 															onToggleHidden={onToggleMeasurementHidden}
 															pageMeasurements={pageMeasurements}
 															selectedId={selectedId}
@@ -563,6 +620,7 @@ export default function MeasurementsPanel({
 												);
 												return (
 													<GroupRow
+														adjustmentsShown={adjustShown(row.members[0])}
 														areaAddSqm={row.members[0].areaAddSqm}
 														areaSubtractSqm={row.members[0].areaSubtractSqm}
 														color={row.members[0].color ?? FALLBACK_COLOR}
@@ -613,6 +671,9 @@ export default function MeasurementsPanel({
 																percent
 															)
 														}
+														onToggleAdjustments={() =>
+															toggleAdjust(row.members[0])
+														}
 														onToggleHidden={() =>
 															onToggleMeasurementHidden(row.members[0].id)
 														}
@@ -645,7 +706,10 @@ function PageActionsMenu({
 	method,
 	hasOverride,
 	hasLegend,
+	adjustable,
+	adjustmentsShown,
 	documentMethod,
+	onToggleAdjustments,
 	onToggleHidden,
 	onAddLegend,
 	onRemoveLegend,
@@ -659,7 +723,10 @@ function PageActionsMenu({
 	method: MeasurementMethod | null;
 	hasOverride: boolean;
 	hasLegend: boolean;
+	adjustable: boolean;
+	adjustmentsShown: boolean;
 	documentMethod: MeasurementMethod | null;
+	onToggleAdjustments: () => void;
 	onToggleHidden: () => void;
 	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
 	onRemoveLegend: (targetPage: number) => void;
@@ -690,6 +757,14 @@ function PageActionsMenu({
 						{pageHidden ? <Eye /> : <EyeOff />}
 						{pageHidden ? 'Show page on canvas' : 'Hide page on canvas'}
 					</MenuItem>
+					{adjustable && (
+						<MenuItem onClick={onToggleAdjustments}>
+							<SlidersHorizontal />
+							{adjustmentsShown
+								? 'Hide all adjustments'
+								: 'Show all adjustments'}
+						</MenuItem>
+					)}
 					<MenuItem
 						onClick={() =>
 							hasLegend ? onRemoveLegend(page) : setLegendDialogOpen(true)
@@ -824,6 +899,8 @@ function MeasurementRow({
 	onSetAreaAdjust,
 	onSetDescription,
 	onToggleHidden,
+	adjustmentsShown,
+	onToggleAdjustments,
 }: {
 	measurement: Measurement;
 	pageMeasurements: Measurement[];
@@ -842,6 +919,8 @@ function MeasurementRow({
 	) => void;
 	onSetDescription: (id: string, description: string) => void;
 	onToggleHidden: (id: string) => void;
+	adjustmentsShown: boolean;
+	onToggleAdjustments: () => void;
 }) {
 	const Icon = TYPE_META[m.type].icon;
 	const deductions = pageMeasurements.filter((d) => d.parentId === m.id);
@@ -849,6 +928,7 @@ function MeasurementRow({
 	const selected = m.id === selectedId;
 	const net = measurementNetValue(m, pageMeasurements);
 	const ref = useRef<HTMLLIElement>(null);
+	const adjustable = net?.unit === 'm²' || (m.type === 'linear' && !!net);
 
 	useEffect(() => {
 		if (selected) {
@@ -881,6 +961,8 @@ function MeasurementRow({
 						value={m.label}
 					/>
 					<RowActionsMenu
+						adjustable={adjustable}
+						adjustmentsShown={adjustmentsShown}
 						color={color}
 						deleteDescription="This permanently removes the measurement. This can't be undone."
 						deleteLabel="Delete measurement"
@@ -892,6 +974,7 @@ function MeasurementRow({
 						onSetDescription={(description) =>
 							onSetDescription(m.id, description)
 						}
+						onToggleAdjustments={onToggleAdjustments}
 						onToggleHidden={() => onToggleHidden(m.id)}
 					/>
 				</div>
@@ -915,7 +998,7 @@ function MeasurementRow({
 						/>
 					)}
 				</div>
-				{net?.unit === 'm²' && (
+				{adjustmentsShown && net?.unit === 'm²' && (
 					<AreaAdjustRow
 						addSqm={m.areaAddSqm}
 						onSetAdd={(value) => onSetAreaAdjust(m.id, 'areaAddSqm', value)}
@@ -925,7 +1008,7 @@ function MeasurementRow({
 						subtractSqm={m.areaSubtractSqm}
 					/>
 				)}
-				{m.type === 'linear' && net && (
+				{adjustmentsShown && m.type === 'linear' && net && (
 					<HeightAreaRow
 						areaAddSqm={m.areaAddSqm}
 						areaSubtractSqm={m.areaSubtractSqm}
@@ -1001,6 +1084,8 @@ function GroupRow({
 	onSetAreaAdjust,
 	onSetDescription,
 	onToggleHidden,
+	adjustmentsShown,
+	onToggleAdjustments,
 }: {
 	label: string;
 	net: NetValue | null;
@@ -1014,6 +1099,8 @@ function GroupRow({
 	areaSubtractSqm?: number;
 	hidden?: boolean;
 	selected: boolean;
+	adjustmentsShown: boolean;
+	onToggleAdjustments: () => void;
 	onSelect: () => void;
 	onDelete: () => void;
 	onDeleteDeduction: (id: string) => void;
@@ -1030,6 +1117,7 @@ function GroupRow({
 	onToggleHidden: () => void;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
+	const adjustable = net?.unit === 'm²' || net?.unit === 'm';
 	useEffect(() => {
 		if (selected) {
 			ref.current?.scrollIntoView({ block: 'nearest' });
@@ -1057,6 +1145,8 @@ function GroupRow({
 					value={label}
 				/>
 				<RowActionsMenu
+					adjustable={adjustable}
+					adjustmentsShown={adjustmentsShown}
 					color={color}
 					deleteDescription="This permanently removes the whole group. This can't be undone."
 					deleteLabel="Delete group"
@@ -1066,6 +1156,7 @@ function GroupRow({
 					onDelete={onDelete}
 					onRecolor={onRecolor}
 					onSetDescription={onSetDescription}
+					onToggleAdjustments={onToggleAdjustments}
 					onToggleHidden={onToggleHidden}
 				/>
 			</div>
@@ -1085,7 +1176,7 @@ function GroupRow({
 					<ValueBadge color={color} onSelect={onSelect} value="—" />
 				)}
 			</div>
-			{net?.unit === 'm²' && (
+			{adjustmentsShown && net?.unit === 'm²' && (
 				<AreaAdjustRow
 					addSqm={areaAddSqm}
 					onSetAdd={(value) => onSetAreaAdjust('areaAddSqm', value)}
@@ -1093,7 +1184,7 @@ function GroupRow({
 					subtractSqm={areaSubtractSqm}
 				/>
 			)}
-			{net?.unit === 'm' && (
+			{adjustmentsShown && net?.unit === 'm' && (
 				<HeightAreaRow
 					areaAddSqm={areaAddSqm}
 					areaSubtractSqm={areaSubtractSqm}
@@ -1609,6 +1700,9 @@ function RowActionsMenu({
 	description,
 	deleteLabel,
 	deleteDescription,
+	adjustable,
+	adjustmentsShown,
+	onToggleAdjustments,
 	onToggleHidden,
 	onRecolor,
 	onDelete,
@@ -1620,6 +1714,9 @@ function RowActionsMenu({
 	description?: string;
 	deleteLabel: string;
 	deleteDescription: string;
+	adjustable: boolean;
+	adjustmentsShown: boolean;
+	onToggleAdjustments: () => void;
 	onToggleHidden: () => void;
 	onRecolor: (color: string) => void;
 	onDelete: () => void;
@@ -1676,6 +1773,12 @@ function RowActionsMenu({
 							</div>
 						</MenuSubPopup>
 					</MenuSub>
+					{adjustable && (
+						<MenuItem onClick={onToggleAdjustments}>
+							<SlidersHorizontal />
+							{adjustmentsShown ? 'Hide adjustment' : 'Show adjustment'}
+						</MenuItem>
+					)}
 					<MenuItem onClick={onToggleHidden}>
 						{hidden ? <Eye /> : <EyeOff />}
 						{hidden ? 'Show on canvas' : 'Hide on canvas'}
