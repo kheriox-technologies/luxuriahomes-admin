@@ -93,6 +93,8 @@ import {
 	Info,
 	Mail,
 	MapPin,
+	Package,
+	PackageCheck,
 	Pencil,
 	Plus,
 	SearchIcon,
@@ -101,6 +103,7 @@ import {
 	SquaresIntersect,
 	StickyNote,
 	Trash2,
+	Truck,
 	X,
 } from 'lucide-react';
 import NextImage from 'next/image';
@@ -217,6 +220,21 @@ function inclusionOrderStatusBadgeVariant(
 			return 'purple';
 		default:
 			return 'success';
+	}
+}
+
+function inclusionOrderStatusIcon(
+	status: NonNullable<ProjectInclusion['orderStatus']>
+) {
+	switch (status) {
+		case 'Order Created':
+			return ShoppingCart;
+		case 'Ordered':
+			return Package;
+		case 'In Transit':
+			return Truck;
+		default:
+			return PackageCheck;
 	}
 }
 
@@ -553,15 +571,21 @@ function ProjectInclusionNotesDialog({
 function ProjectInclusionImageThumbnail({
 	inclusion,
 	signedImageUrl,
+	size = 64,
 }: {
 	inclusion: ProjectInclusion;
 	signedImageUrl: string;
+	size?: number;
 }) {
 	if (!signedImageUrl) {
-		if (!inclusion.image) {
-			return <span className="text-muted-foreground text-xs">No image</span>;
-		}
-		return <span className="text-muted-foreground text-xs">Loading…</span>;
+		return (
+			<div
+				className="flex shrink-0 items-center justify-center rounded-md border border-dashed bg-muted/40 text-center text-[0.625rem] text-muted-foreground leading-tight"
+				style={{ height: size, width: size }}
+			>
+				{inclusion.image ? 'Loading…' : 'No image'}
+			</div>
+		);
 	}
 	return (
 		<Dialog>
@@ -569,7 +593,8 @@ function ProjectInclusionImageThumbnail({
 				render={
 					<button
 						aria-label={`Open image preview for ${inclusion.title} ${inclusion.code}`}
-						className="flex size-[75px] cursor-zoom-in items-center justify-center rounded-md border bg-card p-1"
+						className="flex shrink-0 cursor-zoom-in items-center justify-center rounded-md border bg-card p-1"
+						style={{ height: size, width: size }}
 						type="button"
 					/>
 				}
@@ -577,10 +602,10 @@ function ProjectInclusionImageThumbnail({
 				<NextImage
 					alt={`${inclusion.title} ${inclusion.code}`}
 					className="size-full object-contain"
-					height={75}
+					height={size}
 					src={signedImageUrl}
 					unoptimized
-					width={75}
+					width={size}
 				/>
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-3xl">
@@ -1206,6 +1231,189 @@ function ProjectInclusionActionsCell({
 	);
 }
 
+function getInclusionTotals(inclusion: ProjectInclusion) {
+	const totalQty =
+		inclusion.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
+	const unit = inclusion.locations?.[0]?.unit;
+	const variation =
+		inclusion.class !== 'Standard' && inclusion.variationPrice !== undefined
+			? formatSignedAud(inclusion.variationPrice)
+			: null;
+	return { totalQty, unit, variation };
+}
+
+function InclusionProductCell({
+	inclusion,
+	signedImageUrl,
+	size,
+}: {
+	inclusion: ProjectInclusion;
+	signedImageUrl: string;
+	size?: number;
+}) {
+	return (
+		<div className="flex min-w-0 items-start gap-3">
+			<ProjectInclusionImageThumbnail
+				inclusion={inclusion}
+				signedImageUrl={signedImageUrl}
+				size={size}
+			/>
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<span className="text-pretty font-medium leading-snug">
+					{inclusion.title}
+				</span>
+				<div className="flex flex-wrap items-center gap-2">
+					<Badge size="lg" variant={variantClassBadgeVariant(inclusion.class)}>
+						{inclusion.class}
+					</Badge>
+					<span className="font-mono text-muted-foreground text-xs">
+						{inclusion.code}
+					</span>
+				</div>
+				<ProjectInclusionNotesLink inclusion={inclusion} />
+			</div>
+		</div>
+	);
+}
+
+function InclusionDetailRow({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+			<span className="shrink-0 font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+				{label}
+			</span>
+			<span className="min-w-0 text-sm">{children}</span>
+		</div>
+	);
+}
+
+function InclusionDetailsCell({ inclusion }: { inclusion: ProjectInclusion }) {
+	const models = inclusion.models.join(', ');
+	return (
+		<div className="flex min-w-0 flex-col gap-1.5">
+			<InclusionDetailRow label="Vendor">{inclusion.vendor}</InclusionDetailRow>
+			{models ? (
+				<InclusionDetailRow label="Models">{models}</InclusionDetailRow>
+			) : null}
+			<InclusionDetailRow label="Colour">
+				{inclusion.color ? (
+					<Badge size="lg" variant="outline">
+						{inclusion.color}
+					</Badge>
+				) : (
+					<span className="text-muted-foreground">—</span>
+				)}
+			</InclusionDetailRow>
+			{inclusion.details ? (
+				<p className="whitespace-pre-wrap text-pretty text-muted-foreground text-sm">
+					{inclusion.details}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+function InclusionQuantityCell({ inclusion }: { inclusion: ProjectInclusion }) {
+	const { totalQty, unit } = getInclusionTotals(inclusion);
+	if (!inclusion.locations || inclusion.locations.length === 0) {
+		return <span className="text-muted-foreground">—</span>;
+	}
+	return (
+		<div className="flex flex-col gap-0.5 text-sm">
+			<span className="font-medium tabular-nums">
+				{totalQty ? `${totalQty}${unit ? ` ${unit}` : ''}` : '—'}
+			</span>
+			{inclusion.locations.map((loc, i) => (
+				<span
+					className="text-muted-foreground text-xs"
+					key={`${loc.name}-${i}`}
+				>
+					{loc.name}
+					{loc.quantity != null
+						? ` (${loc.quantity}${loc.unit ? ` ${loc.unit}` : ''})`
+						: ''}
+				</span>
+			))}
+		</div>
+	);
+}
+
+function InclusionStatusStack({
+	inclusion,
+	projectId,
+}: {
+	inclusion: ProjectInclusion;
+	projectId: Id<'projects'>;
+}) {
+	const displayStatus = inclusion.status ?? 'Under Review';
+	const OrderStatusIcon = inclusion.orderStatus
+		? inclusionOrderStatusIcon(inclusion.orderStatus)
+		: null;
+	return (
+		<div className="flex flex-col items-start gap-1.5">
+			<Badge size="lg" variant={inclusionStatusBadgeVariant(displayStatus)}>
+				<span
+					aria-hidden
+					className="size-1.5 rounded-full bg-current opacity-70"
+				/>
+				{displayStatus}
+			</Badge>
+			{inclusion.orderStatus && inclusion.orderRefId && OrderStatusIcon ? (
+				<button
+					className="text-left"
+					onClick={() => {
+						window.open(
+							`/projects/${projectId}?tab=orders&orderId=${inclusion.orderRefId}`,
+							'_blank'
+						);
+					}}
+					type="button"
+				>
+					<Badge
+						className="cursor-pointer hover:opacity-80"
+						size="lg"
+						variant={inclusionOrderStatusBadgeVariant(inclusion.orderStatus)}
+					>
+						<OrderStatusIcon aria-hidden />
+						{inclusion.orderStatus}
+					</Badge>
+				</button>
+			) : null}
+		</div>
+	);
+}
+
+function InclusionPricingCell({
+	inclusion,
+	showPricing,
+}: {
+	inclusion: ProjectInclusion;
+	showPricing: boolean;
+}) {
+	const { variation } = getInclusionTotals(inclusion);
+	return (
+		<div className="flex flex-col items-end gap-0.5 text-end tabular-nums">
+			<span className="font-medium">
+				{variation ?? (
+					<span className="font-normal text-muted-foreground">—</span>
+				)}
+			</span>
+			{showPricing ? (
+				<div className="flex flex-col gap-0.5 text-muted-foreground text-xs">
+					<span>Cost {formatAud(inclusion.costPrice)}</span>
+					<span>Sale {formatAud(inclusion.salePrice)}</span>
+				</div>
+			) : null}
+		</div>
+	);
+}
+
 function ProjectInclusionsTableInFrame({
 	section,
 	mode,
@@ -1260,6 +1468,9 @@ function ProjectInclusionsTableInFrame({
 	const allApproved = section.inclusions.every(
 		(inclusion) => inclusion.status === 'Approved'
 	);
+	const approvedCount = section.inclusions.filter(
+		(inclusion) => inclusion.status === 'Approved'
+	).length;
 	const bulkActionLabel = allApproved ? 'Unapprove All' : 'Approve All';
 
 	const onBulkToggle = async () => {
@@ -1325,15 +1536,17 @@ function ProjectInclusionsTableInFrame({
 
 	return (
 		<Frame className="w-full">
-			<FrameHeader className="flex flex-row items-center justify-between gap-3">
+			<FrameHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="min-w-0">
 					<FrameTitle>{section.groupName}</FrameTitle>
 					<FrameDescription>
 						{section.inclusions.length}{' '}
 						{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
+						{' · '}
+						{approvedCount}/{section.inclusions.length} approved
 					</FrameDescription>
 				</div>
-				<div className="flex shrink-0 items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2 sm:shrink-0">
 					<Badge className="shrink-0" size="lg" variant="purple">
 						{formatSignedAud(section.totalVariationPrice)}
 					</Badge>
@@ -1452,38 +1665,16 @@ function ProjectInclusionsTableInFrame({
 				</div>
 			</FrameHeader>
 			<FramePanel className="p-0">
-				<div className="w-full min-w-0 overflow-x-auto">
-					<Table
-						className={cn(
-							'w-full',
-							showPricing ? 'min-w-[62rem]' : 'min-w-[50rem]'
-						)}
-					>
+				<div className="hidden w-full min-w-0 overflow-x-auto md:block">
+					<Table className="w-full min-w-[44rem]">
 						<TableHeader>
 							<TableRow>
-								<TableHead className="min-w-[11rem]">Title</TableHead>
-								<TableHead className="min-w-[14rem]">
-									Vendor & details
-								</TableHead>
-								<TableHead className="whitespace-nowrap">Colour</TableHead>
-								<TableHead className="whitespace-nowrap">Status</TableHead>
-								<TableHead className="whitespace-nowrap">Order</TableHead>
+								<TableHead className="min-w-[16rem]">Product</TableHead>
+								<TableHead className="min-w-[13rem]">Details</TableHead>
 								<TableHead className="whitespace-nowrap">Quantity</TableHead>
-								{showPricing ? (
-									<TableHead className="whitespace-nowrap text-end">
-										Cost
-									</TableHead>
-								) : null}
-								{showPricing ? (
-									<TableHead className="whitespace-nowrap text-end">
-										Sale
-									</TableHead>
-								) : null}
-								<TableHead className="min-w-[6rem] whitespace-nowrap text-end">
-									Variation
-								</TableHead>
-								<TableHead className="w-[6rem] min-w-[6rem] max-w-[6rem] text-end">
-									Image
+								<TableHead className="whitespace-nowrap">Status</TableHead>
+								<TableHead className="min-w-[7rem] whitespace-nowrap text-end">
+									{showPricing ? 'Pricing' : 'Variation'}
 								</TableHead>
 								<TableHead className="w-[3rem] min-w-[3rem] max-w-[3rem]">
 									<span className="sr-only">Actions</span>
@@ -1491,154 +1682,96 @@ function ProjectInclusionsTableInFrame({
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{section.inclusions.map((inclusion) => {
-								const displayStatus = inclusion.status ?? 'Under Review';
-								const variation =
-									inclusion.class !== 'Standard' &&
-									inclusion.variationPrice !== undefined
-										? formatSignedAud(inclusion.variationPrice)
-										: null;
-								const totalQty =
-									inclusion.locations?.reduce(
-										(sum, l) => sum + (l.quantity ?? 0),
-										0
-									) ?? 0;
-								const unit = inclusion.locations?.[0]?.unit;
-								return (
-									<TableRow key={inclusion._id}>
-										<TableCell className="whitespace-normal align-top leading-snug">
-											<div className="flex min-w-0 flex-col gap-1.5">
-												<span className="font-medium">{inclusion.title}</span>
-												<div className="flex flex-wrap items-center gap-2">
-													<Badge
-														size="lg"
-														variant={variantClassBadgeVariant(inclusion.class)}
-													>
-														{inclusion.class}
-													</Badge>
-													<span className="font-mono text-muted-foreground text-xs">
-														{inclusion.code}
-													</span>
-												</div>
-												<ProjectInclusionNotesLink inclusion={inclusion} />
-											</div>
-										</TableCell>
-										<TableCell className="whitespace-normal align-top leading-snug">
-											<div className="flex min-w-0 flex-col gap-2 text-sm">
-												<p className="text-muted-foreground">
-													{inclusion.vendor}
-												</p>
-												<p className="text-muted-foreground">
-													{inclusion.models.join(', ')}
-												</p>
-												{inclusion.details ? (
-													<p className="whitespace-pre-wrap text-pretty">
-														{inclusion.details}
-													</p>
-												) : null}
-											</div>
-										</TableCell>
-										<TableCell className="whitespace-normal align-top text-sm">
-											{inclusion.color ?? (
-												<span className="text-muted-foreground">—</span>
-											)}
-										</TableCell>
-										<TableCell className="whitespace-normal align-top">
-											<Badge
-												size="lg"
-												variant={inclusionStatusBadgeVariant(displayStatus)}
-											>
-												{displayStatus}
-											</Badge>
-										</TableCell>
-										<TableCell className="whitespace-normal align-top">
-											{inclusion.orderStatus && inclusion.orderRefId ? (
-												<button
-													className="text-left"
-													onClick={() => {
-														window.open(
-															`/projects/${projectId}?tab=orders&orderId=${inclusion.orderRefId}`,
-															'_blank'
-														);
-													}}
-													type="button"
-												>
-													<Badge
-														className="cursor-pointer hover:opacity-80"
-														size="lg"
-														variant={inclusionOrderStatusBadgeVariant(
-															inclusion.orderStatus
-														)}
-													>
-														{inclusion.orderStatus}
-													</Badge>
-												</button>
-											) : (
-												<span className="text-muted-foreground">—</span>
-											)}
-										</TableCell>
-										<TableCell className="whitespace-normal align-top">
-											{inclusion.locations && inclusion.locations.length > 0 ? (
-												<div className="flex flex-col gap-0.5 text-sm">
-													<span className="font-medium tabular-nums">
-														{totalQty
-															? `${totalQty}${unit ? ` ${unit}` : ''}`
-															: '—'}
-													</span>
-													{inclusion.locations.map((loc, i) => (
-														<span
-															className="text-muted-foreground text-xs"
-															key={`${loc.name}-${i}`}
-														>
-															{loc.name}
-															{loc.quantity != null
-																? ` (${loc.quantity}${loc.unit ? ` ${loc.unit}` : ''})`
-																: ''}
-														</span>
-													))}
-												</div>
-											) : (
-												<span className="text-muted-foreground">—</span>
-											)}
-										</TableCell>
-										{showPricing ? (
-											<TableCell className="whitespace-normal text-end align-top tabular-nums">
-												{formatAud(inclusion.costPrice)}
-											</TableCell>
-										) : null}
-										{showPricing ? (
-											<TableCell className="whitespace-normal text-end align-top tabular-nums">
-												{formatAud(inclusion.salePrice)}
-											</TableCell>
-										) : null}
-										<TableCell className="whitespace-normal text-end align-top tabular-nums">
-											{variation ?? (
-												<span className="text-muted-foreground">—</span>
-											)}
-										</TableCell>
-										<TableCell className="w-[6rem] min-w-[6rem] max-w-[6rem] text-end align-middle">
-											<div className="flex justify-end">
-												<ProjectInclusionImageThumbnail
-													inclusion={inclusion}
-													signedImageUrl={
-														signedImageUrls[inclusion.image ?? ''] ?? ''
-													}
-												/>
-											</div>
-										</TableCell>
-										<TableCell className="w-[3rem] min-w-[3rem] max-w-[3rem] align-middle">
-											<ProjectInclusionActionsCell
-												inclusion={inclusion}
-												onAddToOrder={onAddToOrder}
-												pendingOrderItems={pendingOrderItems}
-												projectId={projectId}
-											/>
-										</TableCell>
-									</TableRow>
-								);
-							})}
+							{section.inclusions.map((inclusion) => (
+								<TableRow className="group" key={inclusion._id}>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionProductCell
+											inclusion={inclusion}
+											signedImageUrl={
+												signedImageUrls[inclusion.image ?? ''] ?? ''
+											}
+										/>
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionDetailsCell inclusion={inclusion} />
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionQuantityCell inclusion={inclusion} />
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionStatusStack
+											inclusion={inclusion}
+											projectId={projectId}
+										/>
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionPricingCell
+											inclusion={inclusion}
+											showPricing={showPricing}
+										/>
+									</TableCell>
+									<TableCell className="align-top transition-colors group-hover:bg-muted/40!">
+										<ProjectInclusionActionsCell
+											inclusion={inclusion}
+											onAddToOrder={onAddToOrder}
+											pendingOrderItems={pendingOrderItems}
+											projectId={projectId}
+										/>
+									</TableCell>
+								</TableRow>
+							))}
 						</TableBody>
 					</Table>
+				</div>
+				<div className="flex flex-col gap-3 p-3 md:hidden">
+					{section.inclusions.map((inclusion) => (
+						<Card key={inclusion._id}>
+							<CardHeader className="border-b">
+								<InclusionProductCell
+									inclusion={inclusion}
+									signedImageUrl={signedImageUrls[inclusion.image ?? ''] ?? ''}
+									size={56}
+								/>
+								<CardAction>
+									<ProjectInclusionActionsCell
+										inclusion={inclusion}
+										onAddToOrder={onAddToOrder}
+										pendingOrderItems={pendingOrderItems}
+										projectId={projectId}
+									/>
+								</CardAction>
+							</CardHeader>
+							<CardPanel className="flex flex-col gap-4">
+								<InclusionDetailsCell inclusion={inclusion} />
+								<div className="flex flex-wrap items-start justify-between gap-4">
+									<div className="flex flex-col gap-1.5">
+										<span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+											Quantity
+										</span>
+										<InclusionQuantityCell inclusion={inclusion} />
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+											Status
+										</span>
+										<InclusionStatusStack
+											inclusion={inclusion}
+											projectId={projectId}
+										/>
+									</div>
+									<div className="flex flex-col items-end gap-1.5">
+										<span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+											{showPricing ? 'Pricing' : 'Variation'}
+										</span>
+										<InclusionPricingCell
+											inclusion={inclusion}
+											showPricing={showPricing}
+										/>
+									</div>
+								</div>
+							</CardPanel>
+						</Card>
+					))}
 				</div>
 			</FramePanel>
 		</Frame>

@@ -160,26 +160,29 @@ export default function LocationsPageContent() {
 
 	return (
 		<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
-			<div className="mb-0 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
-				<PageHeading className="mb-0" heading="Locations" icon={MapPin} />
-				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
-					<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>
-								<SearchIcon aria-hidden />
-							</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-label="Search locations"
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by name or description…"
-							type="search"
-							value={search}
-						/>
-					</InputGroup>
-					<AddLocation />
-				</div>
-			</div>
+			<PageHeading
+				heading="Locations"
+				icon={MapPin}
+				rightSlot={
+					<>
+						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>
+									<SearchIcon aria-hidden />
+								</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-label="Search locations"
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder="Search by name or description…"
+								type="search"
+								value={search}
+							/>
+						</InputGroup>
+						<AddLocation />
+					</>
+				}
+			/>
 			{content}
 		</div>
 	);

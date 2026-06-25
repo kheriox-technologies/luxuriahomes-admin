@@ -235,14 +235,10 @@ export default function DashboardContent() {
 	const isLoading = hasSelection && overview === undefined;
 
 	return (
-		<div className={cn('flex h-full min-h-0 w-full flex-col')}>
-			<div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-				<PageHeading
-					className="mb-0"
-					heading="Dashboard"
-					icon={LayoutDashboard}
-				/>
-				<div className="flex w-full min-w-0 flex-col gap-2 lg:flex-1 lg:flex-row lg:items-center">
+		<div className={cn('flex h-full min-h-0 w-full flex-col gap-4')}>
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+				<PageHeading heading="Dashboard" icon={LayoutDashboard} />
+				<div className="flex w-full min-w-0 flex-col gap-2 sm:flex-1 sm:flex-row sm:items-center">
 					<div className="w-full min-w-0 lg:flex-1">
 						<TaskMultiSelectFilter
 							id="dashboard-projects"
@@ -277,7 +273,7 @@ export default function DashboardContent() {
 			</div>
 
 			{hasSelection ? (
-				<div className="mb-3 flex items-center justify-between gap-3 border-border/60 border-b pb-3">
+				<div className="flex items-center justify-between gap-3 border-border/60 border-b pb-3">
 					<p className="text-muted-foreground text-sm">
 						Showing the schedule for the{' '}
 						<span className="font-medium text-foreground">{windowLabel}</span>

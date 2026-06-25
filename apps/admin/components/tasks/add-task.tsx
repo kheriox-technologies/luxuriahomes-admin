@@ -20,7 +20,6 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import TaskAssigneeCombobox from '@/components/tasks/task-assignee-combobox';
 import TaskDueDatePicker from '@/components/tasks/task-due-date-picker';
@@ -91,14 +90,7 @@ export default function AddTask() {
 			}}
 			open={open}
 		>
-			<SheetTrigger
-				render={
-					<Button variant="default">
-						<Plus />
-						Add task
-					</Button>
-				}
-			/>
+			<SheetTrigger render={<Button variant="default">Add task</Button>} />
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"

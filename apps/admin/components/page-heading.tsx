@@ -30,8 +30,8 @@ const PageHeading = ({
 	rightSlot,
 	titleTrailing,
 }: Props) => (
-	<div className={cn('mb-4 space-y-4', className)}>
-		<div className="flex min-w-0 items-start justify-between gap-3">
+	<div className={cn('space-y-4', className)}>
+		<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
 			<div className="flex min-w-0 flex-1 items-center gap-2">
 				{Icon && <Icon className="h-6 w-6" />}
 				<div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -79,7 +79,9 @@ const PageHeading = ({
 				</div>
 			</div>
 			{rightSlot ? (
-				<div className="flex shrink-0 justify-end pt-0.5">{rightSlot}</div>
+				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
+					{rightSlot}
+				</div>
 			) : null}
 		</div>
 	</div>

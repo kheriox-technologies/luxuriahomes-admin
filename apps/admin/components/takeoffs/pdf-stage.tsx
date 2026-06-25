@@ -32,6 +32,8 @@ import {
 	rectBounds,
 	rectCorners,
 	type SnapGuide,
+	shapeTopCenter,
+	shapeValueLabel,
 } from '@/lib/takeoffs/geometry';
 import {
 	AREA_TYPE_SET,
@@ -74,14 +76,17 @@ interface PdfStageProps {
 	error: string | null;
 	globalWastage: number;
 	guides: SnapGuide[];
+	// Shapes to halo as "related" — the selected shape's whole group/parent and
+	// the active Add/Subtract target group.
+	highlightIds: ReadonlySet<string>;
 	legend: Legend | null;
 	measurements: Measurement[];
 	metersPerPixel: number | null;
 	newTextId: string | null;
 	numPages: number;
+	onClearSelection: () => void;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
-	onExitToPan: () => void;
 	onLegendChange: (next: { width: number; x: number; y: number }) => void;
 	onLegendRemove: () => void;
 	onPointerUp: (point: Point) => void;
@@ -102,6 +107,8 @@ interface PdfStageProps {
 		canvas: HTMLCanvasElement
 	) => Promise<RenderedSize | null>;
 	selectedId: string | null;
+	// Burn each shape's actual measured value into a badge at its top edge.
+	showMeasurements: boolean;
 	textAnnotations: TextAnnotation[];
 	tool: ToolId;
 }
@@ -199,7 +206,6 @@ function hitTest(
 				id: m.id,
 				start: point,
 				orig: m.points,
-				children: moveChildren(m, measurements),
 			};
 		}
 	}
@@ -214,27 +220,6 @@ function isOnPolyline(point: Point, pts: Point[], tolSq: number): boolean {
 		}
 	}
 	return false;
-}
-
-/**
- * Shapes that must translate alongside `m` during a move: every other member of
- * its Add group, or (for an ungrouped parent) its deductions.
- */
-function moveChildren(
-	m: Measurement,
-	measurements: Measurement[]
-): { id: string; orig: Point[] }[] | undefined {
-	if (m.groupId) {
-		return measurements
-			.filter((c) => c.id !== m.id && c.groupId === m.groupId)
-			.map((c) => ({ id: c.id, orig: c.points }));
-	}
-	if (m.parentId) {
-		return;
-	}
-	return measurements
-		.filter((c) => c.parentId === m.id)
-		.map((c) => ({ id: c.id, orig: c.points }));
 }
 
 /**
@@ -320,8 +305,10 @@ export default function PdfStage({
 	draft,
 	cursor,
 	guides,
+	highlightIds,
 	legend,
 	selectedId,
+	showMeasurements,
 	onStageClick,
 	onStageDoubleClick,
 	onCursorMove,
@@ -329,7 +316,7 @@ export default function PdfStage({
 	onLegendChange,
 	onLegendRemove,
 	onPointerUp,
-	onExitToPan,
+	onClearSelection,
 	textAnnotations,
 	newTextId,
 	onTextChange,
@@ -348,6 +335,10 @@ export default function PdfStage({
 	const [scale, setScale] = useState(1);
 	const [fitScale, setFitScale] = useState(1);
 	const [rendering, setRendering] = useState(true);
+	// In Pan mode the overlay is click-through, so we hover-detect over committed
+	// shapes from a container listener and flip the overlay to capture events (and
+	// disable panning) only while the pointer is over something selectable.
+	const [hoverSelectable, setHoverSelectable] = useState(false);
 
 	// Scale the page so it fully fits the viewport, and centre it.
 	const fitToWindow = useCallback(
@@ -445,8 +436,11 @@ export default function PdfStage({
 
 	// Any non-pan tool captures pointer events on the overlay (and disables
 	// panning). `select` edits committed shapes; the rest draw.
+	// Every non-pan tool draws and captures overlay events (and disables panning).
+	// Pan is the default "pan + select" tool: it pans empty space but grabs/edits
+	// committed shapes directly (see hover detection below).
 	const isInteractive = tool !== 'pan';
-	const isDrawingTool = isInteractive && tool !== 'select';
+	const isDrawingTool = isInteractive;
 	const stroke = TOOL_COLORS[tool] ?? '#2563eb';
 	// Stable colour per Add group so all its members read as one combined shape.
 	const groupColors = groupColorMap(measurements);
@@ -481,7 +475,7 @@ export default function PdfStage({
 		onCursorMove,
 		onDragStart,
 		onPointerUp,
-		onExitToPan,
+		onClearSelection,
 	});
 	useEffect(() => {
 		handlersRef.current = {
@@ -496,7 +490,7 @@ export default function PdfStage({
 			onCursorMove,
 			onDragStart,
 			onPointerUp,
-			onExitToPan,
+			onClearSelection,
 		};
 	});
 	// True between a mousedown that began a drag and the trailing synthetic
@@ -521,20 +515,26 @@ export default function PdfStage({
 				drag = { mode: 'draw-rect', start: point };
 			} else if (h.tool === 'circle') {
 				drag = { mode: 'draw-circle', start: point };
-			} else if (h.tool === 'select') {
+			} else if (h.tool === 'pan') {
 				drag = hitTest(point, h.measurements, h.selectedId, h.scale);
 			}
 			if (drag) {
 				draggingRef.current = true;
 				h.onDragStart(drag);
-			} else if (h.tool === 'select') {
-				// Clicking empty space in Select mode drops back to Pan so further
-				// clicks/drags can't accidentally move or edit shapes.
-				h.onExitToPan();
+			} else if (h.tool === 'pan') {
+				// The overlay only captures the mousedown when hovering a shape, so a
+				// null hit here is a rare sub-frame race; treat it as an empty-space
+				// click and clear the current selection.
+				h.onClearSelection();
 			}
 		};
 		const handleUp = (event: MouseEvent) => {
 			const h = handlersRef.current;
+			// The drag ends here. Clear the latch on mouseup rather than relying on
+			// the trailing synthetic click (which the browser suppresses after a
+			// far-travelling drag, otherwise leaving the ref stuck `true` and killing
+			// Pan-mode hover-selection until a refresh).
+			draggingRef.current = false;
 			const point = h.toBase(event);
 			if (point) {
 				h.onPointerUp(point);
@@ -557,14 +557,16 @@ export default function PdfStage({
 		const handleDoubleClick = () => handlersRef.current.onStageDoubleClick();
 		const handleMove = (event: MouseEvent) => {
 			const h = handlersRef.current;
-			if (!h.isInteractive) {
+			// The overlay only receives moves when it's capturing events: while a
+			// drawing tool is active, or (in Pan mode) while over a shape or dragging.
+			if (!(h.isInteractive || h.tool === 'pan')) {
 				return;
 			}
 			const point = h.toBase(event);
 			h.onCursorMove(point, event.shiftKey, h.scale);
-			// In Select mode, reflect what's under the pointer (resize edges, grab
+			// Under the Pan tool, reflect what's under the pointer (resize edges, grab
 			// handles, move bodies) by driving the cursor imperatively.
-			if (h.tool === 'select' && svgRef.current) {
+			if (h.tool === 'pan' && svgRef.current) {
 				svgRef.current.style.cursor = point
 					? selectCursor(point, h.measurements, h.selectedId, h.scale)
 					: 'default';
@@ -573,11 +575,11 @@ export default function PdfStage({
 		const handleLeave = () => {
 			const h = handlersRef.current;
 			h.onCursorMove(null);
-			// Only Select drives the cursor imperatively, so only it needs resetting
-			// on leave. Clobbering it for drawing tools would override the React
-			// inline `crosshair` and never restore it (the style value is unchanged
-			// across drawing-tool switches, so React skips the DOM update).
-			if (svgRef.current && h.tool === 'select') {
+			// Only Pan drives the cursor imperatively, so only it needs resetting on
+			// leave. Clobbering it for drawing tools would override the React inline
+			// `crosshair` and never restore it (the style value is unchanged across
+			// drawing-tool switches, so React skips the DOM update).
+			if (svgRef.current && h.tool === 'pan') {
 				svgRef.current.style.cursor = 'default';
 			}
 		};
@@ -594,6 +596,62 @@ export default function PdfStage({
 			svg.removeEventListener('dblclick', handleDoubleClick);
 			svg.removeEventListener('mousemove', handleMove);
 			svg.removeEventListener('mouseleave', handleLeave);
+		};
+	}, []);
+
+	// Pan-mode hover detection. The overlay is click-through over empty space, so
+	// the SVG can't see those moves — detect hover over committed shapes here and
+	// flip `hoverSelectable`, which makes the overlay capture events and disables
+	// panning so the next click selects (instead of pans) the shape. Listeners are
+	// capture-phase so they fire before react-zoom-pan-pinch's propagation handling.
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) {
+			return;
+		}
+		const handleHover = (event: MouseEvent) => {
+			const h = handlersRef.current;
+			if (h.tool !== 'pan') {
+				return;
+			}
+			// Latch the hover state during an active drag so the overlay stays
+			// capturing and panning stays disabled even if the pointer briefly
+			// leaves the shape mid-move.
+			if (draggingRef.current) {
+				return;
+			}
+			const point = h.toBase(event);
+			const hit = point
+				? hitTest(point, h.measurements, h.selectedId, h.scale)
+				: null;
+			setHoverSelectable(Boolean(hit));
+		};
+		const handleDownCapture = (event: MouseEvent) => {
+			const h = handlersRef.current;
+			if (h.tool !== 'pan') {
+				return;
+			}
+			const point = h.toBase(event);
+			const hit = point
+				? hitTest(point, h.measurements, h.selectedId, h.scale)
+				: null;
+			// Empty space: clear the selection (and let panning proceed). A hit is
+			// handled by the overlay's own mousedown, which performs the select.
+			if (!hit) {
+				h.onClearSelection();
+			}
+		};
+		container.addEventListener('mousemove', handleHover, { capture: true });
+		container.addEventListener('mousedown', handleDownCapture, {
+			capture: true,
+		});
+		return () => {
+			container.removeEventListener('mousemove', handleHover, {
+				capture: true,
+			});
+			container.removeEventListener('mousedown', handleDownCapture, {
+				capture: true,
+			});
 		};
 	}, []);
 
@@ -626,7 +684,7 @@ export default function PdfStage({
 				maxScale={fitScale * 16}
 				minScale={fitScale * 0.5}
 				onTransform={(_ref, state) => setScale(state.scale)}
-				panning={{ disabled: isInteractive }}
+				panning={{ disabled: isInteractive || hoverSelectable }}
 				ref={transformRef}
 				wheel={{ disabled: true }}
 			>
@@ -644,10 +702,12 @@ export default function PdfStage({
 								ref={setOverlayRef}
 								role="img"
 								style={{
-									pointerEvents: isInteractive ? 'auto' : 'none',
-									// Select mode drives the cursor imperatively (see handleMove);
-									// leaving it unset here keeps React from resetting it per render.
-									...(tool === 'select'
+									pointerEvents:
+										isInteractive || hoverSelectable ? 'auto' : 'none',
+									// Pan mode drives the cursor imperatively (see handleMove);
+									// leaving it unset here keeps React from resetting it per render
+									// and lets the imperative select cursor win when over a shape.
+									...(tool === 'pan'
 										? {}
 										: { cursor: isDrawingTool ? 'crosshair' : 'default' }),
 								}}
@@ -662,10 +722,12 @@ export default function PdfStage({
 											m.groupId ? groupColors.get(m.groupId) : undefined
 										}
 										handleRadius={handleRadius}
+										highlighted={highlightIds.has(m.id)}
 										key={m.id}
 										measurement={m}
 										selected={m.id === selectedId}
 										strokeWidth={strokeWidth}
+										valueLabel={showMeasurements ? shapeValueLabel(m) : null}
 										vertexRadius={vertexRadius}
 									/>
 								))}
@@ -783,6 +845,60 @@ function EditHandle({
 }
 
 const DEDUCTION_COLOR = '#dc2626';
+// Amber halo drawn behind a shape that belongs to the selected group/parent or
+// the active Add/Subtract target, so the relationship reads at a glance.
+const HIGHLIGHT_COLOR = '#f59e0b';
+const HIGHLIGHT_WIDTH_MULT = 3.5;
+const HIGHLIGHT_OPACITY = 0.55;
+
+// Small badge showing a shape's actual measured value, centred above its top
+// edge. Sized in base pixels from the screen-constant fontSize so it stays a
+// constant size on screen; never intercepts pointer events.
+function MeasurementBadge({
+	anchor,
+	label,
+	color,
+	fontSize,
+}: {
+	anchor: Point;
+	label: string;
+	color: string;
+	fontSize: number;
+}) {
+	const padX = fontSize * 0.4;
+	const padY = fontSize * 0.22;
+	const width = label.length * fontSize * 0.6 + 2 * padX;
+	const height = fontSize + 2 * padY;
+	const gap = fontSize * 0.4;
+	const x = anchor.x - width / 2;
+	const y = anchor.y - gap - height;
+	return (
+		<g style={{ pointerEvents: 'none' }}>
+			<rect
+				fill="#ffffff"
+				fillOpacity={0.92}
+				height={height}
+				rx={padY}
+				stroke={color}
+				strokeWidth={fontSize * 0.08}
+				width={width}
+				x={x}
+				y={y}
+			/>
+			<text
+				dominantBaseline="central"
+				fill={color}
+				fontSize={fontSize}
+				fontWeight={600}
+				textAnchor="middle"
+				x={anchor.x}
+				y={y + height / 2}
+			>
+				{label}
+			</text>
+		</g>
+	);
+}
 
 function CommittedShape({
 	measurement,
@@ -791,7 +907,9 @@ function CommittedShape({
 	handleRadius,
 	fontSize,
 	selected,
+	highlighted,
 	groupColor,
+	valueLabel,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
@@ -799,8 +917,11 @@ function CommittedShape({
 	handleRadius: number;
 	fontSize: number;
 	selected: boolean;
+	highlighted: boolean;
 	groupColor?: string;
+	valueLabel: string | null;
 }) {
+	const haloWidth = strokeWidth * HIGHLIGHT_WIDTH_MULT;
 	const isDeduction = Boolean(measurement.parentId);
 	// Deductions always render red. Otherwise prefer the shape's stored colour,
 	// falling back to the group colour then the per-type default for any legacy
@@ -813,11 +934,33 @@ function CommittedShape({
 			'#2563eb');
 	const { points, type } = measurement;
 
+	// Null for counts (no on-shape value) and whenever the toggle is off.
+	const badge =
+		valueLabel === null ? null : (
+			<MeasurementBadge
+				anchor={shapeTopCenter(measurement)}
+				color={color}
+				fontSize={fontSize}
+				label={valueLabel}
+			/>
+		);
+
 	if (type === 'count') {
 		return (
 			<g>
 				{points.map((p, index) => (
 					<g key={`${p.x}-${p.y}`}>
+						{highlighted && (
+							<circle
+								cx={p.x}
+								cy={p.y}
+								fill="none"
+								r={vertexRadius * 2.6}
+								stroke={HIGHLIGHT_COLOR}
+								strokeOpacity={HIGHLIGHT_OPACITY}
+								strokeWidth={haloWidth}
+							/>
+						)}
 						<circle cx={p.x} cy={p.y} fill={color} r={vertexRadius * 1.6} />
 						<text
 							fill="#fff"
@@ -837,6 +980,17 @@ function CommittedShape({
 	if (type === 'linear') {
 		return (
 			<g>
+				{highlighted && (
+					<polyline
+						fill="none"
+						points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+						stroke={HIGHLIGHT_COLOR}
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						strokeOpacity={HIGHLIGHT_OPACITY}
+						strokeWidth={haloWidth}
+					/>
+				)}
 				<polyline
 					fill="none"
 					points={points.map((p) => `${p.x},${p.y}`).join(' ')}
@@ -852,6 +1006,7 @@ function CommittedShape({
 						r={vertexRadius}
 					/>
 				))}
+				{badge}
 			</g>
 		);
 	}
@@ -863,6 +1018,7 @@ function CommittedShape({
 		? `${strokeWidth * 3} ${strokeWidth * 2}`
 		: undefined;
 	let body: ReactElement;
+	let halo: ReactElement | null = null;
 	let handlePoints: Point[];
 	if (type === 'rectangle') {
 		const b = rectBounds(points);
@@ -873,6 +1029,18 @@ function CommittedShape({
 				stroke={color}
 				strokeDasharray={dash}
 				strokeWidth={strokeWidth}
+				width={b.width}
+				x={b.x}
+				y={b.y}
+			/>
+		);
+		halo = (
+			<rect
+				fill="none"
+				height={b.height}
+				stroke={HIGHLIGHT_COLOR}
+				strokeOpacity={HIGHLIGHT_OPACITY}
+				strokeWidth={haloWidth}
 				width={b.width}
 				x={b.x}
 				y={b.y}
@@ -892,6 +1060,17 @@ function CommittedShape({
 				strokeWidth={strokeWidth}
 			/>
 		);
+		halo = (
+			<circle
+				cx={points[0].x}
+				cy={points[0].y}
+				fill="none"
+				r={r}
+				stroke={HIGHLIGHT_COLOR}
+				strokeOpacity={HIGHLIGHT_OPACITY}
+				strokeWidth={haloWidth}
+			/>
+		);
 		handlePoints = [points[1]];
 	} else {
 		body = (
@@ -903,11 +1082,21 @@ function CommittedShape({
 				strokeWidth={strokeWidth}
 			/>
 		);
+		halo = (
+			<polygon
+				fill="none"
+				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+				stroke={HIGHLIGHT_COLOR}
+				strokeOpacity={HIGHLIGHT_OPACITY}
+				strokeWidth={haloWidth}
+			/>
+		);
 		handlePoints = points;
 	}
 
 	return (
 		<g>
+			{highlighted && halo}
 			{body}
 			{selected &&
 				handlePoints.map((p) => (
@@ -919,6 +1108,7 @@ function CommittedShape({
 						strokeWidth={strokeWidth}
 					/>
 				))}
+			{badge}
 		</g>
 	);
 }
@@ -942,12 +1132,7 @@ function DraftShape({
 	fontSize: number;
 	metersPerPixel: number | null;
 }) {
-	if (
-		tool === 'pan' ||
-		tool === 'select' ||
-		tool === 'count' ||
-		points.length === 0
-	) {
+	if (tool === 'pan' || tool === 'count' || points.length === 0) {
 		return null;
 	}
 

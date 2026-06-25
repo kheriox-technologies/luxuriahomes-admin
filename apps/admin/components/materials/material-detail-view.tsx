@@ -207,7 +207,7 @@ export default function MaterialDetailView({
 							rel="noopener noreferrer"
 							target="_blank"
 						>
-							<ExternalLink className="h-3 w-3 shrink-0" />
+							<ExternalLink className="size-3 shrink-0" />
 							<span className="max-w-40 truncate">{row.original.link}</span>
 						</a>
 					) : (

@@ -38,19 +38,21 @@ function ToolbarButton({
 	children: React.ReactNode;
 }) {
 	return (
-		<button
+		<Button
 			aria-label={label}
 			aria-pressed={active}
 			className={cn(
-				'inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4',
+				'text-muted-foreground',
 				active && 'bg-accent text-foreground'
 			)}
 			onClick={onClick}
+			size="icon-sm"
 			title={label}
 			type="button"
+			variant="ghost"
 		>
 			{children}
-		</button>
+		</Button>
 	);
 }
 

@@ -387,14 +387,11 @@ export default function EmailTemplatesContent() {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
-			<div className="mb-0 flex items-start justify-between gap-2">
-				<PageHeading
-					className="mb-0"
-					heading="Email Templates"
-					icon={LayoutTemplate}
-				/>
-				<TemplateDialog trigger={<Button>Add Template</Button>} />
-			</div>
+			<PageHeading
+				heading="Email Templates"
+				icon={LayoutTemplate}
+				rightSlot={<TemplateDialog trigger={<Button>Add Template</Button>} />}
+			/>
 			{content}
 		</div>
 	);

@@ -76,26 +76,29 @@ export default function ProjectsPageContent() {
 
 	return (
 		<div className={cn('flex h-full min-h-0 w-full flex-col gap-4')}>
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
-				<PageHeading className="mb-0" heading="Projects" icon={Building2} />
-				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
-					<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>
-								<SearchIcon aria-hidden />
-							</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-label="Search projects"
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by name, address, client…"
-							type="search"
-							value={search}
-						/>
-					</InputGroup>
-					<AddProjectForm />
-				</div>
-			</div>
+			<PageHeading
+				heading="Projects"
+				icon={Building2}
+				rightSlot={
+					<>
+						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>
+									<SearchIcon aria-hidden />
+								</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-label="Search projects"
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder="Search by name, address, client…"
+								type="search"
+								value={search}
+							/>
+						</InputGroup>
+						<AddProjectForm />
+					</>
+				}
+			/>
 
 			<ProjectsKpiBar projects={allProjects} />
 

@@ -309,14 +309,11 @@ export default function EmailSignaturesContent() {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
-			<div className="mb-0 flex items-start justify-between gap-2">
-				<PageHeading
-					className="mb-0"
-					heading="Email Signatures"
-					icon={PenLine}
-				/>
-				<SignatureDialog trigger={<Button>Add Signature</Button>} />
-			</div>
+			<PageHeading
+				heading="Email Signatures"
+				icon={PenLine}
+				rightSlot={<SignatureDialog trigger={<Button>Add Signature</Button>} />}
+			/>
 			{content}
 		</div>
 	);

@@ -20,7 +20,6 @@ import {
 	Circle,
 	Hand,
 	Hash,
-	MousePointer2,
 	Pentagon,
 	Ruler,
 	Square,
@@ -108,13 +107,65 @@ const LEGEND_WIDTH_RATIO = 0.28;
 const LEGEND_FALLBACK_INSET = 24;
 const LEGEND_FALLBACK_WIDTH = 320;
 
-// Tools that draw a measurement and can therefore belong to an "Add" group.
-const DRAWABLE_TOOLS = new Set<ToolId>([
-	'linear',
-	'rectangle',
-	'circle',
-	'polygon',
-]);
+// Area-drawing tools. Add/Subtract lock drawing to the selected target's family
+// so a group never mixes areas, lines and counts.
+const AREA_TOOL_SET = new Set<ToolId>(['rectangle', 'circle', 'polygon']);
+
+type ShapeFamily = 'area' | 'linear' | 'count';
+
+function toolFamily(tool: ToolId): ShapeFamily | null {
+	if (AREA_TOOL_SET.has(tool)) {
+		return 'area';
+	}
+	if (tool === 'linear') {
+		return 'linear';
+	}
+	if (tool === 'count') {
+		return 'count';
+	}
+	return null;
+}
+
+function measurementFamily(type: MeasurementType): ShapeFamily {
+	if (AREA_TYPE_SET.has(type)) {
+		return 'area';
+	}
+	if (type === 'linear') {
+		return 'linear';
+	}
+	return 'count';
+}
+
+const EMPTY_IDS: ReadonlySet<string> = new Set();
+
+// All ids "related" to an anchor measurement: the whole family it belongs to —
+// the parent shape, its group members, and all of its deductions. Used to
+// highlight a whole group when one member is selected or is the Add/Subtract
+// target. Selecting a deduction resolves to its parent first, so the parent
+// shape highlights alongside it (just like an Add group).
+function relatedIds(measurements: Measurement[], id: string): Set<string> {
+	const ids = new Set<string>([id]);
+	const anchor = measurements.find((m) => m.id === id);
+	if (!anchor) {
+		return ids;
+	}
+	// A deduction's family is rooted at its parent shape; everything else is its
+	// own root.
+	const root =
+		(anchor.parentId
+			? measurements.find((m) => m.id === anchor.parentId)
+			: anchor) ?? anchor;
+	ids.add(root.id);
+	for (const m of measurements) {
+		if (
+			(root.groupId && m.groupId === root.groupId) ||
+			m.parentId === root.id
+		) {
+			ids.add(m.id);
+		}
+	}
+	return ids;
+}
 
 // Human-readable label prefix per measurement type.
 const TYPE_LABEL: Record<MeasurementType, string> = {
@@ -134,7 +185,6 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
 	{ id: 'pan', label: 'Pan', icon: Hand },
-	{ id: 'select', label: 'Select', icon: MousePointer2 },
 	{ id: 'linear', label: 'Linear', icon: Ruler, needsCalibration: true },
 	{ id: 'rectangle', label: 'Rectangle', icon: Square, needsCalibration: true },
 	{ id: 'circle', label: 'Circle', icon: Circle, needsCalibration: true },
@@ -143,14 +193,24 @@ const TOOLS: ToolDef[] = [
 	{ id: 'text', label: 'Text', icon: Type },
 ];
 
-function getAddTitle(isCalibrated: boolean, tool: ToolId): string {
+function getAddTitle(isCalibrated: boolean, hasSelection: boolean): string {
 	if (!isCalibrated) {
 		return 'Calibrate this page first';
 	}
-	if (!DRAWABLE_TOOLS.has(tool)) {
-		return 'Pick a drawing tool (Linear/Rectangle/Circle/Polygon) to start a combined Add group';
+	if (!hasSelection) {
+		return 'Select a measurement on the canvas, then turn on Add to draw more shapes into it';
 	}
-	return 'Every shape/line you draw while Add is on combines into one measurement — switch to Pan or Select to finish the group';
+	return 'Every shape you draw while Add is on joins the selected measurement — switch to Pan or Select to finish';
+}
+
+function getSubtractTitle(isCalibrated: boolean, canSubtract: boolean): string {
+	if (!isCalibrated) {
+		return 'Calibrate this page first';
+	}
+	if (!canSubtract) {
+		return 'Select an area shape on the canvas, then turn on Subtract to deduct from it';
+	}
+	return 'Draw an area while Subtract is on to deduct it from the selected shape';
 }
 
 function dedupeConsecutive(points: Point[]): Point[] {
@@ -236,9 +296,16 @@ export default function TakeoffsContent({
 	// When on, every shape/line drawn joins one combined "Add" group: area
 	// members union into a single area, linear members sum into one length.
 	const [addMode, setAddMode] = useState(false);
+	// When on, each shape shows a badge with its actual measured value, both on
+	// the canvas and in the exported/downloaded PDF. Off by default.
+	const [showMeasurements, setShowMeasurements] = useState(false);
 	// Id of the group currently being drawn into (ref so commit reads it
 	// imperatively without re-running on every change). Null when Add is off.
 	const currentGroupId = useRef<string | null>(null);
+	// The existing measurement that Add/Subtract is locked to (the shape new
+	// draws join as group members or deductions). Set from the selection when the
+	// mode is turned on; survives the tool switch that drawing requires.
+	const addTargetRef = useRef<string | null>(null);
 	const [measurements, setMeasurements] = useState<Measurement[]>(
 		initial?.measurements ?? []
 	);
@@ -449,6 +516,7 @@ export default function TakeoffsContent({
 				documentMethod,
 				globalWastage,
 				geometryByPage,
+				showMeasurements,
 			},
 		};
 	}, [
@@ -460,6 +528,7 @@ export default function TakeoffsContent({
 		documentMethod,
 		globalWastage,
 		getPageGeometry,
+		showMeasurements,
 	]);
 
 	// Download PDF: burn the overlays into a copy of the document and open it in a
@@ -526,59 +595,101 @@ export default function TakeoffsContent({
 	const selectTool = useCallback(
 		(next: ToolId) => {
 			setTool(next);
-			// Keep Subtract mode active when switching to an area shape (so the main
-			// toolbar icons draw deductions); any other tool exits Subtract mode.
-			setSubtractMode((on) => on && AREA_TYPE_SET.has(next as MeasurementType));
-			// Keep Add mode active across any drawable tool; leaving the drawable
-			// tools closes the active group.
-			const keepAdd = addMode && DRAWABLE_TOOLS.has(next);
+			// Add/Subtract stay locked to their target only while drawing within the
+			// target's family; switching to Pan/Select or a mismatched family ends the
+			// session. The target ref (not selectedId) drives the highlight, so it
+			// survives the selection clear below.
+			const target = addTargetRef.current
+				? measurements.find((m) => m.id === addTargetRef.current)
+				: undefined;
+			const nextFamily = toolFamily(next);
+			const sameFamily =
+				target != null && nextFamily === measurementFamily(target.type);
+			const keepSubtract = subtractMode && sameFamily && nextFamily === 'area';
+			const keepAdd = addMode && sameFamily;
+			setSubtractMode(keepSubtract);
 			setAddMode(keepAdd);
-			if (!keepAdd) {
+			if (!(keepAdd || keepSubtract)) {
+				addTargetRef.current = null;
 				currentGroupId.current = null;
 			}
 			resetDraft();
 			setSelectedId(null);
 		},
-		[resetDraft, addMode]
+		[resetDraft, addMode, subtractMode, measurements]
 	);
 
-	// Toggle Subtract mode. Only reachable from Select mode (the switch is
-	// disabled otherwise), so it just sets the flag without changing the tool.
+	// Toggle Subtract mode. Turning it on locks onto the selected area shape and
+	// switches to its drawing tool; every area drawn becomes that shape's
+	// deduction. Add and Subtract are mutually exclusive.
 	const setSubtract = useCallback(
 		(on: boolean) => {
-			setSubtractMode(on);
-			// Add and Subtract are mutually exclusive.
-			if (on) {
-				setAddMode(false);
-				currentGroupId.current = null;
-			}
 			// Drop focus off the toggle so a subsequent Enter commits the draft via
 			// the global handler instead of re-toggling this still-focused switch.
 			(document.activeElement as HTMLElement | null)?.blur();
+			if (on) {
+				const target = measurements.find((m) => m.id === selectedId);
+				// Subtract only applies to area shapes.
+				if (!(target && AREA_TYPE_SET.has(target.type))) {
+					return;
+				}
+				setSubtractMode(true);
+				setAddMode(false);
+				addTargetRef.current = target.id;
+				currentGroupId.current = null;
+				// Auto-switch to the target's drawing tool without clearing the
+				// selection (selectTool would reset selectedId).
+				setTool(target.type);
+				resetDraft();
+				return;
+			}
+			setSubtractMode(false);
+			addTargetRef.current = null;
 			resetDraft();
 			setSelectedId(null);
 		},
-		[resetDraft]
+		[resetDraft, measurements, selectedId]
 	);
 
-	// Toggle Add mode. Turning it on opens a fresh combined group and disables
-	// Subtract; turning it off closes the active group.
+	// Toggle Add mode. Turning it on locks onto the selected measurement and
+	// switches to its drawing tool; every shape drawn joins that measurement
+	// (area/linear as a group, count as extra markers). Mutually exclusive with
+	// Subtract; turning it off ends the session.
 	const setAdd = useCallback(
 		(on: boolean) => {
-			setAddMode(on);
-			if (on) {
-				setSubtractMode(false);
-				currentGroupId.current = crypto.randomUUID();
-			} else {
-				currentGroupId.current = null;
-			}
 			// Drop focus off the toggle so a subsequent Enter commits the draft via
 			// the global handler instead of re-toggling this still-focused switch.
 			(document.activeElement as HTMLElement | null)?.blur();
+			if (on) {
+				const target = measurements.find((m) => m.id === selectedId);
+				if (!target) {
+					return;
+				}
+				setAddMode(true);
+				setSubtractMode(false);
+				addTargetRef.current = target.id;
+				// Auto-switch to the target's drawing tool without clearing the
+				// selection (selectTool would reset selectedId).
+				setTool(target.type);
+				resetDraft();
+				if (target.type === 'count') {
+					// Count: subsequent clicks append markers to this count. Set after
+					// resetDraft, which clears the active-count ref.
+					activeCountIdRef.current = target.id;
+					currentGroupId.current = null;
+				} else {
+					// Area/linear: join the target's group, created on first draw.
+					currentGroupId.current = target.groupId ?? null;
+				}
+				return;
+			}
+			setAddMode(false);
+			addTargetRef.current = null;
+			currentGroupId.current = null;
 			resetDraft();
 			setSelectedId(null);
 		},
-		[resetDraft]
+		[resetDraft, measurements, selectedId]
 	);
 
 	const goToPage = useCallback(
@@ -586,8 +697,11 @@ export default function TakeoffsContent({
 			setPage(() => Math.min(Math.max(next, 1), numPages || 1));
 			resetDraft();
 			setSelectedId(null);
-			// Groups are single-page: close the active group so the next shape on the
-			// new page starts a fresh one (Add stays on).
+			// The Add/Subtract target lives on the page being left, so end the
+			// session: clear the target and turn both modes off.
+			setAddMode(false);
+			setSubtractMode(false);
+			addTargetRef.current = null;
 			currentGroupId.current = null;
 		},
 		[numPages, resetDraft]
@@ -874,24 +988,25 @@ export default function TakeoffsContent({
 			if (!metersPerPixel) {
 				return;
 			}
-			// In Add mode, resolve which group this shape joins. Compute it here
-			// (not inside the state updater) so the ref/UUID side effects stay out of
-			// the pure updater. A shape whose family (area vs linear) differs from the
-			// active group's members starts a fresh group.
+			// In Add mode, the shape joins the locked target's group. Resolve/create
+			// the group id here (not inside the state updater) so the ref/UUID side
+			// effects stay out of the pure updater. Count targets append markers via
+			// handleStageClick and never reach commit. A family mismatch (guarded
+			// against by tool gating) is ignored so a group can't be corrupted.
+			const targetId = addTargetRef.current;
 			let groupId: string | undefined;
-			if (addMode) {
-				const newIsArea = AREA_TYPE_SET.has(type);
-				let gid = currentGroupId.current;
-				const familyMismatch =
-					gid !== null &&
-					measurements.some(
-						(m) => m.groupId === gid && AREA_TYPE_SET.has(m.type) !== newIsArea
-					);
-				if (gid === null || familyMismatch) {
-					gid = crypto.randomUUID();
+			if (addMode && targetId) {
+				const target = measurements.find((m) => m.id === targetId);
+				if (
+					target &&
+					target.type !== 'count' &&
+					AREA_TYPE_SET.has(target.type) === AREA_TYPE_SET.has(type)
+				) {
+					const gid =
+						currentGroupId.current ?? target.groupId ?? crypto.randomUUID();
 					currentGroupId.current = gid;
+					groupId = gid;
 				}
-				groupId = gid;
 			}
 			setMeasurements((prev) => {
 				// In subtract mode, clip the new area shape to the parent it overlaps
@@ -901,7 +1016,31 @@ export default function TakeoffsContent({
 				let finalPoints = points;
 				let parentId: string | undefined;
 				if (!addMode && subtractMode && AREA_TYPE_SET.has(type)) {
-					const clipped = clipToParent({ type, points }, prev, page);
+					// When subtracting from a group, any of its area members is an
+					// eligible parent (so the deduction attaches to whichever it's drawn
+					// over); for a lone target, only that shape is eligible.
+					const target = targetId
+						? prev.find((m) => m.id === targetId)
+						: undefined;
+					let allowedParentIds: string[] | undefined;
+					if (target) {
+						allowedParentIds = target.groupId
+							? prev
+									.filter(
+										(m) =>
+											m.groupId === target.groupId &&
+											!m.parentId &&
+											AREA_TYPE_SET.has(m.type)
+									)
+									.map((m) => m.id)
+							: [target.id];
+					}
+					const clipped = clipToParent(
+						{ type, points },
+						prev,
+						page,
+						allowedParentIds
+					);
 					if (clipped) {
 						parentId = clipped.parentId;
 						finalType = clipped.type;
@@ -922,16 +1061,28 @@ export default function TakeoffsContent({
 						}`;
 				const label = detectedText ?? fallbackLabel;
 				// Deductions render red; every other shape gets a colour. Group members
-				// reuse the group's existing colour so the whole group stays uniform.
+				// reuse the group's existing colour (or the anchor's, the first time a
+				// lone shape becomes a group) so the whole group stays uniform.
 				let color: string | undefined;
 				if (!parentId) {
 					color = groupId
 						? (prev.find((m) => m.groupId === groupId)?.color ??
+							(targetId
+								? prev.find((m) => m.id === targetId)?.color
+								: undefined) ??
 							randomShapeColor())
 						: randomShapeColor();
 				}
+				// When this is the first shape added to a lone target, tag the anchor
+				// with the new group id so the two read as one group.
+				const tagged =
+					groupId && targetId
+						? prev.map((m) =>
+								m.id === targetId && !m.groupId ? { ...m, groupId } : m
+							)
+						: prev;
 				return [
-					...prev,
+					...tagged,
 					{
 						id: crypto.randomUUID(),
 						page,
@@ -1023,9 +1174,9 @@ export default function TakeoffsContent({
 					},
 				]);
 				setNewTextId(id);
-				// Drop back to Select so the box is immediately editable/movable and
+				// Drop back to Pan so the box is immediately editable/movable and
 				// further clicks don't keep spawning boxes.
-				selectTool('select');
+				selectTool('pan');
 				return;
 			}
 			if (tool === 'count') {
@@ -1114,13 +1265,6 @@ export default function TakeoffsContent({
 					const dx = point.x - drag.start.x;
 					const dy = point.y - drag.start.y;
 					updateMeasurementPoints(drag.id, translatePoints(drag.orig, dx, dy));
-					// Move the parent's deductions along with it.
-					for (const child of drag.children ?? []) {
-						updateMeasurementPoints(
-							child.id,
-							translatePoints(child.orig, dx, dy)
-						);
-					}
 				} else if (drag.mode === 'edge') {
 					// Slide the whole edge along its perpendicular axis: shift the
 					// owning vertices by the pointer's delta on that axis.
@@ -1224,16 +1368,19 @@ export default function TakeoffsContent({
 	);
 
 	const deleteMeasurement = useCallback((id: string) => {
-		// Deleting a parent also removes its deductions; deleting any group member
-		// removes the whole group.
-		setMeasurements((prev) => {
-			const gid = prev.find((m) => m.id === id)?.groupId;
-			return prev.filter(
-				(m) =>
-					m.id !== id && m.parentId !== id && (gid ? m.groupId !== gid : true)
-			);
-		});
+		// Deleting a parent also removes its deductions, but deleting a member of an
+		// Add group removes only that member (the rest of the group stays intact).
+		setMeasurements((prev) =>
+			prev.filter((m) => m.id !== id && m.parentId !== id)
+		);
 		setSelectedId((current) => (current === id ? null : current));
+		// If the deleted shape was the Add/Subtract target, end the session.
+		if (addTargetRef.current === id) {
+			setAddMode(false);
+			setSubtractMode(false);
+			addTargetRef.current = null;
+			currentGroupId.current = null;
+		}
 	}, []);
 
 	// Pages that currently hold at least one measurement (for the thumbnail "M"
@@ -1243,17 +1390,19 @@ export default function TakeoffsContent({
 		[measurements]
 	);
 
-	// Jump to a measurement: switch to Select, navigate to its page, and select
-	// it. Done inline (not via goToPage/selectTool) so the selection isn't cleared.
+	// Jump to a measurement: switch to Pan (the selecting tool), navigate to its
+	// page, and select it. Done inline (not via goToPage/selectTool) so the
+	// selection isn't cleared.
 	const focusMeasurement = useCallback(
 		(id: string) => {
 			const target = measurements.find((m) => m.id === id);
 			if (!target) {
 				return;
 			}
-			setTool('select');
+			setTool('pan');
 			setSubtractMode(false);
 			setAddMode(false);
+			addTargetRef.current = null;
 			currentGroupId.current = null;
 			setPage(Math.min(Math.max(target.page, 1), numPages || 1));
 			resetDraft();
@@ -1568,9 +1717,7 @@ export default function TakeoffsContent({
 				return;
 			}
 			const editingSelection =
-				tool === 'select' &&
-				selectedId !== null &&
-				draftRef.current.length === 0;
+				tool === 'pan' && selectedId !== null && draftRef.current.length === 0;
 			if (event.key === 'Enter') {
 				finishDraft();
 			} else if (event.key === 'Escape') {
@@ -1602,10 +1749,57 @@ export default function TakeoffsContent({
 	const canFinish =
 		(tool === 'linear' && draft.length >= 2) ||
 		(tool === 'polygon' && draft.length >= 3);
-	// Subtract is toggled from Select mode; Add is toggled while a drawing tool is
-	// active (every shape drawn joins the group until you leave to Pan/Select).
-	const subtractDisabled = tool !== 'select' || !isCalibrated || addMode;
-	const addDisabled = !(isCalibrated && DRAWABLE_TOOLS.has(tool));
+
+	// The currently selected measurement (the anchor for enabling Add/Subtract).
+	const selectedMeasurement = selectedId
+		? measurements.find((m) => m.id === selectedId)
+		: undefined;
+	// Add works on any selected measurement; Subtract only on an area shape.
+	const canAddToSelection = selectedMeasurement != null;
+	const canSubtractFromSelection =
+		selectedMeasurement != null && AREA_TYPE_SET.has(selectedMeasurement.type);
+	// Switches stay enabled while their mode is on (so you can turn it off) and
+	// otherwise require a compatible selection.
+	const addDisabled = !(isCalibrated && (addMode || canAddToSelection));
+	const subtractDisabled = !(
+		isCalibrated &&
+		(subtractMode || canSubtractFromSelection)
+	);
+
+	// While locked to an Add/Subtract target, only same-family drawing tools stay
+	// usable. The target's family drives which tool buttons are disabled.
+	const lockedTarget =
+		(addMode || subtractMode) && addTargetRef.current
+			? measurements.find((m) => m.id === addTargetRef.current)
+			: undefined;
+	const lockedFamily = lockedTarget
+		? measurementFamily(lockedTarget.type)
+		: null;
+
+	// Halo every shape that belongs to the selected group/parent or the locked
+	// Add/Subtract target so the relationship reads on the canvas.
+	const highlightIds = (() => {
+		const ids = new Set<string>();
+		// Selecting a member halos the whole group/parent — but a lone shape keeps
+		// just its edit handles (no halo) to avoid noise on ordinary selection.
+		if (selectedId) {
+			const related = relatedIds(measurements, selectedId);
+			if (related.size > 1) {
+				for (const x of related) {
+					ids.add(x);
+				}
+			}
+		}
+		// The Add/Subtract target always halos (even when lone) so you can see what
+		// you're drawing into.
+		const targetId = addMode || subtractMode ? addTargetRef.current : null;
+		if (targetId) {
+			for (const x of relatedIds(measurements, targetId)) {
+				ids.add(x);
+			}
+		}
+		return ids.size > 0 ? ids : EMPTY_IDS;
+	})();
 
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col gap-3">
@@ -1613,14 +1807,28 @@ export default function TakeoffsContent({
 				<div className="flex items-center gap-1 rounded-lg border bg-card p-1">
 					{TOOLS.map((toolDef) => {
 						const Icon = toolDef.icon;
-						const disabled = toolDef.needsCalibration && !isCalibrated;
+						const family = toolFamily(toolDef.id);
+						// While Add/Subtract is locked to a target, disable drawing tools
+						// of a different family so a group never mixes families.
+						const familyLocked =
+							lockedFamily !== null &&
+							family !== null &&
+							family !== lockedFamily;
+						const needsCalibration = toolDef.needsCalibration && !isCalibrated;
+						const disabled = needsCalibration || familyLocked;
+						let title = toolDef.label;
+						if (needsCalibration) {
+							title = 'Calibrate this page first';
+						} else if (familyLocked) {
+							title = 'Turn off Add/Subtract to use a different tool';
+						}
 						return (
 							<Button
 								disabled={disabled}
 								key={toolDef.id}
 								onClick={() => selectTool(toolDef.id)}
 								size="sm"
-								title={disabled ? 'Calibrate this page first' : toolDef.label}
+								title={title}
 								variant={tool === toolDef.id ? 'default' : 'ghost'}
 							>
 								<Icon />
@@ -1636,7 +1844,7 @@ export default function TakeoffsContent({
 							'flex items-center gap-2 px-3 py-1.5',
 							addDisabled && 'opacity-64'
 						)}
-						title={getAddTitle(isCalibrated, tool)}
+						title={getAddTitle(isCalibrated, canAddToSelection || addMode)}
 					>
 						<Switch
 							checked={addMode}
@@ -1652,11 +1860,10 @@ export default function TakeoffsContent({
 							'flex items-center gap-2 px-3 py-1.5',
 							subtractDisabled && 'opacity-64'
 						)}
-						title={
-							isCalibrated
-								? 'In Select mode, toggle Subtract then draw an area shape to deduct it'
-								: 'Calibrate this page first'
-						}
+						title={getSubtractTitle(
+							isCalibrated,
+							canSubtractFromSelection || subtractMode
+						)}
 					>
 						<Switch
 							checked={subtractMode}
@@ -1665,6 +1872,18 @@ export default function TakeoffsContent({
 							onCheckedChange={setSubtract}
 						/>
 						<Label htmlFor="subtract-toggle">Subtract</Label>
+					</div>
+
+					<div
+						className="flex items-center gap-2 px-3 py-1.5"
+						title="Show each shape's actual measured value on the drawing and in downloads"
+					>
+						<Switch
+							checked={showMeasurements}
+							id="measurements-toggle"
+							onCheckedChange={setShowMeasurements}
+						/>
+						<Label htmlFor="measurements-toggle">Measurements</Label>
 					</div>
 				</div>
 
@@ -1703,6 +1922,7 @@ export default function TakeoffsContent({
 						error={error}
 						globalWastage={globalWastage}
 						guides={snapGuides}
+						highlightIds={highlightIds}
 						legend={legends[page] ?? null}
 						measurements={measurements.filter(
 							(m) => m.page === page && !m.hidden
@@ -1710,9 +1930,9 @@ export default function TakeoffsContent({
 						metersPerPixel={metersPerPixel}
 						newTextId={newTextId}
 						numPages={numPages}
+						onClearSelection={() => setSelectedId(null)}
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
-						onExitToPan={() => selectTool('pan')}
 						onLegendChange={updateLegend}
 						onLegendRemove={() => removeLegend(page)}
 						onPointerUp={handlePointerUp}
@@ -1727,6 +1947,7 @@ export default function TakeoffsContent({
 						ready={ready}
 						renderPage={renderPage}
 						selectedId={selectedId}
+						showMeasurements={showMeasurements}
 						textAnnotations={texts.filter((t) => t.page === page)}
 						tool={tool}
 					/>
@@ -1756,12 +1977,18 @@ export default function TakeoffsContent({
 						setMeasurements([]);
 						resetDraft();
 						setSelectedId(null);
+						setAddMode(false);
+						setSubtractMode(false);
+						addTargetRef.current = null;
 						currentGroupId.current = null;
 					}}
 					onClearPage={() => {
 						setMeasurements((prev) => prev.filter((m) => m.page !== page));
 						resetDraft();
 						setSelectedId(null);
+						setAddMode(false);
+						setSubtractMode(false);
+						addTargetRef.current = null;
 						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}

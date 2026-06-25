@@ -295,9 +295,14 @@ export function clipPolygon(subject: Point[], clip: Point[]): Point[] {
 export function clipToParent(
 	candidate: Pick<Measurement, 'points' | 'type'>,
 	measurements: Measurement[],
-	page: number
+	page: number,
+	// When set, only these area shapes are eligible parents (e.g. the members of
+	// the group being subtracted from); otherwise every area shape on the page is
+	// eligible. Either way the best-overlapping eligible shape is chosen.
+	allowedParentIds?: readonly string[]
 ): { parentId: string; points: Point[]; type: MeasurementType } | null {
 	const subj = toPolygonPoints(candidate);
+	const allowed = allowedParentIds ? new Set(allowedParentIds) : null;
 	let best: { overlap: number; parent: Measurement } | null = null;
 	// Iterate topmost-first so equal overlaps favour the shape drawn last.
 	for (let i = measurements.length - 1; i >= 0; i--) {
@@ -305,15 +310,18 @@ export function clipToParent(
 		if (m.page !== page || m.parentId || !AREA_TYPE_SET.has(m.type)) {
 			continue;
 		}
+		if (allowed && !allowed.has(m.id)) {
+			continue;
+		}
 		const overlap = polygonArea(clipPolygon(subj, toPolygonPoints(m)));
 		if (overlap > 0 && (!best || overlap > best.overlap)) {
 			best = { overlap, parent: m };
 		}
 	}
-	if (!best) {
+	const parent = best?.parent;
+	if (!parent) {
 		return null;
 	}
-	const { parent } = best;
 	if (subj.every((p) => isInsideBody(parent, p))) {
 		return {
 			parentId: parent.id,
@@ -608,6 +616,38 @@ export function formatMeters(value: number): string {
 
 export function formatSqm(value: number): string {
 	return `${value.toFixed(2)} m²`;
+}
+
+/**
+ * The shape's own gross measured value formatted for display: area (m²) for
+ * area-like shapes, length (m) for linear. Returns null for counts (and any
+ * shape without a value), which carry no on-shape measurement badge.
+ */
+export function shapeValueLabel(m: Measurement): string | null {
+	if (m.type === 'linear') {
+		return formatMeters(m.valueMeters ?? 0);
+	}
+	if (AREA_TYPE_SET.has(m.type)) {
+		return formatSqm(m.valueSqm ?? 0);
+	}
+	return null;
+}
+
+/** Top-centre of a shape's bounding box in base pixels (for value badges). */
+export function shapeTopCenter(m: Measurement): Point {
+	if (m.type === 'circle') {
+		return { x: m.points[0].x, y: m.points[0].y - circleRadius(m.points) };
+	}
+	const pts = AREA_TYPE_SET.has(m.type) ? toPolygonPoints(m) : m.points;
+	let minX = pts[0].x;
+	let maxX = pts[0].x;
+	let minY = pts[0].y;
+	for (const p of pts) {
+		minX = Math.min(minX, p.x);
+		maxX = Math.max(maxX, p.x);
+		minY = Math.min(minY, p.y);
+	}
+	return { x: (minX + maxX) / 2, y: minY };
 }
 
 // Default global wastage allowance (%) applied to every measurement until the

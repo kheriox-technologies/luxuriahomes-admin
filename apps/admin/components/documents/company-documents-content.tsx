@@ -27,7 +27,7 @@ export default function CompanyDocumentsContent() {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
-			<PageHeading className="mb-0" heading="Documents" icon={FileText} />
+			<PageHeading heading="Documents" icon={FileText} />
 			<ProjectFileManagerTabContent
 				buildQueryArgs={(folderPath) => ({ folderPath })}
 				emptyTitle="No documents yet"

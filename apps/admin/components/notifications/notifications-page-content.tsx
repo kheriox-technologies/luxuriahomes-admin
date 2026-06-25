@@ -98,7 +98,7 @@ function buildColumns(
 						rel="noopener noreferrer"
 						target="_blank"
 					>
-						<ExternalLink className="h-3 w-3 shrink-0" />
+						<ExternalLink className="size-3 shrink-0" />
 						<span>Open</span>
 					</a>
 				) : null,
@@ -216,7 +216,6 @@ export default function NotificationsPageContent() {
 	return (
 		<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
 			<PageHeading
-				className="mb-0"
 				heading="Notifications"
 				icon={Bell}
 				rightSlot={
