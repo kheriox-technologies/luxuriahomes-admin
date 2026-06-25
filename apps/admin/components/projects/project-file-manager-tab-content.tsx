@@ -70,6 +70,7 @@ import {
 	MonitorX,
 	MoveRight,
 	Pencil,
+	Ruler,
 	Trash2,
 	Upload,
 	X,
@@ -132,6 +133,8 @@ export interface ProjectFileManagerTabContentProps {
 	buildQueryArgs: (folderPath: string) => Record<string, unknown>;
 	emptyTitle?: string;
 	listContentsQuery: ListContentsQuery;
+	// When provided, PDF files gain an "Add to take-offs" action.
+	onAddToTakeoffs?: (fileId: string, title: string) => Promise<void>;
 	onCreateFile: (args: FileManagerCreateArgs) => Promise<void>;
 	onCreateFolder: (args: { name: string; parentPath: string }) => Promise<void>;
 	onDeleteFolder: (folderId: string) => Promise<void>;
@@ -631,6 +634,84 @@ function RenameDialog({
 	);
 }
 
+// ---------- Add to Take-offs Dialog ----------
+
+function AddToTakeoffsDialog({
+	open,
+	onOpenChange,
+	initialTitle,
+	onAdd,
+}: {
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+	initialTitle: string;
+	onAdd: (title: string) => Promise<void>;
+}) {
+	const [title, setTitle] = useState(initialTitle);
+	const [loading, setLoading] = useState(false);
+
+	const onSubmit = async () => {
+		const trimmed = title.trim();
+		if (!trimmed) {
+			return;
+		}
+		setLoading(true);
+		try {
+			await onAdd(trimmed);
+			onOpenChange(false);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	return (
+		<Dialog
+			onOpenChange={(next) => {
+				onOpenChange(next);
+				if (next) {
+					setTitle(initialTitle);
+				}
+			}}
+			open={open}
+		>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Add to take-offs</DialogTitle>
+					<DialogDescription>
+						Enter a title for this take-off.
+					</DialogDescription>
+				</DialogHeader>
+				<div className="px-6 pb-2">
+					<Input
+						autoFocus
+						onChange={(e) => setTitle(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') {
+								onSubmit().catch(() => undefined);
+							}
+						}}
+						placeholder="e.g. Ground Floor Plan"
+						value={title}
+					/>
+				</div>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						disabled={!title.trim() || loading}
+						loading={loading}
+						onClick={() => onSubmit().catch(() => undefined)}
+						type="button"
+					>
+						Add to take-offs
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
 // ---------- Move Dialog ----------
 
 function MoveFolderPicker({
@@ -885,6 +966,7 @@ function FileRowActions({
 	onRenameFile,
 	onMoveFile,
 	onRemoveFile,
+	onAddToTakeoffs,
 	onSetClientPortalVisibility,
 }: {
 	item: FileItem;
@@ -893,11 +975,29 @@ function FileRowActions({
 	onRenameFile: ProjectFileManagerTabContentProps['onRenameFile'];
 	onMoveFile: ProjectFileManagerTabContentProps['onMoveFile'];
 	onRemoveFile: ProjectFileManagerTabContentProps['onRemoveFile'];
+	onAddToTakeoffs?: ProjectFileManagerTabContentProps['onAddToTakeoffs'];
 	onSetClientPortalVisibility?: ProjectFileManagerTabContentProps['onSetClientPortalVisibility'];
 }) {
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [moveOpen, setMoveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [addTakeoffOpen, setAddTakeoffOpen] = useState(false);
+
+	const isPdf = item.mimeType?.includes('pdf') ?? false;
+
+	const onAddTakeoff = async (title: string) => {
+		try {
+			await onAddToTakeoffs?.(item._id, title);
+			toastManager.add({ title: 'Added to take-offs', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not add to take-offs',
+				description: getConvexErrorMessage(error, 'Please try again.'),
+				type: 'error',
+			});
+			throw error;
+		}
+	};
 
 	const onTogglePortal = async () => {
 		const nextVisible = !item.clientPortalVisible;
@@ -987,6 +1087,12 @@ function FileRowActions({
 						<MoveRight />
 						Move
 					</MenuItem>
+					{onAddToTakeoffs && isPdf ? (
+						<MenuItem onClick={() => setAddTakeoffOpen(true)}>
+							<Ruler />
+							Add to take-offs
+						</MenuItem>
+					) : null}
 					{onSetClientPortalVisibility ? (
 						<MenuItem onClick={() => onTogglePortal().catch(() => undefined)}>
 							{item.clientPortalVisible ? <MonitorX /> : <MonitorSmartphone />}
@@ -1024,6 +1130,14 @@ function FileRowActions({
 				onRemove={onRemoveFile}
 				open={deleteOpen}
 			/>
+			{onAddToTakeoffs ? (
+				<AddToTakeoffsDialog
+					initialTitle={item.name}
+					onAdd={onAddTakeoff}
+					onOpenChange={setAddTakeoffOpen}
+					open={addTakeoffOpen}
+				/>
+			) : null}
 		</>
 	);
 }
@@ -1174,6 +1288,7 @@ export function ProjectFileManagerTabContent({
 	onRemoveFile,
 	onRenameFolder,
 	onDeleteFolder,
+	onAddToTakeoffs,
 	onSetClientPortalVisibility,
 	projectId,
 	rootLabel = 'Files',
@@ -1508,6 +1623,7 @@ export function ProjectFileManagerTabContent({
 											buildQueryArgs={buildQueryArgs}
 											item={doc}
 											listContentsQuery={listContentsQuery}
+											onAddToTakeoffs={onAddToTakeoffs}
 											onMoveFile={onMoveFile}
 											onRemoveFile={onRemoveFile}
 											onRenameFile={onRenameFile}

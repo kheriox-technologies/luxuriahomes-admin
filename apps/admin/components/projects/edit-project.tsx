@@ -86,12 +86,30 @@ function cloneClientsFromProject(
 export default function EditProjectForm({
 	projectId,
 	trigger,
+	project: projectProp,
+	open: controlledOpen,
+	onOpenChange,
 }: {
 	projectId: Id<'projects'>;
 	trigger?: ReactElement;
+	project?: Doc<'projects'>;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const project = useQuery(api.projects.get.get, { projectId });
-	const [open, setOpen] = useState(false);
+	const queriedProject = useQuery(
+		api.projects.get.get,
+		projectProp ? 'skip' : { projectId }
+	);
+	const project = projectProp ?? queriedProject;
+	const isControlled = controlledOpen !== undefined;
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+	const open = isControlled ? controlledOpen : uncontrolledOpen;
+	const setOpen = (next: boolean) => {
+		if (!isControlled) {
+			setUncontrolledOpen(next);
+		}
+		onOpenChange?.(next);
+	};
 	const [clients, setClients] = useState<ProjectStoredClient[]>([]);
 	const [draft, setDraft] = useState(emptyClientDraft);
 	const [sameAsFirstClient, setSameAsFirstClient] = useState(true);
@@ -287,9 +305,11 @@ export default function EditProjectForm({
 			}}
 			open={open}
 		>
-			<SheetTrigger
-				render={trigger ?? <Button variant="outline">Edit project</Button>}
-			/>
+			{isControlled ? null : (
+				<SheetTrigger
+					render={trigger ?? <Button variant="outline">Edit project</Button>}
+				/>
+			)}
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"

@@ -3,6 +3,7 @@
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { useAction, useMutation } from 'convex/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ProjectFileManagerTabContent } from './project-file-manager-tab-content';
 
 export default function ProjectDocumentsTabContent({
@@ -10,6 +11,8 @@ export default function ProjectDocumentsTabContent({
 }: {
 	projectId: Id<'projects'>;
 }) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
 	const generateUploadUrl = useAction(
 		api.projectDocuments.generateUploadUrl.generateUploadUrl
 	);
@@ -29,12 +32,22 @@ export default function ProjectDocumentsTabContent({
 	const setClientPortalVisibility = useMutation(
 		api.projectDocuments.setClientPortalVisibility.setClientPortalVisibility
 	);
+	const addToTakeoffs = useAction(api.takeoffs.addToTakeoffs.addToTakeoffs);
 
 	return (
 		<ProjectFileManagerTabContent
 			buildQueryArgs={(folderPath) => ({ projectId, folderPath })}
 			emptyTitle="No documents yet"
 			listContentsQuery={api.projectDocuments.listContents.listContents}
+			onAddToTakeoffs={async (fileId, title) => {
+				await addToTakeoffs({
+					documentId: fileId as Id<'projectDocuments'>,
+					title,
+				});
+				const params = new URLSearchParams(searchParams.toString());
+				params.set('tab', 'takeoffs');
+				router.push(`?${params.toString()}`);
+			}}
 			onCreateFile={async (args) => {
 				await createDocument({ ...args, projectId });
 			}}

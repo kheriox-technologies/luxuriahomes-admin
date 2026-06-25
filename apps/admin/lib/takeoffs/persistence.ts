@@ -1,0 +1,60 @@
+import type { Doc } from '@workspace/backend/dataModel';
+import type { Legend, MeasurementMethod, TakeoffPersistState } from './types';
+
+type TakeoffDoc = Doc<'takeoffs'>;
+
+// Convex stores per-page maps as arrays (object keys must be strings); the
+// in-memory working set keys them by page number. These two helpers convert
+// between the two representations at the data boundary.
+
+export function takeoffDocToState(doc: TakeoffDoc): TakeoffPersistState {
+	const legends: Record<number, Legend> = {};
+	for (const legend of doc.legends) {
+		legends[legend.page] = legend;
+	}
+	const pageTitles: Record<number, string> = {};
+	for (const entry of doc.pageTitles) {
+		pageTitles[entry.page] = entry.title;
+	}
+	const pageMethods: Record<number, MeasurementMethod> = {};
+	for (const entry of doc.pageMethods) {
+		pageMethods[entry.page] = entry.method;
+	}
+	return {
+		measurements: doc.measurements,
+		legends,
+		texts: doc.texts,
+		pageTitles,
+		documentMethod: doc.documentMethod ?? null,
+		pageMethods,
+		globalWastage: doc.globalWastage,
+	};
+}
+
+export interface TakeoffSaveArgs {
+	documentMethod?: MeasurementMethod;
+	globalWastage: number;
+	legends: TakeoffDoc['legends'];
+	measurements: TakeoffDoc['measurements'];
+	pageMethods: TakeoffDoc['pageMethods'];
+	pageTitles: TakeoffDoc['pageTitles'];
+	texts: TakeoffDoc['texts'];
+}
+
+export function stateToSaveArgs(state: TakeoffPersistState): TakeoffSaveArgs {
+	return {
+		measurements: state.measurements,
+		legends: Object.values(state.legends),
+		texts: state.texts,
+		pageTitles: Object.entries(state.pageTitles).map(([page, title]) => ({
+			page: Number(page),
+			title,
+		})),
+		documentMethod: state.documentMethod ?? undefined,
+		pageMethods: Object.entries(state.pageMethods).map(([page, method]) => ({
+			page: Number(page),
+			method,
+		})),
+		globalWastage: state.globalWastage,
+	};
+}
