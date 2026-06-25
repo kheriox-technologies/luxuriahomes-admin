@@ -72,6 +72,7 @@ interface PdfStageProps {
 	cursor: Point | null;
 	draft: Point[];
 	error: string | null;
+	globalWastage: number;
 	guides: SnapGuide[];
 	legend: Legend | null;
 	measurements: Measurement[];
@@ -313,6 +314,7 @@ export default function PdfStage({
 	error,
 	renderPage,
 	tool,
+	globalWastage,
 	metersPerPixel,
 	measurements,
 	draft,
@@ -693,8 +695,10 @@ export default function PdfStage({
 						)}
 						{size && legend && (
 							<LegendOverlay
+								globalWastage={globalWastage}
 								legend={legend}
 								measurements={measurements}
+								metersPerPixel={metersPerPixel}
 								onChange={onLegendChange}
 								onRemove={onLegendRemove}
 								scale={scale}

@@ -3,9 +3,8 @@
 import { X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import type { Legend, Measurement } from '@/lib/takeoffs/types';
-import { buildRows } from './measurements-panel';
+import { buildLegendEntries } from './measurements-panel';
 
-const FALLBACK_COLOR = '#2563eb';
 // Clamp bounds for the legend box width (base canvas px).
 const MIN_LEGEND_WIDTH = 160;
 const MAX_LEGEND_WIDTH = 2400;
@@ -22,53 +21,36 @@ interface LegendChange {
 	y: number;
 }
 
-// One displayed legend entry derived from the page's measurements.
-interface LegendEntry {
-	color: string;
-	description?: string;
-	id: string;
-	name: string;
-}
-
-// Derive the legend rows from the page's (already page-filtered, non-hidden)
-// measurements, reusing the panel's grouping so groups collapse to one entry and
-// deductions fold into their parent — the legend never drifts from the panel.
-function toEntries(measurements: Measurement[]): LegendEntry[] {
-	return buildRows(measurements).map((row) => {
-		if (row.kind === 'group') {
-			return {
-				id: row.groupId,
-				color: row.members[0].color ?? FALLBACK_COLOR,
-				name: row.label,
-				description: row.members.find((m) => m.description)?.description,
-			};
-		}
-		const m = row.measurement;
-		return {
-			id: m.id,
-			color: m.color ?? FALLBACK_COLOR,
-			name: m.label,
-			description: m.description,
-		};
-	});
-}
-
 export default function LegendOverlay({
 	legend,
 	measurements,
+	globalWastage,
+	metersPerPixel,
 	scale,
 	onChange,
 	onRemove,
 }: {
 	legend: Legend;
 	measurements: Measurement[];
+	/** Document wastage default, used to round the optional measurement column. */
+	globalWastage: number;
+	/** Page scale (metres per base px), needed for combined area-group values. */
+	metersPerPixel: number | null;
 	/** Current zoom scale, to convert screen-pixel drags to base-pixel deltas. */
 	scale: number;
 	onChange: (next: LegendChange) => void;
 	onRemove: () => void;
 }): ReactElement {
 	const { x, y, width } = legend;
-	const entries = toEntries(measurements);
+	const entries = buildLegendEntries(
+		measurements,
+		globalWastage,
+		metersPerPixel
+	);
+	const showColor = legend.showColor ?? true;
+	const showName = legend.showName ?? true;
+	const showDescription = legend.showDescription ?? true;
+	const showMeasurement = legend.showMeasurement ?? false;
 	const fontSize = Math.min(MAX_FONT, Math.max(MIN_FONT, width / 22));
 	const pad = fontSize * 0.5;
 	const dot = fontSize * 0.9;
@@ -184,31 +166,45 @@ export default function LegendOverlay({
 								className="border-neutral-200 border-b last:border-0"
 								key={entry.id}
 							>
-								<td
-									className="align-top"
-									style={{ padding: pad, width: dot + pad * 2 }}
-								>
-									<span
-										className="inline-block rounded-full"
-										style={{
-											backgroundColor: entry.color,
-											width: dot,
-											height: dot,
-										}}
-									/>
-								</td>
-								<td
-									className="align-top font-medium"
-									style={{ padding: pad, paddingLeft: 0 }}
-								>
-									{entry.name}
-								</td>
-								<td
-									className="align-top text-neutral-600"
-									style={{ padding: pad, paddingLeft: 0 }}
-								>
-									{entry.description ?? ''}
-								</td>
+								{showColor && (
+									<td
+										className="align-top"
+										style={{ padding: pad, width: dot + pad * 2 }}
+									>
+										<span
+											className="inline-block rounded-full"
+											style={{
+												backgroundColor: entry.color,
+												width: dot,
+												height: dot,
+											}}
+										/>
+									</td>
+								)}
+								{showName && (
+									<td
+										className="align-top font-medium"
+										style={{ padding: pad, paddingLeft: showColor ? 0 : pad }}
+									>
+										{entry.name}
+									</td>
+								)}
+								{showDescription && (
+									<td
+										className="align-top text-neutral-600"
+										style={{ padding: pad, paddingLeft: 0 }}
+									>
+										{entry.description}
+									</td>
+								)}
+								{showMeasurement && (
+									<td
+										className="whitespace-nowrap text-right align-top text-neutral-700"
+										style={{ padding: pad, paddingLeft: 0 }}
+									>
+										{entry.measurement}
+									</td>
+								)}
 							</tr>
 						))}
 					</tbody>

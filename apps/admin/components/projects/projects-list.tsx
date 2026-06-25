@@ -1,8 +1,10 @@
+'use no memo';
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
 import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	Empty,
@@ -11,12 +13,79 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { Building2, ChevronRight, SearchIcon } from 'lucide-react';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
+import {
+	Building2,
+	EllipsisVertical,
+	Pencil,
+	SearchIcon,
+	Trash2,
+} from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { formatAud } from '@/lib/currency';
+import DeleteProject from './delete-project';
+import EditProjectForm from './edit-project';
 
 type Project = Doc<'projects'>;
+
+function ProjectActionsCell({ project }: { project: Project }) {
+	const [editOpen, setEditOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+
+	return (
+		// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper, not interactive
+		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation wrapper, not interactive
+		// biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation wrapper, not interactive
+		<div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Project actions"
+							size="icon-sm"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setEditOpen(true)}>
+						<Pencil />
+						Edit
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<EditProjectForm
+				onOpenChange={setEditOpen}
+				open={editOpen}
+				project={project}
+				projectId={project._id}
+			/>
+			<DeleteProject
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
+				projectId={project._id}
+				projectName={project.name}
+				redirectOnDelete={false}
+			/>
+		</div>
+	);
+}
 
 function NoProjectsYetEmpty() {
 	return (
@@ -269,14 +338,10 @@ const columns: ColumnDef<Project>[] = [
 		},
 	},
 	{
-		id: 'chevron',
+		id: 'actions',
 		header: '',
-		size: 44,
-		cell: () => (
-			<div className="flex justify-end text-muted-foreground">
-				<ChevronRight aria-hidden className="size-4" />
-			</div>
-		),
+		size: 60,
+		cell: ({ row }) => <ProjectActionsCell project={row.original} />,
 	},
 ];
 

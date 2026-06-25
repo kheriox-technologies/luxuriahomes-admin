@@ -18,6 +18,7 @@ import {
 	AlertDialogTrigger,
 } from '@workspace/ui/components/alert-dialog';
 import { Button } from '@workspace/ui/components/button';
+import { Checkbox } from '@workspace/ui/components/checkbox';
 import {
 	Dialog,
 	DialogClose,
@@ -197,6 +198,138 @@ export function buildRows(pageMeasurements: Measurement[]): Row[] {
 	return rows;
 }
 
+// Which columns a legend renders. Color/name/description default on; the rounded
+// measurement column defaults off and is opt-in via the Add Legend dialog.
+export interface LegendDisplay {
+	color: boolean;
+	description: boolean;
+	measurement: boolean;
+	name: boolean;
+}
+
+export const DEFAULT_LEGEND_DISPLAY: LegendDisplay = {
+	color: true,
+	name: true,
+	description: true,
+	measurement: false,
+};
+
+// One displayed legend row. `measurement` is the formatted rounded value (empty
+// when it can't be resolved); renderers choose which fields to show via the
+// per-legend display flags.
+export interface LegendEntry {
+	color: string;
+	description: string;
+	id: string;
+	measurement: string;
+	name: string;
+}
+
+// Rounded length/height/area text for a linear measurement or linear group.
+function formatLinearText(
+	roundedLength: number,
+	heightMeters: number | undefined,
+	areaAddSqm: number | undefined,
+	areaSubtractSqm: number | undefined
+): string {
+	if (heightMeters && heightMeters > 0) {
+		const area = adjustArea(
+			Math.ceil(roundedLength * heightMeters),
+			areaAddSqm,
+			areaSubtractSqm
+		);
+		return `L - ${roundedLength} m, H - ${heightMeters} m, A - ${area} m²`;
+	}
+	return `L - ${roundedLength} m`;
+}
+
+// Rounded measurement text for a single shape, mirroring the panel's badges.
+function singleMeasurementText(
+	m: Measurement,
+	all: Measurement[],
+	globalWastage: number
+): string {
+	if (m.type === 'count') {
+		return `${m.count ?? 0}`;
+	}
+	const wastage = m.wastagePercent ?? globalWastage;
+	if (AREA_TYPE_SET.has(m.type)) {
+		const rounded = adjustArea(
+			roundUpWithWastage(netAreaSqm(m, all), wastage),
+			m.areaAddSqm,
+			m.areaSubtractSqm
+		);
+		return `A - ${rounded} m²`;
+	}
+	const roundedLength = roundUpWithWastage(m.valueMeters ?? 0, wastage);
+	return formatLinearText(
+		roundedLength,
+		m.heightMeters,
+		m.areaAddSqm,
+		m.areaSubtractSqm
+	);
+}
+
+// Rounded measurement text for an Add group, using the group's combined value
+// and its first member for wastage/height/adjustments (as GroupRow does).
+function groupMeasurementText(
+	members: Measurement[],
+	globalWastage: number,
+	mpp: number | null
+): string {
+	const head = members[0];
+	const isArea = AREA_TYPE_SET.has(head.type);
+	const net = groupNetValue(members, isArea, mpp);
+	if (!net) {
+		return '';
+	}
+	const wastage = head.wastagePercent ?? globalWastage;
+	if (net.unit === 'm²') {
+		const rounded = adjustArea(
+			roundUpWithWastage(net.value, wastage),
+			head.areaAddSqm,
+			head.areaSubtractSqm
+		);
+		return `A - ${rounded} m²`;
+	}
+	const roundedLength = roundUpWithWastage(net.value, wastage);
+	return formatLinearText(
+		roundedLength,
+		head.heightMeters,
+		head.areaAddSqm,
+		head.areaSubtractSqm
+	);
+}
+
+// Build legend rows from a page's (filtered, non-hidden) measurements, reusing
+// the panel's grouping so the legend never drifts from the list. Every field is
+// computed; renderers pick which to show via the legend's display flags.
+export function buildLegendEntries(
+	measurements: Measurement[],
+	globalWastage: number,
+	mpp: number | null
+): LegendEntry[] {
+	return buildRows(measurements).map((row) => {
+		if (row.kind === 'group') {
+			return {
+				id: row.groupId,
+				color: row.members[0].color ?? FALLBACK_COLOR,
+				name: row.label,
+				description: row.members.find((m) => m.description)?.description ?? '',
+				measurement: groupMeasurementText(row.members, globalWastage, mpp),
+			};
+		}
+		const m = row.measurement;
+		return {
+			id: m.id,
+			color: m.color ?? FALLBACK_COLOR,
+			name: m.label,
+			description: m.description ?? '',
+			measurement: singleMeasurementText(m, measurements, globalWastage),
+		};
+	});
+}
+
 export default function MeasurementsPanel({
 	page,
 	measurements,
@@ -260,7 +393,7 @@ export default function MeasurementsPanel({
 	onTogglePageHidden: (targetPage: number) => void;
 	/** Pages that currently have a legend on the canvas. */
 	legendPages: Set<number>;
-	onAddLegend: (targetPage: number) => void;
+	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
 	onRemoveLegend: (targetPage: number) => void;
 	onDownloadPage: (targetPage: number) => void;
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
@@ -503,7 +636,7 @@ function PageActionsMenu({
 	hasLegend: boolean;
 	documentMethod: MeasurementMethod | null;
 	onToggleHidden: () => void;
-	onAddLegend: (targetPage: number) => void;
+	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
 	onRemoveLegend: (targetPage: number) => void;
 	onDownloadPage: (targetPage: number) => void;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
@@ -511,59 +644,144 @@ function PageActionsMenu({
 	onResetPage: (targetPage: number) => void;
 }): ReactElement {
 	const scaleLabel = method ? formatMethodLabel(method) : 'Not set';
+	const [legendDialogOpen, setLegendDialogOpen] = useState(false);
 
 	return (
-		<Menu>
-			<MenuTrigger
-				render={
-					<Button
-						aria-label={`Actions for page ${page}`}
-						size="icon-sm"
-						variant="ghost"
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label={`Actions for page ${page}`}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<EllipsisVertical />
+						</Button>
+					}
+				/>
+				<MenuPopup align="end">
+					<MenuItem onClick={onToggleHidden}>
+						{pageHidden ? <Eye /> : <EyeOff />}
+						{pageHidden ? 'Show page on canvas' : 'Hide page on canvas'}
+					</MenuItem>
+					<MenuItem
+						onClick={() =>
+							hasLegend ? onRemoveLegend(page) : setLegendDialogOpen(true)
+						}
 					>
-						<EllipsisVertical />
-					</Button>
-				}
-			/>
-			<MenuPopup align="end">
-				<MenuItem onClick={onToggleHidden}>
-					{pageHidden ? <Eye /> : <EyeOff />}
-					{pageHidden ? 'Show page on canvas' : 'Hide page on canvas'}
-				</MenuItem>
-				<MenuItem
-					onClick={() => (hasLegend ? onRemoveLegend(page) : onAddLegend(page))}
-				>
-					<Table />
-					{hasLegend ? 'Remove Legend' : 'Add Legend'}
-				</MenuItem>
-				<MenuItem onClick={() => onDownloadPage(page)}>
-					<Download />
-					Download Page
-				</MenuItem>
-				<MenuSeparator />
-				<MenuGroup>
-					<MenuGroupLabel>
-						Scale · {hasOverride ? scaleLabel : `${scaleLabel} (default)`}
-					</MenuGroupLabel>
-					<MenuItem onClick={() => onOpenScaleDialog('page', page)}>
-						<Ruler />
-						Drawing scale…
+						<Table />
+						{hasLegend ? 'Remove Legend' : 'Add Legend'}
 					</MenuItem>
-					<MenuItem onClick={() => onCalibrate('page', page)}>
-						<Crosshair />
-						Calibrate from line
+					<MenuItem onClick={() => onDownloadPage(page)}>
+						<Download />
+						Download Page
 					</MenuItem>
-					{hasOverride && (
-						<MenuItem onClick={() => onResetPage(page)}>
-							<RotateCcw />
-							{documentMethod
-								? `Reset to default (${formatMethodLabel(documentMethod)})`
-								: 'Reset to document default'}
+					<MenuSeparator />
+					<MenuGroup>
+						<MenuGroupLabel>
+							Scale · {hasOverride ? scaleLabel : `${scaleLabel} (default)`}
+						</MenuGroupLabel>
+						<MenuItem onClick={() => onOpenScaleDialog('page', page)}>
+							<Ruler />
+							Drawing scale…
 						</MenuItem>
-					)}
-				</MenuGroup>
-			</MenuPopup>
-		</Menu>
+						<MenuItem onClick={() => onCalibrate('page', page)}>
+							<Crosshair />
+							Calibrate from line
+						</MenuItem>
+						{hasOverride && (
+							<MenuItem onClick={() => onResetPage(page)}>
+								<RotateCcw />
+								{documentMethod
+									? `Reset to default (${formatMethodLabel(documentMethod)})`
+									: 'Reset to document default'}
+							</MenuItem>
+						)}
+					</MenuGroup>
+				</MenuPopup>
+			</Menu>
+			<LegendOptionsDialog
+				onConfirm={(display) => onAddLegend(page, display)}
+				onOpenChange={setLegendDialogOpen}
+				open={legendDialogOpen}
+			/>
+		</>
+	);
+}
+
+const LEGEND_OPTION_FIELDS = [
+	{ key: 'color', label: 'Color' },
+	{ key: 'name', label: 'Measurement Name' },
+	{ key: 'description', label: 'Description' },
+	{ key: 'measurement', label: 'Measurement' },
+] as const;
+
+// Lets the user pick which columns a new legend shows before it is added. Color,
+// name and description are on by default; the rounded measurement column is opt-in.
+function LegendOptionsDialog({
+	open,
+	onOpenChange,
+	onConfirm,
+}: {
+	open: boolean;
+	onOpenChange: (next: boolean) => void;
+	onConfirm: (display: LegendDisplay) => void;
+}): ReactElement {
+	const [display, setDisplay] = useState<LegendDisplay>(DEFAULT_LEGEND_DISPLAY);
+
+	// Reset to defaults each time the dialog opens.
+	useEffect(() => {
+		if (open) {
+			setDisplay(DEFAULT_LEGEND_DISPLAY);
+		}
+	}, [open]);
+
+	const confirm = () => {
+		onConfirm(display);
+		onOpenChange(false);
+	};
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Add legend</DialogTitle>
+					<DialogDescription>
+						Choose which details to include in the legend.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogPanel className="flex flex-col gap-3">
+					{LEGEND_OPTION_FIELDS.map((field) => (
+						<label
+							className="flex items-center gap-2 font-medium text-sm"
+							htmlFor={`legend-option-${field.key}`}
+							key={field.key}
+						>
+							<Checkbox
+								checked={display[field.key]}
+								id={`legend-option-${field.key}`}
+								onCheckedChange={(checked) =>
+									setDisplay((prev) => ({
+										...prev,
+										[field.key]: checked === true,
+									}))
+								}
+							/>
+							{field.label}
+						</label>
+					))}
+				</DialogPanel>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button onClick={confirm} type="button">
+						Add Legend
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -993,7 +1211,7 @@ function HeightAreaRow({
 						onChange={(event) => setDraft(event.target.value)}
 						onKeyDown={(event) => {
 							if (event.key === 'Enter') {
-								commit();
+								event.currentTarget.blur();
 							}
 						}}
 						placeholder="Height"
@@ -1101,7 +1319,7 @@ function AdjustInput({
 				onChange={(event) => setDraft(event.target.value)}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter') {
-						commit();
+						event.currentTarget.blur();
 					}
 				}}
 				placeholder="0"

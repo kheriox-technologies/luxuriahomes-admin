@@ -91,6 +91,14 @@ export interface Calibration {
 // never clips content; resize adjusts width, move adjusts x/y. One legend per page.
 export interface Legend {
 	page: number;
+	/** Show the colour swatch column. Defaults to true when unset (legacy legends). */
+	showColor?: boolean;
+	/** Show the description column. Defaults to true when unset. */
+	showDescription?: boolean;
+	/** Show the rounded measurement/value column. Defaults to false when unset. */
+	showMeasurement?: boolean;
+	/** Show the measurement name column. Defaults to true when unset. */
+	showName?: boolean;
 	/** Box width, base px. Font size scales with width; height follows content. */
 	width: number;
 	/** Top-left x, base px. */

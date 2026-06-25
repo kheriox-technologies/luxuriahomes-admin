@@ -70,7 +70,7 @@ import type {
 	ToolId,
 } from '@/lib/takeoffs/types';
 import { AREA_TYPE_SET } from '@/lib/takeoffs/types';
-import MeasurementsPanel from './measurements-panel';
+import MeasurementsPanel, { type LegendDisplay } from './measurements-panel';
 import PdfStage from './pdf-stage';
 import PdfThumbnails from './pdf-thumbnails';
 import ScaleControl from './scale-control';
@@ -295,6 +295,9 @@ export default function TakeoffsContent({
 	// Active pointer drag (draw / move / resize). Ref-driven like `draftRef` so
 	// native SVG listeners read the latest value without stale closures.
 	const dragRef = useRef<DragKind | null>(null);
+	// Id of the count measurement currently being built. Enter/Escape or leaving
+	// the count tool closes it so the next marker starts a new set.
+	const activeCountIdRef = useRef<string | null>(null);
 	const writeDraft = useCallback((points: Point[]) => {
 		draftRef.current = points;
 		setDraft(points);
@@ -329,6 +332,7 @@ export default function TakeoffsContent({
 		writeDraft([]);
 		setCursor(null);
 		setSnapGuides([]);
+		activeCountIdRef.current = null;
 	}, [writeDraft]);
 
 	// Persist the working set whenever a persisted slice changes. The caller
@@ -1008,6 +1012,8 @@ export default function TakeoffsContent({
 		writeDraft([]);
 		setCursor(null);
 		setSnapGuides([]);
+		// Close any open count set so the next marker starts a fresh one.
+		activeCountIdRef.current = null;
 	}, [tool, commit, writeDraft]);
 
 	// Hold Shift to (1) lock the current segment to the nearest 0°/45°/90°/…
@@ -1064,12 +1070,14 @@ export default function TakeoffsContent({
 			}
 			if (tool === 'count') {
 				setMeasurements((prev) => {
-					const existing = prev.find(
-						(m) => m.type === 'count' && m.page === page
-					);
-					if (existing) {
+					const active = activeCountIdRef.current
+						? prev.find(
+								(m) => m.id === activeCountIdRef.current && m.page === page
+							)
+						: undefined;
+					if (active) {
 						return prev.map((m) =>
-							m.id === existing.id
+							m.id === active.id
 								? {
 										...m,
 										points: [...m.points, point],
@@ -1078,16 +1086,21 @@ export default function TakeoffsContent({
 								: m
 						);
 					}
+					const id = crypto.randomUUID();
+					activeCountIdRef.current = id;
+					const countOnPage = prev.filter(
+						(m) => m.type === 'count' && m.page === page
+					).length;
 					return [
 						...prev,
 						{
-							id: crypto.randomUUID(),
+							id,
 							page,
 							type: 'count',
 							points: [point],
 							count: 1,
 							color: randomShapeColor(),
-							label: 'Count',
+							label: countOnPage === 0 ? 'Count' : `Count ${countOnPage + 1}`,
 						},
 					];
 				});
@@ -1432,10 +1445,16 @@ export default function TakeoffsContent({
 	// page's geometry. The geometry fetch is async, so this resolves it then writes
 	// the legend; on failure it falls back to fixed base-pixel defaults.
 	const addLegend = useCallback(
-		(targetPage: number) => {
+		(targetPage: number, display: LegendDisplay) => {
 			if (legends[targetPage]) {
 				return;
 			}
+			const flags = {
+				showColor: display.color,
+				showName: display.name,
+				showDescription: display.description,
+				showMeasurement: display.measurement,
+			};
 			const write = (legend: Legend) =>
 				setLegends((prev) =>
 					prev[targetPage] ? prev : { ...prev, [targetPage]: legend }
@@ -1449,12 +1468,14 @@ export default function TakeoffsContent({
 									x: Math.round(geom.baseWidth * LEGEND_INSET_RATIO),
 									y: Math.round(geom.baseHeight * LEGEND_INSET_RATIO),
 									width: Math.round(geom.baseWidth * LEGEND_WIDTH_RATIO),
+									...flags,
 								}
 							: {
 									page: targetPage,
 									x: LEGEND_FALLBACK_INSET,
 									y: LEGEND_FALLBACK_INSET,
 									width: LEGEND_FALLBACK_WIDTH,
+									...flags,
 								}
 					);
 				})
@@ -1464,6 +1485,7 @@ export default function TakeoffsContent({
 						x: LEGEND_FALLBACK_INSET,
 						y: LEGEND_FALLBACK_INSET,
 						width: LEGEND_FALLBACK_WIDTH,
+						...flags,
 					});
 				});
 		},
@@ -1719,6 +1741,7 @@ export default function TakeoffsContent({
 						cursor={cursor}
 						draft={draft}
 						error={error}
+						globalWastage={globalWastage}
 						guides={snapGuides}
 						legend={legends[page] ?? null}
 						measurements={measurements.filter(

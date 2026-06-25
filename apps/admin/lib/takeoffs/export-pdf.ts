@@ -5,11 +5,12 @@ import {
 	rgb,
 	StandardFonts,
 } from 'pdf-lib';
-import { buildRows } from '@/components/takeoffs/measurements-panel';
+import { buildLegendEntries } from '@/components/takeoffs/measurements-panel';
 import {
 	circleRadius,
 	groupColorMap,
 	rectBounds,
+	resolveMpp,
 } from '@/lib/takeoffs/geometry';
 import type {
 	Legend,
@@ -232,6 +233,22 @@ function wrapText(
 const LEGEND_MIN_FONT = 9;
 const LEGEND_MAX_FONT = 64;
 
+// A drawn text column in the legend: its x/width (points), font and colour.
+interface LegendTextColumn {
+	color: ReturnType<typeof rgb>;
+	font: PDFFont;
+	value: (entry: LegendExportEntry) => string;
+	width: number;
+	x: number;
+}
+
+interface LegendExportEntry {
+	color: string;
+	description: string;
+	measurement: string;
+	name: string;
+}
+
 function drawLegend(
 	page: PDFPage,
 	legend: Legend,
@@ -239,23 +256,15 @@ function drawLegend(
 	scaleFactor: number,
 	pageHeight: number,
 	font: PDFFont,
-	boldFont: PDFFont
+	boldFont: PDFFont,
+	globalWastage: number,
+	mpp: number | null
 ) {
-	const rows = buildRows(measurements);
-	const entries = rows.map((row) => {
-		if (row.kind === 'group') {
-			return {
-				color: row.members[0].color ?? FALLBACK_COLOR,
-				name: row.label,
-				description: row.members.find((m) => m.description)?.description ?? '',
-			};
-		}
-		return {
-			color: row.measurement.color ?? FALLBACK_COLOR,
-			name: row.measurement.label,
-			description: row.measurement.description ?? '',
-		};
-	});
+	const entries = buildLegendEntries(measurements, globalWastage, mpp);
+	const showColor = legend.showColor ?? true;
+	const showName = legend.showName ?? true;
+	const showDescription = legend.showDescription ?? true;
+	const showMeasurement = legend.showMeasurement ?? false;
 
 	const fontBase = Math.min(
 		LEGEND_MAX_FONT,
@@ -269,29 +278,75 @@ function drawLegend(
 	const leftPts = legend.x * scaleFactor;
 	const topPts = pageHeight - legend.y * scaleFactor;
 
-	const dotCol = dot + pad * 2;
-	const textColStart = leftPts + dotCol;
-	const remaining = widthPts - dotCol - pad;
-	const nameWidth = Math.max(remaining * 0.45, sizePts);
-	const descWidth = Math.max(remaining * 0.55 - pad, sizePts);
+	// Fixed colour column, then proportional text columns sharing the remainder.
+	const colorWidth = showColor ? dot + pad * 2 : 0;
+	const specs: {
+		weight: number;
+		font: PDFFont;
+		color: ReturnType<typeof rgb>;
+		value: (e: LegendExportEntry) => string;
+	}[] = [];
+	if (showName) {
+		specs.push({
+			weight: 0.4,
+			font: boldFont,
+			color: rgb(0.09, 0.09, 0.09),
+			value: (e) => e.name,
+		});
+	}
+	if (showDescription) {
+		specs.push({
+			weight: 0.4,
+			font,
+			color: rgb(0.4, 0.4, 0.4),
+			value: (e) => e.description,
+		});
+	}
+	if (showMeasurement) {
+		specs.push({
+			weight: 0.2,
+			font,
+			color: rgb(0.25, 0.25, 0.25),
+			value: (e) => e.measurement,
+		});
+	}
+
+	const totalWeight = specs.reduce((sum, s) => sum + s.weight, 0) || 1;
+	// Padding: leading gap after the colour column, one between each text column.
+	const gaps = pad * (specs.length + 1);
+	const availableText = Math.max(sizePts, widthPts - colorWidth - gaps);
+	let columnX = leftPts + colorWidth + pad;
+	const columns: LegendTextColumn[] = specs.map((spec) => {
+		const colWidth = Math.max(
+			sizePts,
+			(availableText * spec.weight) / totalWeight
+		);
+		const column: LegendTextColumn = {
+			color: spec.color,
+			font: spec.font,
+			value: spec.value,
+			width: colWidth,
+			x: columnX,
+		};
+		columnX += colWidth + pad;
+		return column;
+	});
 
 	interface RowLayout {
 		color: string;
-		descLines: string[];
 		height: number;
-		nameLines: string[];
+		linesByColumn: string[][];
 	}
 	const layouts: RowLayout[] = entries.map((entry) => {
-		const nameLines = wrapText(entry.name, boldFont, sizePts, nameWidth);
-		const descLines = entry.description
-			? wrapText(entry.description, font, sizePts, descWidth)
-			: [];
-		const rowLines = Math.max(nameLines.length, descLines.length, 1);
+		const linesByColumn = columns.map((column) => {
+			const text = column.value(entry);
+			return text ? wrapText(text, column.font, sizePts, column.width) : [];
+		});
+		const rowLines = Math.max(1, ...linesByColumn.map((lines) => lines.length));
 		return {
 			color: entry.color,
-			nameLines,
-			descLines,
-			height: Math.max(dot, rowLines * lineHeight) + pad * 2,
+			linesByColumn,
+			height: Math.max(showColor ? dot : 0, rowLines * lineHeight) + pad * 2,
 		};
 	});
 
@@ -322,40 +377,31 @@ function drawLegend(
 
 	let cursorY = topPts;
 	for (const row of layouts) {
-		// Colour dot (path pre-scaled to points; anchor flips into PDF space).
-		page.drawSvgPath(
-			circlePath({ x: leftPts + pad + dot / 2, y: 0 }, dot / 2),
-			{
-				x: 0,
-				y: cursorY - pad - dot / 2,
-				color: hexToRgb(row.color),
-				borderWidth: 0,
+		if (showColor) {
+			// Colour dot (path pre-scaled to points; anchor flips into PDF space).
+			page.drawSvgPath(
+				circlePath({ x: leftPts + pad + dot / 2, y: 0 }, dot / 2),
+				{
+					x: 0,
+					y: cursorY - pad - dot / 2,
+					color: hexToRgb(row.color),
+					borderWidth: 0,
+				}
+			);
+		}
+		columns.forEach((column, index) => {
+			let lineY = cursorY - pad - sizePts;
+			for (const line of row.linesByColumn[index]) {
+				page.drawText(line, {
+					x: column.x,
+					y: lineY,
+					size: sizePts,
+					font: column.font,
+					color: column.color,
+				});
+				lineY -= lineHeight;
 			}
-		);
-		// Name (bold) lines.
-		let lineY = cursorY - pad - sizePts;
-		for (const line of row.nameLines) {
-			page.drawText(line, {
-				x: textColStart,
-				y: lineY,
-				size: sizePts,
-				font: boldFont,
-				color: rgb(0.09, 0.09, 0.09),
-			});
-			lineY -= lineHeight;
-		}
-		// Description lines.
-		let descY = cursorY - pad - sizePts;
-		for (const line of row.descLines) {
-			page.drawText(line, {
-				x: textColStart + nameWidth + pad,
-				y: descY,
-				size: sizePts,
-				font,
-				color: rgb(0.4, 0.4, 0.4),
-			});
-			descY -= lineHeight;
-		}
+		});
 		cursorY -= row.height;
 	}
 }
@@ -446,6 +492,9 @@ function annotatePage(
 
 	const legend = input.legends[pageNumber];
 	if (legend) {
+		// Resolve this page's scale so combined area-group values match the panel.
+		const method = input.pageMethods[pageNumber] ?? input.documentMethod;
+		const mpp = method ? resolveMpp(method, geometry) : null;
 		drawLegend(
 			page,
 			legend,
@@ -454,7 +503,9 @@ function annotatePage(
 			scaleFactor,
 			pageHeight,
 			font,
-			boldFont
+			boldFont,
+			input.globalWastage,
+			mpp
 		);
 	}
 }

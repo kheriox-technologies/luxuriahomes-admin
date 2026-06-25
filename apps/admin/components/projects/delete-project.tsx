@@ -23,12 +23,26 @@ export default function DeleteProject({
 	projectId,
 	projectName,
 	trigger,
+	open: controlledOpen,
+	onOpenChange,
+	redirectOnDelete = true,
 }: {
 	projectId: Id<'projects'>;
 	projectName: string;
 	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	redirectOnDelete?: boolean;
 }) {
-	const [open, setOpen] = useState(false);
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+	const isControlled = controlledOpen !== undefined;
+	const open = isControlled ? controlledOpen : uncontrolledOpen;
+	const setOpen = (next: boolean) => {
+		if (!isControlled) {
+			setUncontrolledOpen(next);
+		}
+		onOpenChange?.(next);
+	};
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeProject = useMutation(api.projects.remove.remove);
 	const router = useRouter();
@@ -42,7 +56,9 @@ export default function DeleteProject({
 				type: 'success',
 			});
 			setOpen(false);
-			router.push('/projects');
+			if (redirectOnDelete) {
+				router.push('/projects');
+			}
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -59,13 +75,15 @@ export default function DeleteProject({
 
 	return (
 		<AlertDialog onOpenChange={setOpen} open={open}>
-			<AlertDialogTrigger
-				render={
-					trigger ?? (
-						<Button variant="destructive-outline">Delete project</Button>
-					)
-				}
-			/>
+			{isControlled ? null : (
+				<AlertDialogTrigger
+					render={
+						trigger ?? (
+							<Button variant="destructive-outline">Delete project</Button>
+						)
+					}
+				/>
+			)}
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Delete project?</AlertDialogTitle>

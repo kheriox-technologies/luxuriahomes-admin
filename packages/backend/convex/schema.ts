@@ -129,6 +129,10 @@ export const takeoffLegendValidator = v.object({
 	x: v.number(),
 	y: v.number(),
 	width: v.number(),
+	showColor: v.optional(v.boolean()),
+	showName: v.optional(v.boolean()),
+	showDescription: v.optional(v.boolean()),
+	showMeasurement: v.optional(v.boolean()),
 });
 
 export const takeoffTextValidator = v.object({
