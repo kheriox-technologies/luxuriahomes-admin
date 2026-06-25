@@ -339,6 +339,15 @@ export default function TakeoffsContent({
 	const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
 	// Currently selected committed shape (Select tool) for editing/move.
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	// Index of the selected marker within the selected count (null otherwise).
+	const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(
+		null
+	);
+	// Clear both the shape selection and any marker sub-selection together.
+	const clearSelection = useCallback(() => {
+		setSelectedId(null);
+		setSelectedMarkerIndex(null);
+	}, []);
 	// Width (px) of the measurements panel, adjustable via the drag handle.
 	const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
 	// Per-page legend boxes (base-pixel space). In-memory only, matching the rest
@@ -1248,6 +1257,9 @@ export default function TakeoffsContent({
 				writeDraft([drag.start]);
 			} else {
 				setSelectedId(drag.id);
+				// Track which marker was grabbed (for highlight/delete); clear the
+				// sub-selection when grabbing a non-count shape.
+				setSelectedMarkerIndex(drag.mode === 'marker' ? drag.index : null);
 			}
 		},
 		[writeDraft]
@@ -1275,6 +1287,13 @@ export default function TakeoffsContent({
 						drag.orig.map((p, i) =>
 							owners.has(i) ? { ...p, [drag.axis]: p[drag.axis] + delta } : p
 						)
+					);
+				} else if (drag.mode === 'marker') {
+					// Move a single count marker; markers are independent points so no
+					// alignment snapping is applied.
+					updateMeasurementPoints(
+						drag.id,
+						drag.orig.map((p, i) => (i === drag.index ? point : p))
 					);
 				} else {
 					// Dragging a single vertex handle. With Shift held, lock its motion
@@ -1374,12 +1393,39 @@ export default function TakeoffsContent({
 			prev.filter((m) => m.id !== id && m.parentId !== id)
 		);
 		setSelectedId((current) => (current === id ? null : current));
+		setSelectedMarkerIndex(null);
 		// If the deleted shape was the Add/Subtract target, end the session.
 		if (addTargetRef.current === id) {
 			setAddMode(false);
 			setSubtractMode(false);
 			addTargetRef.current = null;
 			currentGroupId.current = null;
+		}
+	}, []);
+
+	// Remove a single marker from a count. Dropping the last marker removes the
+	// whole count measurement and clears its selection.
+	const deleteMarker = useCallback((id: string, index: number) => {
+		let removed = false;
+		setMeasurements((prev) =>
+			prev.flatMap((m) => {
+				if (m.id !== id) {
+					return [m];
+				}
+				const points = m.points.filter((_, i) => i !== index);
+				if (points.length === 0) {
+					removed = true;
+					return [];
+				}
+				return [{ ...m, points, count: points.length }];
+			})
+		);
+		setSelectedMarkerIndex(null);
+		if (removed) {
+			setSelectedId((current) => (current === id ? null : current));
+			if (activeCountIdRef.current === id) {
+				activeCountIdRef.current = null;
+			}
 		}
 	}, []);
 
@@ -1722,13 +1768,17 @@ export default function TakeoffsContent({
 				finishDraft();
 			} else if (event.key === 'Escape') {
 				resetDraft();
-				setSelectedId(null);
+				clearSelection();
 			} else if (
 				(event.key === 'Delete' || event.key === 'Backspace') &&
 				editingSelection
 			) {
 				event.preventDefault();
-				deleteMeasurement(selectedId);
+				if (selectedMarkerIndex !== null) {
+					deleteMarker(selectedId, selectedMarkerIndex);
+				} else {
+					deleteMeasurement(selectedId);
+				}
 			} else if (event.key === 'Backspace' && draftRef.current.length > 0) {
 				event.preventDefault();
 				writeDraft(draftRef.current.slice(0, -1));
@@ -1743,7 +1793,10 @@ export default function TakeoffsContent({
 		calibLine,
 		tool,
 		selectedId,
+		selectedMarkerIndex,
 		deleteMeasurement,
+		deleteMarker,
+		clearSelection,
 	]);
 
 	const canFinish =
@@ -1930,7 +1983,7 @@ export default function TakeoffsContent({
 						metersPerPixel={metersPerPixel}
 						newTextId={newTextId}
 						numPages={numPages}
-						onClearSelection={() => setSelectedId(null)}
+						onClearSelection={clearSelection}
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
 						onLegendChange={updateLegend}
@@ -1947,6 +2000,7 @@ export default function TakeoffsContent({
 						ready={ready}
 						renderPage={renderPage}
 						selectedId={selectedId}
+						selectedMarkerIndex={selectedMarkerIndex}
 						showMeasurements={showMeasurements}
 						textAnnotations={texts.filter((t) => t.page === page)}
 						tool={tool}

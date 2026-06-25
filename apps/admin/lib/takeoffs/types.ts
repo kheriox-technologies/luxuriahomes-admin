@@ -183,6 +183,7 @@ export type DragKind =
 			start: Point;
 	  }
 	| { id: string; index: number; mode: 'handle'; orig: Point[] }
+	| { id: string; index: number; mode: 'marker'; orig: Point[] }
 	| {
 			axis: 'x' | 'y';
 			id: string;
