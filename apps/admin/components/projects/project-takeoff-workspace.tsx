@@ -75,7 +75,10 @@ export default function ProjectTakeoffWorkspace({
 		[]
 	);
 
-	const onSavePdf = useCallback(
+	// Overwrite the takeoff's PDF in S3 with the given bytes via a presigned PUT.
+	// Shared by the "Save PDF" action (annotated bytes) and structural page edits
+	// (page copy/delete bytes, no overlays burned in).
+	const uploadPdf = useCallback(
 		async (bytes: Uint8Array) => {
 			const { uploadUrl } = await generateSaveUrl({ takeoffId });
 			const res = await fetch(uploadUrl, {
@@ -102,7 +105,8 @@ export default function ProjectTakeoffWorkspace({
 		<TakeoffsContent
 			initial={initialRef.current}
 			onPersist={onPersist}
-			onSavePdf={onSavePdf}
+			onSavePdf={uploadPdf}
+			onUploadStructural={uploadPdf}
 			pdfUrl={pdfUrl}
 			ref={contentRef}
 		/>

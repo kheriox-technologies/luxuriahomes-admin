@@ -36,6 +36,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import type { PageIndexedState } from '@/lib/takeoffs/edit-pdf';
 import {
 	circleRadius,
 	clipToParent,
@@ -176,6 +177,10 @@ export interface TakeoffsContentProps {
 	/** When provided, the parent can call `ref.savePdf()` to burn the overlays
 	 * into the PDF and receive the bytes to upload. */
 	onSavePdf?: (bytes: Uint8Array) => Promise<void>;
+	/** Persist a structural page edit (copy/delete) to storage immediately. Given
+	 * the restructured PDF bytes (no overlays burned in) so the stored PDF stays
+	 * in sync with the page-indexed working set. */
+	onUploadStructural?: (bytes: Uint8Array) => Promise<void>;
 	/** PDF to load. Defaults to the bundled sample plan (prototype mode). */
 	pdfUrl?: string;
 	ref?: Ref<TakeoffsHandle>;
@@ -186,8 +191,22 @@ export default function TakeoffsContent({
 	initial,
 	onPersist,
 	onSavePdf,
+	onUploadStructural,
 	ref,
 }: TakeoffsContentProps = {}) {
+	// The PDF source fed to pdfjs. Starts as the parent's `pdfUrl` and is swapped
+	// to an in-memory blob URL after a structural page edit (copy/delete) so the
+	// viewer reflects the new page structure before it is re-uploaded.
+	const [workingUrl, setWorkingUrl] = useState(pdfUrl);
+	// The current working PDF bytes (post structural edits); seeded lazily from
+	// `workingUrl` on the first edit.
+	const workingBytesRef = useRef<Uint8Array | null>(null);
+	// The live blob URL backing `workingUrl`, tracked so it can be revoked when
+	// replaced or on unmount.
+	const blobUrlRef = useRef<string | null>(null);
+	// Serializes structural edits and Save PDF so they never read stale bytes.
+	const opBusyRef = useRef(false);
+
 	const {
 		numPages,
 		renderPage,
@@ -196,7 +215,7 @@ export default function TakeoffsContent({
 		getPageGeometry,
 		error,
 		ready,
-	} = usePdfDocument(pdfUrl);
+	} = usePdfDocument(workingUrl);
 
 	const [page, setPage] = useState(1);
 	const [tool, setTool] = useState<ToolId>('pan');
@@ -329,6 +348,54 @@ export default function TakeoffsContent({
 		globalWastage,
 	]);
 
+	// Follow the parent when it supplies a new source PDF (e.g. switching takeoffs):
+	// drop any working blob/bytes so the new document loads fresh.
+	useEffect(() => {
+		setWorkingUrl(pdfUrl);
+		workingBytesRef.current = null;
+		if (blobUrlRef.current) {
+			URL.revokeObjectURL(blobUrlRef.current);
+			blobUrlRef.current = null;
+		}
+	}, [pdfUrl]);
+
+	// Revoke the live blob URL on unmount.
+	useEffect(
+		() => () => {
+			if (blobUrlRef.current) {
+				URL.revokeObjectURL(blobUrlRef.current);
+			}
+		},
+		[]
+	);
+
+	// The current working PDF bytes, seeded from `workingUrl` on first use.
+	const currentWorkingBytes = useCallback(async (): Promise<Uint8Array> => {
+		if (workingBytesRef.current) {
+			return workingBytesRef.current;
+		}
+		const response = await fetch(workingUrl);
+		const bytes = new Uint8Array(await response.arrayBuffer());
+		workingBytesRef.current = bytes;
+		return bytes;
+	}, [workingUrl]);
+
+	// Adopt restructured PDF bytes: cache them, point the viewer at a fresh blob
+	// URL, and revoke the previous blob (pdfjs reads the blob synchronously when
+	// the load effect fires, so the old one is safe to release immediately).
+	const swapWorkingPdf = useCallback((bytes: Uint8Array) => {
+		workingBytesRef.current = bytes;
+		const url = URL.createObjectURL(
+			new Blob([bytes as BlobPart], { type: 'application/pdf' })
+		);
+		const previous = blobUrlRef.current;
+		blobUrlRef.current = url;
+		setWorkingUrl(url);
+		if (previous) {
+			URL.revokeObjectURL(previous);
+		}
+	}, []);
+
 	// Save PDF: burn the overlays into the PDF and hand the bytes to the caller.
 	// Triggered by the parent via the imperative handle below.
 	const handleSavePdf = useCallback(async () => {
@@ -341,8 +408,7 @@ export default function TakeoffsContent({
 		});
 		try {
 			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
-			const response = await fetch(pdfUrl);
-			const originalBytes = new Uint8Array(await response.arrayBuffer());
+			const originalBytes = await currentWorkingBytes();
 
 			// Geometry for every page that has any overlay to draw.
 			const pagesWithOverlays = new Set<number>();
@@ -383,7 +449,7 @@ export default function TakeoffsContent({
 		}
 	}, [
 		onSavePdf,
-		pdfUrl,
+		currentWorkingBytes,
 		measurements,
 		texts,
 		legends,
@@ -466,6 +532,144 @@ export default function TakeoffsContent({
 			currentGroupId.current = null;
 		},
 		[numPages, resetDraft]
+	);
+
+	// Push a remapped page-indexed working set into the slice setters (one batched
+	// render → a single persist).
+	const applyPageIndexedState = useCallback((next: PageIndexedState) => {
+		setMeasurements(next.measurements);
+		setTexts(next.texts);
+		setLegends(next.legends);
+		setPageMethods(next.pageMethods);
+		setPageTitles(next.pageTitles);
+	}, []);
+
+	// Clear transient editing state before a structural page edit so a half-drawn
+	// draft or stale auto-naming cache never binds to a now-shifted page.
+	const resetForPageEdit = useCallback(() => {
+		resetDraft();
+		setSelectedId(null);
+		currentGroupId.current = null;
+		pageTextRef.current.clear();
+	}, [resetDraft]);
+
+	// Copy a page: duplicate it in the PDF below the source page, shift the
+	// page-indexed working set up past it (the copy starts empty), persist the new
+	// PDF structure, and reveal the copy.
+	const handleCopyPage = useCallback(
+		async (targetPage: number) => {
+			if (opBusyRef.current) {
+				return;
+			}
+			opBusyRef.current = true;
+			const toastId = toastManager.add({
+				title: 'Copying page…',
+				type: 'loading',
+			});
+			try {
+				resetForPageEdit();
+				const { copyPageInPdf, remapForCopy } = await import(
+					'@/lib/takeoffs/edit-pdf'
+				);
+				const bytes = await currentWorkingBytes();
+				const newBytes = await copyPageInPdf(bytes, targetPage);
+				swapWorkingPdf(newBytes);
+				applyPageIndexedState(
+					remapForCopy(
+						{ measurements, texts, legends, pageMethods, pageTitles },
+						targetPage
+					)
+				);
+				setPage(targetPage + 1);
+				await onUploadStructural?.(newBytes);
+				toastManager.update(toastId, { title: 'Page copied', type: 'success' });
+			} catch {
+				toastManager.update(toastId, {
+					title: 'Could not copy page',
+					description: 'Please try again.',
+					type: 'error',
+				});
+			} finally {
+				opBusyRef.current = false;
+			}
+		},
+		[
+			measurements,
+			texts,
+			legends,
+			pageMethods,
+			pageTitles,
+			currentWorkingBytes,
+			swapWorkingPdf,
+			applyPageIndexedState,
+			resetForPageEdit,
+			onUploadStructural,
+		]
+	);
+
+	// Delete a page: remove it from the PDF, drop its measurements/annotations and
+	// shift the rest down, persist the new structure, and move to a valid page.
+	const handleDeletePage = useCallback(
+		async (targetPage: number) => {
+			if (opBusyRef.current || numPages <= 1) {
+				return;
+			}
+			opBusyRef.current = true;
+			const toastId = toastManager.add({
+				title: 'Deleting page…',
+				type: 'loading',
+			});
+			try {
+				resetForPageEdit();
+				const { removePageInPdf, remapForDelete } = await import(
+					'@/lib/takeoffs/edit-pdf'
+				);
+				const bytes = await currentWorkingBytes();
+				const newBytes = await removePageInPdf(bytes, targetPage);
+				swapWorkingPdf(newBytes);
+				applyPageIndexedState(
+					remapForDelete(
+						{ measurements, texts, legends, pageMethods, pageTitles },
+						targetPage
+					)
+				);
+				// numPages is momentarily stale (the new blob hasn't reloaded yet), so
+				// clamp against the post-delete count computed locally.
+				const newCount = numPages - 1;
+				setPage((current) => {
+					if (current > targetPage) {
+						return current - 1;
+					}
+					return Math.min(current, newCount);
+				});
+				await onUploadStructural?.(newBytes);
+				toastManager.update(toastId, {
+					title: 'Page deleted',
+					type: 'success',
+				});
+			} catch {
+				toastManager.update(toastId, {
+					title: 'Could not delete page',
+					description: 'Please try again.',
+					type: 'error',
+				});
+			} finally {
+				opBusyRef.current = false;
+			}
+		},
+		[
+			numPages,
+			measurements,
+			texts,
+			legends,
+			pageMethods,
+			pageTitles,
+			currentWorkingBytes,
+			swapWorkingPdf,
+			applyPageIndexedState,
+			resetForPageEdit,
+			onUploadStructural,
+		]
 	);
 
 	// Replace a committed shape's points and recompute its value/perimeter live.
@@ -1408,6 +1612,8 @@ export default function TakeoffsContent({
 				<PdfThumbnails
 					currentPage={page}
 					numPages={numPages}
+					onCopyPage={handleCopyPage}
+					onDeletePage={handleDeletePage}
 					onSelectPage={goToPage}
 					pagesWithMeasurements={pagesWithMeasurements}
 					ready={ready}
