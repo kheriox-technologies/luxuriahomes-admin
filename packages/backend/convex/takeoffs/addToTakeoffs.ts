@@ -6,7 +6,10 @@ import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { action } from '../_generated/server';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
+import { toKebabCase } from '../lib/toKebabCase';
 import { TAKE_OFFS_FOLDER_PATH } from './shared';
+
+const PDF_EXTENSION_RE = /\.pdf$/i;
 
 function insertCounter(kebabName: string, counter: number): string {
 	const lastDot = kebabName.lastIndexOf('.');
@@ -65,7 +68,17 @@ export const addToTakeoffs = action({
 			});
 		}
 
-		let kebabName = doc.kebabName;
+		// Take-offs are always PDFs; build the copy's filename from the title so the
+		// same source PDF can be added under different names. Strip any user-typed
+		// ".pdf" first so it isn't slugged into the stem (e.g. "plan-pdf.pdf").
+		const titleStem = args.title.replace(PDF_EXTENSION_RE, '');
+		let baseKebabName = toKebabCase(`${titleStem}.pdf`);
+		// Fallback: a title of only punctuation slugs to an empty stem.
+		if (baseKebabName === '.pdf' || baseKebabName === 'pdf') {
+			baseKebabName = doc.kebabName;
+		}
+
+		let kebabName = baseKebabName;
 		let attempt = 0;
 		while (attempt < MAX_DEDUPE_ATTEMPTS) {
 			const exists = await ctx.runQuery(
@@ -80,7 +93,7 @@ export const addToTakeoffs = action({
 				break;
 			}
 			attempt++;
-			kebabName = insertCounter(doc.kebabName, attempt);
+			kebabName = insertCounter(baseKebabName, attempt);
 		}
 
 		const newS3Key = `projects/${doc.projectId}/documents/${TAKE_OFFS_FOLDER_PATH}/${kebabName}`;
@@ -109,7 +122,7 @@ export const addToTakeoffs = action({
 			internal.takeoffs.shared.createCopyAndTakeoff,
 			{
 				projectId: doc.projectId,
-				name: doc.name,
+				name: args.title,
 				takeoffName: args.title,
 				kebabName,
 				s3Key: newS3Key,

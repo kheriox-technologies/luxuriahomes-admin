@@ -46,6 +46,7 @@ export default function ProjectTakeoffsTabContent({
 	const contentRef = useRef<TakeoffsHandle>(null);
 	const [downloadingPdf, setDownloadingPdf] = useState(false);
 	const [deletingTakeoff, setDeletingTakeoff] = useState(false);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const removeTakeoff = useAction(api.takeoffs.remove.remove);
 
 	const onDownloadPdf = async () => {
@@ -68,6 +69,7 @@ export default function ProjectTakeoffsTabContent({
 				title: 'Take-off deleted',
 				type: 'success',
 			});
+			setDeleteDialogOpen(false);
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -169,7 +171,10 @@ export default function ProjectTakeoffsTabContent({
 								<Download />
 								Download PDF
 							</Button>
-							<AlertDialog>
+							<AlertDialog
+								onOpenChange={setDeleteDialogOpen}
+								open={deleteDialogOpen}
+							>
 								<AlertDialogTrigger
 									render={
 										<Button
