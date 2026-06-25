@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { ChevronLeftIcon, type LucideIcon } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
@@ -32,14 +33,21 @@ const PageHeading = ({
 	<div className={cn('mb-4 space-y-4', className)}>
 		<div className="flex min-w-0 items-start justify-between gap-3">
 			<div className="flex min-w-0 flex-1 items-center gap-2">
-				{backLink && (
-					<Link href={backLink as LinkProps<string>['href']}>
-						<ChevronLeftIcon className="h-4 w-4" />
-					</Link>
-				)}
 				{Icon && <Icon className="h-6 w-6" />}
 				<div className="flex min-w-0 flex-1 flex-col gap-1">
 					<div className="flex min-w-0 items-center gap-2">
+						{backLink && (
+							<Button
+								aria-label="Go back"
+								className="-ml-2 shrink-0"
+								render={<Link href={backLink as LinkProps<string>['href']} />}
+								size="icon"
+								type="button"
+								variant="ghost"
+							>
+								<ChevronLeftIcon />
+							</Button>
+						)}
 						{titleTrailing ? (
 							<div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
 								<h3 className="min-w-0 shrink truncate font-semibold sm:tracking-tight">
