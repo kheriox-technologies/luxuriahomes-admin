@@ -46,6 +46,7 @@ import {
 	type ToolId,
 } from '@/lib/takeoffs/types';
 import LegendOverlay from './legend-overlay';
+import { buildRows } from './measurements-panel';
 import TextOverlay from './text-overlay';
 import type { RenderedSize } from './use-pdf-document';
 
@@ -685,6 +686,23 @@ export default function PdfStage({
 		};
 	}, []);
 
+	// Name of the current selection, shown as a badge on the canvas so the active
+	// measurement reads at a glance without scanning the side panel. A grouped
+	// shape shows its group's name (matching the panel) rather than its own label.
+	const selectedMeasurement = selectedId
+		? measurements.find((m) => m.id === selectedId)
+		: undefined;
+	let selectedName = selectedMeasurement?.label;
+	if (selectedMeasurement?.groupId) {
+		const groupRow = buildRows(measurements).find(
+			(row) =>
+				row.kind === 'group' && row.groupId === selectedMeasurement.groupId
+		);
+		if (groupRow?.kind === 'group') {
+			selectedName = groupRow.label;
+		}
+	}
+
 	if (error) {
 		return (
 			<div className="flex h-full items-center justify-center text-destructive-foreground text-sm">
@@ -819,7 +837,7 @@ export default function PdfStage({
 				</TransformComponent>
 			</TransformWrapper>
 
-			<div className="pointer-events-none absolute top-2 right-2 max-w-[16rem]">
+			<div className="pointer-events-none absolute top-2 left-2 max-w-[16rem]">
 				<Badge
 					className="max-w-full bg-background/90 shadow-sm"
 					size="lg"
@@ -829,6 +847,19 @@ export default function PdfStage({
 					<span className="min-w-0 truncate">{currentPageName}</span>
 				</Badge>
 			</div>
+
+			{selectedName ? (
+				<div className="pointer-events-none absolute top-2 right-2 max-w-[16rem]">
+					<Badge
+						className="max-w-full bg-background/90 shadow-sm"
+						size="lg"
+						title={selectedName}
+						variant="outline"
+					>
+						<span className="min-w-0 truncate">{selectedName}</span>
+					</Badge>
+				</div>
+			) : null}
 
 			<div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-1 text-muted-foreground text-xs shadow-sm">
 				Page {page} / {numPages || '–'} · Zoom{' '}
