@@ -349,6 +349,10 @@ export default function TakeoffsContent({
 	const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(
 		null
 	);
+	// Id of the shape most recently drawn on this page. Acts as the implicit
+	// Add/Subtract anchor so the next shape can group/deduct without leaving the
+	// drawing tool to reselect. Set on commit; cleared on tool/page change.
+	const [lastDrawnId, setLastDrawnId] = useState<string | null>(null);
 	// Clear both the shape selection and any marker sub-selection together.
 	const clearSelection = useCallback(() => {
 		setSelectedId(null);
@@ -649,6 +653,9 @@ export default function TakeoffsContent({
 			}
 			resetDraft();
 			setSelectedId(null);
+			// Switching tools starts fresh — the implicit anchor only holds while you
+			// stay on the tool you drew with.
+			setLastDrawnId(null);
 		},
 		[resetDraft, addMode, subtractMode, measurements]
 	);
@@ -662,7 +669,12 @@ export default function TakeoffsContent({
 			// the global handler instead of re-toggling this still-focused switch.
 			(document.activeElement as HTMLElement | null)?.blur();
 			if (on) {
-				const target = measurements.find((m) => m.id === selectedId);
+				// Lock onto the selection if there is one, else the shape just drawn.
+				const target =
+					measurements.find((m) => m.id === selectedId) ??
+					(lastDrawnId
+						? measurements.find((m) => m.id === lastDrawnId)
+						: undefined);
 				// Subtract only applies to area shapes.
 				if (!(target && AREA_TYPE_SET.has(target.type))) {
 					return;
@@ -682,7 +694,7 @@ export default function TakeoffsContent({
 			resetDraft();
 			setSelectedId(null);
 		},
-		[resetDraft, measurements, selectedId]
+		[resetDraft, measurements, selectedId, lastDrawnId]
 	);
 
 	// Toggle Add mode. Turning it on locks onto the selected measurement and
@@ -695,7 +707,12 @@ export default function TakeoffsContent({
 			// the global handler instead of re-toggling this still-focused switch.
 			(document.activeElement as HTMLElement | null)?.blur();
 			if (on) {
-				const target = measurements.find((m) => m.id === selectedId);
+				// Lock onto the selection if there is one, else the shape just drawn.
+				const target =
+					measurements.find((m) => m.id === selectedId) ??
+					(lastDrawnId
+						? measurements.find((m) => m.id === lastDrawnId)
+						: undefined);
 				if (!target) {
 					return;
 				}
@@ -723,7 +740,7 @@ export default function TakeoffsContent({
 			resetDraft();
 			setSelectedId(null);
 		},
-		[resetDraft, measurements, selectedId]
+		[resetDraft, measurements, selectedId, lastDrawnId]
 	);
 
 	const goToPage = useCallback(
@@ -737,6 +754,8 @@ export default function TakeoffsContent({
 			setSubtractMode(false);
 			addTargetRef.current = null;
 			currentGroupId.current = null;
+			// The implicit anchor also lives on the page being left.
+			setLastDrawnId(null);
 		},
 		[numPages, resetDraft]
 	);
@@ -1077,6 +1096,9 @@ export default function TakeoffsContent({
 			// handleStageClick and never reach commit. A family mismatch (guarded
 			// against by tool gating) is ignored so a group can't be corrupted.
 			const targetId = addTargetRef.current;
+			// Hoisted out of the updater so it can be recorded as the implicit
+			// Add/Subtract anchor (see setLastDrawnId below) once the shape commits.
+			const newId = crypto.randomUUID();
 			let groupId: string | undefined;
 			if (addMode && targetId) {
 				const target = measurements.find((m) => m.id === targetId);
@@ -1167,7 +1189,7 @@ export default function TakeoffsContent({
 				return [
 					...tagged,
 					{
-						id: crypto.randomUUID(),
+						id: newId,
 						page,
 						type: finalType,
 						points: finalPoints,
@@ -1180,6 +1202,9 @@ export default function TakeoffsContent({
 					},
 				];
 			});
+			// Lock the implicit anchor to the shape just drawn so Add/Subtract can
+			// group/deduct the next one without leaving the drawing tool.
+			setLastDrawnId(newId);
 		},
 		[page, metersPerPixel, subtractMode, addMode, measurements]
 	);
@@ -1883,14 +1908,20 @@ export default function TakeoffsContent({
 		(tool === 'linear' && draft.length >= 2) ||
 		(tool === 'polygon' && draft.length >= 3);
 
-	// The currently selected measurement (the anchor for enabling Add/Subtract).
+	// The currently selected measurement, if any.
 	const selectedMeasurement = selectedId
 		? measurements.find((m) => m.id === selectedId)
 		: undefined;
-	// Add works on any selected measurement; Subtract only on an area shape.
-	const canAddToSelection = selectedMeasurement != null;
+	// The anchor that enables Add/Subtract: an explicit selection wins, otherwise
+	// fall back to the shape just drawn so the next shape can group/deduct without
+	// a trip back to Pan to reselect.
+	const anchorMeasurement =
+		selectedMeasurement ??
+		(lastDrawnId ? measurements.find((m) => m.id === lastDrawnId) : undefined);
+	// Add works on any anchor measurement; Subtract only on an area shape.
+	const canAddToSelection = anchorMeasurement != null;
 	const canSubtractFromSelection =
-		selectedMeasurement != null && AREA_TYPE_SET.has(selectedMeasurement.type);
+		anchorMeasurement != null && AREA_TYPE_SET.has(anchorMeasurement.type);
 	// Switches stay enabled while their mode is on (so you can turn it off) and
 	// otherwise require a compatible selection.
 	const addDisabled = !(isCalibrated && (addMode || canAddToSelection));
