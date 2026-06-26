@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { cn } from '@workspace/ui/lib/utils';
@@ -71,6 +72,8 @@ const ZOOM_INTENSITY = 0.0015;
 const MAX_WHEEL_DELTA = 50;
 
 interface PdfStageProps {
+	// Display name of the current page; shown as an overlay badge on the canvas.
+	currentPageName: string;
 	cursor: Point | null;
 	draft: Point[];
 	error: string | null;
@@ -320,6 +323,7 @@ function selectCursor(
 export default function PdfStage({
 	page,
 	numPages,
+	currentPageName,
 	ready,
 	error,
 	renderPage,
@@ -814,6 +818,17 @@ export default function PdfStage({
 					</div>
 				</TransformComponent>
 			</TransformWrapper>
+
+			<div className="pointer-events-none absolute top-2 right-2 max-w-[16rem]">
+				<Badge
+					className="max-w-full bg-background/90 shadow-sm"
+					size="lg"
+					title={currentPageName}
+					variant="outline"
+				>
+					<span className="min-w-0 truncate">{currentPageName}</span>
+				</Badge>
+			</div>
 
 			<div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-1 text-muted-foreground text-xs shadow-sm">
 				Page {page} / {numPages || '–'} · Zoom{' '}

@@ -1963,13 +1963,16 @@ export default function TakeoffsContent({
 					numPages={numPages}
 					onCopyPage={handleCopyPage}
 					onDeletePage={handleDeletePage}
+					onRenamePage={renamePage}
 					onSelectPage={goToPage}
 					pagesWithMeasurements={pagesWithMeasurements}
+					pageTitles={pageTitles}
 					ready={ready}
 					renderThumbnail={renderThumbnail}
 				/>
 				<div className="min-w-0 flex-1">
 					<PdfStage
+						currentPageName={pageTitles[page] ?? `Page ${page}`}
 						cursor={cursor}
 						draft={draft}
 						error={error}
