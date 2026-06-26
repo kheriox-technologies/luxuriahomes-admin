@@ -174,11 +174,10 @@ function isAdjustable(m: Measurement): boolean {
 // Whether a measurement already carries a manual adjustment. Used to decide if
 // its adjustment inputs show by default — empty ones stay hidden to save space.
 function hasAdjustmentValues(m: Measurement): boolean {
-	return (
-		(m.areaAddSqm ?? 0) > 0 ||
-		(m.areaSubtractSqm ?? 0) > 0 ||
-		(m.heightMeters ?? 0) > 0
-	);
+	// Only the manual add/subtract amounts count as adjustments for default
+	// visibility — the linear wall height is a primary input that stays
+	// collapsed until the user expands adjustments.
+	return (m.areaAddSqm ?? 0) > 0 || (m.areaSubtractSqm ?? 0) > 0;
 }
 
 export type Row =
@@ -1122,8 +1121,9 @@ function MeasurementRow({
 						subtractSqm={m.areaSubtractSqm}
 					/>
 				)}
-				{adjustmentsShown && m.type === 'linear' && net && (
+				{m.type === 'linear' && net && (
 					<HeightAreaRow
+						adjustmentsShown={adjustmentsShown}
 						areaAddSqm={m.areaAddSqm}
 						areaSubtractSqm={m.areaSubtractSqm}
 						color={color}
@@ -1320,8 +1320,9 @@ function GroupRow({
 						subtractSqm={areaSubtractSqm}
 					/>
 				)}
-				{adjustmentsShown && net?.unit === 'm' && (
+				{net?.unit === 'm' && (
 					<HeightAreaRow
+						adjustmentsShown={adjustmentsShown}
 						areaAddSqm={areaAddSqm}
 						areaSubtractSqm={areaSubtractSqm}
 						color={color}
@@ -1438,6 +1439,7 @@ function HeightAreaRow({
 	roundedLength,
 	areaAddSqm,
 	areaSubtractSqm,
+	adjustmentsShown,
 	onSetHeight,
 	onSetAreaAdjust,
 }: {
@@ -1446,6 +1448,7 @@ function HeightAreaRow({
 	roundedLength: number;
 	areaAddSqm?: number;
 	areaSubtractSqm?: number;
+	adjustmentsShown: boolean;
 	onSetHeight: (heightMeters: number | null) => void;
 	onSetAreaAdjust: (
 		field: 'areaAddSqm' | 'areaSubtractSqm',
@@ -1510,7 +1513,7 @@ function HeightAreaRow({
 					/>
 				)}
 			</div>
-			{area !== null && (
+			{adjustmentsShown && area !== null && (
 				<AreaAdjustRow
 					addSqm={areaAddSqm}
 					onSetAdd={(value) => onSetAreaAdjust('areaAddSqm', value)}
