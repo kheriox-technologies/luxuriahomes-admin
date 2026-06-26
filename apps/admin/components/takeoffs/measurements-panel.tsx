@@ -378,6 +378,7 @@ export default function MeasurementsPanel({
 	onCalibrate,
 	onResetPage,
 	onDelete,
+	onDeleteGroup,
 	onDeletePageFromMeasurements,
 	onClearPage,
 	onClearAll,
@@ -411,6 +412,7 @@ export default function MeasurementsPanel({
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
 	onDelete: (id: string) => void;
+	onDeleteGroup: (groupId: string) => void;
 	onDeletePageFromMeasurements: (targetPage: number) => void;
 	onClearPage: () => void;
 	onClearAll: () => void;
@@ -683,7 +685,7 @@ export default function MeasurementsPanel({
 																metersPerPixel,
 																pageMeasurements
 															)}
-															onDelete={() => onDelete(row.members[0].id)}
+															onDelete={() => onDeleteGroup(row.groupId)}
 															onDeleteDeduction={onDelete}
 															onRecolor={(color) =>
 																onRecolorMeasurement(row.members[0].id, color)

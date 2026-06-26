@@ -1502,6 +1502,41 @@ export default function TakeoffsContent({
 		}
 	}, []);
 
+	// Delete every member of an Add group at once (and their deductions). Used by
+	// the measurements panel's "Delete group" action; the canvas Delete key still
+	// removes only the selected member via deleteMeasurement.
+	const deleteGroup = useCallback(
+		(groupId: string) => {
+			const removedIds = new Set(
+				measurements.filter((m) => m.groupId === groupId).map((m) => m.id)
+			);
+			if (removedIds.size === 0) {
+				return;
+			}
+			setMeasurements((prev) =>
+				prev.filter(
+					(m) =>
+						!(
+							removedIds.has(m.id) ||
+							(m.parentId && removedIds.has(m.parentId))
+						)
+				)
+			);
+			setSelectedId((current) =>
+				current && removedIds.has(current) ? null : current
+			);
+			setSelectedMarkerIndex(null);
+			// If the Add/Subtract target belonged to this group, end the session.
+			if (addTargetRef.current && removedIds.has(addTargetRef.current)) {
+				setAddMode(false);
+				setSubtractMode(false);
+				addTargetRef.current = null;
+				currentGroupId.current = null;
+			}
+		},
+		[measurements]
+	);
+
 	// Remove a single marker from a count. Dropping the last marker removes the
 	// whole count measurement and clears its selection.
 	const deleteMarker = useCallback((id: string, index: number) => {
@@ -2163,6 +2198,7 @@ export default function TakeoffsContent({
 						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}
+					onDeleteGroup={deleteGroup}
 					onDeletePageFromMeasurements={handleDeletePageFromMeasurements}
 					onDownloadPage={handleDownloadPage}
 					onOpenScaleDialog={(scope, targetPage) =>
