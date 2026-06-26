@@ -69,7 +69,6 @@ import {
 	FileText,
 	Hash,
 	Layers,
-	MousePointer2,
 	Palette,
 	Pentagon,
 	RotateCcw,
@@ -547,38 +546,62 @@ export default function MeasurementsPanel({
 								adjustableReps.length > 0 && adjustableReps.every(adjustShown);
 							return (
 								<AccordionItem key={pageNumber} value={String(pageNumber)}>
-									<AccordionPrimitive.Header className="flex items-center gap-2 bg-muted/50 px-3 py-2.5">
+									<AccordionPrimitive.Header
+										className="flex cursor-pointer items-center gap-2 bg-muted/80 px-3 py-2.5 hover:bg-muted"
+										onClick={(event) => {
+											// The chevron trigger and actions menu (marked
+											// data-no-toggle) handle their own clicks, and the rename
+											// input shouldn't toggle either. Everything else on the bar
+											// expands/collapses the page.
+											const target = event.target as HTMLElement;
+											if (
+												target.closest('[data-no-toggle]') ||
+												target.closest('input')
+											) {
+												return;
+											}
+											const key = String(pageNumber);
+											setOpenPages((prev) =>
+												prev.includes(key)
+													? prev.filter((p) => p !== key)
+													: [...prev, key]
+											);
+										}}
+									>
 										<InlineTitle
 											className="min-w-0 flex-1"
 											onRename={(title) => onRenamePage(pageNumber, title)}
 											value={pageTitles[pageNumber] ?? `Page ${pageNumber}`}
 										/>
-										<PageActionsMenu
-											adjustable={adjustableReps.length > 0}
-											adjustmentsShown={pageAdjustShown}
-											documentMethod={documentMethod}
-											hasLegend={legendPages.has(pageNumber)}
-											hasOverride={pageMethods[pageNumber] !== undefined}
-											method={pageMethods[pageNumber] ?? documentMethod}
-											onAddLegend={onAddLegend}
-											onCalibrate={onCalibrate}
-											onDownloadPage={onDownloadPage}
-											onOpenScaleDialog={onOpenScaleDialog}
-											onRemoveLegend={onRemoveLegend}
-											onResetPage={onResetPage}
-											onToggleAdjustments={() =>
-												setAdjustForAll(adjustableReps, !pageAdjustShown)
-											}
-											onToggleHidden={() => onTogglePageHidden(pageNumber)}
-											page={pageNumber}
-											pageHidden={pageHidden}
-										/>
+										<span className="contents" data-no-toggle>
+											<PageActionsMenu
+												adjustable={adjustableReps.length > 0}
+												adjustmentsShown={pageAdjustShown}
+												documentMethod={documentMethod}
+												hasLegend={legendPages.has(pageNumber)}
+												hasOverride={pageMethods[pageNumber] !== undefined}
+												method={pageMethods[pageNumber] ?? documentMethod}
+												onAddLegend={onAddLegend}
+												onCalibrate={onCalibrate}
+												onDownloadPage={onDownloadPage}
+												onOpenScaleDialog={onOpenScaleDialog}
+												onRemoveLegend={onRemoveLegend}
+												onResetPage={onResetPage}
+												onToggleAdjustments={() =>
+													setAdjustForAll(adjustableReps, !pageAdjustShown)
+												}
+												onToggleHidden={() => onTogglePageHidden(pageNumber)}
+												page={pageNumber}
+												pageHidden={pageHidden}
+											/>
+										</span>
 										<AccordionPrimitive.Trigger
 											className={cn(
 												'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
 												'focus-visible:ring-[3px] focus-visible:ring-ring',
 												'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
 											)}
+											data-no-toggle
 											type="button"
 										>
 											<ChevronDownIcon
@@ -588,7 +611,7 @@ export default function MeasurementsPanel({
 										</AccordionPrimitive.Trigger>
 									</AccordionPrimitive.Header>
 									<AccordionPanel className="px-2 pt-1 pb-2">
-										<ul className="flex flex-col divide-y">
+										<ul className="flex flex-col gap-2">
 											{rows.map((row) => {
 												if (row.kind !== 'group') {
 													return (
@@ -885,6 +908,11 @@ function LegendOptionsDialog({
 	);
 }
 
+// Clicking a card's body selects/navigates to its measurement, except when the
+// click lands on a real control (rename, actions menu, wastage, delete, inputs).
+const CARD_INTERACTIVE_SELECTOR =
+	'button, input, textarea, a, [data-no-select]';
+
 function MeasurementRow({
 	measurement: m,
 	pageMeasurements,
@@ -940,16 +968,35 @@ function MeasurementRow({
 		<li
 			className={cn(
 				'flex flex-col gap-1 rounded-md p-1',
-				selected && 'bg-accent ring-1 ring-ring ring-inset',
+				selected ? 'bg-accent ring-1 ring-ring ring-inset' : 'border',
 				m.hidden && 'opacity-60'
 			)}
 			ref={ref}
 		>
+			{/* biome-ignore lint/a11y/useSemanticElements: card body wraps its own interactive controls, so it can't be a <button>; keyboard support is provided below */}
 			<div
 				className={cn(
-					'flex flex-col gap-1.5 rounded-md px-2 py-1.5',
+					'flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5',
 					!selected && 'hover:bg-accent/50'
 				)}
+				onClick={(event) => {
+					if (
+						!(event.target as HTMLElement).closest(CARD_INTERACTIVE_SELECTOR)
+					) {
+						onSelect(m.id);
+					}
+				}}
+				onKeyDown={(event) => {
+					if (
+						event.target === event.currentTarget &&
+						(event.key === 'Enter' || event.key === ' ')
+					) {
+						event.preventDefault();
+						onSelect(m.id);
+					}
+				}}
+				role="button"
+				tabIndex={0}
 			>
 				<div className="flex items-center gap-2">
 					<span className="shrink-0" style={{ color }}>
@@ -957,6 +1004,7 @@ function MeasurementRow({
 					</span>
 					<InlineTitle
 						className="min-w-0 flex-1"
+						onActivate={() => onSelect(m.id)}
 						onRename={(label) => onRename(m.id, label)}
 						value={m.label}
 					/>
@@ -986,16 +1034,11 @@ function MeasurementRow({
 							color={color}
 							globalWastage={globalWastage}
 							net={net}
-							onSelect={() => onSelect(m.id)}
 							onSetWastage={(percent) => onSetWastage(m.id, percent)}
 							wastagePercent={m.wastagePercent}
 						/>
 					) : (
-						<ValueBadge
-							color={color}
-							onSelect={() => onSelect(m.id)}
-							value={`${m.count ?? 0} markers`}
-						/>
+						<ValueBadge color={color} value={`${m.count ?? 0} markers`} />
 					)}
 				</div>
 				{adjustmentsShown && net?.unit === 'm²' && (
@@ -1014,7 +1057,6 @@ function MeasurementRow({
 						areaSubtractSqm={m.areaSubtractSqm}
 						color={color}
 						heightMeters={m.heightMeters}
-						onSelect={() => onSelect(m.id)}
 						onSetAreaAdjust={(field, value) =>
 							onSetAreaAdjust(m.id, field, value)
 						}
@@ -1027,7 +1069,7 @@ function MeasurementRow({
 				)}
 			</div>
 			{deductions.length > 0 && (
-				<ul className="ml-4 flex flex-col gap-1 border-l pl-2">
+				<ul className="ml-4 flex flex-col gap-1 border-l pl-2" data-no-select>
 					{deductions.map((d) => {
 						const DeductionIcon = TYPE_META[d.type].icon;
 						return (
@@ -1127,80 +1169,103 @@ function GroupRow({
 	return (
 		<li
 			className={cn(
-				'flex flex-col gap-1.5 rounded-md px-2 py-1.5',
-				selected
-					? 'bg-accent ring-1 ring-ring ring-inset'
-					: 'hover:bg-accent/50',
+				'flex flex-col gap-1 rounded-md p-1',
+				selected ? 'bg-accent ring-1 ring-ring ring-inset' : 'border',
 				hidden && 'opacity-60'
 			)}
 			ref={ref}
 		>
-			<div className="flex items-center gap-2">
-				<span className="shrink-0" style={{ color }}>
-					<Layers className="size-4" />
-				</span>
-				<InlineTitle
-					className="min-w-0 flex-1"
-					onRename={onRename}
-					value={label}
-				/>
-				<RowActionsMenu
-					adjustable={adjustable}
-					adjustmentsShown={adjustmentsShown}
-					color={color}
-					deleteDescription="This permanently removes the whole group. This can't be undone."
-					deleteLabel="Delete group"
-					description={description}
-					hidden={hidden}
-					label={label}
-					onDelete={onDelete}
-					onRecolor={onRecolor}
-					onSetDescription={onSetDescription}
-					onToggleAdjustments={onToggleAdjustments}
-					onToggleHidden={onToggleHidden}
-				/>
-			</div>
-			<div className="flex items-start justify-between gap-2">
-				{net ? (
-					<MeasurementBadges
+			{/* biome-ignore lint/a11y/useSemanticElements: card body wraps its own interactive controls, so it can't be a <button>; keyboard support is provided below */}
+			<div
+				className={cn(
+					'flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5',
+					!selected && 'hover:bg-accent/50'
+				)}
+				onClick={(event) => {
+					if (
+						!(event.target as HTMLElement).closest(CARD_INTERACTIVE_SELECTOR)
+					) {
+						onSelect();
+					}
+				}}
+				onKeyDown={(event) => {
+					if (
+						event.target === event.currentTarget &&
+						(event.key === 'Enter' || event.key === ' ')
+					) {
+						event.preventDefault();
+						onSelect();
+					}
+				}}
+				role="button"
+				tabIndex={0}
+			>
+				<div className="flex items-center gap-2">
+					<span className="shrink-0" style={{ color }}>
+						<Layers className="size-4" />
+					</span>
+					<InlineTitle
+						className="min-w-0 flex-1"
+						onActivate={onSelect}
+						onRename={onRename}
+						value={label}
+					/>
+					<RowActionsMenu
+						adjustable={adjustable}
+						adjustmentsShown={adjustmentsShown}
+						color={color}
+						deleteDescription="This permanently removes the whole group. This can't be undone."
+						deleteLabel="Delete group"
+						description={description}
+						hidden={hidden}
+						label={label}
+						onDelete={onDelete}
+						onRecolor={onRecolor}
+						onSetDescription={onSetDescription}
+						onToggleAdjustments={onToggleAdjustments}
+						onToggleHidden={onToggleHidden}
+					/>
+				</div>
+				<div className="flex items-start justify-between gap-2">
+					{net ? (
+						<MeasurementBadges
+							areaAddSqm={areaAddSqm}
+							areaSubtractSqm={areaSubtractSqm}
+							color={color}
+							globalWastage={globalWastage}
+							net={net}
+							onSetWastage={onSetWastage}
+							wastagePercent={wastagePercent}
+						/>
+					) : (
+						<ValueBadge color={color} value="—" />
+					)}
+				</div>
+				{adjustmentsShown && net?.unit === 'm²' && (
+					<AreaAdjustRow
+						addSqm={areaAddSqm}
+						onSetAdd={(value) => onSetAreaAdjust('areaAddSqm', value)}
+						onSetSubtract={(value) => onSetAreaAdjust('areaSubtractSqm', value)}
+						subtractSqm={areaSubtractSqm}
+					/>
+				)}
+				{adjustmentsShown && net?.unit === 'm' && (
+					<HeightAreaRow
 						areaAddSqm={areaAddSqm}
 						areaSubtractSqm={areaSubtractSqm}
 						color={color}
-						globalWastage={globalWastage}
-						net={net}
-						onSelect={onSelect}
-						onSetWastage={onSetWastage}
-						wastagePercent={wastagePercent}
+						heightMeters={heightMeters}
+						onSetAreaAdjust={onSetAreaAdjust}
+						onSetHeight={onSetHeight}
+						roundedLength={roundUpWithWastage(
+							net.value,
+							wastagePercent ?? globalWastage
+						)}
 					/>
-				) : (
-					<ValueBadge color={color} onSelect={onSelect} value="—" />
 				)}
 			</div>
-			{adjustmentsShown && net?.unit === 'm²' && (
-				<AreaAdjustRow
-					addSqm={areaAddSqm}
-					onSetAdd={(value) => onSetAreaAdjust('areaAddSqm', value)}
-					onSetSubtract={(value) => onSetAreaAdjust('areaSubtractSqm', value)}
-					subtractSqm={areaSubtractSqm}
-				/>
-			)}
-			{adjustmentsShown && net?.unit === 'm' && (
-				<HeightAreaRow
-					areaAddSqm={areaAddSqm}
-					areaSubtractSqm={areaSubtractSqm}
-					color={color}
-					heightMeters={heightMeters}
-					onSelect={onSelect}
-					onSetAreaAdjust={onSetAreaAdjust}
-					onSetHeight={onSetHeight}
-					roundedLength={roundUpWithWastage(
-						net.value,
-						wastagePercent ?? globalWastage
-					)}
-				/>
-			)}
 			{deductions.length > 0 && (
-				<ul className="ml-4 flex flex-col gap-1 border-l pl-2">
+				<ul className="ml-4 flex flex-col gap-1 border-l pl-2" data-no-select>
 					{deductions.map((d) => {
 						const DeductionIcon = TYPE_META[d.type].icon;
 						return (
@@ -1244,7 +1309,6 @@ function MeasurementBadges({
 	wastagePercent,
 	areaAddSqm,
 	areaSubtractSqm,
-	onSelect,
 	onSetWastage,
 }: {
 	net: NetValue;
@@ -1253,7 +1317,6 @@ function MeasurementBadges({
 	wastagePercent?: number;
 	areaAddSqm?: number;
 	areaSubtractSqm?: number;
-	onSelect: () => void;
 	onSetWastage: (percent: number | null) => void;
 }) {
 	const effectiveWastage = wastagePercent ?? globalWastage;
@@ -1273,15 +1336,11 @@ function MeasurementBadges({
 			<div className="flex flex-wrap items-center gap-1">
 				<ValueBadge
 					color={color}
-					onSelect={onSelect}
-					showIcon={false}
 					title="Actual measured value"
 					value={`A ${formatActual(net)}`}
 				/>
 				<ValueBadge
 					color={color}
-					onSelect={onSelect}
-					showIcon={false}
 					title={roundedTitle}
 					value={`R ${rounded} ${net.unit}`}
 				/>
@@ -1308,7 +1367,6 @@ function HeightAreaRow({
 	roundedLength,
 	areaAddSqm,
 	areaSubtractSqm,
-	onSelect,
 	onSetHeight,
 	onSetAreaAdjust,
 }: {
@@ -1317,7 +1375,6 @@ function HeightAreaRow({
 	roundedLength: number;
 	areaAddSqm?: number;
 	areaSubtractSqm?: number;
-	onSelect: () => void;
 	onSetHeight: (heightMeters: number | null) => void;
 	onSetAreaAdjust: (
 		field: 'areaAddSqm' | 'areaSubtractSqm',
@@ -1377,8 +1434,6 @@ function HeightAreaRow({
 				{area !== null && (
 					<ValueBadge
 						color={color}
-						onSelect={onSelect}
-						showIcon={false}
 						title="Wall area — rounded length × height, incl. adjustments"
 						value={`${area} m²`}
 					/>
@@ -1557,42 +1612,38 @@ function WastageBadge({
 function ValueBadge({
 	value,
 	color,
-	onSelect,
-	showIcon = true,
-	title = 'Select on canvas',
+	title,
 }: {
 	value: string;
 	color: string;
-	onSelect: () => void;
-	showIcon?: boolean;
 	title?: string;
 }) {
 	return (
-		<button
-			className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 font-medium text-xs transition-opacity hover:opacity-80"
-			onClick={onSelect}
+		<span
+			className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium text-xs"
 			style={{
 				backgroundColor: `${color}22`,
 				borderColor: `${color}55`,
 				color,
 			}}
 			title={title}
-			type="button"
 		>
-			{showIcon && <MousePointer2 className="size-3 shrink-0" />}
 			{value}
-		</button>
+		</span>
 	);
 }
 
-// Click the label to edit it inline; Enter/blur commits, Escape cancels.
+// Single click runs onActivate (e.g. select the card / let the parent handle
+// it), double click edits the label inline; Enter/blur commits, Escape cancels.
 function InlineTitle({
 	value,
 	onRename,
+	onActivate,
 	className,
 }: {
 	value: string;
 	onRename: (label: string) => void;
+	onActivate?: () => void;
 	className?: string;
 }) {
 	const [editing, setEditing] = useState(false);
@@ -1632,11 +1683,12 @@ function InlineTitle({
 	return (
 		<button
 			className={cn('truncate text-left font-medium text-sm', className)}
-			onClick={() => {
+			onClick={onActivate}
+			onDoubleClick={() => {
 				setDraft(value);
 				setEditing(true);
 			}}
-			title="Click to rename"
+			title="Double-click to rename"
 			type="button"
 		>
 			{value}
