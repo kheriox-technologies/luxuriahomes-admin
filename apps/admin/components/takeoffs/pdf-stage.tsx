@@ -33,8 +33,8 @@ import {
 	rectBounds,
 	rectCorners,
 	type SnapGuide,
+	shapeBadgeLines,
 	shapeTopCenter,
-	shapeValueLabel,
 } from '@/lib/takeoffs/geometry';
 import {
 	AREA_TYPE_SET,
@@ -778,7 +778,7 @@ export default function PdfStage({
 											m.id === selectedId ? selectedMarkerIndex : null
 										}
 										strokeWidth={strokeWidth}
-										valueLabel={showMeasurements ? shapeValueLabel(m) : null}
+										valueLines={showMeasurements ? shapeBadgeLines(m) : null}
 										vertexRadius={vertexRadius}
 									/>
 								))}
@@ -936,19 +936,21 @@ const GLOW_RINGS = [
 // constant size on screen; never intercepts pointer events.
 function MeasurementBadge({
 	anchor,
-	label,
+	lines,
 	color,
 	fontSize,
 }: {
 	anchor: Point;
-	label: string;
+	lines: string[];
 	color: string;
 	fontSize: number;
 }) {
 	const padX = fontSize * 0.4;
 	const padY = fontSize * 0.22;
-	const width = label.length * fontSize * 0.6 + 2 * padX;
-	const height = fontSize + 2 * padY;
+	const lineHeight = fontSize * 1.25;
+	const longest = lines.reduce((max, line) => Math.max(max, line.length), 0);
+	const width = longest * fontSize * 0.6 + 2 * padX;
+	const height = lines.length * lineHeight + 2 * padY;
 	const gap = fontSize * 0.4;
 	const x = anchor.x - width / 2;
 	const y = anchor.y - gap - height;
@@ -965,17 +967,20 @@ function MeasurementBadge({
 				x={x}
 				y={y}
 			/>
-			<text
-				dominantBaseline="central"
-				fill={color}
-				fontSize={fontSize}
-				fontWeight={600}
-				textAnchor="middle"
-				x={anchor.x}
-				y={y + height / 2}
-			>
-				{label}
-			</text>
+			{lines.map((line, index) => (
+				<text
+					dominantBaseline="central"
+					fill={color}
+					fontSize={fontSize}
+					fontWeight={600}
+					key={line}
+					textAnchor="middle"
+					x={anchor.x}
+					y={y + padY + (index + 0.5) * lineHeight}
+				>
+					{line}
+				</text>
+			))}
 		</g>
 	);
 }
@@ -990,7 +995,7 @@ function CommittedShape({
 	selectedMarkerIndex,
 	highlighted,
 	groupColor,
-	valueLabel,
+	valueLines,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
@@ -1001,7 +1006,7 @@ function CommittedShape({
 	selectedMarkerIndex: number | null;
 	highlighted: boolean;
 	groupColor?: string;
-	valueLabel: string | null;
+	valueLines: string[] | null;
 }) {
 	// Glow when this shape is selected or highlighted as part of the selected
 	// group/parent or active Add/Subtract target.
@@ -1018,16 +1023,16 @@ function CommittedShape({
 			'#2563eb');
 	const { points, type } = measurement;
 
-	// Null for counts (no on-shape value) and whenever the toggle is off.
+	// Null whenever the toggle is off; empty when a shape carries no value.
 	const badge =
-		valueLabel === null ? null : (
+		valueLines && valueLines.length > 0 ? (
 			<MeasurementBadge
 				anchor={shapeTopCenter(measurement)}
 				color={color}
 				fontSize={fontSize}
-				label={valueLabel}
+				lines={valueLines}
 			/>
-		);
+		) : null;
 
 	if (type === 'count') {
 		// First letter of the measurement name prefixes each marker label, so a
@@ -1086,6 +1091,14 @@ function CommittedShape({
 							>
 								{label}
 							</text>
+							{valueLines && valueLines.length > 0 && (
+								<MeasurementBadge
+									anchor={{ x: p.x, y: p.y - r }}
+									color={color}
+									fontSize={fontSize}
+									lines={valueLines}
+								/>
+							)}
 						</g>
 					);
 				})}
