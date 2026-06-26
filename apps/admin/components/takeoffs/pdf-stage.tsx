@@ -920,11 +920,16 @@ function EditHandle({
 }
 
 const DEDUCTION_COLOR = '#dc2626';
-// Amber halo drawn behind a shape that belongs to the selected group/parent or
-// the active Add/Subtract target, so the relationship reads at a glance.
-const HIGHLIGHT_COLOR = '#f59e0b';
-const HIGHLIGHT_WIDTH_MULT = 3.5;
-const HIGHLIGHT_OPACITY = 0.55;
+// Soft glow drawn behind a shape whenever it's selected or belongs to the
+// selected group/parent (or the active Add/Subtract target), rendered in the
+// shape's own colour so the selection/relationship reads at a glance. Stacking
+// a few wide, faint rings fakes a soft blur without an SVG filter; widths derive
+// from the screen-constant strokeWidth so the glow stays a constant on-screen
+// size across zoom. Outer rings are wider and fainter.
+const GLOW_RINGS = [
+	{ widthMult: 5, opacity: 0.18 },
+	{ widthMult: 3, opacity: 0.32 },
+] as const;
 
 // Small badge showing a shape's actual measured value, centred above its top
 // edge. Sized in base pixels from the screen-constant fontSize so it stays a
@@ -998,7 +1003,9 @@ function CommittedShape({
 	groupColor?: string;
 	valueLabel: string | null;
 }) {
-	const haloWidth = strokeWidth * HIGHLIGHT_WIDTH_MULT;
+	// Glow when this shape is selected or highlighted as part of the selected
+	// group/parent or active Add/Subtract target.
+	const glow = selected || highlighted;
 	const isDeduction = Boolean(measurement.parentId);
 	// Deductions always render red. Otherwise prefer the shape's stored colour,
 	// falling back to the group colour then the per-type default for any legacy
@@ -1040,16 +1047,23 @@ function CommittedShape({
 					const markerSelected = selected && index === selectedMarkerIndex;
 					return (
 						<g key={`${p.x}-${p.y}`}>
-							{highlighted && (
-								<circle
-									cx={p.x}
-									cy={p.y}
-									fill="none"
-									r={r + vertexRadius}
-									stroke={HIGHLIGHT_COLOR}
-									strokeOpacity={HIGHLIGHT_OPACITY}
-									strokeWidth={haloWidth}
-								/>
+							{glow && (
+								<g style={{ pointerEvents: 'none' }}>
+									<circle
+										cx={p.x}
+										cy={p.y}
+										fill={color}
+										fillOpacity={0.14}
+										r={r + vertexRadius * 2.6}
+									/>
+									<circle
+										cx={p.x}
+										cy={p.y}
+										fill={color}
+										fillOpacity={0.24}
+										r={r + vertexRadius * 1.5}
+									/>
+								</g>
 							)}
 							<circle cx={p.x} cy={p.y} fill={color} r={r} />
 							{markerSelected && (
@@ -1082,17 +1096,19 @@ function CommittedShape({
 	if (type === 'linear') {
 		return (
 			<g>
-				{highlighted && (
-					<polyline
-						fill="none"
-						points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-						stroke={HIGHLIGHT_COLOR}
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeOpacity={HIGHLIGHT_OPACITY}
-						strokeWidth={haloWidth}
-					/>
-				)}
+				{glow &&
+					GLOW_RINGS.map((ring) => (
+						<polyline
+							fill="none"
+							key={ring.widthMult}
+							points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+							stroke={color}
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeOpacity={ring.opacity}
+							strokeWidth={strokeWidth * ring.widthMult}
+						/>
+					))}
 				<polyline
 					fill="none"
 					points={points.map((p) => `${p.x},${p.y}`).join(' ')}
@@ -1137,16 +1153,21 @@ function CommittedShape({
 			/>
 		);
 		halo = (
-			<rect
-				fill="none"
-				height={b.height}
-				stroke={HIGHLIGHT_COLOR}
-				strokeOpacity={HIGHLIGHT_OPACITY}
-				strokeWidth={haloWidth}
-				width={b.width}
-				x={b.x}
-				y={b.y}
-			/>
+			<g>
+				{GLOW_RINGS.map((ring) => (
+					<rect
+						fill="none"
+						height={b.height}
+						key={ring.widthMult}
+						stroke={color}
+						strokeOpacity={ring.opacity}
+						strokeWidth={strokeWidth * ring.widthMult}
+						width={b.width}
+						x={b.x}
+						y={b.y}
+					/>
+				))}
+			</g>
 		);
 		handlePoints = rectCorners(points);
 	} else if (type === 'circle') {
@@ -1163,15 +1184,20 @@ function CommittedShape({
 			/>
 		);
 		halo = (
-			<circle
-				cx={points[0].x}
-				cy={points[0].y}
-				fill="none"
-				r={r}
-				stroke={HIGHLIGHT_COLOR}
-				strokeOpacity={HIGHLIGHT_OPACITY}
-				strokeWidth={haloWidth}
-			/>
+			<g>
+				{GLOW_RINGS.map((ring) => (
+					<circle
+						cx={points[0].x}
+						cy={points[0].y}
+						fill="none"
+						key={ring.widthMult}
+						r={r}
+						stroke={color}
+						strokeOpacity={ring.opacity}
+						strokeWidth={strokeWidth * ring.widthMult}
+					/>
+				))}
+			</g>
 		);
 		handlePoints = [points[1]];
 	} else {
@@ -1185,20 +1211,25 @@ function CommittedShape({
 			/>
 		);
 		halo = (
-			<polygon
-				fill="none"
-				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-				stroke={HIGHLIGHT_COLOR}
-				strokeOpacity={HIGHLIGHT_OPACITY}
-				strokeWidth={haloWidth}
-			/>
+			<g>
+				{GLOW_RINGS.map((ring) => (
+					<polygon
+						fill="none"
+						key={ring.widthMult}
+						points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+						stroke={color}
+						strokeOpacity={ring.opacity}
+						strokeWidth={strokeWidth * ring.widthMult}
+					/>
+				))}
+			</g>
 		);
 		handlePoints = points;
 	}
 
 	return (
 		<g>
-			{highlighted && halo}
+			{glow && halo}
 			{body}
 			{selected &&
 				handlePoints.map((p) => (
