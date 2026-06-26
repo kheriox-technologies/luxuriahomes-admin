@@ -309,6 +309,12 @@ export default function TakeoffsContent({
 	const [measurements, setMeasurements] = useState<Measurement[]>(
 		initial?.measurements ?? []
 	);
+	// Pages that belong to the measurements panel, including ones added with no
+	// measurements yet. A page only leaves via "Delete page from measurements";
+	// emptying a page's measurements keeps it here (and the panel shows a warning).
+	const [measurementPages, setMeasurementPages] = useState<number[]>(
+		initial?.measurementPages ?? []
+	);
 	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
 	// them synchronously to auto-name area shapes.
 	const pageTextRef = useRef<Map<number, TextBox[]>>(new Map());
@@ -406,6 +412,23 @@ export default function TakeoffsContent({
 		activeCountIdRef.current = null;
 	}, [writeDraft]);
 
+	// Any page that gains a measurement joins the measurements panel and stays
+	// there even after its measurements are later deleted (only the explicit
+	// delete-page action removes it). This effect just unions new pages in.
+	useEffect(() => {
+		setMeasurementPages((prev) => {
+			const next = new Set(prev);
+			let changed = false;
+			for (const m of measurements) {
+				if (!next.has(m.page)) {
+					next.add(m.page);
+					changed = true;
+				}
+			}
+			return changed ? [...next].sort((a, b) => a - b) : prev;
+		});
+	}, [measurements]);
+
 	// Persist the working set whenever a persisted slice changes. The caller
 	// supplies a debounced `onPersist`; we skip the first run so hydrating from
 	// `initial` doesn't immediately echo back a redundant save.
@@ -422,6 +445,7 @@ export default function TakeoffsContent({
 		}
 		onPersistRef.current({
 			measurements,
+			measurementPages,
 			legends,
 			texts,
 			pageTitles,
@@ -431,6 +455,7 @@ export default function TakeoffsContent({
 		});
 	}, [
 		measurements,
+		measurementPages,
 		legends,
 		texts,
 		pageTitles,
@@ -720,6 +745,7 @@ export default function TakeoffsContent({
 	// render → a single persist).
 	const applyPageIndexedState = useCallback((next: PageIndexedState) => {
 		setMeasurements(next.measurements);
+		setMeasurementPages(next.measurementPages);
 		setTexts(next.texts);
 		setLegends(next.legends);
 		setPageMethods(next.pageMethods);
@@ -758,7 +784,14 @@ export default function TakeoffsContent({
 				swapWorkingPdf(newBytes);
 				applyPageIndexedState(
 					remapForCopy(
-						{ measurements, texts, legends, pageMethods, pageTitles },
+						{
+							measurements,
+							measurementPages,
+							texts,
+							legends,
+							pageMethods,
+							pageTitles,
+						},
 						targetPage
 					)
 				);
@@ -777,6 +810,7 @@ export default function TakeoffsContent({
 		},
 		[
 			measurements,
+			measurementPages,
 			texts,
 			legends,
 			pageMethods,
@@ -811,7 +845,14 @@ export default function TakeoffsContent({
 				swapWorkingPdf(newBytes);
 				applyPageIndexedState(
 					remapForDelete(
-						{ measurements, texts, legends, pageMethods, pageTitles },
+						{
+							measurements,
+							measurementPages,
+							texts,
+							legends,
+							pageMethods,
+							pageTitles,
+						},
 						targetPage
 					)
 				);
@@ -842,6 +883,7 @@ export default function TakeoffsContent({
 		[
 			numPages,
 			measurements,
+			measurementPages,
 			texts,
 			legends,
 			pageMethods,
@@ -852,6 +894,38 @@ export default function TakeoffsContent({
 			resetForPageEdit,
 			onUploadStructural,
 		]
+	);
+
+	// Add a page to the measurements panel with no measurements yet, then navigate
+	// to it so the user can start drawing. The page shows a warning until it has a
+	// measurement. No-op if it is already part of the panel.
+	const handleAddToMeasurements = useCallback(
+		(targetPage: number) => {
+			setMeasurementPages((prev) =>
+				prev.includes(targetPage)
+					? prev
+					: [...prev, targetPage].sort((a, b) => a - b)
+			);
+			goToPage(targetPage);
+		},
+		[goToPage]
+	);
+
+	// Remove a page from the measurements panel entirely: drop its membership and
+	// every measurement on it. The PDF page itself is untouched. Page-keyed
+	// titles/methods/legends are left in place (reused if the page is re-added).
+	const handleDeletePageFromMeasurements = useCallback(
+		(targetPage: number) => {
+			setMeasurementPages((prev) => prev.filter((p) => p !== targetPage));
+			setMeasurements((prev) => prev.filter((m) => m.page !== targetPage));
+			resetDraft();
+			setSelectedId(null);
+			setAddMode(false);
+			setSubtractMode(false);
+			addTargetRef.current = null;
+			currentGroupId.current = null;
+		},
+		[resetDraft]
 	);
 
 	// Replace a committed shape's points and recompute its value/perimeter live.
@@ -1435,6 +1509,12 @@ export default function TakeoffsContent({
 		() => new Set(measurements.map((m) => m.page)),
 		[measurements]
 	);
+	// Pages already in the measurements panel (with or without measurements) —
+	// drives the disabled state of the thumbnail "Add to Measurements" action.
+	const pagesInMeasurements = useMemo(
+		() => new Set(measurementPages),
+		[measurementPages]
+	);
 
 	// Jump to a measurement: switch to Pan (the selecting tool), navigate to its
 	// page, and select it. Done inline (not via goToPage/selectTool) so the
@@ -1961,10 +2041,12 @@ export default function TakeoffsContent({
 				<PdfThumbnails
 					currentPage={page}
 					numPages={numPages}
+					onAddToMeasurements={handleAddToMeasurements}
 					onCopyPage={handleCopyPage}
 					onDeletePage={handleDeletePage}
 					onRenamePage={renamePage}
 					onSelectPage={goToPage}
+					pagesInMeasurements={pagesInMeasurements}
 					pagesWithMeasurements={pagesWithMeasurements}
 					pageTitles={pageTitles}
 					ready={ready}
@@ -2024,6 +2106,7 @@ export default function TakeoffsContent({
 					documentMethod={documentMethod}
 					globalWastage={globalWastage}
 					legendPages={legendPages}
+					measurementPages={measurementPages}
 					measurements={measurements}
 					metersPerPixel={metersPerPixel}
 					onAddLegend={addLegend}
@@ -2049,6 +2132,7 @@ export default function TakeoffsContent({
 						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}
+					onDeletePageFromMeasurements={handleDeletePageFromMeasurements}
 					onDownloadPage={handleDownloadPage}
 					onOpenScaleDialog={(scope, targetPage) =>
 						openScaleDialog(scope, targetPage)

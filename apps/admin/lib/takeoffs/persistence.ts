@@ -22,6 +22,11 @@ export function takeoffDocToState(doc: TakeoffDoc): TakeoffPersistState {
 	}
 	return {
 		measurements: doc.measurements,
+		// Legacy rows predate this field: fall back to the pages that hold a
+		// measurement so existing take-offs render unchanged.
+		measurementPages:
+			doc.measurementPages ??
+			[...new Set(doc.measurements.map((m) => m.page))].sort((a, b) => a - b),
 		legends,
 		texts: doc.texts,
 		pageTitles,
@@ -35,6 +40,7 @@ export interface TakeoffSaveArgs {
 	documentMethod?: MeasurementMethod;
 	globalWastage: number;
 	legends: TakeoffDoc['legends'];
+	measurementPages: number[];
 	measurements: TakeoffDoc['measurements'];
 	pageMethods: TakeoffDoc['pageMethods'];
 	pageTitles: TakeoffDoc['pageTitles'];
@@ -44,6 +50,7 @@ export interface TakeoffSaveArgs {
 export function stateToSaveArgs(state: TakeoffPersistState): TakeoffSaveArgs {
 	return {
 		measurements: state.measurements,
+		measurementPages: state.measurementPages,
 		legends: Object.values(state.legends),
 		texts: state.texts,
 		pageTitles: Object.entries(state.pageTitles).map(([page, title]) => ({

@@ -8,6 +8,11 @@ import {
 	AccordionPrimitive,
 } from '@workspace/ui/components/accordion';
 import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from '@workspace/ui/components/alert';
+import {
 	AlertDialog,
 	AlertDialogClose,
 	AlertDialogContent,
@@ -363,6 +368,7 @@ export function buildLegendEntries(
 export default function MeasurementsPanel({
 	page,
 	measurements,
+	measurementPages,
 	documentMethod,
 	pageMethods,
 	pageTitles,
@@ -373,6 +379,7 @@ export default function MeasurementsPanel({
 	onCalibrate,
 	onResetPage,
 	onDelete,
+	onDeletePageFromMeasurements,
 	onClearPage,
 	onClearAll,
 	onSelectMeasurement,
@@ -394,6 +401,7 @@ export default function MeasurementsPanel({
 }: {
 	page: number;
 	measurements: Measurement[];
+	measurementPages: number[];
 	documentMethod: MeasurementMethod | null;
 	pageMethods: Record<number, MeasurementMethod>;
 	pageTitles: Record<number, string>;
@@ -404,6 +412,7 @@ export default function MeasurementsPanel({
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
 	onDelete: (id: string) => void;
+	onDeletePageFromMeasurements: (targetPage: number) => void;
 	onClearPage: () => void;
 	onClearAll: () => void;
 	onSelectMeasurement: (id: string) => void;
@@ -429,10 +438,11 @@ export default function MeasurementsPanel({
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
 	width: number;
 }) {
-	// Pages that hold at least one measurement, in order.
-	const pages = [...new Set(measurements.map((m) => m.page))].sort(
-		(a, b) => a - b
-	);
+	// Pages shown in the panel: those explicitly added plus any that hold a
+	// measurement, in order. Empty added pages stay until explicitly deleted.
+	const pages = [
+		...new Set([...measurementPages, ...measurements.map((m) => m.page)]),
+	].sort((a, b) => a - b);
 
 	// Controlled accordion: multiple may be open (so Expand all works), but
 	// navigating pages / selecting a shape auto-opens just the active page.
@@ -583,6 +593,9 @@ export default function MeasurementsPanel({
 												method={pageMethods[pageNumber] ?? documentMethod}
 												onAddLegend={onAddLegend}
 												onCalibrate={onCalibrate}
+												onDelete={() =>
+													onDeletePageFromMeasurements(pageNumber)
+												}
 												onDownloadPage={onDownloadPage}
 												onOpenScaleDialog={onOpenScaleDialog}
 												onRemoveLegend={onRemoveLegend}
@@ -611,103 +624,118 @@ export default function MeasurementsPanel({
 										</AccordionPrimitive.Trigger>
 									</AccordionPrimitive.Header>
 									<AccordionPanel className="px-2 pt-1 pb-2">
-										<ul className="flex flex-col gap-2">
-											{rows.map((row) => {
-												if (row.kind !== 'group') {
+										{pageMeasurements.length === 0 ? (
+											<Alert variant="warning">
+												<AlertTitle>No measurements on this page</AlertTitle>
+												<AlertDescription>
+													Add measurements with the drawing tools, or delete
+													this page from the measurements panel.
+												</AlertDescription>
+											</Alert>
+										) : (
+											<ul className="flex flex-col gap-2">
+												{rows.map((row) => {
+													if (row.kind !== 'group') {
+														return (
+															<MeasurementRow
+																adjustmentsShown={adjustShown(row.measurement)}
+																globalWastage={globalWastage}
+																key={row.measurement.id}
+																measurement={row.measurement}
+																onDelete={onDelete}
+																onRecolor={onRecolorMeasurement}
+																onRename={onRenameMeasurement}
+																onSelect={onSelectMeasurement}
+																onSetAreaAdjust={onSetMeasurementAreaAdjust}
+																onSetDescription={onSetMeasurementDescription}
+																onSetHeight={onSetMeasurementHeight}
+																onSetWastage={onSetMeasurementWastage}
+																onToggleAdjustments={() =>
+																	toggleAdjust(row.measurement)
+																}
+																onToggleHidden={onToggleMeasurementHidden}
+																pageMeasurements={pageMeasurements}
+																selectedId={selectedId}
+															/>
+														);
+													}
+													const memberIds = new Set(
+														row.members.map((m) => m.id)
+													);
+													const groupDeductions = pageMeasurements.filter(
+														(d) => d.parentId && memberIds.has(d.parentId)
+													);
 													return (
-														<MeasurementRow
-															adjustmentsShown={adjustShown(row.measurement)}
+														<GroupRow
+															adjustmentsShown={adjustShown(row.members[0])}
+															areaAddSqm={row.members[0].areaAddSqm}
+															areaSubtractSqm={row.members[0].areaSubtractSqm}
+															color={row.members[0].color ?? FALLBACK_COLOR}
+															deductions={groupDeductions}
+															description={row.members[0].description}
 															globalWastage={globalWastage}
-															key={row.measurement.id}
-															measurement={row.measurement}
-															onDelete={onDelete}
-															onRecolor={onRecolorMeasurement}
-															onRename={onRenameMeasurement}
-															onSelect={onSelectMeasurement}
-															onSetAreaAdjust={onSetMeasurementAreaAdjust}
-															onSetDescription={onSetMeasurementDescription}
-															onSetHeight={onSetMeasurementHeight}
-															onSetWastage={onSetMeasurementWastage}
-															onToggleAdjustments={() =>
-																toggleAdjust(row.measurement)
+															heightMeters={row.members[0].heightMeters}
+															hidden={row.members[0].hidden}
+															key={row.groupId}
+															label={row.label}
+															net={groupNetValue(
+																row.members,
+																AREA_TYPE_SET.has(row.members[0].type),
+																metersPerPixel,
+																pageMeasurements
+															)}
+															onDelete={() => onDelete(row.members[0].id)}
+															onDeleteDeduction={onDelete}
+															onRecolor={(color) =>
+																onRecolorMeasurement(row.members[0].id, color)
 															}
-															onToggleHidden={onToggleMeasurementHidden}
-															pageMeasurements={pageMeasurements}
-															selectedId={selectedId}
+															onRename={(label) =>
+																onRenameGroup(row.groupId, label)
+															}
+															onRenameDeduction={onRenameMeasurement}
+															onSelect={() =>
+																onSelectMeasurement(row.members[0].id)
+															}
+															onSetAreaAdjust={(field, value) =>
+																onSetMeasurementAreaAdjust(
+																	row.members[0].id,
+																	field,
+																	value
+																)
+															}
+															onSetDescription={(description) =>
+																onSetMeasurementDescription(
+																	row.members[0].id,
+																	description
+																)
+															}
+															onSetHeight={(height) =>
+																onSetMeasurementHeight(
+																	row.members[0].id,
+																	height
+																)
+															}
+															onSetWastage={(percent) =>
+																onSetMeasurementWastage(
+																	row.members[0].id,
+																	percent
+																)
+															}
+															onToggleAdjustments={() =>
+																toggleAdjust(row.members[0])
+															}
+															onToggleHidden={() =>
+																onToggleMeasurementHidden(row.members[0].id)
+															}
+															selected={row.members.some(
+																(m) => m.id === selectedId
+															)}
+															wastagePercent={row.members[0].wastagePercent}
 														/>
 													);
-												}
-												const memberIds = new Set(row.members.map((m) => m.id));
-												const groupDeductions = pageMeasurements.filter(
-													(d) => d.parentId && memberIds.has(d.parentId)
-												);
-												return (
-													<GroupRow
-														adjustmentsShown={adjustShown(row.members[0])}
-														areaAddSqm={row.members[0].areaAddSqm}
-														areaSubtractSqm={row.members[0].areaSubtractSqm}
-														color={row.members[0].color ?? FALLBACK_COLOR}
-														deductions={groupDeductions}
-														description={row.members[0].description}
-														globalWastage={globalWastage}
-														heightMeters={row.members[0].heightMeters}
-														hidden={row.members[0].hidden}
-														key={row.groupId}
-														label={row.label}
-														net={groupNetValue(
-															row.members,
-															AREA_TYPE_SET.has(row.members[0].type),
-															metersPerPixel,
-															pageMeasurements
-														)}
-														onDelete={() => onDelete(row.members[0].id)}
-														onDeleteDeduction={onDelete}
-														onRecolor={(color) =>
-															onRecolorMeasurement(row.members[0].id, color)
-														}
-														onRename={(label) =>
-															onRenameGroup(row.groupId, label)
-														}
-														onRenameDeduction={onRenameMeasurement}
-														onSelect={() =>
-															onSelectMeasurement(row.members[0].id)
-														}
-														onSetAreaAdjust={(field, value) =>
-															onSetMeasurementAreaAdjust(
-																row.members[0].id,
-																field,
-																value
-															)
-														}
-														onSetDescription={(description) =>
-															onSetMeasurementDescription(
-																row.members[0].id,
-																description
-															)
-														}
-														onSetHeight={(height) =>
-															onSetMeasurementHeight(row.members[0].id, height)
-														}
-														onSetWastage={(percent) =>
-															onSetMeasurementWastage(
-																row.members[0].id,
-																percent
-															)
-														}
-														onToggleAdjustments={() =>
-															toggleAdjust(row.members[0])
-														}
-														onToggleHidden={() =>
-															onToggleMeasurementHidden(row.members[0].id)
-														}
-														selected={row.members.some(
-															(m) => m.id === selectedId
-														)}
-														wastagePercent={row.members[0].wastagePercent}
-													/>
-												);
-											})}
-										</ul>
+												})}
+											</ul>
+										)}
 									</AccordionPanel>
 								</AccordionItem>
 							);
@@ -740,6 +768,7 @@ function PageActionsMenu({
 	onOpenScaleDialog,
 	onCalibrate,
 	onResetPage,
+	onDelete,
 }: {
 	page: number;
 	pageHidden: boolean;
@@ -757,9 +786,13 @@ function PageActionsMenu({
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
+	onDelete: () => void;
 }): ReactElement {
 	const scaleLabel = method ? formatMethodLabel(method) : 'Not set';
 	const [legendDialogOpen, setLegendDialogOpen] = useState(false);
+	// Controlled because the menu unmounts on item click — opening the dialog from
+	// inside a MenuItem requires the dialog to live outside the Menu (see below).
+	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
 	return (
 		<>
@@ -822,6 +855,14 @@ function PageActionsMenu({
 							</MenuItem>
 						)}
 					</MenuGroup>
+					<MenuSeparator />
+					<MenuItem
+						onClick={() => setConfirmDeleteOpen(true)}
+						variant="destructive"
+					>
+						<Trash2 />
+						Delete page from measurements
+					</MenuItem>
 				</MenuPopup>
 			</Menu>
 			<LegendOptionsDialog
@@ -829,6 +870,36 @@ function PageActionsMenu({
 				onOpenChange={setLegendDialogOpen}
 				open={legendDialogOpen}
 			/>
+			<AlertDialog onOpenChange={setConfirmDeleteOpen} open={confirmDeleteOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete page from measurements?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This page and all its measurements will be permanently removed
+							from the take-off. The PDF page itself is not affected. This can't
+							be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogClose
+							render={<Button type="button" variant="outline" />}
+						>
+							Cancel
+						</AlertDialogClose>
+						<AlertDialogClose
+							render={
+								<Button
+									onClick={onDelete}
+									type="button"
+									variant="destructive"
+								/>
+							}
+						>
+							Delete page
+						</AlertDialogClose>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }

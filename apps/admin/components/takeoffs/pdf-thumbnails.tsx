@@ -25,7 +25,7 @@ import {
 } from '@workspace/ui/components/menu';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { cn } from '@workspace/ui/lib/utils';
-import { Copy, EllipsisVertical, Trash2 } from 'lucide-react';
+import { Copy, EllipsisVertical, ListPlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { InlineTitle } from './inline-title';
 import type { RenderedSize } from './use-pdf-document';
@@ -40,10 +40,13 @@ const A3_LANDSCAPE_RATIO = 420 / 297;
 interface PdfThumbnailsProps {
 	currentPage: number;
 	numPages: number;
+	onAddToMeasurements: (page: number) => void;
 	onCopyPage: (page: number) => Promise<void>;
 	onDeletePage: (page: number) => Promise<void>;
 	onRenamePage: (page: number, title: string) => void;
 	onSelectPage: (page: number) => void;
+	/** Pages already in the measurements panel; disables their "Add to Measurements". */
+	pagesInMeasurements: Set<number>;
 	pagesWithMeasurements: Set<number>;
 	pageTitles: Record<number, string>;
 	ready: boolean;
@@ -57,10 +60,12 @@ interface PdfThumbnailsProps {
 export default function PdfThumbnails({
 	numPages,
 	currentPage,
+	onAddToMeasurements,
 	onCopyPage,
 	onDeletePage,
 	onRenamePage,
 	onSelectPage,
+	pagesInMeasurements,
 	pagesWithMeasurements,
 	pageTitles,
 	renderThumbnail,
@@ -83,8 +88,10 @@ export default function PdfThumbnails({
 						<Thumbnail
 							active={pageNumber === currentPage}
 							hasMeasurements={pagesWithMeasurements.has(pageNumber)}
+							inMeasurements={pagesInMeasurements.has(pageNumber)}
 							key={pageNumber}
 							numPages={numPages}
+							onAddToMeasurements={onAddToMeasurements}
 							onCopyPage={onCopyPage}
 							onDeletePage={onDeletePage}
 							onRenamePage={onRenamePage}
@@ -106,7 +113,9 @@ function Thumbnail({
 	pageNumber,
 	active,
 	hasMeasurements,
+	inMeasurements,
 	numPages,
+	onAddToMeasurements,
 	onCopyPage,
 	onDeletePage,
 	onRenamePage,
@@ -119,7 +128,9 @@ function Thumbnail({
 	pageNumber: number;
 	active: boolean;
 	hasMeasurements: boolean;
+	inMeasurements: boolean;
 	numPages: number;
+	onAddToMeasurements: (page: number) => void;
 	onCopyPage: (page: number) => Promise<void>;
 	onDeletePage: (page: number) => Promise<void>;
 	onRenamePage: (page: number, title: string) => void;
@@ -268,6 +279,13 @@ function Thumbnail({
 							>
 								<Copy />
 								Copy Page
+							</MenuItem>
+							<MenuItem
+								disabled={inMeasurements}
+								onClick={() => onAddToMeasurements(pageNumber)}
+							>
+								<ListPlus />
+								Add to Measurements
 							</MenuItem>
 							<MenuSeparator />
 							<MenuItem

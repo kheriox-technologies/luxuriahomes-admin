@@ -163,6 +163,8 @@ export interface TakeoffPersistState {
 	documentMethod: MeasurementMethod | null;
 	globalWastage: number;
 	legends: Record<number, Legend>;
+	/** Pages shown in the measurements panel, including ones added with no measurements yet. */
+	measurementPages: number[];
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
 	pageTitles: Record<number, string>;

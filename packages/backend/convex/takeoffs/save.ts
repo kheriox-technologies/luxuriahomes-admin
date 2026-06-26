@@ -14,6 +14,7 @@ export const save = mutation({
 		measurements: v.array(takeoffMeasurementValidator),
 		legends: v.array(takeoffLegendValidator),
 		texts: v.array(takeoffTextValidator),
+		measurementPages: v.array(v.number()),
 		pageTitles: v.array(v.object({ page: v.number(), title: v.string() })),
 		documentMethod: v.optional(takeoffMethodValidator),
 		pageMethods: v.array(

@@ -10,6 +10,7 @@ import type {
 // edit. `documentMethod`/`globalWastage` are page-independent and untouched.
 export interface PageIndexedState {
 	legends: Record<number, Legend>;
+	measurementPages: number[];
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
 	pageTitles: Record<number, string>;
@@ -46,6 +47,9 @@ export function remapForCopy(
 		measurements: state.measurements.map((m) =>
 			shiftUp(m.page) ? { ...m, page: m.page + 1 } : m
 		),
+		measurementPages: state.measurementPages.map((p) =>
+			shiftUp(p) ? p + 1 : p
+		),
 		texts: state.texts.map((t) =>
 			shiftUp(t.page) ? { ...t, page: t.page + 1 } : t
 		),
@@ -77,6 +81,9 @@ export function remapForDelete(
 		measurements: state.measurements
 			.filter((m) => m.page !== targetPage)
 			.map((m) => (shiftDown(m.page) ? { ...m, page: m.page - 1 } : m)),
+		measurementPages: state.measurementPages
+			.filter((p) => p !== targetPage)
+			.map((p) => (shiftDown(p) ? p - 1 : p)),
 		texts: state.texts
 			.filter((t) => t.page !== targetPage)
 			.map((t) => (shiftDown(t.page) ? { ...t, page: t.page - 1 } : t)),

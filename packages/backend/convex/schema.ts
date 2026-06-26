@@ -289,6 +289,10 @@ export default defineSchema({
 		measurements: v.array(takeoffMeasurementValidator),
 		legends: v.array(takeoffLegendValidator),
 		texts: v.array(takeoffTextValidator),
+		// Pages explicitly part of the measurements panel, including ones added with
+		// no measurements yet. Optional for backward compatibility with rows saved
+		// before this field existed (derived from measurement pages on load).
+		measurementPages: v.optional(v.array(v.number())),
 		pageTitles: v.array(v.object({ page: v.number(), title: v.string() })),
 		documentMethod: v.optional(takeoffMethodValidator),
 		pageMethods: v.array(
