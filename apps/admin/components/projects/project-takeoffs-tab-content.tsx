@@ -29,8 +29,9 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import { toastManager } from '@workspace/ui/components/toast';
+import { cn } from '@workspace/ui/lib/utils';
 import { useAction, useQuery } from 'convex/react';
-import { Download, Ruler, Trash2 } from 'lucide-react';
+import { Download, Maximize, Minimize, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TakeoffsHandle } from '@/components/takeoffs/takeoffs-content';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -47,6 +48,7 @@ export default function ProjectTakeoffsTabContent({
 	const [downloadingPdf, setDownloadingPdf] = useState(false);
 	const [deletingTakeoff, setDeletingTakeoff] = useState(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [isFullscreen, setIsFullscreen] = useState(false);
 	const removeTakeoff = useAction(api.takeoffs.remove.remove);
 
 	const onDownloadPdf = async () => {
@@ -98,6 +100,20 @@ export default function ProjectTakeoffsTabContent({
 		});
 	}, [takeoffs]);
 
+	// Exit full screen on Escape, but let an open delete dialog consume it first.
+	useEffect(() => {
+		if (!isFullscreen) {
+			return;
+		}
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && !deleteDialogOpen) {
+				setIsFullscreen(false);
+			}
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [isFullscreen, deleteDialogOpen]);
+
 	const items = useMemo(() => (takeoffs ?? []).map((t) => t._id), [takeoffs]);
 	const labelById = useMemo(() => {
 		const map = new Map<Id<'takeoffs'>, string>();
@@ -129,7 +145,12 @@ export default function ProjectTakeoffsTabContent({
 	}
 
 	return (
-		<div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+		<div
+			className={cn(
+				'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3',
+				isFullscreen && 'fixed inset-0 z-50 bg-background p-4'
+			)}
+		>
 			<div className="flex w-full items-center justify-between gap-2">
 				<h2 className="min-w-0 truncate font-semibold text-lg">
 					{selectedId ? (
@@ -161,6 +182,15 @@ export default function ProjectTakeoffsTabContent({
 					</div>
 					{selectedId ? (
 						<>
+							<Button
+								onClick={() => setIsFullscreen((v) => !v)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								{isFullscreen ? <Minimize /> : <Maximize />}
+								{isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+							</Button>
 							<Button
 								loading={downloadingPdf}
 								onClick={() => onDownloadPdf().catch(() => undefined)}
