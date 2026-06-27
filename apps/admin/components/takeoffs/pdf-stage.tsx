@@ -117,6 +117,10 @@ interface PdfStageProps {
 	showMeasurements: boolean;
 	textAnnotations: TextAnnotation[];
 	tool: ToolId;
+	// True while the pan is a transient hold-space pan rather than the real Pan
+	// tool. Panning behaves identically, but selection side-effects are skipped so
+	// the current selection (and the Add/Subtract anchor it provides) survives.
+	transientPan: boolean;
 }
 
 function centroid(points: Point[]): Point {
@@ -329,6 +333,7 @@ export default function PdfStage({
 	error,
 	renderPage,
 	tool,
+	transientPan,
 	globalWastage,
 	metersPerPixel,
 	measurements,
@@ -497,6 +502,7 @@ export default function PdfStage({
 	const handlersRef = useRef({
 		isInteractive,
 		tool,
+		transientPan,
 		scale,
 		measurements,
 		selectedId,
@@ -512,6 +518,7 @@ export default function PdfStage({
 		handlersRef.current = {
 			isInteractive,
 			tool,
+			transientPan,
 			scale,
 			measurements,
 			selectedId,
@@ -668,7 +675,9 @@ export default function PdfStage({
 				: null;
 			// Empty space: clear the selection (and let panning proceed). A hit is
 			// handled by the overlay's own mousedown, which performs the select.
-			if (!hit) {
+			// Skip during a transient hold-space pan so the selection — and the
+			// Add/Subtract anchor it provides — survives the pan.
+			if (!(hit || h.transientPan)) {
 				h.onClearSelection();
 			}
 		};
@@ -732,7 +741,9 @@ export default function PdfStage({
 				maxScale={fitScale * 16}
 				minScale={fitScale * 0.5}
 				onTransform={(_ref, state) => setScale(state.scale)}
-				panning={{ disabled: isInteractive || hoverSelectable }}
+				panning={{
+					disabled: isInteractive || (hoverSelectable && !transientPan),
+				}}
 				ref={transformRef}
 				wheel={{ disabled: true }}
 			>
@@ -751,7 +762,9 @@ export default function PdfStage({
 								role="img"
 								style={{
 									pointerEvents:
-										isInteractive || hoverSelectable ? 'auto' : 'none',
+										isInteractive || (hoverSelectable && !transientPan)
+											? 'auto'
+											: 'none',
 									// Pan mode drives the cursor imperatively (see handleMove);
 									// leaving it unset here keeps React from resetting it per render
 									// and lets the imperative select cursor win when over a shape.

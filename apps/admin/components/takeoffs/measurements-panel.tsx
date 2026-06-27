@@ -2,6 +2,17 @@
 'use no memo';
 
 import {
+	DndContext,
+	type DragEndEvent,
+	KeyboardSensor,
+	PointerSensor,
+	pointerWithin,
+	useDraggable,
+	useDroppable,
+	useSensor,
+	useSensors,
+} from '@dnd-kit/core';
+import {
 	Accordion,
 	AccordionItem,
 	AccordionPanel,
@@ -61,6 +72,7 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { cn } from '@workspace/ui/lib/utils';
 import {
+	Boxes,
 	ChevronDownIcon,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
@@ -70,11 +82,16 @@ import {
 	EllipsisVertical,
 	Eye,
 	EyeOff,
+	File,
 	FileText,
+	Folder,
+	FolderPlus,
+	GripVertical,
 	Hash,
 	Layers,
 	Palette,
 	Pentagon,
+	Plus,
 	RotateCcw,
 	Ruler,
 	SlidersHorizontal,
@@ -82,16 +99,27 @@ import {
 	Table,
 	Trash2,
 } from 'lucide-react';
-import { type ReactElement, useEffect, useRef, useState } from 'react';
+import {
+	type Dispatch,
+	type ReactElement,
+	type ReactNode,
+	type SetStateAction,
+	useEffect,
+	useRef,
+	useState,
+} from 'react';
 import {
 	adjustArea,
 	deductionSumSqm,
 	formatMeters,
 	formatMethodLabel,
 	formatSqm,
+	groupFamily,
+	measurementFamily,
 	netAreaSqm,
 	roundUpWithWastage,
 	SHAPE_PALETTE,
+	type ShapeFamily,
 	unionMeasure,
 	WASTAGE_OPTIONS,
 } from '@/lib/takeoffs/geometry';
@@ -100,6 +128,9 @@ import {
 	type Measurement,
 	type MeasurementMethod,
 	type MethodScope,
+	type MoveTarget,
+	type TakeoffCategory,
+	type TakeoffPageGroup,
 } from '@/lib/takeoffs/types';
 import CalculatorPopover from './calculator-popover';
 import { InlineTitle } from './inline-title';
@@ -364,6 +395,141 @@ export function buildLegendEntries(
 	});
 }
 
+// Composite open-accordion keys, unique across all hierarchy levels.
+const pageKey = (page: number) => `page:${page}`;
+const catKey = (id: string) => `cat:${id}`;
+const grpKey = (id: string) => `grp:${id}`;
+
+// The exclusive set of open keys that reveals a page: its category and group
+// (when nested) plus the page itself, and nothing else. Used to collapse the
+// tree down to a single chain on canvas selection.
+function chainKeysForPage(
+	page: number,
+	categories: TakeoffCategory[]
+): string[] {
+	for (const category of categories) {
+		const group = category.groups.find((g) => g.pages.includes(page));
+		if (group) {
+			return [catKey(category.id), grpKey(group.id), pageKey(page)];
+		}
+		if (category.pages.includes(page)) {
+			return [catKey(category.id), pageKey(page)];
+		}
+	}
+	return [pageKey(page)];
+}
+
+// Small type icon shown on a group header indicating its (derived) family.
+const FAMILY_META: Record<ShapeFamily, { icon: typeof Ruler; label: string }> =
+	{
+		area: { icon: Square, label: 'Area' },
+		linear: { icon: Ruler, label: 'Linear' },
+		count: { icon: Hash, label: 'Count' },
+	};
+
+interface PageDragData {
+	family: ShapeFamily | null;
+	page: number;
+}
+
+type DropData =
+	| { kind: 'root' }
+	| { kind: 'category'; categoryId: string }
+	| { kind: 'group'; groupId: string; family: ShapeFamily | null };
+
+// A page can drop anywhere except a typed group of a different family. Empty
+// groups (family null) and empty pages (family null) impose no constraint.
+function canDropPage(drag: PageDragData, drop: DropData): boolean {
+	if (drop.kind !== 'group') {
+		return true;
+	}
+	return (
+		drop.family === null || drag.family === null || drop.family === drag.family
+	);
+}
+
+// Whether all measurements on a page share one family (so it can be dragged into
+// a group). Empty pages are draggable; mixed-family pages are not. Returns the
+// page's family (null when empty).
+function pageDragInfo(
+	page: number,
+	measurements: Measurement[]
+): { draggable: boolean; family: ShapeFamily | null } {
+	let family: ShapeFamily | null = null;
+	for (const m of measurements) {
+		if (m.page !== page) {
+			continue;
+		}
+		const fam = measurementFamily(m.type);
+		if (family === null) {
+			family = fam;
+		} else if (family !== fam) {
+			return { draggable: false, family: null };
+		}
+	}
+	return { draggable: true, family };
+}
+
+// One nested Accordion root edits only the open keys it owns, so several nested
+// roots can share a single openKeys array without clobbering each other.
+function scopeAccordion(
+	openKeys: string[],
+	setOpenKeys: Dispatch<SetStateAction<string[]>>,
+	ownedKeys: string[]
+): { value: string[]; onValueChange: (next: string[]) => void } {
+	const owned = new Set(ownedKeys);
+	return {
+		value: openKeys.filter((key) => owned.has(key)),
+		onValueChange: (next) =>
+			setOpenKeys((prev) => [
+				...prev.filter((key) => !owned.has(key)),
+				...next,
+			]),
+	};
+}
+
+// Everything a PageAccordionItem needs from the panel: shared display state plus
+// the page/measurement handlers (kept under their original names so the row JSX
+// is unchanged). Bundled to avoid threading ~25 props through every container.
+interface PageItemContext {
+	adjustShown: (m: Measurement) => boolean;
+	documentMethod: MeasurementMethod | null;
+	globalWastage: number;
+	legendPages: Set<number>;
+	measurements: Measurement[];
+	metersPerPixel: number | null;
+	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
+	onCalibrate: (scope: MethodScope, targetPage: number) => void;
+	onDelete: (id: string) => void;
+	onDeleteGroup: (groupId: string) => void;
+	onDeletePageFromMeasurements: (targetPage: number) => void;
+	onDownloadPage: (targetPage: number) => void;
+	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
+	onRecolorMeasurement: (id: string, color: string) => void;
+	onRemoveLegend: (targetPage: number) => void;
+	onRenameGroup: (groupId: string, label: string) => void;
+	onRenameMeasurement: (id: string, label: string) => void;
+	onRenamePage: (targetPage: number, title: string) => void;
+	onResetPage: (targetPage: number) => void;
+	onSelectMeasurement: (id: string) => void;
+	onSetMeasurementAreaAdjust: (
+		id: string,
+		field: 'areaAddSqm' | 'areaSubtractSqm',
+		value: number | null
+	) => void;
+	onSetMeasurementDescription: (id: string, description: string) => void;
+	onSetMeasurementHeight: (id: string, heightMeters: number | null) => void;
+	onSetMeasurementWastage: (id: string, percent: number | null) => void;
+	onToggleMeasurementHidden: (id: string) => void;
+	onTogglePageHidden: (targetPage: number) => void;
+	pageMethods: Record<number, MeasurementMethod>;
+	pageTitles: Record<number, string>;
+	selectedId: string | null;
+	setAdjustForAll: (members: Measurement[], shown: boolean) => void;
+	toggleAdjust: (m: Measurement) => void;
+	toggleKey: (key: string) => void;
+}
+
 export default function MeasurementsPanel({
 	page,
 	measurements,
@@ -374,6 +540,8 @@ export default function MeasurementsPanel({
 	metersPerPixel,
 	globalWastage,
 	selectedId,
+	canvasSelectNonce,
+	categories,
 	onOpenScaleDialog,
 	onCalibrate,
 	onResetPage,
@@ -397,6 +565,13 @@ export default function MeasurementsPanel({
 	onAddLegend,
 	onRemoveLegend,
 	onDownloadPage,
+	onAddCategory,
+	onRenameCategory,
+	onDeleteCategory,
+	onAddGroup,
+	onRenamePageGroup,
+	onDeletePageGroup,
+	onMovePage,
 	width,
 }: {
 	page: number;
@@ -408,6 +583,9 @@ export default function MeasurementsPanel({
 	metersPerPixel: number | null;
 	globalWastage: number;
 	selectedId: string | null;
+	/** Bumped on each canvas shape selection (not panel-row clicks). */
+	canvasSelectNonce: number;
+	categories: TakeoffCategory[];
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
@@ -436,6 +614,13 @@ export default function MeasurementsPanel({
 	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
 	onRemoveLegend: (targetPage: number) => void;
 	onDownloadPage: (targetPage: number) => void;
+	onAddCategory: () => string;
+	onRenameCategory: (categoryId: string, name: string) => void;
+	onDeleteCategory: (categoryId: string) => void;
+	onAddGroup: (categoryId: string) => string;
+	onRenamePageGroup: (groupId: string, name: string) => void;
+	onDeletePageGroup: (groupId: string) => void;
+	onMovePage: (targetPage: number, target: MoveTarget) => void;
 	/** Panel width in pixels, controlled by the drag handle in the parent. */
 	width: number;
 }) {
@@ -444,13 +629,143 @@ export default function MeasurementsPanel({
 	const pages = [
 		...new Set([...measurementPages, ...measurements.map((m) => m.page)]),
 	].sort((a, b) => a - b);
+	const pageSet = new Set(pages);
 
-	// Controlled accordion: multiple may be open (so Expand all works), but
-	// navigating pages / selecting a shape auto-opens just the active page.
-	const [openPages, setOpenPages] = useState<string[]>([String(page)]);
+	// Pages already placed in a category (directly or via a group). The rest are
+	// loose and render at the panel root.
+	const groupedPages = new Set<number>();
+	for (const category of categories) {
+		for (const p of category.pages) {
+			groupedPages.add(p);
+		}
+		for (const group of category.groups) {
+			for (const p of group.pages) {
+				groupedPages.add(p);
+			}
+		}
+	}
+	const loosePages = pages.filter((p) => !groupedPages.has(p));
+
+	// Every accordion node key, for Expand all.
+	const allKeys = [
+		...pages.map(pageKey),
+		...categories.map((c) => catKey(c.id)),
+		...categories.flatMap((c) => c.groups.map((g) => grpKey(g.id))),
+	];
+
+	// Controlled accordion across all levels via one composite-key array. Multiple
+	// may be open (so Expand all works); navigating to a page additively opens it
+	// and its ancestor category/group so the chain reveals it without collapsing
+	// siblings.
+	const [openKeys, setOpenKeys] = useState<string[]>([pageKey(page)]);
+	// Composite key whose name should mount in edit mode (a freshly added
+	// category/group), or null. Only read at mount, so no explicit reset needed.
+	const [editingKey, setEditingKey] = useState<string | null>(null);
+	// Set right before an add so the auto-open effect (which fires on the
+	// resulting `categories` change) skips re-opening the current page's chain.
+	const skipAutoOpenRef = useRef(false);
 	useEffect(() => {
-		setOpenPages([String(page)]);
-	}, [page]);
+		if (skipAutoOpenRef.current) {
+			skipAutoOpenRef.current = false;
+			return;
+		}
+		setOpenKeys((prev) => {
+			const next = new Set(prev);
+			next.add(pageKey(page));
+			for (const category of categories) {
+				if (category.pages.includes(page)) {
+					next.add(catKey(category.id));
+				}
+				const group = category.groups.find((g) => g.pages.includes(page));
+				if (group) {
+					next.add(catKey(category.id));
+					next.add(grpKey(group.id));
+				}
+			}
+			return [...next];
+		});
+	}, [page, categories]);
+
+	// Canvas selection: exclusively expand the selected shape's category/group/
+	// page chain and collapse everything else. Gated on the nonce (which only the
+	// canvas bumps) so panel-row clicks keep their additive behavior, and so
+	// unrelated measurements/categories changes don't re-collapse the tree.
+	const lastCanvasSelectRef = useRef(canvasSelectNonce);
+	useEffect(() => {
+		if (canvasSelectNonce === lastCanvasSelectRef.current) {
+			return;
+		}
+		lastCanvasSelectRef.current = canvasSelectNonce;
+		if (!selectedId) {
+			return;
+		}
+		const target = measurements.find((m) => m.id === selectedId);
+		if (!target) {
+			return;
+		}
+		setOpenKeys(chainKeysForPage(target.page, categories));
+	}, [canvasSelectNonce, selectedId, measurements, categories]);
+
+	const toggleKey = (key: string) =>
+		setOpenKeys((prev) =>
+			prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+		);
+
+	// On add, collapse everything (for a group, keep its parent expanded so the
+	// new row is visible) and drop the new name straight into edit mode.
+	const handleAddCategory = () => {
+		skipAutoOpenRef.current = true;
+		const id = onAddCategory();
+		setOpenKeys([]);
+		setEditingKey(catKey(id));
+	};
+	const handleAddGroup = (categoryId: string) => {
+		skipAutoOpenRef.current = true;
+		const id = onAddGroup(categoryId);
+		setOpenKeys([catKey(categoryId)]);
+		setEditingKey(grpKey(id));
+	};
+
+	// Renaming changes `categories`, which would otherwise re-fire the auto-open
+	// effect and snap the tree back to the current page's chain. Suppress that one
+	// run so the user stays put after naming a freshly added category/group.
+	const handleRenameCategory = (categoryId: string, name: string) => {
+		skipAutoOpenRef.current = true;
+		onRenameCategory(categoryId, name);
+	};
+	const handleRenamePageGroup = (groupId: string, name: string) => {
+		skipAutoOpenRef.current = true;
+		onRenamePageGroup(groupId, name);
+	};
+
+	// Active page being dragged (null when no drag), so drop targets can show a
+	// valid/invalid highlight.
+	const [activeDrag, setActiveDrag] = useState<PageDragData | null>(null);
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+		useSensor(KeyboardSensor)
+	);
+	const handleDragEnd = (event: DragEndEvent) => {
+		setActiveDrag(null);
+		const { active, over } = event;
+		if (!over) {
+			return;
+		}
+		const drag = active.data.current as PageDragData;
+		const drop = over.data.current as DropData;
+		if (!canDropPage(drag, drop)) {
+			return;
+		}
+		let target: MoveTarget;
+		if (drop.kind === 'category') {
+			target = { kind: 'category', categoryId: drop.categoryId };
+		} else if (drop.kind === 'group') {
+			target = { kind: 'group', groupId: drop.groupId };
+		} else {
+			target = { kind: 'root' };
+		}
+		onMovePage(drag.page, target);
+	};
 
 	// Per-measurement override for adjustment-input visibility (session only).
 	// Measurements without an override default to shown only when they already
@@ -474,6 +789,42 @@ export default function MeasurementsPanel({
 			return next;
 		});
 
+	// Bundled context handed to every PageAccordionItem (root, category, group).
+	const ctx: PageItemContext = {
+		measurements,
+		documentMethod,
+		pageMethods,
+		pageTitles,
+		metersPerPixel,
+		globalWastage,
+		selectedId,
+		legendPages,
+		adjustShown,
+		toggleAdjust,
+		setAdjustForAll,
+		toggleKey,
+		onOpenScaleDialog,
+		onCalibrate,
+		onResetPage,
+		onDelete,
+		onDeleteGroup,
+		onDeletePageFromMeasurements,
+		onSelectMeasurement,
+		onRenameMeasurement,
+		onRenameGroup,
+		onRenamePage,
+		onRecolorMeasurement,
+		onSetMeasurementWastage,
+		onSetMeasurementHeight,
+		onSetMeasurementAreaAdjust,
+		onSetMeasurementDescription,
+		onToggleMeasurementHidden,
+		onTogglePageHidden,
+		onAddLegend,
+		onRemoveLegend,
+		onDownloadPage,
+	};
+
 	return (
 		<div
 			className="flex h-full shrink-0 flex-col rounded-lg border bg-card"
@@ -484,267 +835,957 @@ export default function MeasurementsPanel({
 				<CalculatorPopover />
 			</div>
 
-			{/* Measurements toolbar: expand/collapse + clear actions. */}
+			{/* Toolbar: add a category, expand/collapse, plus an overflow menu. */}
 			<div className="flex items-center gap-2 border-b p-2">
 				<Button
-					aria-label="Expand all pages"
-					onClick={() => setOpenPages(pages.map(String))}
+					className="flex-1"
+					onClick={handleAddCategory}
+					size="sm"
+					variant="outline"
+				>
+					<Plus />
+					Category
+				</Button>
+				<Button
+					aria-label="Expand all"
+					onClick={() => setOpenKeys(allKeys)}
 					size="icon-sm"
-					title="Expand all"
 					variant="outline"
 				>
 					<ChevronsDownIcon />
 				</Button>
 				<Button
-					aria-label="Collapse all pages"
-					onClick={() => setOpenPages([])}
+					aria-label="Collapse all"
+					onClick={() => setOpenKeys([])}
 					size="icon-sm"
-					title="Collapse all"
 					variant="outline"
 				>
 					<ChevronsUpIcon />
 				</Button>
-				<ConfirmAction
-					description={`This removes every measurement on page ${page}. This can't be undone.`}
-					onConfirm={onClearPage}
-					title="Clear this page?"
-					trigger={
-						<Button className="flex-1" size="sm" variant="outline">
-							Clear page
-						</Button>
-					}
-				/>
-				<ConfirmAction
-					confirmLabel="Clear all"
-					description="This removes every measurement on all pages. This can't be undone."
-					onConfirm={onClearAll}
-					title="Clear all pages?"
-					trigger={
-						<Button className="flex-1" size="sm" variant="destructive-outline">
-							Clear all
-						</Button>
-					}
+				<PanelOverflowMenu
+					onClearAll={onClearAll}
+					onClearPage={onClearPage}
+					page={page}
 				/>
 			</div>
 
 			<ScrollArea className="min-h-0 flex-1" scrollFade>
-				{pages.length === 0 ? (
+				{pages.length === 0 && categories.length === 0 ? (
 					<p className="px-2 py-6 text-center text-muted-foreground text-sm">
 						No measurements yet.
 					</p>
 				) : (
-					<Accordion
-						multiple
-						onValueChange={(value) => setOpenPages(value as string[])}
-						value={openPages}
+					<DndContext
+						collisionDetection={pointerWithin}
+						onDragCancel={() => setActiveDrag(null)}
+						onDragEnd={handleDragEnd}
+						onDragStart={(event) =>
+							setActiveDrag(event.active.data.current as PageDragData)
+						}
+						sensors={sensors}
 					>
-						{pages.map((pageNumber) => {
-							const pageMeasurements = measurements.filter(
-								(m) => m.page === pageNumber
-							);
-							const rows = buildRows(pageMeasurements);
-							const pageHidden =
-								pageMeasurements.length > 0 &&
-								pageMeasurements.every((m) => m.hidden);
-							// Representative measurement of each row that can take
-							// adjustments — drives the page-level show/hide-all action.
-							const adjustableReps = rows
-								.map((row) =>
-									row.kind === 'group' ? row.members[0] : row.measurement
-								)
-								.filter(isAdjustable);
-							const pageAdjustShown =
-								adjustableReps.length > 0 && adjustableReps.every(adjustShown);
-							return (
-								<AccordionItem key={pageNumber} value={String(pageNumber)}>
-									<AccordionPrimitive.Header
-										className="flex cursor-pointer items-center gap-2 bg-muted/80 px-3 py-2.5 hover:bg-muted"
-										onClick={(event) => {
-											// The chevron trigger and actions menu (marked
-											// data-no-toggle) handle their own clicks, and the rename
-											// input shouldn't toggle either. Everything else on the bar
-											// expands/collapses the page.
-											const target = event.target as HTMLElement;
-											if (
-												target.closest('[data-no-toggle]') ||
-												target.closest('input')
-											) {
-												return;
-											}
-											const key = String(pageNumber);
-											setOpenPages((prev) =>
-												prev.includes(key)
-													? prev.filter((p) => p !== key)
-													: [...prev, key]
-											);
-										}}
-									>
-										<InlineTitle
-											className="min-w-0 flex-1"
-											onRename={(title) => onRenamePage(pageNumber, title)}
-											value={pageTitles[pageNumber] ?? `Page ${pageNumber}`}
+						{categories.length > 0 && (
+							<Accordion
+								multiple
+								{...scopeAccordion(
+									openKeys,
+									setOpenKeys,
+									categories.map((c) => catKey(c.id))
+								)}
+							>
+								{categories.map((category) => (
+									<CategoryAccordionItem
+										activeDrag={activeDrag}
+										category={category}
+										ctx={ctx}
+										editingKey={editingKey}
+										key={category.id}
+										onAddGroup={handleAddGroup}
+										onDeleteCategory={onDeleteCategory}
+										onDeletePageGroup={onDeletePageGroup}
+										onRenameCategory={handleRenameCategory}
+										onRenamePageGroup={handleRenamePageGroup}
+										openKeys={openKeys}
+										pageSet={pageSet}
+										setOpenKeys={setOpenKeys}
+									/>
+								))}
+							</Accordion>
+						)}
+						<RootDropZone
+							dragging={activeDrag !== null}
+							hasCategories={categories.length > 0}
+						>
+							{loosePages.length > 0 && (
+								<Accordion
+									multiple
+									{...scopeAccordion(
+										openKeys,
+										setOpenKeys,
+										loosePages.map(pageKey)
+									)}
+								>
+									{loosePages.map((pageNumber) => (
+										<PageAccordionItem
+											ctx={ctx}
+											key={pageNumber}
+											pageNumber={pageNumber}
 										/>
-										<span className="contents" data-no-toggle>
-											<PageActionsMenu
-												adjustable={adjustableReps.length > 0}
-												adjustmentsShown={pageAdjustShown}
-												documentMethod={documentMethod}
-												hasLegend={legendPages.has(pageNumber)}
-												hasOverride={pageMethods[pageNumber] !== undefined}
-												method={pageMethods[pageNumber] ?? documentMethod}
-												onAddLegend={onAddLegend}
-												onCalibrate={onCalibrate}
-												onDelete={() =>
-													onDeletePageFromMeasurements(pageNumber)
-												}
-												onDownloadPage={onDownloadPage}
-												onOpenScaleDialog={onOpenScaleDialog}
-												onRemoveLegend={onRemoveLegend}
-												onResetPage={onResetPage}
-												onToggleAdjustments={() =>
-													setAdjustForAll(adjustableReps, !pageAdjustShown)
-												}
-												onToggleHidden={() => onTogglePageHidden(pageNumber)}
-												page={pageNumber}
-												pageHidden={pageHidden}
-											/>
-										</span>
-										<AccordionPrimitive.Trigger
-											className={cn(
-												'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
-												'focus-visible:ring-[3px] focus-visible:ring-ring',
-												'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
-											)}
-											data-no-toggle
-											type="button"
-										>
-											<ChevronDownIcon
-												className="size-4 shrink-0 opacity-70 transition-transform duration-200"
-												data-slot="accordion-indicator"
-											/>
-										</AccordionPrimitive.Trigger>
-									</AccordionPrimitive.Header>
-									<AccordionPanel className="px-2 pt-1 pb-2">
-										{pageMeasurements.length === 0 ? (
-											<Alert variant="warning">
-												<AlertTitle>No measurements on this page</AlertTitle>
-												<AlertDescription>
-													Add measurements with the drawing tools, or delete
-													this page from the measurements panel.
-												</AlertDescription>
-											</Alert>
-										) : (
-											<ul className="flex flex-col gap-2">
-												{rows.map((row) => {
-													if (row.kind !== 'group') {
-														return (
-															<MeasurementRow
-																adjustmentsShown={adjustShown(row.measurement)}
-																globalWastage={globalWastage}
-																key={row.measurement.id}
-																measurement={row.measurement}
-																onDelete={onDelete}
-																onRecolor={onRecolorMeasurement}
-																onRename={onRenameMeasurement}
-																onSelect={onSelectMeasurement}
-																onSetAreaAdjust={onSetMeasurementAreaAdjust}
-																onSetDescription={onSetMeasurementDescription}
-																onSetHeight={onSetMeasurementHeight}
-																onSetWastage={onSetMeasurementWastage}
-																onToggleAdjustments={() =>
-																	toggleAdjust(row.measurement)
-																}
-																onToggleHidden={onToggleMeasurementHidden}
-																pageMeasurements={pageMeasurements}
-																selectedId={selectedId}
-															/>
-														);
-													}
-													const memberIds = new Set(
-														row.members.map((m) => m.id)
-													);
-													const groupDeductions = pageMeasurements.filter(
-														(d) => d.parentId && memberIds.has(d.parentId)
-													);
-													return (
-														<GroupRow
-															adjustmentsShown={adjustShown(row.members[0])}
-															areaAddSqm={row.members[0].areaAddSqm}
-															areaSubtractSqm={row.members[0].areaSubtractSqm}
-															color={row.members[0].color ?? FALLBACK_COLOR}
-															deductions={groupDeductions}
-															description={row.members[0].description}
-															globalWastage={globalWastage}
-															heightMeters={row.members[0].heightMeters}
-															hidden={row.members[0].hidden}
-															key={row.groupId}
-															label={row.label}
-															net={groupNetValue(
-																row.members,
-																AREA_TYPE_SET.has(row.members[0].type),
-																metersPerPixel,
-																pageMeasurements
-															)}
-															onDelete={() => onDeleteGroup(row.groupId)}
-															onDeleteDeduction={onDelete}
-															onRecolor={(color) =>
-																onRecolorMeasurement(row.members[0].id, color)
-															}
-															onRename={(label) =>
-																onRenameGroup(row.groupId, label)
-															}
-															onRenameDeduction={onRenameMeasurement}
-															onSelect={() =>
-																onSelectMeasurement(row.members[0].id)
-															}
-															onSetAreaAdjust={(field, value) =>
-																onSetMeasurementAreaAdjust(
-																	row.members[0].id,
-																	field,
-																	value
-																)
-															}
-															onSetDescription={(description) =>
-																onSetMeasurementDescription(
-																	row.members[0].id,
-																	description
-																)
-															}
-															onSetHeight={(height) =>
-																onSetMeasurementHeight(
-																	row.members[0].id,
-																	height
-																)
-															}
-															onSetWastage={(percent) =>
-																onSetMeasurementWastage(
-																	row.members[0].id,
-																	percent
-																)
-															}
-															onToggleAdjustments={() =>
-																toggleAdjust(row.members[0])
-															}
-															onToggleHidden={() =>
-																onToggleMeasurementHidden(row.members[0].id)
-															}
-															selected={row.members.some(
-																(m) => m.id === selectedId
-															)}
-															wastagePercent={row.members[0].wastagePercent}
-														/>
-													);
-												})}
-											</ul>
-										)}
-									</AccordionPanel>
-								</AccordionItem>
-							);
-						})}
-					</Accordion>
+									))}
+								</Accordion>
+							)}
+						</RootDropZone>
+					</DndContext>
 				)}
 			</ScrollArea>
 		</div>
+	);
+}
+
+// Neutral badge colour for group summary totals (no single shape colour applies).
+const SUMMARY_COLOR = '#475569';
+
+interface GroupTotals {
+	actualMeters: number;
+	actualSqm: number;
+	family: ShapeFamily | null;
+	hasHeight: boolean;
+	roundedMeters: number;
+	roundedSqm: number;
+	totalCount: number;
+	wallAreaSqm: number;
+}
+
+// Aggregate a group's measurements across all its pages. Rounds each top-level
+// measurement then sums, mirroring how each page's rows display (so the card
+// equals the visible sum). Add-group members are summed individually; their
+// union-overlap dedup is not applied at the summary level.
+function computeGroupTotals(
+	group: TakeoffPageGroup,
+	measurements: Measurement[],
+	globalWastage: number
+): GroupTotals {
+	const totals: GroupTotals = {
+		family: groupFamily(group.pages, measurements),
+		actualSqm: 0,
+		roundedSqm: 0,
+		actualMeters: 0,
+		roundedMeters: 0,
+		wallAreaSqm: 0,
+		hasHeight: false,
+		totalCount: 0,
+	};
+	const pageSet = new Set(group.pages);
+	for (const m of measurements) {
+		if (!pageSet.has(m.page) || m.parentId) {
+			continue;
+		}
+		const wastage = m.wastagePercent ?? globalWastage;
+		const family = measurementFamily(m.type);
+		if (family === 'area') {
+			const net = netAreaSqm(m, measurements);
+			totals.actualSqm += net;
+			totals.roundedSqm += adjustArea(
+				roundUpWithWastage(net, wastage),
+				m.areaAddSqm,
+				m.areaSubtractSqm
+			);
+		} else if (family === 'linear') {
+			const length = m.valueMeters ?? 0;
+			totals.actualMeters += length;
+			const rounded = roundUpWithWastage(length, wastage);
+			totals.roundedMeters += rounded;
+			if (m.heightMeters && m.heightMeters > 0) {
+				totals.hasHeight = true;
+				totals.wallAreaSqm += adjustArea(
+					Math.ceil(rounded * m.heightMeters),
+					m.areaAddSqm,
+					m.areaSubtractSqm
+				);
+			}
+		} else {
+			totals.totalCount += m.count ?? 0;
+		}
+	}
+	return totals;
+}
+
+// A controlled confirmation dialog (the menus unmount their items on click, so
+// the dialog lives outside the Menu and is driven by open state).
+function ConfirmDialog({
+	open,
+	onOpenChange,
+	title,
+	description,
+	confirmLabel,
+	onConfirm,
+}: {
+	open: boolean;
+	onOpenChange: (next: boolean) => void;
+	title: string;
+	description: string;
+	confirmLabel: string;
+	onConfirm: () => void;
+}): ReactElement {
+	return (
+		<AlertDialog onOpenChange={onOpenChange} open={open}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>{title}</AlertDialogTitle>
+					<AlertDialogDescription>{description}</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</AlertDialogClose>
+					<AlertDialogClose
+						render={
+							<Button onClick={onConfirm} type="button" variant="destructive" />
+						}
+					>
+						{confirmLabel}
+					</AlertDialogClose>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+// The panel toolbar's overflow menu: the clear actions.
+function PanelOverflowMenu({
+	page,
+	onClearPage,
+	onClearAll,
+}: {
+	page: number;
+	onClearPage: () => void;
+	onClearAll: () => void;
+}): ReactElement {
+	const [clearPageOpen, setClearPageOpen] = useState(false);
+	const [clearAllOpen, setClearAllOpen] = useState(false);
+	return (
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button aria-label="Panel actions" size="icon-sm" variant="outline">
+							<EllipsisVertical />
+						</Button>
+					}
+				/>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setClearPageOpen(true)}>
+						<Trash2 />
+						Clear page {page}
+					</MenuItem>
+					<MenuItem onClick={() => setClearAllOpen(true)} variant="destructive">
+						<Trash2 />
+						Clear all
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<ConfirmDialog
+				confirmLabel="Clear page"
+				description={`This removes every measurement on page ${page}. This can't be undone.`}
+				onConfirm={onClearPage}
+				onOpenChange={setClearPageOpen}
+				open={clearPageOpen}
+				title="Clear this page?"
+			/>
+			<ConfirmDialog
+				confirmLabel="Clear all"
+				description="This removes every measurement on all pages. This can't be undone."
+				onConfirm={onClearAll}
+				onOpenChange={setClearAllOpen}
+				open={clearAllOpen}
+				title="Clear all pages?"
+			/>
+		</>
+	);
+}
+
+// Actions for a category header: add a group, or delete the category (its pages
+// and groups return to the panel root; no measurements are deleted).
+function CategoryActionsMenu({
+	name,
+	onAddGroup,
+	onDelete,
+}: {
+	name: string;
+	onAddGroup: () => void;
+	onDelete: () => void;
+}): ReactElement {
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	return (
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label={`Actions for ${name}`}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<EllipsisVertical />
+						</Button>
+					}
+				/>
+				<MenuPopup align="end">
+					<MenuItem onClick={onAddGroup}>
+						<FolderPlus />
+						Add group
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete category
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<ConfirmDialog
+				confirmLabel="Delete category"
+				description="The category is removed. Its pages and groups move back to the panel root; no measurements are deleted."
+				onConfirm={onDelete}
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
+				title="Delete category?"
+			/>
+		</>
+	);
+}
+
+// Actions for a group header: delete the group (its pages move up to the parent
+// category; no measurements are deleted).
+function GroupActionsMenu({
+	name,
+	onDelete,
+}: {
+	name: string;
+	onDelete: () => void;
+}): ReactElement {
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	return (
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label={`Actions for ${name}`}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<EllipsisVertical />
+						</Button>
+					}
+				/>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete group
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<ConfirmDialog
+				confirmLabel="Delete group"
+				description="The group is removed and its pages move up to the category; no measurements are deleted."
+				onConfirm={onDelete}
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
+				title="Delete group?"
+			/>
+		</>
+	);
+}
+
+// Droppable region wrapping the loose (root-level) pages, so a page can be
+// dragged out of a group back to the root.
+function RootDropZone({
+	dragging,
+	hasCategories,
+	children,
+}: {
+	dragging: boolean;
+	hasCategories: boolean;
+	children: ReactNode;
+}): ReactElement {
+	const { setNodeRef, isOver } = useDroppable({
+		id: 'root',
+		data: { kind: 'root' } satisfies DropData,
+	});
+	return (
+		<div
+			className={cn(
+				'rounded-md',
+				isOver && dragging && 'ring-2 ring-primary ring-inset'
+			)}
+			ref={setNodeRef}
+		>
+			{children}
+			{dragging && hasCategories && (
+				<p className="px-2 py-2 text-center text-muted-foreground text-xs">
+					Drop here to move to root
+				</p>
+			)}
+		</div>
+	);
+}
+
+// A category in the hierarchy: a droppable header (drop a page to file it
+// directly under the category) plus its groups and direct pages.
+function CategoryAccordionItem({
+	category,
+	ctx,
+	pageSet,
+	activeDrag,
+	openKeys,
+	setOpenKeys,
+	editingKey,
+	onAddGroup,
+	onRenameCategory,
+	onDeleteCategory,
+	onRenamePageGroup,
+	onDeletePageGroup,
+}: {
+	category: TakeoffCategory;
+	ctx: PageItemContext;
+	pageSet: Set<number>;
+	activeDrag: PageDragData | null;
+	openKeys: string[];
+	setOpenKeys: Dispatch<SetStateAction<string[]>>;
+	editingKey: string | null;
+	onAddGroup: (categoryId: string) => void;
+	onRenameCategory: (categoryId: string, name: string) => void;
+	onDeleteCategory: (categoryId: string) => void;
+	onRenamePageGroup: (groupId: string, name: string) => void;
+	onDeletePageGroup: (groupId: string) => void;
+}): ReactElement {
+	const { setNodeRef, isOver } = useDroppable({
+		id: catKey(category.id),
+		data: { kind: 'category', categoryId: category.id } satisfies DropData,
+	});
+	const directPages = category.pages
+		.filter((p) => pageSet.has(p))
+		.sort((a, b) => a - b);
+	return (
+		<AccordionItem value={catKey(category.id)}>
+			<AccordionPrimitive.Header
+				className={cn(
+					'flex cursor-pointer items-center gap-2 bg-muted px-3 py-2.5 hover:bg-muted/70',
+					isOver && activeDrag && 'ring-2 ring-primary ring-inset'
+				)}
+				onClick={(event) => {
+					const target = event.target as HTMLElement;
+					if (target.closest('[data-no-toggle]') || target.closest('input')) {
+						return;
+					}
+					ctx.toggleKey(catKey(category.id));
+				}}
+				ref={setNodeRef}
+			>
+				<Folder className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+				<InlineTitle
+					autoEdit={editingKey === catKey(category.id)}
+					className="min-w-0 flex-1 font-medium text-amber-700 dark:text-amber-400"
+					onRename={(name) => onRenameCategory(category.id, name)}
+					value={category.name}
+				/>
+				<span className="contents" data-no-toggle>
+					<CategoryActionsMenu
+						name={category.name}
+						onAddGroup={() => onAddGroup(category.id)}
+						onDelete={() => onDeleteCategory(category.id)}
+					/>
+				</span>
+				<AccordionPrimitive.Trigger
+					className={cn(
+						'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
+						'focus-visible:ring-[3px] focus-visible:ring-ring',
+						'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
+					)}
+					data-no-toggle
+					type="button"
+				>
+					<ChevronDownIcon
+						className="size-4 shrink-0 opacity-70 transition-transform duration-200"
+						data-slot="accordion-indicator"
+					/>
+				</AccordionPrimitive.Trigger>
+			</AccordionPrimitive.Header>
+			<AccordionPanel className="px-2 pt-1 pb-2">
+				{category.groups.length === 0 && directPages.length === 0 ? (
+					<p className="px-2 py-2 text-muted-foreground text-xs">
+						Empty category. Add a group from the menu, or drag pages onto the
+						category title.
+					</p>
+				) : (
+					<div className="flex flex-col gap-1">
+						{category.groups.length > 0 && (
+							<Accordion
+								multiple
+								{...scopeAccordion(
+									openKeys,
+									setOpenKeys,
+									category.groups.map((g) => grpKey(g.id))
+								)}
+							>
+								{category.groups.map((group) => (
+									<GroupAccordionItem
+										activeDrag={activeDrag}
+										ctx={ctx}
+										editingKey={editingKey}
+										group={group}
+										key={group.id}
+										onDelete={onDeletePageGroup}
+										onRename={onRenamePageGroup}
+										openKeys={openKeys}
+										pageSet={pageSet}
+										setOpenKeys={setOpenKeys}
+									/>
+								))}
+							</Accordion>
+						)}
+						{directPages.length > 0 && (
+							<Accordion
+								multiple
+								{...scopeAccordion(
+									openKeys,
+									setOpenKeys,
+									directPages.map(pageKey)
+								)}
+							>
+								{directPages.map((pageNumber) => (
+									<PageAccordionItem
+										ctx={ctx}
+										key={pageNumber}
+										pageNumber={pageNumber}
+									/>
+								))}
+							</Accordion>
+						)}
+					</div>
+				)}
+			</AccordionPanel>
+		</AccordionItem>
+	);
+}
+
+// A group inside a category: a droppable shell (the whole item accepts page
+// drops of its family), a type icon, a totals summary card, and its pages.
+function GroupAccordionItem({
+	group,
+	ctx,
+	pageSet,
+	activeDrag,
+	openKeys,
+	setOpenKeys,
+	editingKey,
+	onRename,
+	onDelete,
+}: {
+	group: TakeoffPageGroup;
+	ctx: PageItemContext;
+	pageSet: Set<number>;
+	activeDrag: PageDragData | null;
+	openKeys: string[];
+	setOpenKeys: Dispatch<SetStateAction<string[]>>;
+	editingKey: string | null;
+	onRename: (groupId: string, name: string) => void;
+	onDelete: (groupId: string) => void;
+}): ReactElement {
+	const family = groupFamily(group.pages, ctx.measurements);
+	const { setNodeRef, isOver } = useDroppable({
+		id: grpKey(group.id),
+		data: { kind: 'group', groupId: group.id, family } satisfies DropData,
+	});
+	const groupPages = group.pages
+		.filter((p) => pageSet.has(p))
+		.sort((a, b) => a - b);
+	const valid = activeDrag
+		? canDropPage(activeDrag, { kind: 'group', groupId: group.id, family })
+		: true;
+	const FamilyIcon = family ? FAMILY_META[family].icon : null;
+	return (
+		<AccordionItem
+			className={cn(
+				isOver &&
+					activeDrag &&
+					(valid
+						? 'ring-2 ring-primary ring-inset'
+						: 'ring-2 ring-destructive ring-inset')
+			)}
+			ref={setNodeRef}
+			value={grpKey(group.id)}
+		>
+			<AccordionPrimitive.Header
+				className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-2 hover:bg-muted/70"
+				onClick={(event) => {
+					const target = event.target as HTMLElement;
+					if (target.closest('[data-no-toggle]') || target.closest('input')) {
+						return;
+					}
+					ctx.toggleKey(grpKey(group.id));
+				}}
+			>
+				<Boxes className="size-4 shrink-0 text-teal-600 dark:text-teal-400" />
+				<InlineTitle
+					autoEdit={editingKey === grpKey(group.id)}
+					className="min-w-0 flex-1 text-teal-700 dark:text-teal-400"
+					onRename={(name) => onRename(group.id, name)}
+					value={group.name}
+				/>
+				{FamilyIcon && family && (
+					<span
+						className="shrink-0 text-muted-foreground"
+						title={`${FAMILY_META[family].label} group`}
+					>
+						<FamilyIcon className="size-4" />
+					</span>
+				)}
+				<span className="contents" data-no-toggle>
+					<GroupActionsMenu
+						name={group.name}
+						onDelete={() => onDelete(group.id)}
+					/>
+				</span>
+				<AccordionPrimitive.Trigger
+					className={cn(
+						'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
+						'focus-visible:ring-[3px] focus-visible:ring-ring',
+						'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
+					)}
+					data-no-toggle
+					type="button"
+				>
+					<ChevronDownIcon
+						className="size-4 shrink-0 opacity-70 transition-transform duration-200"
+						data-slot="accordion-indicator"
+					/>
+				</AccordionPrimitive.Trigger>
+			</AccordionPrimitive.Header>
+			<AccordionPanel className="px-2 pt-1 pb-2">
+				<GroupSummaryCard
+					globalWastage={ctx.globalWastage}
+					group={group}
+					measurements={ctx.measurements}
+				/>
+				{groupPages.length === 0 ? (
+					<p className="px-2 py-2 text-muted-foreground text-xs">
+						Drag pages here to group them.
+					</p>
+				) : (
+					<Accordion
+						multiple
+						{...scopeAccordion(openKeys, setOpenKeys, groupPages.map(pageKey))}
+					>
+						{groupPages.map((pageNumber) => (
+							<PageAccordionItem
+								ctx={ctx}
+								key={pageNumber}
+								pageNumber={pageNumber}
+							/>
+						))}
+					</Accordion>
+				)}
+			</AccordionPanel>
+		</AccordionItem>
+	);
+}
+
+// The summary card at the top of a group: actual + rounded totals across all the
+// group's pages, by family (area: A/R; linear: L/R/A; count: total).
+function GroupSummaryCard({
+	group,
+	measurements,
+	globalWastage,
+}: {
+	group: TakeoffPageGroup;
+	measurements: Measurement[];
+	globalWastage: number;
+}): ReactElement {
+	const totals = computeGroupTotals(group, measurements, globalWastage);
+	if (totals.family === null) {
+		return (
+			<p className="mb-2 px-2 py-1 text-muted-foreground text-xs">
+				No measurements in this group yet.
+			</p>
+		);
+	}
+	return (
+		<div className="mb-2 flex flex-wrap items-center gap-1 rounded-md border bg-muted/40 px-2 py-1.5">
+			{totals.family === 'area' && (
+				<>
+					<ValueBadge
+						color={SUMMARY_COLOR}
+						title="Total actual area"
+						value={`A ${formatSqm(totals.actualSqm)}`}
+					/>
+					<ValueBadge
+						color={SUMMARY_COLOR}
+						title="Total rounded area — incl. wastage and adjustments"
+						value={`R ${totals.roundedSqm} m²`}
+					/>
+				</>
+			)}
+			{totals.family === 'linear' && (
+				<>
+					<ValueBadge
+						color={SUMMARY_COLOR}
+						title="Total actual length"
+						value={`L ${formatMeters(totals.actualMeters)}`}
+					/>
+					<ValueBadge
+						color={SUMMARY_COLOR}
+						title="Total rounded length — incl. wastage"
+						value={`R ${totals.roundedMeters} m`}
+					/>
+					{totals.hasHeight && (
+						<ValueBadge
+							color={SUMMARY_COLOR}
+							title="Total wall area — rounded length × height"
+							value={`A ${totals.wallAreaSqm} m²`}
+						/>
+					)}
+				</>
+			)}
+			{totals.family === 'count' && (
+				<ValueBadge
+					color={SUMMARY_COLOR}
+					title="Total count"
+					value={`${totals.totalCount}`}
+				/>
+			)}
+		</div>
+	);
+}
+
+// One page in the panel (root, under a category, or inside a group). Carries a
+// drag handle when its measurements are a single family (so it can be filed into
+// a group); otherwise the handle is hidden. The body is unchanged from before.
+function PageAccordionItem({
+	pageNumber,
+	ctx,
+}: {
+	pageNumber: number;
+	ctx: PageItemContext;
+}): ReactElement {
+	const {
+		measurements,
+		documentMethod,
+		pageMethods,
+		pageTitles,
+		metersPerPixel,
+		globalWastage,
+		selectedId,
+		legendPages,
+		adjustShown,
+		toggleAdjust,
+		setAdjustForAll,
+		toggleKey,
+		onOpenScaleDialog,
+		onCalibrate,
+		onResetPage,
+		onDelete,
+		onDeleteGroup,
+		onDeletePageFromMeasurements,
+		onSelectMeasurement,
+		onRenameMeasurement,
+		onRenameGroup,
+		onRenamePage,
+		onRecolorMeasurement,
+		onSetMeasurementWastage,
+		onSetMeasurementHeight,
+		onSetMeasurementAreaAdjust,
+		onSetMeasurementDescription,
+		onToggleMeasurementHidden,
+		onTogglePageHidden,
+		onAddLegend,
+		onRemoveLegend,
+		onDownloadPage,
+	} = ctx;
+	const { draggable, family } = pageDragInfo(pageNumber, measurements);
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+		id: pageKey(pageNumber),
+		data: { page: pageNumber, family } satisfies PageDragData,
+		disabled: !draggable,
+	});
+
+	const pageMeasurements = measurements.filter((m) => m.page === pageNumber);
+	const rows = buildRows(pageMeasurements);
+	const pageHidden =
+		pageMeasurements.length > 0 && pageMeasurements.every((m) => m.hidden);
+	// Representative measurement of each row that can take adjustments — drives the
+	// page-level show/hide-all action.
+	const adjustableReps = rows
+		.map((row) => (row.kind === 'group' ? row.members[0] : row.measurement))
+		.filter(isAdjustable);
+	const pageAdjustShown =
+		adjustableReps.length > 0 && adjustableReps.every(adjustShown);
+
+	return (
+		<AccordionItem
+			className={cn(isDragging && 'opacity-50')}
+			value={pageKey(pageNumber)}
+		>
+			<AccordionPrimitive.Header
+				className="flex cursor-pointer items-center gap-2 bg-muted/80 px-3 py-2.5 hover:bg-muted"
+				onClick={(event) => {
+					// The chevron trigger, drag handle and actions menu (marked
+					// data-no-toggle) handle their own clicks, and the rename input
+					// shouldn't toggle either. Everything else on the bar toggles the page.
+					const target = event.target as HTMLElement;
+					if (target.closest('[data-no-toggle]') || target.closest('input')) {
+						return;
+					}
+					toggleKey(pageKey(pageNumber));
+				}}
+			>
+				<File className="size-4 shrink-0 text-muted-foreground" />
+				<InlineTitle
+					className="min-w-0 flex-1"
+					onRename={(title) => onRenamePage(pageNumber, title)}
+					value={pageTitles[pageNumber] ?? `Page ${pageNumber}`}
+				/>
+				{draggable && (
+					<button
+						aria-label={`Drag page ${pageNumber}`}
+						className="flex shrink-0 cursor-grab touch-none items-center text-muted-foreground hover:text-foreground"
+						data-no-toggle
+						ref={setNodeRef}
+						type="button"
+						{...attributes}
+						{...listeners}
+					>
+						<GripVertical className="size-4" />
+					</button>
+				)}
+				<span className="contents" data-no-toggle>
+					<PageActionsMenu
+						adjustable={adjustableReps.length > 0}
+						adjustmentsShown={pageAdjustShown}
+						documentMethod={documentMethod}
+						hasLegend={legendPages.has(pageNumber)}
+						hasOverride={pageMethods[pageNumber] !== undefined}
+						method={pageMethods[pageNumber] ?? documentMethod}
+						onAddLegend={onAddLegend}
+						onCalibrate={onCalibrate}
+						onDelete={() => onDeletePageFromMeasurements(pageNumber)}
+						onDownloadPage={onDownloadPage}
+						onOpenScaleDialog={onOpenScaleDialog}
+						onRemoveLegend={onRemoveLegend}
+						onResetPage={onResetPage}
+						onToggleAdjustments={() =>
+							setAdjustForAll(adjustableReps, !pageAdjustShown)
+						}
+						onToggleHidden={() => onTogglePageHidden(pageNumber)}
+						page={pageNumber}
+						pageHidden={pageHidden}
+					/>
+				</span>
+				<AccordionPrimitive.Trigger
+					className={cn(
+						'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
+						'focus-visible:ring-[3px] focus-visible:ring-ring',
+						'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
+					)}
+					data-no-toggle
+					type="button"
+				>
+					<ChevronDownIcon
+						className="size-4 shrink-0 opacity-70 transition-transform duration-200"
+						data-slot="accordion-indicator"
+					/>
+				</AccordionPrimitive.Trigger>
+			</AccordionPrimitive.Header>
+			<AccordionPanel className="px-2 pt-1 pb-2">
+				{pageMeasurements.length === 0 ? (
+					<Alert variant="warning">
+						<AlertTitle>No measurements on this page</AlertTitle>
+						<AlertDescription>
+							Add measurements with the drawing tools, or delete this page from
+							the measurements panel.
+						</AlertDescription>
+					</Alert>
+				) : (
+					<ul className="flex flex-col gap-2">
+						{rows.map((row) => {
+							if (row.kind !== 'group') {
+								return (
+									<MeasurementRow
+										adjustmentsShown={adjustShown(row.measurement)}
+										globalWastage={globalWastage}
+										key={row.measurement.id}
+										measurement={row.measurement}
+										onDelete={onDelete}
+										onRecolor={onRecolorMeasurement}
+										onRename={onRenameMeasurement}
+										onSelect={onSelectMeasurement}
+										onSetAreaAdjust={onSetMeasurementAreaAdjust}
+										onSetDescription={onSetMeasurementDescription}
+										onSetHeight={onSetMeasurementHeight}
+										onSetWastage={onSetMeasurementWastage}
+										onToggleAdjustments={() => toggleAdjust(row.measurement)}
+										onToggleHidden={onToggleMeasurementHidden}
+										pageMeasurements={pageMeasurements}
+										selectedId={selectedId}
+									/>
+								);
+							}
+							const memberIds = new Set(row.members.map((m) => m.id));
+							const groupDeductions = pageMeasurements.filter(
+								(d) => d.parentId && memberIds.has(d.parentId)
+							);
+							return (
+								<GroupRow
+									adjustmentsShown={adjustShown(row.members[0])}
+									areaAddSqm={row.members[0].areaAddSqm}
+									areaSubtractSqm={row.members[0].areaSubtractSqm}
+									color={row.members[0].color ?? FALLBACK_COLOR}
+									deductions={groupDeductions}
+									description={row.members[0].description}
+									globalWastage={globalWastage}
+									heightMeters={row.members[0].heightMeters}
+									hidden={row.members[0].hidden}
+									key={row.groupId}
+									label={row.label}
+									net={groupNetValue(
+										row.members,
+										AREA_TYPE_SET.has(row.members[0].type),
+										metersPerPixel,
+										pageMeasurements
+									)}
+									onDelete={() => onDeleteGroup(row.groupId)}
+									onDeleteDeduction={onDelete}
+									onRecolor={(color) =>
+										onRecolorMeasurement(row.members[0].id, color)
+									}
+									onRename={(label) => onRenameGroup(row.groupId, label)}
+									onRenameDeduction={onRenameMeasurement}
+									onSelect={() => onSelectMeasurement(row.members[0].id)}
+									onSetAreaAdjust={(field, value) =>
+										onSetMeasurementAreaAdjust(row.members[0].id, field, value)
+									}
+									onSetDescription={(description) =>
+										onSetMeasurementDescription(row.members[0].id, description)
+									}
+									onSetHeight={(height) =>
+										onSetMeasurementHeight(row.members[0].id, height)
+									}
+									onSetWastage={(percent) =>
+										onSetMeasurementWastage(row.members[0].id, percent)
+									}
+									onToggleAdjustments={() => toggleAdjust(row.members[0])}
+									onToggleHidden={() =>
+										onToggleMeasurementHidden(row.members[0].id)
+									}
+									selected={row.members.some((m) => m.id === selectedId)}
+									wastagePercent={row.members[0].wastagePercent}
+								/>
+							);
+						})}
+					</ul>
+				)}
+			</AccordionPanel>
+		</AccordionItem>
 	);
 }
 
@@ -1032,7 +2073,7 @@ function MeasurementRow({
 
 	useEffect(() => {
 		if (selected) {
-			ref.current?.scrollIntoView({ block: 'nearest' });
+			ref.current?.scrollIntoView({ block: 'center' });
 		}
 	}, [selected]);
 
@@ -1235,7 +2276,7 @@ function GroupRow({
 	const adjustable = net?.unit === 'm²' || net?.unit === 'm';
 	useEffect(() => {
 		if (selected) {
-			ref.current?.scrollIntoView({ block: 'nearest' });
+			ref.current?.scrollIntoView({ block: 'center' });
 		}
 	}, [selected]);
 
@@ -1955,40 +2996,4 @@ function DescriptionDialog({
 	);
 }
 
-function ConfirmAction({
-	trigger,
-	title,
-	description,
-	confirmLabel = 'Confirm',
-	onConfirm,
-}: {
-	trigger: ReactElement;
-	title: string;
-	description: string;
-	confirmLabel?: string;
-	onConfirm: () => void;
-}): ReactElement {
-	return (
-		<AlertDialog>
-			<AlertDialogTrigger render={trigger} />
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>{title}</AlertDialogTitle>
-					<AlertDialogDescription>{description}</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
-					</AlertDialogClose>
-					<AlertDialogClose
-						render={
-							<Button onClick={onConfirm} type="button" variant="destructive" />
-						}
-					>
-						{confirmLabel}
-					</AlertDialogClose>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
-	);
-}
+// (Clear actions now use the controlled ConfirmDialog above.)

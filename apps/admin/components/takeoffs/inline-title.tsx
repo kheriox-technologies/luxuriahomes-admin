@@ -11,13 +11,16 @@ export function InlineTitle({
 	onRename,
 	onActivate,
 	className,
+	autoEdit,
 }: {
 	value: string;
 	onRename: (label: string) => void;
 	onActivate?: () => void;
 	className?: string;
+	/** Open directly in edit mode on mount (e.g. for a freshly created item). */
+	autoEdit?: boolean;
 }) {
-	const [editing, setEditing] = useState(false);
+	const [editing, setEditing] = useState(Boolean(autoEdit));
 	const [draft, setDraft] = useState(value);
 
 	const commit = () => {

@@ -30,6 +30,9 @@ export function takeoffDocToState(doc: TakeoffDoc): TakeoffPersistState {
 		legends,
 		texts: doc.texts,
 		pageTitles,
+		// Legacy rows predate the hierarchy: default to no categories (all pages
+		// render loose at root, exactly as before).
+		categories: doc.categories ?? [],
 		documentMethod: doc.documentMethod ?? null,
 		pageMethods,
 		globalWastage: doc.globalWastage,
@@ -37,6 +40,7 @@ export function takeoffDocToState(doc: TakeoffDoc): TakeoffPersistState {
 }
 
 export interface TakeoffSaveArgs {
+	categories: NonNullable<TakeoffDoc['categories']>;
 	documentMethod?: MeasurementMethod;
 	globalWastage: number;
 	legends: TakeoffDoc['legends'];
@@ -57,6 +61,7 @@ export function stateToSaveArgs(state: TakeoffPersistState): TakeoffSaveArgs {
 			page: Number(page),
 			title,
 		})),
+		categories: state.categories,
 		documentMethod: state.documentMethod ?? undefined,
 		pageMethods: Object.entries(state.pageMethods).map(([page, method]) => ({
 			page: Number(page),

@@ -3,18 +3,39 @@ import type {
 	Legend,
 	Measurement,
 	MeasurementMethod,
+	TakeoffCategory,
 	TextAnnotation,
 } from './types';
 
 // Page-indexed slices of the takeoff working set affected by a structural page
 // edit. `documentMethod`/`globalWastage` are page-independent and untouched.
 export interface PageIndexedState {
+	categories: TakeoffCategory[];
 	legends: Record<number, Legend>;
 	measurementPages: number[];
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
 	pageTitles: Record<number, string>;
 	texts: TextAnnotation[];
+}
+
+// Remap the page numbers held inside a category/group hierarchy. `mapPage`
+// returns the new page number, or null to drop that page (deleted page). Empty
+// groups/categories are kept (they still render and accept drops).
+function remapCategories(
+	categories: TakeoffCategory[],
+	mapPage: (page: number) => number | null
+): TakeoffCategory[] {
+	const remapPages = (pages: number[]): number[] =>
+		pages.map(mapPage).filter((page): page is number => page !== null);
+	return categories.map((category) => ({
+		...category,
+		pages: remapPages(category.pages),
+		groups: category.groups.map((group) => ({
+			...group,
+			pages: remapPages(group.pages),
+		})),
+	}));
 }
 
 // Shift a page-keyed record: drop the deleted page's entry (when `drop` matches)
@@ -66,6 +87,10 @@ export function remapForCopy(
 		),
 		pageMethods: shiftRecord(state.pageMethods, shiftUp, 1),
 		pageTitles: shiftRecord(state.pageTitles, shiftUp, 1),
+		// The copied page starts empty and loose (not added to any category/group).
+		categories: remapCategories(state.categories, (page) =>
+			shiftUp(page) ? page + 1 : page
+		),
 	};
 }
 
@@ -103,6 +128,13 @@ export function remapForDelete(
 		),
 		pageMethods: shiftRecord(state.pageMethods, shiftDown, -1, onTarget),
 		pageTitles: shiftRecord(state.pageTitles, shiftDown, -1, onTarget),
+		// Drop the deleted page from any category/group, shift the rest down.
+		categories: remapCategories(state.categories, (page) => {
+			if (onTarget(page)) {
+				return null;
+			}
+			return shiftDown(page) ? page - 1 : page;
+		}),
 	};
 }
 

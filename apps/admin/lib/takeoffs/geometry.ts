@@ -340,6 +340,40 @@ export function clipToParent(
 	return { parentId: parent.id, type: 'polygon', points: clipped };
 }
 
+// The three measurement families: area (rectangle/circle/polygon), linear, and
+// count. Used to constrain Add/Subtract groups and the page-group hierarchy so a
+// group never mixes families.
+export type ShapeFamily = 'area' | 'linear' | 'count';
+
+/** The family a measurement type belongs to. */
+export function measurementFamily(type: MeasurementType): ShapeFamily {
+	if (AREA_TYPE_SET.has(type)) {
+		return 'area';
+	}
+	if (type === 'linear') {
+		return 'linear';
+	}
+	return 'count';
+}
+
+/**
+ * The single shape family shared by every measurement on the given pages, or
+ * null when those pages hold no measurements (an "unset" group that accepts any
+ * family). Homogeneity is guaranteed by the tool lock, so the first family wins.
+ */
+export function groupFamily(
+	pages: number[] | Set<number>,
+	measurements: Measurement[]
+): ShapeFamily | null {
+	const pageSet = pages instanceof Set ? pages : new Set(pages);
+	for (const m of measurements) {
+		if (pageSet.has(m.page)) {
+			return measurementFamily(m.type);
+		}
+	}
+	return null;
+}
+
 /** Sum of the gross areas (m²) of every deduction belonging to a parent. */
 export function deductionSumSqm(
 	parentId: string,
