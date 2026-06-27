@@ -494,6 +494,7 @@ function scopeAccordion(
 // is unchanged). Bundled to avoid threading ~25 props through every container.
 interface PageItemContext {
 	adjustShown: (m: Measurement) => boolean;
+	clearEditingKey: () => void;
 	documentMethod: MeasurementMethod | null;
 	globalWastage: number;
 	legendPages: Set<number>;
@@ -670,7 +671,9 @@ export default function MeasurementsPanel({
 	// siblings.
 	const [openKeys, setOpenKeys] = useState<string[]>([pageKey(page)]);
 	// Composite key whose name should mount in edit mode (a freshly added
-	// category/group), or null. Only read at mount, so no explicit reset needed.
+	// category/group), or null. Cleared via InlineTitle's onEditEnd once the user
+	// finishes naming, so a later collapse/reopen (which remounts the row) doesn't
+	// snap the name back into edit mode.
 	const [editingKey, setEditingKey] = useState<string | null>(null);
 	// Set right before an add so the auto-open effect (which fires on the
 	// resulting `categories` change) skips re-opening the current page's chain.
@@ -836,6 +839,7 @@ export default function MeasurementsPanel({
 		onDownloadPage,
 		onDownloadSelection,
 		onSaveSelection,
+		clearEditingKey: () => setEditingKey(null),
 	};
 
 	return (
@@ -1121,12 +1125,14 @@ function PanelOverflowMenu({
 // and groups return to the panel root; no measurements are deleted).
 function CategoryActionsMenu({
 	name,
+	hasPages,
 	onAddGroup,
 	onDownload,
 	onSave,
 	onDelete,
 }: {
 	name: string;
+	hasPages: boolean;
 	onAddGroup: () => void;
 	onDownload: () => void;
 	onSave?: () => void;
@@ -1153,12 +1159,12 @@ function CategoryActionsMenu({
 						Add group
 					</MenuItem>
 					<MenuSeparator />
-					<MenuItem onClick={onDownload}>
+					<MenuItem disabled={!hasPages} onClick={onDownload}>
 						<Download />
 						Download category
 					</MenuItem>
 					{onSave && (
-						<MenuItem onClick={onSave}>
+						<MenuItem disabled={!hasPages} onClick={onSave}>
 							<FolderDown />
 							Save category to Documents
 						</MenuItem>
@@ -1186,11 +1192,13 @@ function CategoryActionsMenu({
 // category; no measurements are deleted).
 function GroupActionsMenu({
 	name,
+	hasPages,
 	onDownload,
 	onSave,
 	onDelete,
 }: {
 	name: string;
+	hasPages: boolean;
 	onDownload: () => void;
 	onSave?: () => void;
 	onDelete: () => void;
@@ -1211,12 +1219,12 @@ function GroupActionsMenu({
 					}
 				/>
 				<MenuPopup align="end">
-					<MenuItem onClick={onDownload}>
+					<MenuItem disabled={!hasPages} onClick={onDownload}>
 						<Download />
 						Download group
 					</MenuItem>
 					{onSave && (
-						<MenuItem onClick={onSave}>
+						<MenuItem disabled={!hasPages} onClick={onSave}>
 							<FolderDown />
 							Save group to Documents
 						</MenuItem>
@@ -1323,6 +1331,11 @@ function CategoryAccordionItem({
 					isOver && activeDrag && 'ring-2 ring-primary ring-inset'
 				)}
 				onClick={(event) => {
+					// Portaled menu items / dialogs bubble here through the React tree;
+					// ignore anything not physically inside the header.
+					if (!event.currentTarget.contains(event.target as Node)) {
+						return;
+					}
 					const target = event.target as HTMLElement;
 					if (target.closest('[data-no-toggle]') || target.closest('input')) {
 						return;
@@ -1335,11 +1348,13 @@ function CategoryAccordionItem({
 				<InlineTitle
 					autoEdit={editingKey === catKey(category.id)}
 					className="min-w-0 flex-1 font-medium text-amber-700 dark:text-amber-400"
+					onEditEnd={ctx.clearEditingKey}
 					onRename={(name) => onRenameCategory(category.id, name)}
 					value={category.name}
 				/>
 				<span className="contents" data-no-toggle>
 					<CategoryActionsMenu
+						hasPages={categoryPages.length > 0}
 						name={category.name}
 						onAddGroup={() => onAddGroup(category.id)}
 						onDelete={() => onDeleteCategory(category.id)}
@@ -1479,6 +1494,11 @@ function GroupAccordionItem({
 			<AccordionPrimitive.Header
 				className="flex cursor-pointer items-center gap-2 bg-muted/50 px-3 py-2 hover:bg-muted/70"
 				onClick={(event) => {
+					// Portaled menu items / dialogs bubble here through the React tree;
+					// ignore anything not physically inside the header.
+					if (!event.currentTarget.contains(event.target as Node)) {
+						return;
+					}
 					const target = event.target as HTMLElement;
 					if (target.closest('[data-no-toggle]') || target.closest('input')) {
 						return;
@@ -1490,6 +1510,7 @@ function GroupAccordionItem({
 				<InlineTitle
 					autoEdit={editingKey === grpKey(group.id)}
 					className="min-w-0 flex-1 text-teal-700 dark:text-teal-400"
+					onEditEnd={ctx.clearEditingKey}
 					onRename={(name) => onRename(group.id, name)}
 					value={group.name}
 				/>
@@ -1503,6 +1524,7 @@ function GroupAccordionItem({
 				)}
 				<span className="contents" data-no-toggle>
 					<GroupActionsMenu
+						hasPages={groupPages.length > 0}
 						name={group.name}
 						onDelete={() => onDelete(group.id)}
 						onDownload={() =>

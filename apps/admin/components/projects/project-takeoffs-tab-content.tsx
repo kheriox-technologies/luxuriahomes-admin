@@ -30,7 +30,7 @@ import {
 } from '@workspace/ui/components/empty';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import {
 	Download,
 	FolderDown,
@@ -40,6 +40,7 @@ import {
 	Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { InlineTitle } from '@/components/takeoffs/inline-title';
 import type { TakeoffsHandle } from '@/components/takeoffs/takeoffs-content';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import ProjectTakeoffWorkspace from './project-takeoff-workspace';
@@ -58,6 +59,25 @@ export default function ProjectTakeoffsTabContent({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const removeTakeoff = useAction(api.takeoffs.remove.remove);
+	const renameTakeoff = useMutation(api.takeoffs.rename.rename);
+
+	const onRenameTakeoff = async (name: string) => {
+		if (!selectedId) {
+			return;
+		}
+		try {
+			await renameTakeoff({ takeoffId: selectedId, name });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not rename take-off. Please try again in a moment.'
+				),
+				title: 'Could not rename take-off',
+				type: 'error',
+			});
+		}
+	};
 
 	const onDownloadPdf = async () => {
 		setDownloadingPdf(true);
@@ -169,13 +189,20 @@ export default function ProjectTakeoffsTabContent({
 			)}
 		>
 			<div className="flex w-full items-center justify-between gap-2">
-				<h2 className="min-w-0 truncate font-semibold text-lg">
-					{selectedId ? (
-						(labelById.get(selectedId) ?? 'Untitled take-off')
-					) : (
+				{selectedId ? (
+					<InlineTitle
+						className="min-w-0 truncate font-semibold text-lg"
+						key={selectedId}
+						onRename={(name) => {
+							onRenameTakeoff(name).catch(() => undefined);
+						}}
+						value={labelById.get(selectedId) ?? 'Untitled take-off'}
+					/>
+				) : (
+					<h2 className="min-w-0 truncate font-semibold text-lg">
 						<span className="text-muted-foreground">No take-off selected</span>
-					)}
-				</h2>
+					</h2>
+				)}
 				<div className="flex shrink-0 items-center gap-2">
 					<div className="w-full max-w-sm">
 						<Combobox<Id<'takeoffs'>>

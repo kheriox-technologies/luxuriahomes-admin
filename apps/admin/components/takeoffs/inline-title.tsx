@@ -10,12 +10,15 @@ export function InlineTitle({
 	value,
 	onRename,
 	onActivate,
+	onEditEnd,
 	className,
 	autoEdit,
 }: {
 	value: string;
 	onRename: (label: string) => void;
 	onActivate?: () => void;
+	/** Called whenever the field leaves edit mode (commit, blur, or Escape). */
+	onEditEnd?: () => void;
 	className?: string;
 	/** Open directly in edit mode on mount (e.g. for a freshly created item). */
 	autoEdit?: boolean;
@@ -31,6 +34,7 @@ export function InlineTitle({
 			setDraft(value);
 		}
 		setEditing(false);
+		onEditEnd?.();
 	};
 
 	if (editing) {
@@ -47,6 +51,7 @@ export function InlineTitle({
 					} else if (event.key === 'Escape') {
 						setDraft(value);
 						setEditing(false);
+						onEditEnd?.();
 					}
 				}}
 				value={draft}
