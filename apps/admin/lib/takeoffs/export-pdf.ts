@@ -662,34 +662,55 @@ export async function buildAnnotatedPdf(
 	return await pdf.save();
 }
 
+// Build a PDF containing only the given pages (1-indexed) with their overlays
+// burned in. Used by the "Download Page/Category/Group" actions so the user can
+// export just a subset of the document. Pages are sorted ascending and
+// de-duplicated; the original document is never modified.
+export async function buildPagesAnnotatedPdf(
+	originalBytes: Uint8Array,
+	input: AnnotatedPdfInput,
+	pageNumbers: number[]
+): Promise<Uint8Array> {
+	const ordered = [...new Set(pageNumbers)].sort((a, b) => a - b);
+	const src = await PDFDocument.load(originalBytes);
+	const out = await PDFDocument.create();
+	// 1-indexed pages → 0-indexed array for copyPages.
+	const copied = await out.copyPages(
+		src,
+		ordered.map((pageNumber) => pageNumber - 1)
+	);
+	const font = await out.embedFont(StandardFonts.Helvetica);
+	const boldFont = await out.embedFont(StandardFonts.HelveticaBold);
+	const groupColors = groupColorMap(input.measurements);
+
+	for (let i = 0; i < ordered.length; i++) {
+		const page = copied[i];
+		out.addPage(page);
+		const pageNumber = ordered[i];
+		const geometry = input.geometryByPage.get(pageNumber);
+		if (geometry) {
+			annotatePage(
+				page,
+				pageNumber,
+				geometry,
+				input,
+				font,
+				boldFont,
+				groupColors
+			);
+		}
+	}
+
+	return await out.save();
+}
+
 // Build a single-page PDF containing only `pageNumber` (1-indexed) with its
 // overlays burned in. Used by the "Download Page" action so the user can view
 // and download one page on its own.
-export async function buildPageAnnotatedPdf(
+export function buildPageAnnotatedPdf(
 	originalBytes: Uint8Array,
 	input: AnnotatedPdfInput,
 	pageNumber: number
 ): Promise<Uint8Array> {
-	const src = await PDFDocument.load(originalBytes);
-	const out = await PDFDocument.create();
-	// 1-indexed page → 0-indexed array.
-	const [copied] = await out.copyPages(src, [pageNumber - 1]);
-	out.addPage(copied);
-
-	const geometry = input.geometryByPage.get(pageNumber);
-	if (geometry) {
-		const font = await out.embedFont(StandardFonts.Helvetica);
-		const boldFont = await out.embedFont(StandardFonts.HelveticaBold);
-		annotatePage(
-			copied,
-			pageNumber,
-			geometry,
-			input,
-			font,
-			boldFont,
-			groupColorMap(input.measurements)
-		);
-	}
-
-	return await out.save();
+	return buildPagesAnnotatedPdf(originalBytes, input, [pageNumber]);
 }

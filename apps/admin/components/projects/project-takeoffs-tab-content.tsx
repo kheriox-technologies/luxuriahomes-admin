@@ -31,7 +31,14 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useAction, useQuery } from 'convex/react';
-import { Download, Maximize, Minimize, Ruler, Trash2 } from 'lucide-react';
+import {
+	Download,
+	FolderDown,
+	Maximize,
+	Minimize,
+	Ruler,
+	Trash2,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TakeoffsHandle } from '@/components/takeoffs/takeoffs-content';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -46,6 +53,7 @@ export default function ProjectTakeoffsTabContent({
 	const [selectedId, setSelectedId] = useState<Id<'takeoffs'> | null>(null);
 	const contentRef = useRef<TakeoffsHandle>(null);
 	const [downloadingPdf, setDownloadingPdf] = useState(false);
+	const [savingPdf, setSavingPdf] = useState(false);
 	const [deletingTakeoff, setDeletingTakeoff] = useState(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [isFullscreen, setIsFullscreen] = useState(false);
@@ -57,6 +65,15 @@ export default function ProjectTakeoffsTabContent({
 			await contentRef.current?.downloadPdf();
 		} finally {
 			setDownloadingPdf(false);
+		}
+	};
+
+	const onSaveToDocuments = async () => {
+		setSavingPdf(true);
+		try {
+			await contentRef.current?.saveToDocuments();
+		} finally {
+			setSavingPdf(false);
 		}
 	};
 
@@ -200,6 +217,16 @@ export default function ProjectTakeoffsTabContent({
 							>
 								<Download />
 								Download PDF
+							</Button>
+							<Button
+								loading={savingPdf}
+								onClick={() => onSaveToDocuments().catch(() => undefined)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<FolderDown />
+								Save to Documents
 							</Button>
 							<AlertDialog
 								onOpenChange={setDeleteDialogOpen}

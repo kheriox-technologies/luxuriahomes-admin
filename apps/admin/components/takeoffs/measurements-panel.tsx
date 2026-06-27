@@ -85,6 +85,7 @@ import {
 	File,
 	FileText,
 	Folder,
+	FolderDown,
 	FolderPlus,
 	GripVertical,
 	Hash,
@@ -504,6 +505,7 @@ interface PageItemContext {
 	onDeleteGroup: (groupId: string) => void;
 	onDeletePageFromMeasurements: (targetPage: number) => void;
 	onDownloadPage: (targetPage: number) => void;
+	onDownloadSelection: (descriptor: string, pages: number[]) => void;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onRecolorMeasurement: (id: string, color: string) => void;
 	onRemoveLegend: (targetPage: number) => void;
@@ -511,6 +513,7 @@ interface PageItemContext {
 	onRenameMeasurement: (id: string, label: string) => void;
 	onRenamePage: (targetPage: number, title: string) => void;
 	onResetPage: (targetPage: number) => void;
+	onSaveSelection?: (descriptor: string, pages: number[]) => void;
 	onSelectMeasurement: (id: string) => void;
 	onSetMeasurementAreaAdjust: (
 		id: string,
@@ -565,6 +568,8 @@ export default function MeasurementsPanel({
 	onAddLegend,
 	onRemoveLegend,
 	onDownloadPage,
+	onDownloadSelection,
+	onSaveSelection,
 	onAddCategory,
 	onRenameCategory,
 	onDeleteCategory,
@@ -614,6 +619,12 @@ export default function MeasurementsPanel({
 	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
 	onRemoveLegend: (targetPage: number) => void;
 	onDownloadPage: (targetPage: number) => void;
+	/** Open an annotated PDF of the given pages in a new tab. `descriptor` labels
+	 * the scope (category/group/page name) for toasts. */
+	onDownloadSelection: (descriptor: string, pages: number[]) => void;
+	/** Save an annotated PDF of the given pages to the Take Offs documents folder.
+	 * Undefined when saving is unavailable (e.g. the prototype page). */
+	onSaveSelection?: (descriptor: string, pages: number[]) => void;
 	onAddCategory: () => string;
 	onRenameCategory: (categoryId: string, name: string) => void;
 	onDeleteCategory: (categoryId: string) => void;
@@ -823,6 +834,8 @@ export default function MeasurementsPanel({
 		onAddLegend,
 		onRemoveLegend,
 		onDownloadPage,
+		onDownloadSelection,
+		onSaveSelection,
 	};
 
 	return (
@@ -1109,10 +1122,14 @@ function PanelOverflowMenu({
 function CategoryActionsMenu({
 	name,
 	onAddGroup,
+	onDownload,
+	onSave,
 	onDelete,
 }: {
 	name: string;
 	onAddGroup: () => void;
+	onDownload: () => void;
+	onSave?: () => void;
 	onDelete: () => void;
 }): ReactElement {
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -1136,6 +1153,17 @@ function CategoryActionsMenu({
 						Add group
 					</MenuItem>
 					<MenuSeparator />
+					<MenuItem onClick={onDownload}>
+						<Download />
+						Download category
+					</MenuItem>
+					{onSave && (
+						<MenuItem onClick={onSave}>
+							<FolderDown />
+							Save category to Documents
+						</MenuItem>
+					)}
+					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
 						Delete category
@@ -1158,9 +1186,13 @@ function CategoryActionsMenu({
 // category; no measurements are deleted).
 function GroupActionsMenu({
 	name,
+	onDownload,
+	onSave,
 	onDelete,
 }: {
 	name: string;
+	onDownload: () => void;
+	onSave?: () => void;
 	onDelete: () => void;
 }): ReactElement {
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -1179,6 +1211,17 @@ function GroupActionsMenu({
 					}
 				/>
 				<MenuPopup align="end">
+					<MenuItem onClick={onDownload}>
+						<Download />
+						Download group
+					</MenuItem>
+					{onSave && (
+						<MenuItem onClick={onSave}>
+							<FolderDown />
+							Save group to Documents
+						</MenuItem>
+					)}
+					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
 						Delete group
@@ -1266,6 +1309,12 @@ function CategoryAccordionItem({
 	const directPages = category.pages
 		.filter((p) => pageSet.has(p))
 		.sort((a, b) => a - b);
+	// All pages under the category (loose + grouped), for download/save actions.
+	const categoryPages = [
+		...new Set([...category.pages, ...category.groups.flatMap((g) => g.pages)]),
+	]
+		.filter((p) => pageSet.has(p))
+		.sort((a, b) => a - b);
 	return (
 		<AccordionItem value={catKey(category.id)}>
 			<AccordionPrimitive.Header
@@ -1294,6 +1343,14 @@ function CategoryAccordionItem({
 						name={category.name}
 						onAddGroup={() => onAddGroup(category.id)}
 						onDelete={() => onDeleteCategory(category.id)}
+						onDownload={() =>
+							ctx.onDownloadSelection(category.name, categoryPages)
+						}
+						onSave={
+							ctx.onSaveSelection
+								? () => ctx.onSaveSelection?.(category.name, categoryPages)
+								: undefined
+						}
 					/>
 				</span>
 				<AccordionPrimitive.Trigger
@@ -1331,6 +1388,7 @@ function CategoryAccordionItem({
 								{category.groups.map((group) => (
 									<GroupAccordionItem
 										activeDrag={activeDrag}
+										categoryName={category.name}
 										ctx={ctx}
 										editingKey={editingKey}
 										group={group}
@@ -1373,6 +1431,7 @@ function CategoryAccordionItem({
 // drops of its family), a type icon, a totals summary card, and its pages.
 function GroupAccordionItem({
 	group,
+	categoryName,
 	ctx,
 	pageSet,
 	activeDrag,
@@ -1383,6 +1442,7 @@ function GroupAccordionItem({
 	onDelete,
 }: {
 	group: TakeoffPageGroup;
+	categoryName: string;
 	ctx: PageItemContext;
 	pageSet: Set<number>;
 	activeDrag: PageDragData | null;
@@ -1445,6 +1505,21 @@ function GroupAccordionItem({
 					<GroupActionsMenu
 						name={group.name}
 						onDelete={() => onDelete(group.id)}
+						onDownload={() =>
+							ctx.onDownloadSelection(
+								`${categoryName} - ${group.name}`,
+								groupPages
+							)
+						}
+						onSave={
+							ctx.onSaveSelection
+								? () =>
+										ctx.onSaveSelection?.(
+											`${categoryName} - ${group.name}`,
+											groupPages
+										)
+								: undefined
+						}
 					/>
 				</span>
 				<AccordionPrimitive.Trigger
@@ -1601,6 +1676,7 @@ function PageAccordionItem({
 		onAddLegend,
 		onRemoveLegend,
 		onDownloadPage,
+		onSaveSelection,
 	} = ctx;
 	const { draggable, family } = pageDragInfo(pageNumber, measurements);
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -1673,6 +1749,15 @@ function PageAccordionItem({
 						onOpenScaleDialog={onOpenScaleDialog}
 						onRemoveLegend={onRemoveLegend}
 						onResetPage={onResetPage}
+						onSavePage={
+							onSaveSelection
+								? () =>
+										onSaveSelection(
+											pageTitles[pageNumber] ?? `Page ${pageNumber}`,
+											[pageNumber]
+										)
+								: undefined
+						}
 						onToggleAdjustments={() =>
 							setAdjustForAll(adjustableReps, !pageAdjustShown)
 						}
@@ -1807,6 +1892,7 @@ function PageActionsMenu({
 	onAddLegend,
 	onRemoveLegend,
 	onDownloadPage,
+	onSavePage,
 	onOpenScaleDialog,
 	onCalibrate,
 	onResetPage,
@@ -1825,6 +1911,7 @@ function PageActionsMenu({
 	onAddLegend: (targetPage: number, display: LegendDisplay) => void;
 	onRemoveLegend: (targetPage: number) => void;
 	onDownloadPage: (targetPage: number) => void;
+	onSavePage?: () => void;
 	onOpenScaleDialog: (scope: MethodScope, targetPage: number) => void;
 	onCalibrate: (scope: MethodScope, targetPage: number) => void;
 	onResetPage: (targetPage: number) => void;
@@ -1875,6 +1962,12 @@ function PageActionsMenu({
 						<Download />
 						Download Page
 					</MenuItem>
+					{onSavePage && (
+						<MenuItem onClick={onSavePage}>
+							<FolderDown />
+							Save page to Documents
+						</MenuItem>
+					)}
 					<MenuSeparator />
 					<MenuGroup>
 						<MenuGroupLabel>

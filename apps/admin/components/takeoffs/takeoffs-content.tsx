@@ -251,6 +251,7 @@ function openPdfBytesInTab(bytes: Uint8Array) {
 // the component (e.g. buttons next to the PDF-selection combobox).
 export interface TakeoffsHandle {
 	downloadPdf: () => Promise<void>;
+	saveToDocuments: () => Promise<void>;
 }
 
 export interface TakeoffsContentProps {
@@ -258,6 +259,13 @@ export interface TakeoffsContentProps {
 	initial?: TakeoffPersistState;
 	/** Called (debounced by the caller) whenever the persisted state changes. */
 	onPersist?: (state: TakeoffPersistState) => void;
+	/** Save an annotated PDF (overlays burned in) into the project's Take Offs
+	 * documents folder. `descriptor` labels the saved scope (e.g. "Walls -
+	 * Exterior", "Page 3", or "" for the whole takeoff) for the file name. */
+	onSaveToDocuments?: (args: {
+		bytes: Uint8Array;
+		descriptor: string;
+	}) => Promise<void>;
 	/** Persist a structural page edit (copy/delete) to storage immediately. Given
 	 * the restructured PDF bytes (no overlays burned in) so the stored PDF stays
 	 * in sync with the page-indexed working set. */
@@ -272,6 +280,7 @@ export default function TakeoffsContent({
 	initial,
 	onPersist,
 	onUploadStructural,
+	onSaveToDocuments,
 	ref,
 }: TakeoffsContentProps = {}) {
 	// The PDF source fed to pdfjs. Starts as the parent's `pdfUrl` and is swapped
@@ -624,29 +633,33 @@ export default function TakeoffsContent({
 		}
 	}, [buildInput]);
 
-	// Download Page: open just the given page (with its overlays burned in) in a
-	// new tab so the user can view/download it. The stored PDF is never touched.
-	const handleDownloadPage = useCallback(
-		async (pageNumber: number) => {
+	// Download a subset of pages (category/group/page) with overlays burned in,
+	// opening the result in a new tab. The stored PDF is never touched.
+	const handleDownloadPages = useCallback(
+		async (descriptor: string, pages: number[]) => {
+			if (pages.length === 0) {
+				toastManager.add({
+					title: 'Nothing to download',
+					description: `${descriptor} has no pages with measurements.`,
+					type: 'error',
+				});
+				return;
+			}
 			const toastId = toastManager.add({
-				title: `Preparing page ${pageNumber}…`,
+				title: `Preparing ${descriptor}…`,
 				type: 'loading',
 			});
 			try {
-				const { buildPageAnnotatedPdf } = await import(
+				const { buildPagesAnnotatedPdf } = await import(
 					'@/lib/takeoffs/export-pdf'
 				);
 				const { originalBytes, input } = await buildInput();
-				const pageBytes = await buildPageAnnotatedPdf(
-					originalBytes,
-					input,
-					pageNumber
-				);
-				openPdfBytesInTab(pageBytes);
+				const bytes = await buildPagesAnnotatedPdf(originalBytes, input, pages);
+				openPdfBytesInTab(bytes);
 				toastManager.update(toastId, { title: 'PDF ready', type: 'success' });
 			} catch {
 				toastManager.update(toastId, {
-					title: 'Could not download page',
+					title: 'Could not download PDF',
 					description: 'Please try again.',
 					type: 'error',
 				});
@@ -655,12 +668,96 @@ export default function TakeoffsContent({
 		[buildInput]
 	);
 
-	// Expose the download action to the parent so the button can live alongside
-	// the PDF-selection combobox (the build needs this component's PDF geometry
-	// and live measurement state, so it stays here).
-	useImperativeHandle(ref, () => ({ downloadPdf: handleDownloadPdf }), [
-		handleDownloadPdf,
-	]);
+	// Download Page: open just the given page (with its overlays burned in) in a
+	// new tab so the user can view/download it. The stored PDF is never touched.
+	const handleDownloadPage = useCallback(
+		(pageNumber: number) =>
+			handleDownloadPages(`page ${pageNumber}`, [pageNumber]),
+		[handleDownloadPages]
+	);
+
+	// Save a subset of pages (category/group/page) into the project's Take Offs
+	// documents folder via the parent-supplied upload callback. The descriptor is
+	// woven into the saved file name (alongside the takeoff name + timestamp).
+	const handleSaveSelection = useCallback(
+		async (descriptor: string, pages: number[]) => {
+			if (!onSaveToDocuments) {
+				return;
+			}
+			if (pages.length === 0) {
+				toastManager.add({
+					title: 'Nothing to save',
+					description: `${descriptor} has no pages with measurements.`,
+					type: 'error',
+				});
+				return;
+			}
+			const toastId = toastManager.add({
+				title: 'Saving to Documents…',
+				type: 'loading',
+			});
+			try {
+				const { buildPagesAnnotatedPdf } = await import(
+					'@/lib/takeoffs/export-pdf'
+				);
+				const { originalBytes, input } = await buildInput();
+				const bytes = await buildPagesAnnotatedPdf(originalBytes, input, pages);
+				await onSaveToDocuments({ bytes, descriptor });
+				toastManager.update(toastId, {
+					title: 'Saved to Documents',
+					type: 'success',
+				});
+			} catch {
+				toastManager.update(toastId, {
+					title: 'Could not save to Documents',
+					description: 'Please try again.',
+					type: 'error',
+				});
+			}
+		},
+		[buildInput, onSaveToDocuments]
+	);
+
+	// Save the whole takeoff (all annotated pages) into the Take Offs documents
+	// folder. Exposed to the parent via the imperative handle for the top-bar
+	// "Save to Documents" button.
+	const handleSaveWhole = useCallback(async () => {
+		if (!onSaveToDocuments) {
+			return;
+		}
+		const toastId = toastManager.add({
+			title: 'Saving to Documents…',
+			type: 'loading',
+		});
+		try {
+			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
+			const { originalBytes, input } = await buildInput();
+			const bytes = await buildAnnotatedPdf(originalBytes, input);
+			await onSaveToDocuments({ bytes, descriptor: '' });
+			toastManager.update(toastId, {
+				title: 'Saved to Documents',
+				type: 'success',
+			});
+		} catch {
+			toastManager.update(toastId, {
+				title: 'Could not save to Documents',
+				description: 'Please try again.',
+				type: 'error',
+			});
+		}
+	}, [buildInput, onSaveToDocuments]);
+
+	// Expose the download/save actions to the parent so the buttons can live
+	// alongside the PDF-selection combobox (the build needs this component's PDF
+	// geometry and live measurement state, so it stays here).
+	useImperativeHandle(
+		ref,
+		() => ({
+			downloadPdf: handleDownloadPdf,
+			saveToDocuments: handleSaveWhole,
+		}),
+		[handleDownloadPdf, handleSaveWhole]
+	);
 
 	const selectTool = useCallback(
 		(next: ToolId) => {
@@ -2467,6 +2564,7 @@ export default function TakeoffsContent({
 					onDeletePageFromMeasurements={handleDeletePageFromMeasurements}
 					onDeletePageGroup={deletePageGroup}
 					onDownloadPage={handleDownloadPage}
+					onDownloadSelection={handleDownloadPages}
 					onMovePage={movePage}
 					onOpenScaleDialog={(scope, targetPage) =>
 						openScaleDialog(scope, targetPage)
@@ -2483,6 +2581,7 @@ export default function TakeoffsContent({
 							// Recompute failure leaves existing values unchanged.
 						});
 					}}
+					onSaveSelection={onSaveToDocuments ? handleSaveSelection : undefined}
 					onSelectMeasurement={focusMeasurement}
 					onSetMeasurementAreaAdjust={setMeasurementAreaAdjust}
 					onSetMeasurementDescription={setMeasurementDescription}
