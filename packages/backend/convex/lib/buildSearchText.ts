@@ -158,6 +158,10 @@ export function buildDocumentFolderSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
+export function buildTakeoffCategorySearchText(name: string): string {
+	return buildSearchText([name]);
+}
+
 export interface MaterialSearchFields {
 	description?: string | undefined;
 	sku?: string | undefined;

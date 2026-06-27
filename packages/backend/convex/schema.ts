@@ -146,6 +146,21 @@ export const takeoffTextValidator = v.object({
 	color: v.optional(v.string()),
 });
 
+// A group inside a category: pages by number, homogeneous by shape family.
+export const takeoffPageGroupValidator = v.object({
+	id: v.string(),
+	name: v.string(),
+	pages: v.array(v.number()),
+});
+
+// A category in the measurements panel hierarchy, holding groups and pages.
+export const takeoffCategoryValidator = v.object({
+	id: v.string(),
+	name: v.string(),
+	groups: v.array(takeoffPageGroupValidator),
+	pages: v.array(v.number()),
+});
+
 // Schema definition
 export default defineSchema({
 	permissions: defineTable(zodToConvex(permissionValidator)).index(
@@ -289,7 +304,14 @@ export default defineSchema({
 		measurements: v.array(takeoffMeasurementValidator),
 		legends: v.array(takeoffLegendValidator),
 		texts: v.array(takeoffTextValidator),
+		// Pages explicitly part of the measurements panel, including ones added with
+		// no measurements yet. Optional for backward compatibility with rows saved
+		// before this field existed (derived from measurement pages on load).
+		measurementPages: v.optional(v.array(v.number())),
 		pageTitles: v.array(v.object({ page: v.number(), title: v.string() })),
+		// Category → Group → Page hierarchy. Optional for backward compatibility
+		// with rows saved before this field existed (defaults to no categories).
+		categories: v.optional(v.array(takeoffCategoryValidator)),
 		documentMethod: v.optional(takeoffMethodValidator),
 		pageMethods: v.array(
 			v.object({ page: v.number(), method: takeoffMethodValidator })
@@ -432,6 +454,10 @@ export default defineSchema({
 		name: v.string(),
 		searchText: v.string(),
 	}).searchIndex('search_document_folders', { searchField: 'searchText' }),
+	takeoffCategories: defineTable({
+		name: v.string(),
+		searchText: v.string(),
+	}).searchIndex('search_takeoff_categories', { searchField: 'searchText' }),
 	projectQuotations: defineTable({
 		projectId: v.id('projects'),
 		title: v.string(),

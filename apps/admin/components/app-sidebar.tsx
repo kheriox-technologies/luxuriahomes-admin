@@ -136,6 +136,11 @@ const items: SidebarItem[] = [
 				url: '/service-providers',
 				path: '/service-providers',
 			},
+			{
+				title: 'Take Offs Categories',
+				url: '/takeoff-categories',
+				path: '/takeoff-categories',
+			},
 		],
 	},
 	{

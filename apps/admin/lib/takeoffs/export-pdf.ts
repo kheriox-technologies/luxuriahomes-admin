@@ -11,8 +11,8 @@ import {
 	groupColorMap,
 	rectBounds,
 	resolveMpp,
+	shapeBadgeLines,
 	shapeTopCenter,
-	shapeValueLabel,
 } from '@/lib/takeoffs/geometry';
 import type {
 	Legend,
@@ -214,32 +214,29 @@ function drawShape(
 	});
 }
 
-// Burn a shape's actual measured value as a small badge centred above its top
-// edge, mirroring the on-canvas MeasurementBadge. Skips counts (no value).
-function drawValueBadge(
+// Draw a stacked-line badge pill whose bottom edge sits a small gap above the
+// given base-pixel anchor, mirroring the on-canvas MeasurementBadge.
+function drawBadgePill(
 	page: PDFPage,
-	m: Measurement,
+	lines: string[],
+	anchor: { x: number; y: number },
 	color: string,
 	scaleFactor: number,
 	pageHeight: number,
 	font: PDFFont
 ) {
-	const label = shapeValueLabel(m);
-	if (label === null) {
-		return;
-	}
 	const sizePts = COUNT_FONT_BASE * scaleFactor;
 	const padX = sizePts * 0.4;
 	const padY = sizePts * 0.22;
-	const tw = font.widthOfTextAtSize(label, sizePts);
-	const width = tw + 2 * padX;
-	const height = sizePts + 2 * padY;
+	const lineHeight = sizePts * 1.25;
+	const lineWidths = lines.map((line) => font.widthOfTextAtSize(line, sizePts));
+	const width = Math.max(...lineWidths) + 2 * padX;
+	const height = lines.length * lineHeight + 2 * padY;
 	const gap = sizePts * 0.4;
-	const top = shapeTopCenter(m);
-	// PDF space: x scales directly; y flips about the page height. The shape's
-	// top edge has the smallest base-y, so the badge sits above it (higher PDF y).
-	const cx = top.x * scaleFactor;
-	const baseY = pageHeight - top.y * scaleFactor + gap;
+	// PDF space: x scales directly; y flips about the page height. The anchor is
+	// the shape/marker top, so the badge sits above it (higher PDF y).
+	const cx = anchor.x * scaleFactor;
+	const baseY = pageHeight - anchor.y * scaleFactor + gap;
 	page.drawRectangle({
 		x: cx - width / 2,
 		y: baseY,
@@ -250,13 +247,66 @@ function drawValueBadge(
 		borderColor: hexToRgb(color),
 		borderWidth: sizePts * 0.08,
 	});
-	page.drawText(label, {
-		x: cx - tw / 2,
-		y: baseY + padY,
-		size: sizePts,
-		font,
-		color: hexToRgb(color),
-	});
+	// Stack lines top-to-bottom: PDF y grows upward, so the first line sits at the
+	// highest y inside the pill.
+	for (const [index, line] of lines.entries()) {
+		const lineTop = baseY + height - padY - (index + 1) * lineHeight;
+		page.drawText(line, {
+			x: cx - lineWidths[index] / 2,
+			y: lineTop + (lineHeight - sizePts) / 2,
+			size: sizePts,
+			font,
+			color: hexToRgb(color),
+		});
+	}
+}
+
+// Burn a shape's actual measured value as a badge, mirroring the on-canvas
+// MeasurementBadge: above the shape's top edge for linear/area, and above each
+// marker dot for counts (the total marker count).
+function drawValueBadge(
+	page: PDFPage,
+	m: Measurement,
+	color: string,
+	scaleFactor: number,
+	pageHeight: number,
+	font: PDFFont
+) {
+	const lines = shapeBadgeLines(m);
+	if (lines.length === 0) {
+		return;
+	}
+	if (m.type === 'count') {
+		const prefix = (m.label.trim().charAt(0) || 'C').toUpperCase();
+		for (let i = 0; i < m.points.length; i++) {
+			const p = m.points[i];
+			const label = `${prefix}${i + 1}`;
+			// Match the marker dot radius so the badge clears the dot.
+			const rBase = Math.max(
+				COUNT_DOT_R_BASE * 1.15,
+				COUNT_FONT_BASE * 0.55 + label.length * COUNT_FONT_BASE * 0.32
+			);
+			drawBadgePill(
+				page,
+				lines,
+				{ x: p.x, y: p.y - rBase },
+				color,
+				scaleFactor,
+				pageHeight,
+				font
+			);
+		}
+		return;
+	}
+	drawBadgePill(
+		page,
+		lines,
+		shapeTopCenter(m),
+		color,
+		scaleFactor,
+		pageHeight,
+		font
+	);
 }
 
 function wrapText(
@@ -612,34 +662,55 @@ export async function buildAnnotatedPdf(
 	return await pdf.save();
 }
 
+// Build a PDF containing only the given pages (1-indexed) with their overlays
+// burned in. Used by the "Download Page/Category/Group" actions so the user can
+// export just a subset of the document. Pages are sorted ascending and
+// de-duplicated; the original document is never modified.
+export async function buildPagesAnnotatedPdf(
+	originalBytes: Uint8Array,
+	input: AnnotatedPdfInput,
+	pageNumbers: number[]
+): Promise<Uint8Array> {
+	const ordered = [...new Set(pageNumbers)].sort((a, b) => a - b);
+	const src = await PDFDocument.load(originalBytes);
+	const out = await PDFDocument.create();
+	// 1-indexed pages → 0-indexed array for copyPages.
+	const copied = await out.copyPages(
+		src,
+		ordered.map((pageNumber) => pageNumber - 1)
+	);
+	const font = await out.embedFont(StandardFonts.Helvetica);
+	const boldFont = await out.embedFont(StandardFonts.HelveticaBold);
+	const groupColors = groupColorMap(input.measurements);
+
+	for (let i = 0; i < ordered.length; i++) {
+		const page = copied[i];
+		out.addPage(page);
+		const pageNumber = ordered[i];
+		const geometry = input.geometryByPage.get(pageNumber);
+		if (geometry) {
+			annotatePage(
+				page,
+				pageNumber,
+				geometry,
+				input,
+				font,
+				boldFont,
+				groupColors
+			);
+		}
+	}
+
+	return await out.save();
+}
+
 // Build a single-page PDF containing only `pageNumber` (1-indexed) with its
 // overlays burned in. Used by the "Download Page" action so the user can view
 // and download one page on its own.
-export async function buildPageAnnotatedPdf(
+export function buildPageAnnotatedPdf(
 	originalBytes: Uint8Array,
 	input: AnnotatedPdfInput,
 	pageNumber: number
 ): Promise<Uint8Array> {
-	const src = await PDFDocument.load(originalBytes);
-	const out = await PDFDocument.create();
-	// 1-indexed page → 0-indexed array.
-	const [copied] = await out.copyPages(src, [pageNumber - 1]);
-	out.addPage(copied);
-
-	const geometry = input.geometryByPage.get(pageNumber);
-	if (geometry) {
-		const font = await out.embedFont(StandardFonts.Helvetica);
-		const boldFont = await out.embedFont(StandardFonts.HelveticaBold);
-		annotatePage(
-			copied,
-			pageNumber,
-			geometry,
-			input,
-			font,
-			boldFont,
-			groupColorMap(input.measurements)
-		);
-	}
-
-	return await out.save();
+	return buildPagesAnnotatedPdf(originalBytes, input, [pageNumber]);
 }

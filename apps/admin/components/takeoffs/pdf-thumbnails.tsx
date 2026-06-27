@@ -16,6 +16,7 @@ import {
 } from '@workspace/ui/components/alert-dialog';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Label } from '@workspace/ui/components/label';
 import {
 	Menu,
 	MenuItem,
@@ -24,9 +25,11 @@ import {
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
+import { Switch } from '@workspace/ui/components/switch';
 import { cn } from '@workspace/ui/lib/utils';
-import { Copy, EllipsisVertical, Trash2 } from 'lucide-react';
+import { Copy, EllipsisVertical, ListPlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { InlineTitle } from './inline-title';
 import type { RenderedSize } from './use-pdf-document';
 
 // Internal raster resolution for thumbnails; the canvas is displayed at the
@@ -39,27 +42,45 @@ const A3_LANDSCAPE_RATIO = 420 / 297;
 interface PdfThumbnailsProps {
 	currentPage: number;
 	numPages: number;
+	onAddToMeasurements: (page: number) => void;
 	onCopyPage: (page: number) => Promise<void>;
 	onDeletePage: (page: number) => Promise<void>;
+	onRenamePage: (page: number, title: string) => void;
 	onSelectPage: (page: number) => void;
+	/** Toggles between showing all pages and only pages with measurements. */
+	onToggleShowAll: (on: boolean) => void;
+	/** Pages already in the measurements panel; disables their "Add to Measurements". */
+	pagesInMeasurements: Set<number>;
 	pagesWithMeasurements: Set<number>;
+	pageTitles: Record<number, string>;
 	ready: boolean;
 	renderThumbnail: (
 		pageNumber: number,
 		canvas: HTMLCanvasElement,
 		targetWidth: number
 	) => Promise<RenderedSize | null>;
+	/** Whether all pages are shown (vs only pages with measurements). */
+	showAllPages: boolean;
+	/** Page numbers to render, in display order. */
+	visiblePages: number[];
 }
 
 export default function PdfThumbnails({
 	numPages,
 	currentPage,
+	onAddToMeasurements,
 	onCopyPage,
 	onDeletePage,
+	onRenamePage,
 	onSelectPage,
+	onToggleShowAll,
+	pagesInMeasurements,
 	pagesWithMeasurements,
+	pageTitles,
 	renderThumbnail,
 	ready,
+	showAllPages,
+	visiblePages,
 }: PdfThumbnailsProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
 
@@ -68,30 +89,39 @@ export default function PdfThumbnails({
 	}
 
 	return (
-		<ScrollArea
-			className="h-full w-[166px] shrink-0 rounded-lg border bg-card"
-			ref={rootRef}
-		>
-			<div className="flex flex-col gap-2 p-2">
-				{Array.from({ length: numPages }, (_, index) => index + 1).map(
-					(pageNumber) => (
+		<div className="flex h-full w-[166px] shrink-0 flex-col rounded-lg border bg-card">
+			<div className="flex items-center gap-2 border-b px-3 py-2">
+				<Switch
+					checked={showAllPages}
+					id="show-all-pages-toggle"
+					onCheckedChange={onToggleShowAll}
+				/>
+				<Label htmlFor="show-all-pages-toggle">Show All</Label>
+			</div>
+			<ScrollArea className="min-h-0 flex-1" ref={rootRef}>
+				<div className="flex flex-col gap-2 p-2">
+					{visiblePages.map((pageNumber) => (
 						<Thumbnail
 							active={pageNumber === currentPage}
 							hasMeasurements={pagesWithMeasurements.has(pageNumber)}
+							inMeasurements={pagesInMeasurements.has(pageNumber)}
 							key={pageNumber}
 							numPages={numPages}
+							onAddToMeasurements={onAddToMeasurements}
 							onCopyPage={onCopyPage}
 							onDeletePage={onDeletePage}
+							onRenamePage={onRenamePage}
 							onSelect={onSelectPage}
 							pageNumber={pageNumber}
+							pageTitle={pageTitles[pageNumber] ?? `Page ${pageNumber}`}
 							ready={ready}
 							renderThumbnail={renderThumbnail}
 							scrollRoot={rootRef}
 						/>
-					)
-				)}
-			</div>
-		</ScrollArea>
+					))}
+				</div>
+			</ScrollArea>
+		</div>
 	);
 }
 
@@ -99,10 +129,14 @@ function Thumbnail({
 	pageNumber,
 	active,
 	hasMeasurements,
+	inMeasurements,
 	numPages,
+	onAddToMeasurements,
 	onCopyPage,
 	onDeletePage,
+	onRenamePage,
 	onSelect,
+	pageTitle,
 	renderThumbnail,
 	ready,
 	scrollRoot,
@@ -110,10 +144,14 @@ function Thumbnail({
 	pageNumber: number;
 	active: boolean;
 	hasMeasurements: boolean;
+	inMeasurements: boolean;
 	numPages: number;
+	onAddToMeasurements: (page: number) => void;
 	onCopyPage: (page: number) => Promise<void>;
 	onDeletePage: (page: number) => Promise<void>;
+	onRenamePage: (page: number, title: string) => void;
 	onSelect: (page: number) => void;
+	pageTitle: string;
 	renderThumbnail: PdfThumbnailsProps['renderThumbnail'];
 	ready: boolean;
 	scrollRoot: React.RefObject<HTMLDivElement | null>;
@@ -177,6 +215,19 @@ function Thumbnail({
 	// width / height — fills the card width and derives height from the ratio.
 	const aspectRatio = aspect ? 1 / aspect : A3_LANDSCAPE_RATIO;
 
+	// Pages with measurements use the info accent; the selected page gets a more
+	// prominent border + ring.
+	let cardBorderClass: string;
+	if (hasMeasurements) {
+		cardBorderClass = active
+			? 'border-info ring-2 ring-info/40'
+			: 'border-info/60 hover:border-info';
+	} else {
+		cardBorderClass = active
+			? 'border-primary ring-2 ring-primary/40'
+			: 'border-border hover:border-muted-foreground/40';
+	}
+
 	const confirmDelete = () => {
 		setDeleting(true);
 		onDeletePage(pageNumber)
@@ -187,75 +238,87 @@ function Thumbnail({
 
 	return (
 		<div className="relative w-full shrink-0" ref={containerRef}>
-			<button
-				aria-current={active ? 'page' : undefined}
-				aria-label={`Go to page ${pageNumber}`}
+			<div
 				className={cn(
-					'group relative block w-full overflow-hidden rounded-md border-2 bg-muted/40 transition-colors',
-					active
-						? 'border-primary ring-2 ring-primary/40'
-						: 'border-transparent hover:border-muted-foreground/40'
+					'overflow-hidden rounded-md border-2 bg-card transition-colors',
+					cardBorderClass
 				)}
-				onClick={() => onSelect(pageNumber)}
-				style={{ aspectRatio }}
-				type="button"
 			>
-				<canvas
-					className="absolute inset-0 h-full w-full object-contain"
-					ref={canvasRef}
-				/>
-				{hasMeasurements && (
-					<Badge
-						className="absolute top-1 right-1 bg-info/90 text-white shadow-sm"
-						title="Has measurements"
-						variant="info"
-					>
-						M
-					</Badge>
-				)}
-				<Badge className="absolute right-1 bottom-1" variant="outline">
-					{pageNumber}
-				</Badge>
-			</button>
+				<button
+					aria-current={active ? 'page' : undefined}
+					aria-label={`Go to page ${pageNumber}`}
+					className="group relative block w-full bg-muted/40"
+					onClick={() => onSelect(pageNumber)}
+					style={{ aspectRatio }}
+					type="button"
+				>
+					<canvas
+						className="absolute inset-0 h-full w-full object-contain"
+						ref={canvasRef}
+					/>
+				</button>
 
-			{/* Page actions overlay — a sibling of the selection button so the two
-			interactive controls never nest. */}
-			<Menu>
-				<MenuTrigger
-					render={
-						<Button
-							aria-label={`Actions for page ${pageNumber}`}
-							className="absolute top-1 left-1 size-6 bg-card/80 shadow-sm backdrop-blur-sm"
-							size="icon-sm"
-							variant="outline"
-						>
-							<EllipsisVertical />
-						</Button>
-					}
-				/>
-				<MenuPopup align="start">
-					<MenuItem
-						onClick={() => {
-							onCopyPage(pageNumber).catch(() => undefined);
-						}}
-					>
-						<Copy />
-						Copy Page
-					</MenuItem>
-					<MenuSeparator />
-					<MenuItem
-						disabled={numPages <= 1}
-						onClick={() => {
-							setConfirmHadMeasurements(hasMeasurements);
-							setConfirmDeleteOpen(true);
-						}}
-						variant="destructive"
-					>
-						<Trash2 />
-						Delete Page
-					</MenuItem>
-				</MenuPopup>
-			</Menu>
+				{/* Card footer: measurements badge + editable page name on the left,
+				actions menu on the right. */}
+				<div className="flex items-center justify-between gap-1 border-t bg-card px-2 py-1.5">
+					<div className="flex min-w-0 flex-1 items-center gap-1">
+						{hasMeasurements && (
+							<Badge size="sm" title="Has measurements" variant="info">
+								M
+							</Badge>
+						)}
+						<InlineTitle
+							className="min-w-0 flex-1"
+							onActivate={() => onSelect(pageNumber)}
+							onRename={(title) => onRenamePage(pageNumber, title)}
+							value={pageTitle}
+						/>
+					</div>
+					<Menu>
+						<MenuTrigger
+							render={
+								<Button
+									aria-label={`Actions for page ${pageNumber}`}
+									className="size-6 shrink-0"
+									size="icon-sm"
+									variant="ghost"
+								>
+									<EllipsisVertical />
+								</Button>
+							}
+						/>
+						<MenuPopup align="end">
+							<MenuItem
+								onClick={() => {
+									onCopyPage(pageNumber).catch(() => undefined);
+								}}
+							>
+								<Copy />
+								Copy Page
+							</MenuItem>
+							<MenuItem
+								disabled={inMeasurements}
+								onClick={() => onAddToMeasurements(pageNumber)}
+							>
+								<ListPlus />
+								Add to Measurements
+							</MenuItem>
+							<MenuSeparator />
+							<MenuItem
+								disabled={numPages <= 1}
+								onClick={() => {
+									setConfirmHadMeasurements(hasMeasurements);
+									setConfirmDeleteOpen(true);
+								}}
+								variant="destructive"
+							>
+								<Trash2 />
+								Delete Page
+							</MenuItem>
+						</MenuPopup>
+					</Menu>
+				</div>
+			</div>
 
 			<AlertDialog onOpenChange={setConfirmDeleteOpen} open={confirmDeleteOpen}>
 				<AlertDialogContent>

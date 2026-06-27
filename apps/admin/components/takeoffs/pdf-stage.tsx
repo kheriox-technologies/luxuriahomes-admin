@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { cn } from '@workspace/ui/lib/utils';
@@ -32,8 +33,8 @@ import {
 	rectBounds,
 	rectCorners,
 	type SnapGuide,
+	shapeBadgeLines,
 	shapeTopCenter,
-	shapeValueLabel,
 } from '@/lib/takeoffs/geometry';
 import {
 	AREA_TYPE_SET,
@@ -45,6 +46,7 @@ import {
 	type ToolId,
 } from '@/lib/takeoffs/types';
 import LegendOverlay from './legend-overlay';
+import { buildRows } from './measurements-panel';
 import TextOverlay from './text-overlay';
 import type { RenderedSize } from './use-pdf-document';
 
@@ -71,6 +73,8 @@ const ZOOM_INTENSITY = 0.0015;
 const MAX_WHEEL_DELTA = 50;
 
 interface PdfStageProps {
+	// Display name of the current page; shown as an overlay badge on the canvas.
+	currentPageName: string;
 	cursor: Point | null;
 	draft: Point[];
 	error: string | null;
@@ -113,6 +117,10 @@ interface PdfStageProps {
 	showMeasurements: boolean;
 	textAnnotations: TextAnnotation[];
 	tool: ToolId;
+	// True while the pan is a transient hold-space pan rather than the real Pan
+	// tool. Panning behaves identically, but selection side-effects are skipped so
+	// the current selection (and the Add/Subtract anchor it provides) survives.
+	transientPan: boolean;
 }
 
 function centroid(points: Point[]): Point {
@@ -320,10 +328,12 @@ function selectCursor(
 export default function PdfStage({
 	page,
 	numPages,
+	currentPageName,
 	ready,
 	error,
 	renderPage,
 	tool,
+	transientPan,
 	globalWastage,
 	metersPerPixel,
 	measurements,
@@ -492,6 +502,7 @@ export default function PdfStage({
 	const handlersRef = useRef({
 		isInteractive,
 		tool,
+		transientPan,
 		scale,
 		measurements,
 		selectedId,
@@ -507,6 +518,7 @@ export default function PdfStage({
 		handlersRef.current = {
 			isInteractive,
 			tool,
+			transientPan,
 			scale,
 			measurements,
 			selectedId,
@@ -663,7 +675,9 @@ export default function PdfStage({
 				: null;
 			// Empty space: clear the selection (and let panning proceed). A hit is
 			// handled by the overlay's own mousedown, which performs the select.
-			if (!hit) {
+			// Skip during a transient hold-space pan so the selection — and the
+			// Add/Subtract anchor it provides — survives the pan.
+			if (!(hit || h.transientPan)) {
 				h.onClearSelection();
 			}
 		};
@@ -680,6 +694,23 @@ export default function PdfStage({
 			});
 		};
 	}, []);
+
+	// Name of the current selection, shown as a badge on the canvas so the active
+	// measurement reads at a glance without scanning the side panel. A grouped
+	// shape shows its group's name (matching the panel) rather than its own label.
+	const selectedMeasurement = selectedId
+		? measurements.find((m) => m.id === selectedId)
+		: undefined;
+	let selectedName = selectedMeasurement?.label;
+	if (selectedMeasurement?.groupId) {
+		const groupRow = buildRows(measurements).find(
+			(row) =>
+				row.kind === 'group' && row.groupId === selectedMeasurement.groupId
+		);
+		if (groupRow?.kind === 'group') {
+			selectedName = groupRow.label;
+		}
+	}
 
 	if (error) {
 		return (
@@ -710,7 +741,9 @@ export default function PdfStage({
 				maxScale={fitScale * 16}
 				minScale={fitScale * 0.5}
 				onTransform={(_ref, state) => setScale(state.scale)}
-				panning={{ disabled: isInteractive || hoverSelectable }}
+				panning={{
+					disabled: isInteractive || (hoverSelectable && !transientPan),
+				}}
 				ref={transformRef}
 				wheel={{ disabled: true }}
 			>
@@ -729,7 +762,9 @@ export default function PdfStage({
 								role="img"
 								style={{
 									pointerEvents:
-										isInteractive || hoverSelectable ? 'auto' : 'none',
+										isInteractive || (hoverSelectable && !transientPan)
+											? 'auto'
+											: 'none',
 									// Pan mode drives the cursor imperatively (see handleMove);
 									// leaving it unset here keeps React from resetting it per render
 									// and lets the imperative select cursor win when over a shape.
@@ -756,7 +791,7 @@ export default function PdfStage({
 											m.id === selectedId ? selectedMarkerIndex : null
 										}
 										strokeWidth={strokeWidth}
-										valueLabel={showMeasurements ? shapeValueLabel(m) : null}
+										valueLines={showMeasurements ? shapeBadgeLines(m) : null}
 										vertexRadius={vertexRadius}
 									/>
 								))}
@@ -814,6 +849,30 @@ export default function PdfStage({
 					</div>
 				</TransformComponent>
 			</TransformWrapper>
+
+			<div className="pointer-events-none absolute top-2 left-2 max-w-[16rem]">
+				<Badge
+					className="max-w-full bg-background/90 shadow-sm"
+					size="lg"
+					title={currentPageName}
+					variant="outline"
+				>
+					<span className="min-w-0 truncate">{currentPageName}</span>
+				</Badge>
+			</div>
+
+			{selectedName ? (
+				<div className="pointer-events-none absolute top-2 right-2 max-w-[16rem]">
+					<Badge
+						className="max-w-full bg-background/90 shadow-sm"
+						size="lg"
+						title={selectedName}
+						variant="outline"
+					>
+						<span className="min-w-0 truncate">{selectedName}</span>
+					</Badge>
+				</div>
+			) : null}
 
 			<div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-background/90 px-2 py-1 text-muted-foreground text-xs shadow-sm">
 				Page {page} / {numPages || '–'} · Zoom{' '}
@@ -874,30 +933,37 @@ function EditHandle({
 }
 
 const DEDUCTION_COLOR = '#dc2626';
-// Amber halo drawn behind a shape that belongs to the selected group/parent or
-// the active Add/Subtract target, so the relationship reads at a glance.
-const HIGHLIGHT_COLOR = '#f59e0b';
-const HIGHLIGHT_WIDTH_MULT = 3.5;
-const HIGHLIGHT_OPACITY = 0.55;
+// Soft glow drawn behind a shape whenever it's selected or belongs to the
+// selected group/parent (or the active Add/Subtract target), rendered in the
+// shape's own colour so the selection/relationship reads at a glance. Stacking
+// a few wide, faint rings fakes a soft blur without an SVG filter; widths derive
+// from the screen-constant strokeWidth so the glow stays a constant on-screen
+// size across zoom. Outer rings are wider and fainter.
+const GLOW_RINGS = [
+	{ widthMult: 5, opacity: 0.18 },
+	{ widthMult: 3, opacity: 0.32 },
+] as const;
 
 // Small badge showing a shape's actual measured value, centred above its top
 // edge. Sized in base pixels from the screen-constant fontSize so it stays a
 // constant size on screen; never intercepts pointer events.
 function MeasurementBadge({
 	anchor,
-	label,
+	lines,
 	color,
 	fontSize,
 }: {
 	anchor: Point;
-	label: string;
+	lines: string[];
 	color: string;
 	fontSize: number;
 }) {
 	const padX = fontSize * 0.4;
 	const padY = fontSize * 0.22;
-	const width = label.length * fontSize * 0.6 + 2 * padX;
-	const height = fontSize + 2 * padY;
+	const lineHeight = fontSize * 1.25;
+	const longest = lines.reduce((max, line) => Math.max(max, line.length), 0);
+	const width = longest * fontSize * 0.6 + 2 * padX;
+	const height = lines.length * lineHeight + 2 * padY;
 	const gap = fontSize * 0.4;
 	const x = anchor.x - width / 2;
 	const y = anchor.y - gap - height;
@@ -914,17 +980,20 @@ function MeasurementBadge({
 				x={x}
 				y={y}
 			/>
-			<text
-				dominantBaseline="central"
-				fill={color}
-				fontSize={fontSize}
-				fontWeight={600}
-				textAnchor="middle"
-				x={anchor.x}
-				y={y + height / 2}
-			>
-				{label}
-			</text>
+			{lines.map((line, index) => (
+				<text
+					dominantBaseline="central"
+					fill={color}
+					fontSize={fontSize}
+					fontWeight={600}
+					key={line}
+					textAnchor="middle"
+					x={anchor.x}
+					y={y + padY + (index + 0.5) * lineHeight}
+				>
+					{line}
+				</text>
+			))}
 		</g>
 	);
 }
@@ -939,7 +1008,7 @@ function CommittedShape({
 	selectedMarkerIndex,
 	highlighted,
 	groupColor,
-	valueLabel,
+	valueLines,
 }: {
 	measurement: Measurement;
 	strokeWidth: number;
@@ -950,9 +1019,11 @@ function CommittedShape({
 	selectedMarkerIndex: number | null;
 	highlighted: boolean;
 	groupColor?: string;
-	valueLabel: string | null;
+	valueLines: string[] | null;
 }) {
-	const haloWidth = strokeWidth * HIGHLIGHT_WIDTH_MULT;
+	// Glow when this shape is selected or highlighted as part of the selected
+	// group/parent or active Add/Subtract target.
+	const glow = selected || highlighted;
 	const isDeduction = Boolean(measurement.parentId);
 	// Deductions always render red. Otherwise prefer the shape's stored colour,
 	// falling back to the group colour then the per-type default for any legacy
@@ -965,16 +1036,16 @@ function CommittedShape({
 			'#2563eb');
 	const { points, type } = measurement;
 
-	// Null for counts (no on-shape value) and whenever the toggle is off.
+	// Null whenever the toggle is off; empty when a shape carries no value.
 	const badge =
-		valueLabel === null ? null : (
+		valueLines && valueLines.length > 0 ? (
 			<MeasurementBadge
 				anchor={shapeTopCenter(measurement)}
 				color={color}
 				fontSize={fontSize}
-				label={valueLabel}
+				lines={valueLines}
 			/>
-		);
+		) : null;
 
 	if (type === 'count') {
 		// First letter of the measurement name prefixes each marker label, so a
@@ -994,16 +1065,23 @@ function CommittedShape({
 					const markerSelected = selected && index === selectedMarkerIndex;
 					return (
 						<g key={`${p.x}-${p.y}`}>
-							{highlighted && (
-								<circle
-									cx={p.x}
-									cy={p.y}
-									fill="none"
-									r={r + vertexRadius}
-									stroke={HIGHLIGHT_COLOR}
-									strokeOpacity={HIGHLIGHT_OPACITY}
-									strokeWidth={haloWidth}
-								/>
+							{glow && (
+								<g style={{ pointerEvents: 'none' }}>
+									<circle
+										cx={p.x}
+										cy={p.y}
+										fill={color}
+										fillOpacity={0.14}
+										r={r + vertexRadius * 2.6}
+									/>
+									<circle
+										cx={p.x}
+										cy={p.y}
+										fill={color}
+										fillOpacity={0.24}
+										r={r + vertexRadius * 1.5}
+									/>
+								</g>
 							)}
 							<circle cx={p.x} cy={p.y} fill={color} r={r} />
 							{markerSelected && (
@@ -1026,6 +1104,14 @@ function CommittedShape({
 							>
 								{label}
 							</text>
+							{valueLines && valueLines.length > 0 && (
+								<MeasurementBadge
+									anchor={{ x: p.x, y: p.y - r }}
+									color={color}
+									fontSize={fontSize}
+									lines={valueLines}
+								/>
+							)}
 						</g>
 					);
 				})}
@@ -1036,17 +1122,19 @@ function CommittedShape({
 	if (type === 'linear') {
 		return (
 			<g>
-				{highlighted && (
-					<polyline
-						fill="none"
-						points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-						stroke={HIGHLIGHT_COLOR}
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeOpacity={HIGHLIGHT_OPACITY}
-						strokeWidth={haloWidth}
-					/>
-				)}
+				{glow &&
+					GLOW_RINGS.map((ring) => (
+						<polyline
+							fill="none"
+							key={ring.widthMult}
+							points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+							stroke={color}
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeOpacity={ring.opacity}
+							strokeWidth={strokeWidth * ring.widthMult}
+						/>
+					))}
 				<polyline
 					fill="none"
 					points={points.map((p) => `${p.x},${p.y}`).join(' ')}
@@ -1091,16 +1179,21 @@ function CommittedShape({
 			/>
 		);
 		halo = (
-			<rect
-				fill="none"
-				height={b.height}
-				stroke={HIGHLIGHT_COLOR}
-				strokeOpacity={HIGHLIGHT_OPACITY}
-				strokeWidth={haloWidth}
-				width={b.width}
-				x={b.x}
-				y={b.y}
-			/>
+			<g>
+				{GLOW_RINGS.map((ring) => (
+					<rect
+						fill="none"
+						height={b.height}
+						key={ring.widthMult}
+						stroke={color}
+						strokeOpacity={ring.opacity}
+						strokeWidth={strokeWidth * ring.widthMult}
+						width={b.width}
+						x={b.x}
+						y={b.y}
+					/>
+				))}
+			</g>
 		);
 		handlePoints = rectCorners(points);
 	} else if (type === 'circle') {
@@ -1117,15 +1210,20 @@ function CommittedShape({
 			/>
 		);
 		halo = (
-			<circle
-				cx={points[0].x}
-				cy={points[0].y}
-				fill="none"
-				r={r}
-				stroke={HIGHLIGHT_COLOR}
-				strokeOpacity={HIGHLIGHT_OPACITY}
-				strokeWidth={haloWidth}
-			/>
+			<g>
+				{GLOW_RINGS.map((ring) => (
+					<circle
+						cx={points[0].x}
+						cy={points[0].y}
+						fill="none"
+						key={ring.widthMult}
+						r={r}
+						stroke={color}
+						strokeOpacity={ring.opacity}
+						strokeWidth={strokeWidth * ring.widthMult}
+					/>
+				))}
+			</g>
 		);
 		handlePoints = [points[1]];
 	} else {
@@ -1139,20 +1237,25 @@ function CommittedShape({
 			/>
 		);
 		halo = (
-			<polygon
-				fill="none"
-				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-				stroke={HIGHLIGHT_COLOR}
-				strokeOpacity={HIGHLIGHT_OPACITY}
-				strokeWidth={haloWidth}
-			/>
+			<g>
+				{GLOW_RINGS.map((ring) => (
+					<polygon
+						fill="none"
+						key={ring.widthMult}
+						points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+						stroke={color}
+						strokeOpacity={ring.opacity}
+						strokeWidth={strokeWidth * ring.widthMult}
+					/>
+				))}
+			</g>
 		);
 		handlePoints = points;
 	}
 
 	return (
 		<g>
-			{highlighted && halo}
+			{glow && halo}
 			{body}
 			{selected &&
 				handlePoints.map((p) => (

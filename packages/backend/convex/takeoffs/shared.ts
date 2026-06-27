@@ -73,6 +73,22 @@ export const createCopyAndTakeoff = internalMutation({
 			});
 		}
 
+		// Seed the new takeoff with the master takeoff-category list so users don't
+		// have to recreate their standard categories by hand. Each master row becomes
+		// an empty embedded category (no groups/pages yet), sorted to match the order
+		// shown in takeoffCategories/list.ts.
+		const masterCategories = await ctx.db.query('takeoffCategories').collect();
+		const seededCategories = masterCategories
+			.sort((a, b) =>
+				a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+			)
+			.map((cat) => ({
+				id: crypto.randomUUID(),
+				name: cat.name,
+				groups: [],
+				pages: [],
+			}));
+
 		const documentId = await ctx.db.insert('projectDocuments', {
 			projectId: args.projectId,
 			name: args.name,
@@ -94,6 +110,7 @@ export const createCopyAndTakeoff = internalMutation({
 			legends: [],
 			texts: [],
 			pageTitles: [],
+			categories: seededCategories,
 			documentMethod: DEFAULT_TAKEOFF_METHOD,
 			pageMethods: [],
 			globalWastage: DEFAULT_TAKEOFF_WASTAGE,

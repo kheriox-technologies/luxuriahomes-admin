@@ -340,6 +340,40 @@ export function clipToParent(
 	return { parentId: parent.id, type: 'polygon', points: clipped };
 }
 
+// The three measurement families: area (rectangle/circle/polygon), linear, and
+// count. Used to constrain Add/Subtract groups and the page-group hierarchy so a
+// group never mixes families.
+export type ShapeFamily = 'area' | 'linear' | 'count';
+
+/** The family a measurement type belongs to. */
+export function measurementFamily(type: MeasurementType): ShapeFamily {
+	if (AREA_TYPE_SET.has(type)) {
+		return 'area';
+	}
+	if (type === 'linear') {
+		return 'linear';
+	}
+	return 'count';
+}
+
+/**
+ * The single shape family shared by every measurement on the given pages, or
+ * null when those pages hold no measurements (an "unset" group that accepts any
+ * family). Homogeneity is guaranteed by the tool lock, so the first family wins.
+ */
+export function groupFamily(
+	pages: number[] | Set<number>,
+	measurements: Measurement[]
+): ShapeFamily | null {
+	const pageSet = pages instanceof Set ? pages : new Set(pages);
+	for (const m of measurements) {
+		if (pageSet.has(m.page)) {
+			return measurementFamily(m.type);
+		}
+	}
+	return null;
+}
+
 /** Sum of the gross areas (m²) of every deduction belonging to a parent. */
 export function deductionSumSqm(
 	parentId: string,
@@ -619,18 +653,30 @@ export function formatSqm(value: number): string {
 }
 
 /**
- * The shape's own gross measured value formatted for display: area (m²) for
- * area-like shapes, length (m) for linear. Returns null for counts (and any
- * shape without a value), which carry no on-shape measurement badge.
+ * Lines shown in a shape's on-canvas value badge (empty array = no badge):
+ * - Linear: `L - x m`, plus `H - x m` and the actual area `A - x m²`
+ *   (length × height) when a wall height is set.
+ * - Area-like (rectangle/circle/polygon, incl. groups & deductions): the area.
+ * - Count: the total number of markers in the measurement.
+ * Values are the actual measured values, matching the on-canvas drawing.
  */
-export function shapeValueLabel(m: Measurement): string | null {
+export function shapeBadgeLines(m: Measurement): string[] {
 	if (m.type === 'linear') {
-		return formatMeters(m.valueMeters ?? 0);
+		const length = m.valueMeters ?? 0;
+		const lines = [`L - ${formatMeters(length)}`];
+		if (m.heightMeters && m.heightMeters > 0) {
+			lines.push(`H - ${formatMeters(m.heightMeters)}`);
+			lines.push(`A - ${formatSqm(length * m.heightMeters)}`);
+		}
+		return lines;
 	}
 	if (AREA_TYPE_SET.has(m.type)) {
-		return formatSqm(m.valueSqm ?? 0);
+		return [formatSqm(m.valueSqm ?? 0)];
 	}
-	return null;
+	if (m.type === 'count') {
+		return m.points.length > 0 ? [`${m.points.length}`] : [];
+	}
+	return [];
 }
 
 /** Top-centre of a shape's bounding box in base pixels (for value badges). */

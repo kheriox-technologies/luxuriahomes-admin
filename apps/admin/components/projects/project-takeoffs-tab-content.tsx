@@ -29,9 +29,18 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useAction, useQuery } from 'convex/react';
-import { Download, Ruler, Trash2 } from 'lucide-react';
+import { cn } from '@workspace/ui/lib/utils';
+import { useAction, useMutation, useQuery } from 'convex/react';
+import {
+	Download,
+	FolderDown,
+	Maximize,
+	Minimize,
+	Ruler,
+	Trash2,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { InlineTitle } from '@/components/takeoffs/inline-title';
 import type { TakeoffsHandle } from '@/components/takeoffs/takeoffs-content';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import ProjectTakeoffWorkspace from './project-takeoff-workspace';
@@ -45,9 +54,30 @@ export default function ProjectTakeoffsTabContent({
 	const [selectedId, setSelectedId] = useState<Id<'takeoffs'> | null>(null);
 	const contentRef = useRef<TakeoffsHandle>(null);
 	const [downloadingPdf, setDownloadingPdf] = useState(false);
+	const [savingPdf, setSavingPdf] = useState(false);
 	const [deletingTakeoff, setDeletingTakeoff] = useState(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [isFullscreen, setIsFullscreen] = useState(false);
 	const removeTakeoff = useAction(api.takeoffs.remove.remove);
+	const renameTakeoff = useMutation(api.takeoffs.rename.rename);
+
+	const onRenameTakeoff = async (name: string) => {
+		if (!selectedId) {
+			return;
+		}
+		try {
+			await renameTakeoff({ takeoffId: selectedId, name });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not rename take-off. Please try again in a moment.'
+				),
+				title: 'Could not rename take-off',
+				type: 'error',
+			});
+		}
+	};
 
 	const onDownloadPdf = async () => {
 		setDownloadingPdf(true);
@@ -55,6 +85,15 @@ export default function ProjectTakeoffsTabContent({
 			await contentRef.current?.downloadPdf();
 		} finally {
 			setDownloadingPdf(false);
+		}
+	};
+
+	const onSaveToDocuments = async () => {
+		setSavingPdf(true);
+		try {
+			await contentRef.current?.saveToDocuments();
+		} finally {
+			setSavingPdf(false);
 		}
 	};
 
@@ -98,6 +137,20 @@ export default function ProjectTakeoffsTabContent({
 		});
 	}, [takeoffs]);
 
+	// Exit full screen on Escape, but let an open delete dialog consume it first.
+	useEffect(() => {
+		if (!isFullscreen) {
+			return;
+		}
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && !deleteDialogOpen) {
+				setIsFullscreen(false);
+			}
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [isFullscreen, deleteDialogOpen]);
+
 	const items = useMemo(() => (takeoffs ?? []).map((t) => t._id), [takeoffs]);
 	const labelById = useMemo(() => {
 		const map = new Map<Id<'takeoffs'>, string>();
@@ -129,15 +182,27 @@ export default function ProjectTakeoffsTabContent({
 	}
 
 	return (
-		<div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3">
+		<div
+			className={cn(
+				'flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-3',
+				isFullscreen && 'fixed inset-0 z-50 bg-background p-4'
+			)}
+		>
 			<div className="flex w-full items-center justify-between gap-2">
-				<h2 className="min-w-0 truncate font-semibold text-lg">
-					{selectedId ? (
-						(labelById.get(selectedId) ?? 'Untitled take-off')
-					) : (
+				{selectedId ? (
+					<InlineTitle
+						className="min-w-0 truncate font-semibold text-lg"
+						key={selectedId}
+						onRename={(name) => {
+							onRenameTakeoff(name).catch(() => undefined);
+						}}
+						value={labelById.get(selectedId) ?? 'Untitled take-off'}
+					/>
+				) : (
+					<h2 className="min-w-0 truncate font-semibold text-lg">
 						<span className="text-muted-foreground">No take-off selected</span>
-					)}
-				</h2>
+					</h2>
+				)}
 				<div className="flex shrink-0 items-center gap-2">
 					<div className="w-full max-w-sm">
 						<Combobox<Id<'takeoffs'>>
@@ -162,6 +227,15 @@ export default function ProjectTakeoffsTabContent({
 					{selectedId ? (
 						<>
 							<Button
+								onClick={() => setIsFullscreen((v) => !v)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								{isFullscreen ? <Minimize /> : <Maximize />}
+								{isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+							</Button>
+							<Button
 								loading={downloadingPdf}
 								onClick={() => onDownloadPdf().catch(() => undefined)}
 								size="sm"
@@ -170,6 +244,16 @@ export default function ProjectTakeoffsTabContent({
 							>
 								<Download />
 								Download PDF
+							</Button>
+							<Button
+								loading={savingPdf}
+								onClick={() => onSaveToDocuments().catch(() => undefined)}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								<FolderDown />
+								Save to Documents
 							</Button>
 							<AlertDialog
 								onOpenChange={setDeleteDialogOpen}

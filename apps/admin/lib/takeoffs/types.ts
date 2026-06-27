@@ -156,13 +156,44 @@ export type MeasurementMethod =
 // Whether a scale/calibration sets the PDF-wide default or one page's override.
 export type MethodScope = 'all' | 'page';
 
+// A group inside a category, holding pages by number. A group is homogeneous by
+// shape family (all area / all linear / all count) — the family is derived from
+// the measurements on its pages, never stored, so it reverts to "unset" when its
+// pages are emptied. `pages` are disjoint from every other group/category.
+export interface TakeoffPageGroup {
+	id: string;
+	name: string;
+	pages: number[];
+}
+
+// A logical category in the measurements panel hierarchy. Holds Groups and Pages
+// directly. A page lives in exactly one place (root, a category's `pages`, or a
+// group's `pages`); these arrays are disjoint across the whole takeoff.
+export interface TakeoffCategory {
+	groups: TakeoffPageGroup[];
+	id: string;
+	name: string;
+	pages: number[];
+}
+
+// Where a page is moved to in the hierarchy: loose at root, directly under a
+// category, or inside a group. Used by drag-drop and the add-page dialog.
+export type MoveTarget =
+	| { kind: 'root' }
+	| { kind: 'category'; categoryId: string }
+	| { kind: 'group'; groupId: string };
+
 // The full persistable working set of a takeoff. Mirrors the in-memory state of
 // TakeoffsContent; `legends`, `pageTitles` and `pageMethods` are keyed by page
 // number in memory (converted to/from arrays at the Convex boundary).
 export interface TakeoffPersistState {
+	/** Category → Group → Page organisation of the measurements panel. */
+	categories: TakeoffCategory[];
 	documentMethod: MeasurementMethod | null;
 	globalWastage: number;
 	legends: Record<number, Legend>;
+	/** Pages shown in the measurements panel, including ones added with no measurements yet. */
+	measurementPages: number[];
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
 	pageTitles: Record<number, string>;

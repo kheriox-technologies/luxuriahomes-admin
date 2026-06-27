@@ -13,6 +13,19 @@ import type { TakeoffPersistState } from '@/lib/takeoffs/types';
 
 const SAVE_DEBOUNCE_MS = 800;
 
+// Project-root documents folder that holds take-off PDFs (mirrors the backend
+// constant in convex/takeoffs/shared.ts; the folder is created when a takeoff is
+// added, so saved PDFs land in the same place).
+const TAKE_OFFS_FOLDER_PATH = 'take-offs';
+
+// Build a sortable `yyyyMMdd-HHmm` stamp for saved file names. The backend
+// kebab-caser keeps the digits and hyphen, so the result stays readable.
+function formatTimestamp(): string {
+	const now = new Date();
+	const pad = (n: number) => String(n).padStart(2, '0');
+	return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
 export default function ProjectTakeoffWorkspace({
 	takeoffId,
 	contentRef,
@@ -25,6 +38,10 @@ export default function ProjectTakeoffWorkspace({
 	const generateSaveUrl = useAction(
 		api.takeoffs.generateSaveUrl.generateSaveUrl
 	);
+	const generateUploadUrl = useAction(
+		api.projectDocuments.generateUploadUrl.generateUploadUrl
+	);
+	const createDocument = useMutation(api.projectDocuments.create.create);
 
 	const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -97,6 +114,52 @@ export default function ProjectTakeoffWorkspace({
 		[generateSaveUrl, takeoffId]
 	);
 
+	const projectId = takeoff?.projectId;
+	const takeoffName = takeoff?.name;
+
+	// Save an annotated PDF (overlays burned in) into the project's "Take Offs"
+	// documents folder. The file name is the takeoff name, the saved scope's
+	// descriptor (category/group/page, when present), and a timestamp; the backend
+	// kebab-cases and de-duplicates it. Mirrors the file-manager upload flow.
+	const saveToDocuments = useCallback(
+		async ({
+			bytes,
+			descriptor,
+		}: {
+			bytes: Uint8Array;
+			descriptor: string;
+		}) => {
+			if (!(projectId && takeoffName)) {
+				throw new Error('Takeoff not ready');
+			}
+			const fileName = `${takeoffName}${descriptor ? ` ${descriptor}` : ''} ${formatTimestamp()}.pdf`;
+			const { uploadUrl, s3Key, kebabName } = await generateUploadUrl({
+				projectId,
+				folderPath: TAKE_OFFS_FOLDER_PATH,
+				fileName,
+				contentType: 'application/pdf',
+			});
+			const res = await fetch(uploadUrl, {
+				method: 'PUT',
+				body: new Blob([bytes as BlobPart], { type: 'application/pdf' }),
+				headers: { 'Content-Type': 'application/pdf' },
+			});
+			if (!res.ok) {
+				throw new Error(`Upload failed (${res.status})`);
+			}
+			await createDocument({
+				projectId,
+				name: fileName,
+				kebabName,
+				s3Key,
+				folderPath: TAKE_OFFS_FOLDER_PATH,
+				size: bytes.byteLength,
+				mimeType: 'application/pdf',
+			});
+		},
+		[createDocument, generateUploadUrl, projectId, takeoffName]
+	);
+
 	if (!(pdfUrl && initialRef.current)) {
 		return <p className="p-4 text-muted-foreground text-sm">Loading…</p>;
 	}
@@ -105,6 +168,7 @@ export default function ProjectTakeoffWorkspace({
 		<TakeoffsContent
 			initial={initialRef.current}
 			onPersist={onPersist}
+			onSaveToDocuments={saveToDocuments}
 			onUploadStructural={uploadPdf}
 			pdfUrl={pdfUrl}
 			ref={contentRef}
