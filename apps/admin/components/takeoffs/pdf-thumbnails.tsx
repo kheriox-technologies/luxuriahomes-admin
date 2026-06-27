@@ -16,6 +16,7 @@ import {
 } from '@workspace/ui/components/alert-dialog';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Label } from '@workspace/ui/components/label';
 import {
 	Menu,
 	MenuItem,
@@ -24,6 +25,7 @@ import {
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
+import { Switch } from '@workspace/ui/components/switch';
 import { cn } from '@workspace/ui/lib/utils';
 import { Copy, EllipsisVertical, ListPlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -45,6 +47,8 @@ interface PdfThumbnailsProps {
 	onDeletePage: (page: number) => Promise<void>;
 	onRenamePage: (page: number, title: string) => void;
 	onSelectPage: (page: number) => void;
+	/** Toggles between showing all pages and only pages with measurements. */
+	onToggleShowAll: (on: boolean) => void;
 	/** Pages already in the measurements panel; disables their "Add to Measurements". */
 	pagesInMeasurements: Set<number>;
 	pagesWithMeasurements: Set<number>;
@@ -55,6 +59,10 @@ interface PdfThumbnailsProps {
 		canvas: HTMLCanvasElement,
 		targetWidth: number
 	) => Promise<RenderedSize | null>;
+	/** Whether all pages are shown (vs only pages with measurements). */
+	showAllPages: boolean;
+	/** Page numbers to render, in display order. */
+	visiblePages: number[];
 }
 
 export default function PdfThumbnails({
@@ -65,11 +73,14 @@ export default function PdfThumbnails({
 	onDeletePage,
 	onRenamePage,
 	onSelectPage,
+	onToggleShowAll,
 	pagesInMeasurements,
 	pagesWithMeasurements,
 	pageTitles,
 	renderThumbnail,
 	ready,
+	showAllPages,
+	visiblePages,
 }: PdfThumbnailsProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
 
@@ -78,13 +89,18 @@ export default function PdfThumbnails({
 	}
 
 	return (
-		<ScrollArea
-			className="h-full w-[166px] shrink-0 rounded-lg border bg-card"
-			ref={rootRef}
-		>
-			<div className="flex flex-col gap-2 p-2">
-				{Array.from({ length: numPages }, (_, index) => index + 1).map(
-					(pageNumber) => (
+		<div className="flex h-full w-[166px] shrink-0 flex-col rounded-lg border bg-card">
+			<div className="flex items-center gap-2 border-b px-3 py-2">
+				<Switch
+					checked={showAllPages}
+					id="show-all-pages-toggle"
+					onCheckedChange={onToggleShowAll}
+				/>
+				<Label htmlFor="show-all-pages-toggle">Show All</Label>
+			</div>
+			<ScrollArea className="min-h-0 flex-1" ref={rootRef}>
+				<div className="flex flex-col gap-2 p-2">
+					{visiblePages.map((pageNumber) => (
 						<Thumbnail
 							active={pageNumber === currentPage}
 							hasMeasurements={pagesWithMeasurements.has(pageNumber)}
@@ -102,10 +118,10 @@ export default function PdfThumbnails({
 							renderThumbnail={renderThumbnail}
 							scrollRoot={rootRef}
 						/>
-					)
-				)}
-			</div>
-		</ScrollArea>
+					))}
+				</div>
+			</ScrollArea>
+		</div>
 	);
 }
 

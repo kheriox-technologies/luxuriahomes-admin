@@ -322,6 +322,9 @@ export default function TakeoffsContent({
 	// When on, each shape shows a badge with its actual measured value, both on
 	// the canvas and in the exported/downloaded PDF. Off by default.
 	const [showMeasurements, setShowMeasurements] = useState(false);
+	// When off, the thumbnails panel lists only pages that have measurements. On
+	// by default so the full document is visible.
+	const [showAllPages, setShowAllPages] = useState(true);
 	// Id of the group currently being drawn into (ref so commit reads it
 	// imperatively without re-running on every change). Null when Add is off.
 	const currentGroupId = useRef<string | null>(null);
@@ -1853,6 +1856,28 @@ export default function TakeoffsContent({
 		() => new Set(measurementPages),
 		[measurementPages]
 	);
+	// Page numbers shown in the thumbnails panel: every page when "Show All Pages"
+	// is on, otherwise only pages that hold at least one measurement.
+	const visiblePages = useMemo(() => {
+		if (showAllPages) {
+			return Array.from({ length: numPages }, (_, index) => index + 1);
+		}
+		return [...pagesWithMeasurements].sort((a, b) => a - b);
+	}, [showAllPages, numPages, pagesWithMeasurements]);
+	const toggleShowAllPages = useCallback(
+		(on: boolean) => {
+			setShowAllPages(on);
+			// When hiding empty pages, jump to the first page with measurements
+			// unless the current page already has some.
+			if (!(on || pagesWithMeasurements.has(page))) {
+				const first = [...pagesWithMeasurements].sort((a, b) => a - b)[0];
+				if (first) {
+					goToPage(first);
+				}
+			}
+		},
+		[pagesWithMeasurements, page, goToPage]
+	);
 
 	// Jump to a measurement: switch to Pan (the selecting tool), navigate to its
 	// page, and select it. Done inline (not via goToPage/selectTool) so the
@@ -2468,11 +2493,14 @@ export default function TakeoffsContent({
 					onDeletePage={handleDeletePage}
 					onRenamePage={renamePage}
 					onSelectPage={goToPage}
+					onToggleShowAll={toggleShowAllPages}
 					pagesInMeasurements={pagesInMeasurements}
 					pagesWithMeasurements={pagesWithMeasurements}
 					pageTitles={pageTitles}
 					ready={ready}
 					renderThumbnail={renderThumbnail}
+					showAllPages={showAllPages}
+					visiblePages={visiblePages}
 				/>
 				<div className="min-w-0 flex-1">
 					<PdfStage
