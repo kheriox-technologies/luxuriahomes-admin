@@ -1,0 +1,10 @@
+{
+  "extends": "@workspace/config/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "strictNullChecks": true,
+    "types": []
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

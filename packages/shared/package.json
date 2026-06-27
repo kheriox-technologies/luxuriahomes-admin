@@ -1,0 +1,24 @@
+{
+  "name": "@workspace/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens": "./src/tokens.ts",
+    "./types": "./src/types.ts",
+    "./projects": "./src/projects.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@workspace/backend": "workspace:*"
+  },
+  "devDependencies": {
+    "@workspace/config": "workspace:*",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
