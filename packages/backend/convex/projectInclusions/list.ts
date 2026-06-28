@@ -1,7 +1,11 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
-import { getProjectOrThrow } from './shared';
+import {
+	createUnitResolutionCaches,
+	getProjectOrThrow,
+	resolveUnitAbbrByCode,
+} from './shared';
 
 export const list = query({
 	args: {
@@ -15,6 +19,7 @@ export const list = query({
 			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
 			.collect();
 		const sorted = rows.sort((a, b) => a.code.localeCompare(b.code));
+		const unitCaches = createUnitResolutionCaches();
 		return await Promise.all(
 			sorted.map(async (row) => {
 				const firstNote = await ctx.db
@@ -23,7 +28,8 @@ export const list = query({
 						q.eq('projectInclusionId', row._id)
 					)
 					.first();
-				return { ...row, hasNotes: firstNote !== null };
+				const unitAbbr = await resolveUnitAbbrByCode(ctx, row.code, unitCaches);
+				return { ...row, hasNotes: firstNote !== null, unitAbbr };
 			})
 		);
 	},

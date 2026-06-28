@@ -68,7 +68,7 @@ export default function ProjectDetailView({
 	const statusBadge = statusBadgeProps(project.status);
 
 	return (
-		<div className={cn('flex h-full w-full flex-col')}>
+		<div className={cn('flex h-full w-full flex-col gap-4')}>
 			<PageHeading
 				backLink="/projects"
 				description={formatAddressLine(project.address)}

@@ -214,7 +214,7 @@ export default function BudgetTemplateDetailView({
 	}
 
 	return (
-		<div className="flex min-h-0 min-w-0 flex-1 flex-col">
+		<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
 			<PageHeading
 				backLink="/budgets"
 				description={template.description}

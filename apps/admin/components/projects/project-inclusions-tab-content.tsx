@@ -649,7 +649,7 @@ function EditInclusionQuantitiesDialog({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-	const unitAbbr = inclusion.locations?.[0]?.unit ?? '';
+	const unitAbbr = inclusion.unitAbbr ?? inclusion.locations?.[0]?.unit ?? '';
 
 	const locations = useQuery(api.locations.list.list, open ? {} : 'skip');
 	const updateProjectInclusion = useMutation(
@@ -2054,7 +2054,7 @@ export default function ProjectInclusionsTabContent({
 	const onAddToOrder = useCallback((inclusion: ProjectInclusion) => {
 		const totalQty =
 			inclusion.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
-		const unit = inclusion.locations?.[0]?.unit ?? '';
+		const unit = inclusion.unitAbbr ?? inclusion.locations?.[0]?.unit ?? '';
 		setPendingOrderItems((prev) => [
 			...prev,
 			{
@@ -2139,7 +2139,7 @@ export default function ProjectInclusionsTabContent({
 				const descParts = [inc.details, inc.color].filter(Boolean);
 				const totalQty =
 					inc.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
-				const unit = inc.locations?.[0]?.unit ?? 'unit';
+				const unit = inc.unitAbbr ?? inc.locations?.[0]?.unit ?? 'unit';
 				return {
 					name: inc.title,
 					description: descParts.length > 0 ? descParts.join(', ') : undefined,
