@@ -26,21 +26,22 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import {
-	Menu,
-	MenuItem,
-	MenuPopup,
-	MenuSeparator,
-	MenuTrigger,
-} from '@workspace/ui/components/menu';
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { EllipsisVertical, Pencil, Trash2, Wallet } from 'lucide-react';
+import { Pencil, Wallet } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
+import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
 import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
+import { usePriceEditing } from '@/components/budgets/use-price-editing';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
-import EditProjectBudgetPrice from './edit-project-budget-price';
+import DeleteProjectBudget from './delete-project-budget';
 
 interface TradeBudgetRow {
 	budgetPrice: number | null;
@@ -53,7 +54,47 @@ interface TradeBudgetRow {
 	tradeName: string;
 }
 
+interface BudgetEditContextValue {
+	drafts: Record<string, string>;
+	isEditing: boolean;
+	onDraftChange: (tradeId: string, value: string) => void;
+}
+
+const ProjectBudgetsEditContext = createContext<BudgetEditContextValue>({
+	isEditing: false,
+	drafts: {},
+	onDraftChange: () => {
+		/* default no-op */
+	},
+});
+
 function BudgetCell({ row }: { row: TradeBudgetRow }) {
+	const { isEditing, drafts, onDraftChange } = useContext(
+		ProjectBudgetsEditContext
+	);
+
+	if (isEditing) {
+		return (
+			<InputGroup className="max-w-44">
+				<InputGroupAddon align="inline-start">
+					<InputGroupText>$</InputGroupText>
+				</InputGroupAddon>
+				<InputGroupInput
+					aria-label={`Budget for ${row.tradeName}`}
+					inputMode="decimal"
+					nativeInput
+					onChange={(e) => onDraftChange(row.tradeId, e.target.value)}
+					placeholder="0.00"
+					type="text"
+					value={drafts[row.tradeId] ?? ''}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupText>AUD</InputGroupText>
+				</InputGroupAddon>
+			</InputGroup>
+		);
+	}
+
 	if (row.budgetPrice === null) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
@@ -89,70 +130,14 @@ function ActualCell({ row }: { row: TradeBudgetRow }) {
 }
 
 function BudgetActionsCell({ row }: { row: TradeBudgetRow }) {
-	const removeProjectBudget = useMutation(api.projectBudgets.remove.remove);
-	const [editOpen, setEditOpen] = useState(false);
-
 	if (!row.projectBudgetId) {
 		return null;
 	}
-	const projectBudgetId = row.projectBudgetId;
-
-	const handleRemove = async () => {
-		try {
-			await removeProjectBudget({ projectBudgetId });
-			toastManager.add({ title: 'Budget removed', type: 'success' });
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not remove budget. Please try again in a moment.'
-				),
-				title: 'Could not remove budget',
-				type: 'error',
-			});
-		}
-	};
-
 	return (
-		<>
-			<EditProjectBudgetPrice
-				initialPrice={row.budgetPrice ?? 0}
-				onOpenChange={setEditOpen}
-				open={editOpen}
-				projectBudgetId={projectBudgetId}
-				tradeName={row.tradeName}
-			/>
-			<Menu>
-				<MenuTrigger
-					render={
-						<Button
-							aria-label="Budget actions"
-							size="icon"
-							type="button"
-							variant="ghost"
-						/>
-					}
-				>
-					<EllipsisVertical className="size-4" />
-				</MenuTrigger>
-				<MenuPopup align="end">
-					<MenuItem onClick={() => setEditOpen(true)}>
-						<Pencil /> Edit Price
-					</MenuItem>
-					<MenuSeparator />
-					<MenuItem
-						onClick={() => {
-							handleRemove().catch(() => {
-								/* Error handled in handleRemove */
-							});
-						}}
-						variant="destructive"
-					>
-						<Trash2 /> Remove Budget
-					</MenuItem>
-				</MenuPopup>
-			</Menu>
-		</>
+		<DeleteProjectBudget
+			projectBudgetId={row.projectBudgetId}
+			tradeName={row.tradeName}
+		/>
 	);
 }
 
@@ -310,6 +295,12 @@ export default function ProjectBudgetsTabContent({
 	}) as TradeBudgetRow[] | undefined;
 
 	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>([]);
+	const { isEditing, drafts, begin, setDraft, cancel, getChanges } =
+		usePriceEditing();
+	const [isSaving, setIsSaving] = useState(false);
+
+	const setPrices = useMutation(api.projectBudgets.setPrices.setPrices);
+	const addItem = useMutation(api.projectBudgets.addItem.addItem);
 
 	const tradeItems = useMemo(
 		() => (rows ?? []).map((row) => row.tradeId),
@@ -319,33 +310,22 @@ export default function ProjectBudgetsTabContent({
 		() => new Map((rows ?? []).map((row) => [row.tradeId, row.tradeName])),
 		[rows]
 	);
+	const budgetedTradeIds = useMemo(
+		() =>
+			(rows ?? [])
+				.filter((row) => row.budgetPrice !== null)
+				.map((row) => row.tradeId),
+		[rows]
+	);
 
-	if (rows === undefined) {
-		return (
-			<div className="text-muted-foreground text-sm">Loading budgets…</div>
-		);
-	}
-
-	if (rows.length === 0) {
-		return (
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<Wallet aria-hidden />
-					</EmptyMedia>
-					<EmptyTitle>No trades yet</EmptyTitle>
-					<EmptyDescription>
-						Create trades to track budgets and quotations per trade.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		);
-	}
-
-	const filteredRows =
-		filterTradeIds.length > 0
+	const filteredRows = useMemo(() => {
+		if (rows === undefined) {
+			return [];
+		}
+		return filterTradeIds.length > 0
 			? rows.filter((row) => filterTradeIds.includes(row.tradeId))
 			: rows;
+	}, [rows, filterTradeIds]);
 
 	const totalBudget = filteredRows.reduce(
 		(sum, row) => sum + (row.budgetPrice ?? 0),
@@ -355,47 +335,150 @@ export default function ProjectBudgetsTabContent({
 		(sum, row) => sum + row.totalQuotationPrice + row.totalOrderPrice,
 		0
 	);
-	const columns = buildColumns(totalBudget, totalActual);
+
+	// Memoized so per-keystroke re-renders (drafts) don't rebuild the table and
+	// remount the price inputs.
+	const columns = useMemo(
+		() => buildColumns(totalBudget, totalActual),
+		[totalBudget, totalActual]
+	);
+
+	const editContextValue = useMemo<BudgetEditContextValue>(
+		() => ({ isEditing, drafts, onDraftChange: setDraft }),
+		[isEditing, drafts, setDraft]
+	);
+
+	const handleEdit = () => {
+		begin(
+			(rows ?? []).map((row) => ({
+				tradeId: row.tradeId,
+				price: row.budgetPrice,
+			}))
+		);
+	};
+
+	const handleDone = async () => {
+		const changes = getChanges();
+		if (changes.length === 0) {
+			cancel();
+			return;
+		}
+		setIsSaving(true);
+		try {
+			await setPrices({
+				projectId,
+				items: changes.map((change) => ({
+					tradeId: change.tradeId as Id<'trades'>,
+					price: change.price,
+				})),
+			});
+			toastManager.add({ title: 'Budgets saved', type: 'success' });
+			cancel();
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not save budgets. Please try again in a moment.'
+				),
+				title: 'Could not save budgets',
+				type: 'error',
+			});
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	if (rows === undefined) {
+		return (
+			<div className="text-muted-foreground text-sm">Loading budgets…</div>
+		);
+	}
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-4">
-			<div className="sm:max-w-md">
-				<Combobox<Id<'trades'>, true>
-					items={tradeItems}
-					itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
-					multiple
-					onValueChange={(next) =>
-						setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
-					}
-					value={filterTradeIds}
-				>
-					<ComboboxChips>
-						{filterTradeIds.map((id) => (
-							<ComboboxChip key={id}>
-								{tradeLabelById.get(id) ?? id}
-							</ComboboxChip>
-						))}
-						<ComboboxChipsInput placeholder="Filter trades…" />
-					</ComboboxChips>
-					<ComboboxPopup>
-						<ComboboxEmpty>No trades found.</ComboboxEmpty>
-						<ComboboxList>
-							{(item: Id<'trades'>) => (
-								<ComboboxItem key={item} value={item}>
-									{tradeLabelById.get(item) ?? item}
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
+		<ProjectBudgetsEditContext.Provider value={editContextValue}>
+			<div className="flex min-h-0 flex-1 flex-col gap-4">
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+					<div className="sm:max-w-md sm:flex-1">
+						<Combobox<Id<'trades'>, true>
+							items={tradeItems}
+							itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
+							}
+							value={filterTradeIds}
+						>
+							<ComboboxChips>
+								{filterTradeIds.map((id) => (
+									<ComboboxChip key={id}>
+										{tradeLabelById.get(id) ?? id}
+									</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="Filter trades…" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxEmpty>No trades found.</ComboboxEmpty>
+								<ComboboxList>
+									{(item: Id<'trades'>) => (
+										<ComboboxItem key={item} value={item}>
+											{tradeLabelById.get(item) ?? item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
+					<div className="flex items-center gap-2">
+						{rows.length > 0 &&
+							(isEditing ? (
+								<Button
+									loading={isSaving}
+									onClick={() => {
+										handleDone().catch(() => {
+											/* Error handled in handleDone */
+										});
+									}}
+									type="button"
+								>
+									Done
+								</Button>
+							) : (
+								<Button onClick={handleEdit} type="button" variant="outline">
+									<Pencil />
+									Edit
+								</Button>
+							))}
+						<AddBudgetItemDialog
+							excludedTradeIds={budgetedTradeIds}
+							onSubmit={async (args) => {
+								await addItem({ projectId, ...args });
+							}}
+						/>
+					</div>
+				</div>
+
+				{rows.length === 0 ? (
+					<Empty>
+						<EmptyHeader>
+							<EmptyMedia variant="icon">
+								<Wallet aria-hidden />
+							</EmptyMedia>
+							<EmptyTitle>No trades yet</EmptyTitle>
+							<EmptyDescription>
+								Use “Add Item” to add a budget for a trade.
+							</EmptyDescription>
+						</EmptyHeader>
+					</Empty>
+				) : (
+					<DataTable
+						columns={columns}
+						data={filteredRows}
+						emptyMessage="No trades found."
+						initialPageSize={20}
+						key={filterTradeIds.join(',')}
+					/>
+				)}
 			</div>
-			<DataTable
-				columns={columns}
-				data={filteredRows}
-				emptyMessage="No trades found."
-				initialPageSize={20}
-				key={filterTradeIds.join(',')}
-			/>
-		</div>
+		</ProjectBudgetsEditContext.Provider>
 	);
 }
