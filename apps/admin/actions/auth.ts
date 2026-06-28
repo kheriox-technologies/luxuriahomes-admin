@@ -26,6 +26,16 @@ export const hasAnyRole = async (roles: string[]): Promise<boolean> => {
 };
 
 /**
+ * Returns true if the user has the super-admin role. Used to guard the
+ * User Management route. Unlike admin checks, this grants no implicit access
+ * to plain admins.
+ */
+export const hasSuperAdminRole = async (): Promise<boolean> => {
+	const { sessionClaims } = await auth();
+	return getSessionRoles(sessionClaims).includes('super-admin');
+};
+
+/**
  * Returns true if the user has admin or any custom role with app access.
  * Must match middleware logic in proxy.ts.
  */

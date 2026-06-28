@@ -33,6 +33,7 @@ import {
 	Package,
 	Settings,
 	SquaresIntersect,
+	Users,
 	Wallet,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -42,6 +43,8 @@ import { usePathname } from 'next/navigation';
 interface SidebarItemBase {
 	icon: LucideIcon;
 	path: string;
+	/** Only visible to users with the super-admin role. */
+	superAdminOnly?: boolean;
 	title: string;
 	url: string;
 }
@@ -113,6 +116,13 @@ const items: SidebarItem[] = [
 		icon: Bell,
 	},
 	{
+		title: 'Users',
+		url: '/users',
+		path: '/users',
+		icon: Users,
+		superAdminOnly: true,
+	},
+	{
 		title: 'Lists',
 		url: '#',
 		path: '#',
@@ -173,6 +183,7 @@ const AppSidebar = () => {
 	const userRoles =
 		(useUser().user?.publicMetadata?.roles as string[] | undefined) ?? [];
 	const isAdmin = userRoles.includes('admin');
+	const isSuperAdmin = userRoles.includes('super-admin');
 
 	const allowedPaths = new Set<string>();
 	for (const role of userRoles) {
@@ -201,6 +212,9 @@ const AppSidebar = () => {
 	};
 
 	const filteredItems = items.filter((item) => {
+		if (item.superAdminOnly) {
+			return isSuperAdmin;
+		}
 		if (isItemWithSub(item)) {
 			const visibleSubItems = item.items.filter((sub) =>
 				hasAccessToPath(sub.path)

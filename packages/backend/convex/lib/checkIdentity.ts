@@ -63,3 +63,25 @@ export async function requireAdmin(ctx: AuthContext): Promise<void> {
 		});
 	}
 }
+
+/**
+ * Returns true if the current user's identity has 'super-admin' in
+ * public_metadata.roles. Returns false if unauthenticated or not a super-admin.
+ */
+export async function isSuperAdmin(ctx: AuthContext): Promise<boolean> {
+	return await hasRole(ctx, 'super-admin');
+}
+
+/**
+ * Throws ConvexError if the current user is not a super-admin.
+ * Note: unlike `requireAdmin`, plain admins are NOT granted access — user
+ * management is restricted to super-admins only.
+ */
+export async function requireSuperAdmin(ctx: AuthContext): Promise<void> {
+	if (!(await isSuperAdmin(ctx))) {
+		throw new ConvexError({
+			code: 'FORBIDDEN',
+			message: 'Super-admin role required',
+		});
+	}
+}
