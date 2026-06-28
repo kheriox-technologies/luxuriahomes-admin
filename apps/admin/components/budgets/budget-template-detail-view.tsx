@@ -3,6 +3,7 @@
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
 import {
 	Empty,
 	EmptyDescription,
@@ -16,8 +17,6 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
-import { Label } from '@workspace/ui/components/label';
-import { Switch } from '@workspace/ui/components/switch';
 import {
 	Table,
 	TableBody,
@@ -28,49 +27,30 @@ import {
 } from '@workspace/ui/components/table';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Pencil, Wallet } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import AddBudgetItemDialog from './add-budget-item-dialog';
 import AddBudgetTemplateToProject from './add-budget-template-to-project';
-import {
-	formatBudgetPrice,
-	isValidMoneyString,
-	parseMoneyString,
-} from './budget-form-shared';
+import { formatBudgetPrice } from './budget-form-shared';
+import DeleteBudgetTemplateItem from './delete-budget-template-item';
+import { usePriceEditing } from './use-price-editing';
 
 type TemplateItem = Doc<'budgetTemplateItems'> & { tradeName: string | null };
 
 function TradeItemRow({
 	item,
-	editMode,
-	onSave,
+	isEditing,
+	draftValue,
+	onDraftChange,
 }: {
 	item: TemplateItem;
-	editMode: boolean;
-	onSave: (price: number) => Promise<void>;
+	isEditing: boolean;
+	draftValue: string;
+	onDraftChange: (value: string) => void;
 }) {
-	const [value, setValue] = useState(String(item.price));
-
-	// Keep the input in sync when the server value changes.
-	useEffect(() => {
-		setValue(String(item.price));
-	}, [item.price]);
-
-	const handleBlur = () => {
-		const trimmed = value.trim();
-		if (!isValidMoneyString(trimmed)) {
-			setValue(String(item.price));
-			return;
-		}
-		const next = parseMoneyString(trimmed);
-		if (next === item.price) {
-			return;
-		}
-		onSave(next).catch(() => {
-			setValue(String(item.price));
-		});
-	};
+	const tradeName = item.tradeName ?? 'Unknown trade';
 
 	return (
 		<TableRow>
@@ -80,20 +60,19 @@ function TradeItemRow({
 				)}
 			</TableCell>
 			<TableCell>
-				{editMode ? (
+				{isEditing ? (
 					<InputGroup className="max-w-48">
 						<InputGroupAddon align="inline-start">
 							<InputGroupText>$</InputGroupText>
 						</InputGroupAddon>
 						<InputGroupInput
-							aria-label={`Price for ${item.tradeName ?? 'trade'}`}
+							aria-label={`Price for ${tradeName}`}
 							inputMode="decimal"
 							nativeInput
-							onBlur={handleBlur}
-							onChange={(e) => setValue(e.target.value)}
+							onChange={(e) => onDraftChange(e.target.value)}
 							placeholder="0.00"
 							type="text"
-							value={value}
+							value={draftValue}
 						/>
 						<InputGroupAddon align="inline-end">
 							<InputGroupText>AUD</InputGroupText>
@@ -103,18 +82,26 @@ function TradeItemRow({
 					<span className="tabular-nums">{formatBudgetPrice(item.price)}</span>
 				)}
 			</TableCell>
+			<TableCell className="text-right">
+				<DeleteBudgetTemplateItem
+					budgetTemplateItemId={item._id}
+					itemName={tradeName}
+				/>
+			</TableCell>
 		</TableRow>
 	);
 }
 
 function ItemsSection({
 	items,
-	editMode,
-	onSaveItem,
+	isEditing,
+	drafts,
+	onDraftChange,
 }: {
 	items: TemplateItem[] | undefined;
-	editMode: boolean;
-	onSaveItem: (tradeId: Id<'trades'>, price: number) => Promise<void>;
+	isEditing: boolean;
+	drafts: Record<string, string>;
+	onDraftChange: (tradeId: string, value: string) => void;
 }) {
 	if (items === undefined) {
 		return <div className="text-muted-foreground text-sm">Loading items…</div>;
@@ -127,9 +114,10 @@ function ItemsSection({
 					<EmptyMedia variant="icon">
 						<Wallet aria-hidden />
 					</EmptyMedia>
-					<EmptyTitle>No trades yet</EmptyTitle>
+					<EmptyTitle>No items yet</EmptyTitle>
 					<EmptyDescription>
-						Create trades to set budget prices for this template.
+						Use “Add Item” to add trades and set budget prices for this
+						template.
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
@@ -143,15 +131,17 @@ function ItemsSection({
 					<TableRow>
 						<TableHead>Trade</TableHead>
 						<TableHead>Price</TableHead>
+						<TableHead className="sr-only">Actions</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
 					{items.map((item) => (
 						<TradeItemRow
-							editMode={editMode}
+							draftValue={drafts[item.tradeId] ?? ''}
+							isEditing={isEditing}
 							item={item}
 							key={item._id}
-							onSave={(price) => onSaveItem(item.tradeId, price)}
+							onDraftChange={(value) => onDraftChange(item.tradeId, value)}
 						/>
 					))}
 				</TableBody>
@@ -171,33 +161,55 @@ export default function BudgetTemplateDetailView({
 		{ budgetTemplateId }
 	) as TemplateItem[] | undefined;
 
-	const setPrice = useMutation(api.budgetTemplateItems.setPrice.setPrice);
-	const ensureAllTrades = useMutation(
-		api.budgetTemplateItems.ensureAllTrades.ensureAllTrades
+	const setPrices = useMutation(api.budgetTemplateItems.setPrices.setPrices);
+	const addItem = useMutation(api.budgetTemplateItems.addItem.addItem);
+
+	const { isEditing, drafts, begin, setDraft, cancel, getChanges } =
+		usePriceEditing();
+	const [isSaving, setIsSaving] = useState(false);
+
+	const usedTradeIds = useMemo(
+		() => items?.map((item) => item.tradeId) ?? [],
+		[items]
 	);
 
-	const [editMode, setEditMode] = useState(false);
+	const handleEdit = () => {
+		begin(
+			(items ?? []).map((item) => ({
+				tradeId: item.tradeId,
+				price: item.price,
+			}))
+		);
+	};
 
-	// Backfill a $0 row for any trade added after this template was created.
-	useEffect(() => {
-		ensureAllTrades({ budgetTemplateId }).catch(() => {
-			/* Non-blocking: missing rows simply won't appear until next open */
-		});
-	}, [budgetTemplateId, ensureAllTrades]);
-
-	const handleSaveItem = async (tradeId: Id<'trades'>, price: number) => {
+	const handleDone = async () => {
+		const changes = getChanges();
+		if (changes.length === 0) {
+			cancel();
+			return;
+		}
+		setIsSaving(true);
 		try {
-			await setPrice({ budgetTemplateId, tradeId, price });
+			await setPrices({
+				budgetTemplateId,
+				items: changes.map((change) => ({
+					tradeId: change.tradeId as Id<'trades'>,
+					price: change.price,
+				})),
+			});
+			toastManager.add({ title: 'Prices saved', type: 'success' });
+			cancel();
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
-					'Could not update price. Please try again in a moment.'
+					'Could not save prices. Please try again in a moment.'
 				),
-				title: 'Could not update price',
+				title: 'Could not save prices',
 				type: 'error',
 			});
-			throw error;
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
@@ -219,35 +231,51 @@ export default function BudgetTemplateDetailView({
 				backLink="/budgets"
 				description={template.description}
 				heading={template.title}
-				metaSlot={
+				rightSlot={
+					<>
+						{isEditing ? (
+							<Button
+								loading={isSaving}
+								onClick={() => {
+									handleDone().catch(() => {
+										/* Error handled in handleDone */
+									});
+								}}
+								type="button"
+							>
+								Done
+							</Button>
+						) : (
+							<Button onClick={handleEdit} type="button" variant="outline">
+								<Pencil />
+								Edit
+							</Button>
+						)}
+						<AddBudgetItemDialog
+							excludedTradeIds={usedTradeIds}
+							onSubmit={async (args) => {
+								await addItem({ budgetTemplateId, ...args });
+							}}
+						/>
+						<AddBudgetTemplateToProject
+							budgetTemplateId={budgetTemplateId}
+							templateTitle={template.title}
+						/>
+					</>
+				}
+				titleTrailing={
 					<Badge size="lg" variant="outline">
 						Total {formatBudgetPrice(template.totalPrice)}
 					</Badge>
 				}
-				rightSlot={
-					<AddBudgetTemplateToProject
-						budgetTemplateId={budgetTemplateId}
-						templateTitle={template.title}
-					/>
-				}
 			/>
 
-			<div className="flex flex-col gap-4">
-				<div className="flex items-center gap-2">
-					<Switch
-						checked={editMode}
-						id="budget-template-edit-mode"
-						onCheckedChange={setEditMode}
-					/>
-					<Label htmlFor="budget-template-edit-mode">Edit Mode</Label>
-				</div>
-
-				<ItemsSection
-					editMode={editMode}
-					items={items}
-					onSaveItem={handleSaveItem}
-				/>
-			</div>
+			<ItemsSection
+				drafts={drafts}
+				isEditing={isEditing}
+				items={items}
+				onDraftChange={setDraft}
+			/>
 		</div>
 	);
 }
