@@ -26,6 +26,7 @@ import {
 	CalendarDays,
 	ChevronDown,
 	FileText,
+	Globe,
 	LayoutDashboard,
 	List,
 	ListTodo,
@@ -108,6 +109,12 @@ const items: SidebarItem[] = [
 		url: '/documents',
 		path: '/documents',
 		icon: FileText,
+	},
+	{
+		title: 'Website',
+		url: '/website',
+		path: '/website',
+		icon: Globe,
 	},
 	{
 		title: 'Notifications',
