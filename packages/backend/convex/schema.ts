@@ -708,4 +708,20 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		key: v.string(),
 	}),
+	// Enquiries submitted through the public marketing website contact form.
+	// Written by the ungated `web/leads.submitEnquiry` mutation; an admin
+	// notification email is sent asynchronously on insert.
+	leads: defineTable({
+		firstName: v.string(),
+		lastName: v.string(),
+		email: v.string(),
+		phone: v.optional(v.string()),
+		message: v.string(),
+		status: v.union(
+			v.literal('new'),
+			v.literal('contacted'),
+			v.literal('archived')
+		),
+		createdAt: v.number(),
+	}).index('by_createdAt', ['createdAt']),
 });

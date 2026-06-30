@@ -70,6 +70,7 @@ import type * as documentFolders_seedProjectFolders from "../documentFolders/see
 import type * as documentFolders_shared from "../documentFolders/shared.js";
 import type * as documentFolders_update from "../documentFolders/update.js";
 import type * as email_logSent from "../email/logSent.js";
+import type * as email_notifyEnquiry from "../email/notifyEnquiry.js";
 import type * as email_send from "../email/send.js";
 import type * as email_shared from "../email/shared.js";
 import type * as email_template from "../email/template.js";
@@ -344,6 +345,10 @@ import type * as vendors_search from "../vendors/search.js";
 import type * as vendors_seed from "../vendors/seed.js";
 import type * as vendors_shared from "../vendors/shared.js";
 import type * as vendors_update from "../vendors/update.js";
+import type * as web_banners from "../web/banners.js";
+import type * as web_leads from "../web/leads.js";
+import type * as web_projects from "../web/projects.js";
+import type * as web_shared from "../web/shared.js";
 import type * as websiteProjects_add from "../websiteProjects/add.js";
 import type * as websiteProjects_appendMedia from "../websiteProjects/appendMedia.js";
 import type * as websiteProjects_deleteMedia from "../websiteProjects/deleteMedia.js";
@@ -428,6 +433,7 @@ declare const fullApi: ApiFromModules<{
   "documentFolders/shared": typeof documentFolders_shared;
   "documentFolders/update": typeof documentFolders_update;
   "email/logSent": typeof email_logSent;
+  "email/notifyEnquiry": typeof email_notifyEnquiry;
   "email/send": typeof email_send;
   "email/shared": typeof email_shared;
   "email/template": typeof email_template;
@@ -702,6 +708,10 @@ declare const fullApi: ApiFromModules<{
   "vendors/seed": typeof vendors_seed;
   "vendors/shared": typeof vendors_shared;
   "vendors/update": typeof vendors_update;
+  "web/banners": typeof web_banners;
+  "web/leads": typeof web_leads;
+  "web/projects": typeof web_projects;
+  "web/shared": typeof web_shared;
   "websiteProjects/add": typeof websiteProjects_add;
   "websiteProjects/appendMedia": typeof websiteProjects_appendMedia;
   "websiteProjects/deleteMedia": typeof websiteProjects_deleteMedia;
