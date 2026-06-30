@@ -11,25 +11,17 @@ import { resolveCardImageKey } from '@/lib/projects';
 export const revalidate = 300;
 
 export default async function HomePage() {
-	const [banners, completed, published] = await Promise.all([
+	const [banners, completed] = await Promise.all([
 		fetchQuery(api.web.banners.list, {}),
 		fetchQuery(api.web.projects.listCompleted, {}),
-		fetchQuery(api.web.projects.listPublished, {}),
 	]);
 
 	const heroBackgroundKeys = banners.map((banner) => banner.key);
 	const aboutImageKey = completed.map(resolveCardImageKey).find(Boolean);
-	const inProgressCount = published.filter(
-		(p) => p.status === 'in_progress'
-	).length;
 
 	return (
 		<>
-			<Hero
-				backgroundKeys={heroBackgroundKeys}
-				completedCount={completed.length}
-				inProgressCount={inProgressCount}
-			/>
+			<Hero backgroundKeys={heroBackgroundKeys} />
 			<ServicesSection />
 			<AboutSection imageKey={aboutImageKey} />
 			<CompletedProjects projects={completed} />

@@ -1,4 +1,3 @@
-import { Badge } from '@workspace/ui/components/badge';
 import {
 	ArrowUpRight,
 	Bath,
@@ -17,7 +16,6 @@ import Link from 'next/link';
 import {
 	formatArea,
 	resolveCardImageKey,
-	statusLabel,
 	type WebProject,
 } from '@/lib/projects';
 import { staticCdnUrl } from '@/lib/static-cdn';
@@ -92,12 +90,6 @@ export function ProjectCard({ project }: { project: WebProject }) {
 					src={imageSrc}
 				/>
 				<div className="absolute inset-0 bg-gradient-to-t from-brand-navy/55 via-transparent to-transparent opacity-70" />
-				<Badge
-					className="absolute top-4 left-4 bg-brand-navy/90 text-brand-cream backdrop-blur-sm"
-					size="lg"
-				>
-					{statusLabel(project.status)}
-				</Badge>
 			</div>
 
 			<div className="flex flex-1 flex-col gap-4 p-6">
