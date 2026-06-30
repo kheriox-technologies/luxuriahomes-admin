@@ -19,6 +19,7 @@ import {
 	LandPlot,
 	type LucideIcon,
 	Sofa,
+	Toilet,
 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -49,6 +50,7 @@ export function websiteProjectStatusBadge(status: WebsiteProjectStatus): {
 export const WEBSITE_PROJECT_SPECS = [
 	{ key: 'beds', label: 'Beds', icon: Bed, unit: '' },
 	{ key: 'baths', label: 'Baths', icon: Bath, unit: '' },
+	{ key: 'powder', label: 'Powder', icon: Toilet, unit: '' },
 	{ key: 'cars', label: 'Cars', icon: Car, unit: '' },
 	{ key: 'living', label: 'Living', icon: Sofa, unit: '' },
 	{ key: 'study', label: 'Study', icon: BookOpen, unit: '' },
@@ -81,12 +83,14 @@ export const websiteProjectFormSchema = z.object({
 		.optional(),
 	beds: optionalNonNegative,
 	baths: optionalNonNegative,
+	powder: optionalNonNegative,
 	cars: optionalNonNegative,
 	living: optionalNonNegative,
 	study: optionalNonNegative,
 	landArea: optionalNonNegative,
 	buildingArea: optionalNonNegative,
 	hasPool: z.boolean(),
+	hasMediaRoom: z.boolean(),
 	include: z.boolean(),
 });
 
@@ -99,12 +103,14 @@ export const emptyWebsiteProjectFormValues = {
 	completedYear: undefined,
 	beds: undefined,
 	baths: undefined,
+	powder: undefined,
 	cars: undefined,
 	living: undefined,
 	study: undefined,
 	landArea: undefined,
 	buildingArea: undefined,
 	hasPool: false,
+	hasMediaRoom: false,
 	include: false,
 } as unknown as WebsiteProjectFormValues;
 
@@ -118,12 +124,14 @@ export function websiteProjectDocToFormDefaults(
 		completedYear: project.completedYear,
 		beds: project.beds,
 		baths: project.baths,
+		powder: project.powder,
 		cars: project.cars,
 		living: project.living,
 		study: project.study,
 		landArea: project.landArea,
 		buildingArea: project.buildingArea,
 		hasPool: project.hasPool ?? false,
+		hasMediaRoom: project.hasMediaRoom ?? false,
 		include: project.include,
 	};
 }
@@ -137,12 +145,14 @@ export function toWebsiteProjectCreatePayload(value: WebsiteProjectFormValues) {
 		completedYear: value.completedYear,
 		beds: value.beds,
 		baths: value.baths,
+		powder: value.powder,
 		cars: value.cars,
 		living: value.living,
 		study: value.study,
 		landArea: value.landArea,
 		buildingArea: value.buildingArea,
 		hasPool: value.hasPool,
+		hasMediaRoom: value.hasMediaRoom,
 		include: value.include,
 	};
 }
@@ -156,12 +166,14 @@ export function toWebsiteProjectUpdatePayload(value: WebsiteProjectFormValues) {
 		completedYear: value.completedYear ?? null,
 		beds: value.beds ?? null,
 		baths: value.baths ?? null,
+		powder: value.powder ?? null,
 		cars: value.cars ?? null,
 		living: value.living ?? null,
 		study: value.study ?? null,
 		landArea: value.landArea ?? null,
 		buildingArea: value.buildingArea ?? null,
 		hasPool: value.hasPool,
+		hasMediaRoom: value.hasMediaRoom,
 		include: value.include,
 	};
 }

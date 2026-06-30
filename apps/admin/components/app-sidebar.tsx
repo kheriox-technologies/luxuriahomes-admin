@@ -111,12 +111,6 @@ const items: SidebarItem[] = [
 		icon: FileText,
 	},
 	{
-		title: 'Website',
-		url: '/website',
-		path: '/website',
-		icon: Globe,
-	},
-	{
 		title: 'Notifications',
 		url: '/notifications',
 		path: '/notifications',
@@ -157,6 +151,20 @@ const items: SidebarItem[] = [
 				title: 'Take Offs Categories',
 				url: '/takeoff-categories',
 				path: '/takeoff-categories',
+			},
+		],
+	},
+	{
+		title: 'Website',
+		url: '#',
+		path: '#',
+		icon: Globe,
+		items: [
+			{ title: 'Projects', url: '/website', path: '/website' },
+			{
+				title: 'Banners',
+				url: '/website/banners',
+				path: '/website/banners',
 			},
 		],
 	},
@@ -233,6 +241,23 @@ const AppSidebar = () => {
 
 	const isActive = (url: string) => pathname?.startsWith(url);
 
+	// Highlights the most specific matching sub-item so a parent path like
+	// `/website` does not stay active on a nested route like `/website/banners`.
+	const isSubItemActive = (
+		subUrl: string,
+		siblings: Array<{ url: string }>
+	) => {
+		if (!(pathname && hasPathMatch(pathname, subUrl))) {
+			return false;
+		}
+		return !siblings.some(
+			(sibling) =>
+				sibling.url !== subUrl &&
+				sibling.url.startsWith(`${subUrl}/`) &&
+				hasPathMatch(pathname, sibling.url)
+		);
+	};
+
 	const hasActiveSubItem = (
 		subItems?: Array<{ title: string; url: string }>
 	) => {
@@ -289,7 +314,10 @@ const AppSidebar = () => {
 														{visibleSubItems.map((subItem) => (
 															<SidebarMenuSubItem key={subItem.title}>
 																<SidebarMenuSubButton
-																	isActive={isActive(subItem.url)}
+																	isActive={isSubItemActive(
+																		subItem.url,
+																		visibleSubItems
+																	)}
 																	render={
 																		<Link
 																			href={

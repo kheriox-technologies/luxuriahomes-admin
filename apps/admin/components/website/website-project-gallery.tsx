@@ -20,11 +20,27 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useAction } from 'convex/react';
-import { ImageIcon, PlayCircle, Trash2 } from 'lucide-react';
+import { useAction, useMutation } from 'convex/react';
+import {
+	EllipsisVertical,
+	ImageIcon,
+	ImagePlus,
+	PlayCircle,
+	Star,
+	StarOff,
+	Trash2,
+} from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
+import AddBannerDialog from '@/components/banners/add-banner-dialog';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { staticCdnUrl } from '@/lib/static-cdn';
 import type { WebsiteProject } from './website-project-form-shared';
@@ -104,6 +120,86 @@ function DeleteMediaButton({
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
+	);
+}
+
+function ImageActionsMenu({
+	project,
+	mediaKey,
+}: {
+	project: WebsiteProject;
+	mediaKey: string;
+}) {
+	const [bannerOpen, setBannerOpen] = useState(false);
+	const setMainImage = useMutation(
+		api.websiteProjects.setMainImage.setMainImage
+	);
+	const isMain = project.mainImageKey === mediaKey;
+
+	const toggleMain = async () => {
+		try {
+			await setMainImage({
+				websiteProjectId: project._id,
+				key: isMain ? null : mediaKey,
+			});
+			toastManager.add({
+				title: isMain ? 'Main image cleared' : 'Main image set',
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update the main image. Please try again in a moment.'
+				),
+				title: 'Could not update main image',
+				type: 'error',
+			});
+		}
+	};
+
+	return (
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Image actions"
+							className="absolute end-12 top-2 shadow-md"
+							size="icon"
+							type="button"
+							variant="outline"
+						/>
+					}
+				>
+					<EllipsisVertical />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setBannerOpen(true)}>
+						<ImagePlus />
+						Add as Banner
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem
+						onClick={() => {
+							toggleMain().catch(() => {
+								/* Error handled in toggleMain */
+							});
+						}}
+					>
+						{isMain ? <StarOff /> : <Star />}
+						{isMain ? 'Unset main image' : 'Set as main image'}
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<AddBannerDialog
+				defaultDescription={project.description}
+				defaultTitle={project.name}
+				onOpenChange={setBannerOpen}
+				open={bannerOpen}
+				sourceKey={mediaKey}
+			/>
+		</>
 	);
 }
 
@@ -195,6 +291,18 @@ export default function WebsiteProjectGallery({
 								</>
 							)}
 						</button>
+						{entry.type === 'image' && project.mainImageKey === entry.key ? (
+							<span
+								className="pointer-events-none absolute start-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-white text-xs shadow-md"
+								title="Main image"
+							>
+								<Star className="size-3 fill-current" />
+								Main
+							</span>
+						) : null}
+						{entry.type === 'image' ? (
+							<ImageActionsMenu mediaKey={entry.key} project={project} />
+						) : null}
 						<DeleteMediaButton
 							mediaKey={entry.key}
 							websiteProjectId={project._id}

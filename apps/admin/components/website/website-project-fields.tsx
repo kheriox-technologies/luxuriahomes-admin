@@ -227,6 +227,24 @@ export function WebsiteProjectFormFields({
 						)}
 					</form.Field>
 
+					<form.Field name="hasMediaRoom">
+						{(field) => (
+							<Field className="flex flex-row items-center justify-between gap-4">
+								<div className="space-y-1">
+									<FieldLabel htmlFor={field.name}>Media Room</FieldLabel>
+									<p className="text-muted-foreground text-xs">
+										Whether this project includes a dedicated media room.
+									</p>
+								</div>
+								<Switch
+									checked={Boolean(field.state.value)}
+									id={field.name}
+									onCheckedChange={(checked) => field.handleChange(checked)}
+								/>
+							</Field>
+						)}
+					</form.Field>
+
 					<form.Field name="include">
 						{(field) => (
 							<Field className="flex flex-row items-center justify-between gap-4">
