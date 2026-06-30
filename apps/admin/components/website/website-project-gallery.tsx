@@ -175,11 +175,11 @@ export default function WebsiteProjectGallery({
 							{entry.type === 'image' ? (
 								<Image
 									alt={project.name}
-									className="size-full object-cover"
-									height={400}
+									className="object-cover"
+									fill
+									sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
 									src={entry.url}
 									unoptimized
-									width={400}
 								/>
 							) : (
 								<>
