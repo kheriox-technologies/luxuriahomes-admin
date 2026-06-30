@@ -52,6 +52,9 @@ export default function WebsiteProjectLightbox({
 		} else if (event.key === 'ArrowRight') {
 			event.preventDefault();
 			goNext();
+		} else if (event.key === 'Escape') {
+			event.preventDefault();
+			onOpenChange(false);
 		}
 	};
 
