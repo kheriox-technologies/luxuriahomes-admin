@@ -111,9 +111,9 @@ function SheetPopup({
           {showCloseButton && (
             <SheetPrimitive.Close
               aria-label="Close"
-              className="absolute end-2 top-2"
               render={<Button size="icon" variant="ghost" />}
               {...closeProps}
+              className={cn("absolute end-2 top-2", closeProps?.className)}
             >
               <XIcon />
             </SheetPrimitive.Close>
