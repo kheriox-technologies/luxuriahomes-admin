@@ -1,4 +1,3 @@
-import { Badge } from '@workspace/ui/components/badge';
 import {
 	Bath,
 	BedDouble,
@@ -11,7 +10,7 @@ import {
 	Tv,
 	Waves,
 } from 'lucide-react';
-import { formatArea, statusLabel, type WebProject } from '@/lib/projects';
+import { formatArea, type WebProject } from '@/lib/projects';
 
 interface SpecChip {
 	icon: typeof BedDouble;
@@ -73,14 +72,9 @@ export function ProjectMiniCard({ project }: { project: WebProject }) {
 
 	return (
 		<div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
-			<div className="flex items-start justify-between gap-3">
-				<h3 className="font-display text-foreground text-xl leading-snug">
-					{project.name}
-				</h3>
-				<Badge className="shrink-0 bg-brand-navy/90 text-brand-cream" size="lg">
-					{statusLabel(project.status)}
-				</Badge>
-			</div>
+			<h3 className="font-display text-foreground text-xl leading-snug">
+				{project.name}
+			</h3>
 
 			{project.description ? (
 				<p className="text-muted-foreground text-sm leading-relaxed">

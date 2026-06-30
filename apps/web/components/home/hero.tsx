@@ -4,36 +4,12 @@ import Link from 'next/link';
 import { SITE_COPY } from '@/lib/site';
 import { HeroSlider } from './hero-slider';
 
-interface HeroStat {
-	label: string;
-	value: string;
-}
-
 interface HeroProps {
 	backgroundKeys: string[];
-	completedCount: number;
-	inProgressCount: number;
 }
 
-export function Hero({
-	backgroundKeys,
-	completedCount,
-	inProgressCount,
-}: HeroProps) {
+export function Hero({ backgroundKeys }: HeroProps) {
 	const headlineLines = SITE_COPY.heroHeadline.split('\n');
-
-	const stats: HeroStat[] = [
-		{
-			value: completedCount > 0 ? `${completedCount}+` : 'Bespoke',
-			label: completedCount > 0 ? 'Completed Homes' : 'Custom Designs',
-		},
-		{
-			value: inProgressCount > 0 ? `${inProgressCount}` : 'Soon',
-			label: 'Under Construction',
-		},
-		{ value: '100%', label: 'Custom Built' },
-		{ value: 'QBCC', label: 'Licensed Builder' },
-	];
 
 	return (
 		<section className="relative isolate overflow-hidden bg-brand-navy">
@@ -79,23 +55,6 @@ export function Hero({
 						</Button>
 					</div>
 				</div>
-
-				<dl className="mt-16 grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6 lg:mt-24">
-					{stats.map((stat) => (
-						<div
-							className="rounded-xl border border-white/10 bg-white/5 px-4 py-5 backdrop-blur-sm sm:px-6"
-							key={stat.label}
-						>
-							<dt className="sr-only">{stat.label}</dt>
-							<dd className="font-display text-2xl text-brand-cream sm:text-3xl">
-								{stat.value}
-							</dd>
-							<p className="mt-1 text-white/60 text-xs sm:text-sm">
-								{stat.label}
-							</p>
-						</div>
-					))}
-				</dl>
 			</div>
 		</section>
 	);
