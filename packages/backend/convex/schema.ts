@@ -7,6 +7,10 @@ import {
 	projectClientValidator,
 	projectStatusValidator,
 } from './projects/shared';
+import {
+	websiteProjectMediaTypeValidator,
+	websiteProjectStatusValidator,
+} from './websiteProjects/shared';
 
 export const permissionValidator = z.object({
 	roleName: z.string(),
@@ -663,4 +667,33 @@ export default defineSchema({
 		email: v.string(),
 		syncedAt: v.number(),
 	}).index('by_user', ['userId']),
+	// Projects showcased on the public marketing website. Media lives in the
+	// public static bucket and is served via unsigned CDN URLs; `include` gates
+	// whether a project is ready to appear on the live site.
+	websiteProjects: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		status: websiteProjectStatusValidator,
+		completedYear: v.optional(v.number()),
+		beds: v.optional(v.number()),
+		baths: v.optional(v.number()),
+		cars: v.optional(v.number()),
+		living: v.optional(v.number()),
+		study: v.optional(v.number()),
+		landArea: v.optional(v.number()),
+		buildingArea: v.optional(v.number()),
+		hasPool: v.optional(v.boolean()),
+		include: v.boolean(),
+		media: v.optional(
+			v.array(
+				v.object({
+					key: v.string(),
+					type: websiteProjectMediaTypeValidator,
+				})
+			)
+		),
+		searchText: v.string(),
+	})
+		.index('by_include', ['include'])
+		.searchIndex('search_website_projects', { searchField: 'searchText' }),
 });
