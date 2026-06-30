@@ -17,7 +17,7 @@ export default async function HomePage() {
 		fetchQuery(api.web.projects.listPublished, {}),
 	]);
 
-	const heroBackgroundKey = banners[0]?.key;
+	const heroBackgroundKeys = banners.map((banner) => banner.key);
 	const aboutImageKey = completed.map(resolveCardImageKey).find(Boolean);
 	const inProgressCount = published.filter(
 		(p) => p.status === 'in_progress'
@@ -26,7 +26,7 @@ export default async function HomePage() {
 	return (
 		<>
 			<Hero
-				backgroundKey={heroBackgroundKey}
+				backgroundKeys={heroBackgroundKeys}
 				completedCount={completed.length}
 				inProgressCount={inProgressCount}
 			/>

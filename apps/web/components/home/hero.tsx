@@ -1,9 +1,8 @@
 import { Button } from '@workspace/ui/components/button';
 import { ArrowRight } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { SITE_COPY } from '@/lib/site';
-import { staticCdnUrl } from '@/lib/static-cdn';
+import { HeroSlider } from './hero-slider';
 
 interface HeroStat {
 	label: string;
@@ -11,17 +10,16 @@ interface HeroStat {
 }
 
 interface HeroProps {
-	backgroundKey?: string;
+	backgroundKeys: string[];
 	completedCount: number;
 	inProgressCount: number;
 }
 
 export function Hero({
-	backgroundKey,
+	backgroundKeys,
 	completedCount,
 	inProgressCount,
 }: HeroProps) {
-	const backgroundSrc = backgroundKey ? staticCdnUrl(backgroundKey) : null;
 	const headlineLines = SITE_COPY.heroHeadline.split('\n');
 
 	const stats: HeroStat[] = [
@@ -39,16 +37,7 @@ export function Hero({
 
 	return (
 		<section className="relative isolate overflow-hidden bg-brand-navy">
-			{backgroundSrc ? (
-				<Image
-					alt=""
-					className="object-cover opacity-95"
-					fill
-					priority
-					sizes="100vw"
-					src={backgroundSrc}
-				/>
-			) : null}
+			<HeroSlider imageKeys={backgroundKeys} />
 			<div className="absolute inset-0 bg-gradient-to-r from-brand-navy/85 via-brand-navy/45 to-brand-navy/20" />
 			<div className="absolute inset-0 bg-gradient-to-t from-brand-navy/90 via-brand-navy/20 to-transparent" />
 
