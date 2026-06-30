@@ -677,12 +677,16 @@ export default defineSchema({
 		completedYear: v.optional(v.number()),
 		beds: v.optional(v.number()),
 		baths: v.optional(v.number()),
+		powder: v.optional(v.number()),
 		cars: v.optional(v.number()),
 		living: v.optional(v.number()),
 		study: v.optional(v.number()),
 		landArea: v.optional(v.number()),
 		buildingArea: v.optional(v.number()),
 		hasPool: v.optional(v.boolean()),
+		hasMediaRoom: v.optional(v.boolean()),
+		// S3 key (static bucket) of the image flagged as the marketing main image.
+		mainImageKey: v.optional(v.string()),
 		include: v.boolean(),
 		media: v.optional(
 			v.array(
@@ -696,4 +700,12 @@ export default defineSchema({
 	})
 		.index('by_include', ['include'])
 		.searchIndex('search_website_projects', { searchField: 'searchText' }),
+	// Marketing website hero banners. Each banner owns a copy of a project image
+	// in the static bucket under `banners/`, so deleting the source project media
+	// does not affect the banner.
+	banners: defineTable({
+		title: v.string(),
+		description: v.optional(v.string()),
+		key: v.string(),
+	}),
 });
