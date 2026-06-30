@@ -121,7 +121,7 @@ export function WebsiteProjectFormFields({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>
-											Completed year
+											Year
 											<span className="ml-1 text-muted-foreground text-xs">
 												(optional)
 											</span>
@@ -208,7 +208,25 @@ export function WebsiteProjectFormFields({
 			</Frame>
 
 			<Frame>
-				<FramePanel className="py-4">
+				<FramePanel className="space-y-4 py-4">
+					<form.Field name="hasPool">
+						{(field) => (
+							<Field className="flex flex-row items-center justify-between gap-4">
+								<div className="space-y-1">
+									<FieldLabel htmlFor={field.name}>Pool</FieldLabel>
+									<p className="text-muted-foreground text-xs">
+										Whether this project includes a swimming pool.
+									</p>
+								</div>
+								<Switch
+									checked={Boolean(field.state.value)}
+									id={field.name}
+									onCheckedChange={(checked) => field.handleChange(checked)}
+								/>
+							</Field>
+						)}
+					</form.Field>
+
 					<form.Field name="include">
 						{(field) => (
 							<Field className="flex flex-row items-center justify-between gap-4">

@@ -4,12 +4,7 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from '@workspace/ui/components/card';
+import { Card, CardContent } from '@workspace/ui/components/card';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import { ImagePlus, Pencil, Trash2 } from 'lucide-react';
@@ -109,9 +104,6 @@ export default function WebsiteProjectDetailView({
 			/>
 
 			<Card>
-				<CardHeader>
-					<CardTitle>Details</CardTitle>
-				</CardHeader>
 				<CardContent className="space-y-4">
 					{project.description ? (
 						<p className="whitespace-pre-wrap text-sm">{project.description}</p>

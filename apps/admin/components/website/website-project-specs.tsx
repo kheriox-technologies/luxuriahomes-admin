@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { Waves } from 'lucide-react';
 import {
 	WEBSITE_PROJECT_SPECS,
 	type WebsiteProject,
@@ -25,7 +26,7 @@ export function WebsiteProjectSpecs({
 		(spec) => project[spec.key] !== undefined
 	);
 
-	if (present.length === 0) {
+	if (present.length === 0 && !project.hasPool) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
 
@@ -49,6 +50,15 @@ export function WebsiteProjectSpecs({
 					</span>
 				);
 			})}
+			{project.hasPool ? (
+				<span
+					className="inline-flex items-center gap-1 text-muted-foreground text-sm"
+					title="Pool"
+				>
+					<Waves aria-hidden className="size-4 shrink-0" />
+					<span>Pool</span>
+				</span>
+			) : null}
 		</div>
 	);
 }

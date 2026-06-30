@@ -14,10 +14,10 @@ import {
 	Bath,
 	Bed,
 	BookOpen,
+	Building2,
 	Car,
 	LandPlot,
 	type LucideIcon,
-	Ruler,
 	Sofa,
 } from 'lucide-react';
 import { z } from 'zod';
@@ -53,7 +53,7 @@ export const WEBSITE_PROJECT_SPECS = [
 	{ key: 'living', label: 'Living', icon: Sofa, unit: '' },
 	{ key: 'study', label: 'Study', icon: BookOpen, unit: '' },
 	{ key: 'landArea', label: 'Land area', icon: LandPlot, unit: 'm²' },
-	{ key: 'buildingArea', label: 'Building area', icon: Ruler, unit: 'm²' },
+	{ key: 'buildingArea', label: 'Building area', icon: Building2, unit: 'm²' },
 ] as const satisfies ReadonlyArray<{
 	key: keyof WebsiteProjectFormValues & string;
 	label: string;
@@ -86,6 +86,7 @@ export const websiteProjectFormSchema = z.object({
 	study: optionalNonNegative,
 	landArea: optionalNonNegative,
 	buildingArea: optionalNonNegative,
+	hasPool: z.boolean(),
 	include: z.boolean(),
 });
 
@@ -103,6 +104,7 @@ export const emptyWebsiteProjectFormValues = {
 	study: undefined,
 	landArea: undefined,
 	buildingArea: undefined,
+	hasPool: false,
 	include: false,
 } as unknown as WebsiteProjectFormValues;
 
@@ -121,6 +123,7 @@ export function websiteProjectDocToFormDefaults(
 		study: project.study,
 		landArea: project.landArea,
 		buildingArea: project.buildingArea,
+		hasPool: project.hasPool ?? false,
 		include: project.include,
 	};
 }
@@ -139,6 +142,7 @@ export function toWebsiteProjectCreatePayload(value: WebsiteProjectFormValues) {
 		study: value.study,
 		landArea: value.landArea,
 		buildingArea: value.buildingArea,
+		hasPool: value.hasPool,
 		include: value.include,
 	};
 }
@@ -157,6 +161,7 @@ export function toWebsiteProjectUpdatePayload(value: WebsiteProjectFormValues) {
 		study: value.study ?? null,
 		landArea: value.landArea ?? null,
 		buildingArea: value.buildingArea ?? null,
+		hasPool: value.hasPool,
 		include: value.include,
 	};
 }

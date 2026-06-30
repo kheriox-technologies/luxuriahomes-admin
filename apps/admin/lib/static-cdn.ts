@@ -10,6 +10,6 @@ const leadingSlash = /^\//;
  * public website.
  */
 export function staticCdnUrl(key: string): string {
-	const base = env.NEXT_PUBLIC_STATIC_CDN_URL.replace(trailingSlash, '');
+	const base = env.NEXT_PUBLIC_STATIC_URL.replace(trailingSlash, '');
 	return `${base}/${key.replace(leadingSlash, '')}`;
 }

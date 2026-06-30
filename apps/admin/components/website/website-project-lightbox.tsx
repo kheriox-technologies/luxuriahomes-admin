@@ -8,29 +8,30 @@ import {
 } from '@workspace/ui/components/dialog';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
-export interface LightboxImage {
+export interface LightboxMedia {
 	key: string;
+	type: 'image' | 'video';
 	url: string;
 }
 
 export default function WebsiteProjectLightbox({
-	images,
+	media,
 	index,
 	onIndexChange,
 	open,
 	onOpenChange,
 	projectName,
 }: {
-	images: LightboxImage[];
+	media: LightboxMedia[];
 	index: number;
 	onIndexChange: (next: number) => void;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	projectName: string;
 }) {
-	const count = images.length;
+	const count = media.length;
 
 	const goPrev = useCallback(() => {
 		if (count > 0) {
@@ -44,31 +45,29 @@ export default function WebsiteProjectLightbox({
 		}
 	}, [count, index, onIndexChange]);
 
-	useEffect(() => {
-		if (!open) {
-			return;
+	const onKeyDown = (event: React.KeyboardEvent) => {
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			goPrev();
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			goNext();
 		}
-		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === 'ArrowLeft') {
-				goPrev();
-			} else if (event.key === 'ArrowRight') {
-				goNext();
-			}
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [open, goPrev, goNext]);
+	};
 
-	const current = images[index];
+	const current = media[index];
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent className="flex w-[min(94vw,72rem)] max-w-none flex-col gap-3 sm:max-w-none">
+			<DialogContent
+				className="flex w-[min(94vw,72rem)] max-w-none flex-col gap-3 overflow-hidden sm:max-w-none"
+				onKeyDown={onKeyDown}
+			>
 				<DialogTitle className="sr-only">
-					{`${projectName} image ${index + 1} of ${count}`}
+					{`${projectName} ${current?.type ?? 'media'} ${index + 1} of ${count}`}
 				</DialogTitle>
 				<div className="relative flex max-h-[78vh] items-center justify-center overflow-hidden rounded-md bg-card">
-					{current ? (
+					{current?.type === 'image' ? (
 						<Image
 							alt={`${projectName} ${index + 1}`}
 							className="h-auto max-h-[78vh] w-auto max-w-full object-contain"
@@ -79,10 +78,21 @@ export default function WebsiteProjectLightbox({
 						/>
 					) : null}
 
+					{current?.type === 'video' ? (
+						// biome-ignore lint/a11y/useMediaCaption: user-uploaded gallery videos have no captions
+						<video
+							autoPlay
+							className="max-h-[78vh] w-auto max-w-full bg-black object-contain"
+							controls
+							key={current.key}
+							src={current.url}
+						/>
+					) : null}
+
 					{count > 1 ? (
 						<>
 							<Button
-								aria-label="Previous image"
+								aria-label="Previous"
 								className="absolute top-1/2 left-2 -translate-y-1/2"
 								onClick={goPrev}
 								size="icon"
@@ -92,7 +102,7 @@ export default function WebsiteProjectLightbox({
 								<ChevronLeft />
 							</Button>
 							<Button
-								aria-label="Next image"
+								aria-label="Next"
 								className="absolute top-1/2 right-2 -translate-y-1/2"
 								onClick={goNext}
 								size="icon"

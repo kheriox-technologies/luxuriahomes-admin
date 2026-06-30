@@ -19,6 +19,7 @@ export const add = mutation({
 		study: v.optional(v.number()),
 		landArea: v.optional(v.number()),
 		buildingArea: v.optional(v.number()),
+		hasPool: v.optional(v.boolean()),
 		include: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
@@ -49,6 +50,7 @@ export const add = mutation({
 			study: args.study,
 			landArea: args.landArea,
 			buildingArea: args.buildingArea,
+			hasPool: args.hasPool,
 			include: args.include ?? false,
 			searchText,
 		});

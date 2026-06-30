@@ -682,6 +682,7 @@ export default defineSchema({
 		study: v.optional(v.number()),
 		landArea: v.optional(v.number()),
 		buildingArea: v.optional(v.number()),
+		hasPool: v.optional(v.boolean()),
 		include: v.boolean(),
 		media: v.optional(
 			v.array(

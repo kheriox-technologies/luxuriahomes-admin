@@ -22,22 +22,15 @@ import {
 } from '@workspace/ui/components/empty';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction } from 'convex/react';
-import { ImageIcon, Trash2 } from 'lucide-react';
+import { ImageIcon, PlayCircle, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { staticCdnUrl } from '@/lib/static-cdn';
 import type { WebsiteProject } from './website-project-form-shared';
 import WebsiteProjectLightbox, {
-	type LightboxImage,
+	type LightboxMedia,
 } from './website-project-lightbox';
-
-interface GalleryEntry {
-	imageIndex: number | null;
-	key: string;
-	type: 'image' | 'video';
-	url: string;
-}
 
 function DeleteMediaButton({
 	websiteProjectId,
@@ -124,18 +117,23 @@ export default function WebsiteProjectGallery({
 
 	const media = useMemo(() => project.media ?? [], [project.media]);
 
-	const { entries, images } = useMemo(() => {
-		const imageList: LightboxImage[] = [];
-		const entryList: GalleryEntry[] = media.map((item) => {
-			const url = staticCdnUrl(item.key);
-			if (item.type === 'image') {
-				const imageIndex = imageList.length;
-				imageList.push({ key: item.key, url });
-				return { key: item.key, type: item.type, url, imageIndex };
+	// Videos first, then images, preserving original order within each group.
+	const entries = useMemo<LightboxMedia[]>(() => {
+		const videos: LightboxMedia[] = [];
+		const images: LightboxMedia[] = [];
+		for (const item of media) {
+			const entry: LightboxMedia = {
+				key: item.key,
+				type: item.type,
+				url: staticCdnUrl(item.key),
+			};
+			if (item.type === 'video') {
+				videos.push(entry);
+			} else {
+				images.push(entry);
 			}
-			return { key: item.key, type: item.type, url, imageIndex: null };
-		});
-		return { entries: entryList, images: imageList };
+		}
+		return [...videos, ...images];
 	}, [media]);
 
 	if (entries.length === 0) {
@@ -155,26 +153,26 @@ export default function WebsiteProjectGallery({
 		);
 	}
 
-	const openImage = (imageIndex: number) => {
-		setLightboxIndex(imageIndex);
+	const openMedia = (index: number) => {
+		setLightboxIndex(index);
 		setLightboxOpen(true);
 	};
 
 	return (
 		<>
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-				{entries.map((entry) => (
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+				{entries.map((entry, index) => (
 					<div
 						className="group relative aspect-square overflow-hidden rounded-lg border bg-card"
 						key={entry.key}
 					>
-						{entry.type === 'image' && entry.imageIndex !== null ? (
-							<button
-								aria-label="View image"
-								className="size-full cursor-zoom-in"
-								onClick={() => openImage(entry.imageIndex as number)}
-								type="button"
-							>
+						<button
+							aria-label={entry.type === 'video' ? 'Play video' : 'View image'}
+							className="relative size-full cursor-zoom-in"
+							onClick={() => openMedia(index)}
+							type="button"
+						>
+							{entry.type === 'image' ? (
 								<Image
 									alt={project.name}
 									className="size-full object-cover"
@@ -183,15 +181,20 @@ export default function WebsiteProjectGallery({
 									unoptimized
 									width={400}
 								/>
-							</button>
-						) : (
-							// biome-ignore lint/a11y/useMediaCaption: user-uploaded gallery videos have no captions
-							<video
-								className="size-full bg-black object-contain"
-								controls
-								src={entry.url}
-							/>
-						)}
+							) : (
+								<>
+									<video
+										className="size-full bg-black object-cover"
+										muted
+										preload="metadata"
+										src={entry.url}
+									/>
+									<span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+										<PlayCircle className="size-12 text-white drop-shadow-md" />
+									</span>
+								</>
+							)}
+						</button>
 						<DeleteMediaButton
 							mediaKey={entry.key}
 							websiteProjectId={project._id}
@@ -201,8 +204,8 @@ export default function WebsiteProjectGallery({
 			</div>
 
 			<WebsiteProjectLightbox
-				images={images}
 				index={lightboxIndex}
+				media={entries}
 				onIndexChange={setLightboxIndex}
 				onOpenChange={setLightboxOpen}
 				open={lightboxOpen}

@@ -32,6 +32,7 @@ export const update = mutation({
 		study: v.optional(v.union(v.number(), v.null())),
 		landArea: v.optional(v.union(v.number(), v.null())),
 		buildingArea: v.optional(v.union(v.number(), v.null())),
+		hasPool: v.optional(v.boolean()),
 		include: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
@@ -84,6 +85,7 @@ export const update = mutation({
 			study: resolveNumber(args.study, existing.study),
 			landArea: resolveNumber(args.landArea, existing.landArea),
 			buildingArea: resolveNumber(args.buildingArea, existing.buildingArea),
+			hasPool: args.hasPool ?? existing.hasPool,
 			include,
 			searchText,
 		});
