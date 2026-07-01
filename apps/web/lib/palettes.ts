@@ -52,6 +52,18 @@ export const PALETTES: Palette[] = [
 		group: 'Light Theme',
 		color: '#f5ebe0',
 	},
+	{
+		key: 'violet',
+		label: 'Violet',
+		group: 'Dark Theme',
+		color: '#7161ef',
+	},
+	{
+		key: 'teal',
+		label: 'Teal',
+		group: 'Dark Theme',
+		color: '#006d77',
+	},
 ];
 
 const HEX_SHORT_LENGTH = 3;
