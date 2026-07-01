@@ -40,7 +40,6 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
-import AddBannerDialog from '@/components/banners/add-banner-dialog';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { staticCdnUrl } from '@/lib/static-cdn';
 import type { WebsiteProject } from './website-project-form-shared';
@@ -126,15 +125,33 @@ function DeleteMediaButton({
 function ImageActionsMenu({
 	project,
 	mediaKey,
+	isBanner,
 }: {
 	project: WebsiteProject;
 	mediaKey: string;
+	isBanner: boolean;
 }) {
-	const [bannerOpen, setBannerOpen] = useState(false);
 	const setMainImage = useMutation(
 		api.websiteProjects.setMainImage.setMainImage
 	);
+	const addBanner = useAction(api.banners.createFromMedia.createFromMedia);
 	const isMain = project.mainImageKey === mediaKey;
+
+	const onAddBanner = async () => {
+		try {
+			await addBanner({ sourceKey: mediaKey });
+			toastManager.add({ title: 'Added as banner', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not add this image as a banner. Please try again in a moment.'
+				),
+				title: 'Could not add banner',
+				type: 'error',
+			});
+		}
+	};
 
 	const toggleMain = async () => {
 		try {
@@ -159,47 +176,45 @@ function ImageActionsMenu({
 	};
 
 	return (
-		<>
-			<Menu>
-				<MenuTrigger
-					render={
-						<Button
-							aria-label="Image actions"
-							className="absolute end-12 top-2 shadow-md"
-							size="icon"
-							type="button"
-							variant="outline"
-						/>
-					}
+		<Menu>
+			<MenuTrigger
+				render={
+					<Button
+						aria-label="Image actions"
+						className="absolute end-12 top-2 shadow-md"
+						size="icon"
+						type="button"
+						variant="outline"
+					/>
+				}
+			>
+				<EllipsisVertical />
+			</MenuTrigger>
+			<MenuPopup align="end">
+				<MenuItem
+					disabled={isBanner}
+					onClick={() => {
+						onAddBanner().catch(() => {
+							/* Error handled in onAddBanner */
+						});
+					}}
 				>
-					<EllipsisVertical />
-				</MenuTrigger>
-				<MenuPopup align="end">
-					<MenuItem onClick={() => setBannerOpen(true)}>
-						<ImagePlus />
-						Add as Banner
-					</MenuItem>
-					<MenuSeparator />
-					<MenuItem
-						onClick={() => {
-							toggleMain().catch(() => {
-								/* Error handled in toggleMain */
-							});
-						}}
-					>
-						{isMain ? <StarOff /> : <Star />}
-						{isMain ? 'Unset main image' : 'Set as main image'}
-					</MenuItem>
-				</MenuPopup>
-			</Menu>
-			<AddBannerDialog
-				defaultDescription={project.description}
-				defaultTitle={project.name}
-				onOpenChange={setBannerOpen}
-				open={bannerOpen}
-				sourceKey={mediaKey}
-			/>
-		</>
+					<ImagePlus />
+					{isBanner ? 'Already a banner' : 'Add as Banner'}
+				</MenuItem>
+				<MenuSeparator />
+				<MenuItem
+					onClick={() => {
+						toggleMain().catch(() => {
+							/* Error handled in toggleMain */
+						});
+					}}
+				>
+					{isMain ? <StarOff /> : <Star />}
+					{isMain ? 'Unset main image' : 'Set as main image'}
+				</MenuItem>
+			</MenuPopup>
+		</Menu>
 	);
 }
 
@@ -330,7 +345,11 @@ export default function WebsiteProjectGallery({
 							</div>
 						) : null}
 						{entry.type === 'image' ? (
-							<ImageActionsMenu mediaKey={entry.key} project={project} />
+							<ImageActionsMenu
+								isBanner={bannerSourceKeys.has(entry.key)}
+								mediaKey={entry.key}
+								project={project}
+							/>
 						) : null}
 						<DeleteMediaButton
 							mediaKey={entry.key}

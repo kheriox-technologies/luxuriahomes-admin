@@ -1,7 +1,7 @@
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { fetchQuery } from 'convex/nextjs';
-import { ArrowLeft, CalendarDays } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -72,15 +72,7 @@ export default async function ProjectDetailPage({ params }: DetailPageProps) {
 						<ArrowLeft className="size-4" />
 						Back to Projects
 					</Link>
-					{project.completedYear ? (
-						<div className="mt-6 flex flex-wrap items-center gap-3">
-							<span className="inline-flex items-center gap-1.5 text-sm text-white/75">
-								<CalendarDays className="size-4 text-brand-surface" />
-								Completed {project.completedYear}
-							</span>
-						</div>
-					) : null}
-					<h1 className="mt-3 max-w-3xl font-display text-4xl text-white leading-tight tracking-tight sm:text-5xl">
+					<h1 className="mt-6 max-w-3xl font-display text-4xl text-white leading-tight tracking-tight sm:text-5xl">
 						{project.name}
 					</h1>
 				</div>

@@ -704,12 +704,18 @@ export default defineSchema({
 	// in the static bucket under `banners/`, so deleting the source project media
 	// does not affect the banner.
 	banners: defineTable({
-		title: v.string(),
-		description: v.optional(v.string()),
 		key: v.string(),
 		// The original project media key this banner was created from. Used to
 		// surface a "Banner" badge on the source image in the admin gallery.
 		sourceKey: v.optional(v.string()),
+		// Ascending display order (admin page + public hero). Optional for
+		// back-compat with pre-existing rows; a one-time backfill assigns values.
+		order: v.optional(v.number()),
+		// Deprecated, no longer written or read. Kept as optional so the schema
+		// validates against pre-existing rows; the `backfillOrder` migration strips
+		// them, after which these two fields can be removed from the schema.
+		title: v.optional(v.string()),
+		description: v.optional(v.string()),
 	}),
 	// Enquiries submitted through the public marketing website contact form.
 	// Written by the ungated `web/leads.submitEnquiry` mutation; an admin

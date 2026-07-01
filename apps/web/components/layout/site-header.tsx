@@ -16,7 +16,6 @@ import { useEffect, useState } from 'react';
 import { PHONES, telHref } from '@/lib/contact';
 import { NAV_LINKS } from '@/lib/site';
 import { BrandLogo } from './brand-logo';
-import { TopContactBar } from './top-contact-bar';
 
 function isActive(pathname: string, href: string): boolean {
 	if (href === '/') {
@@ -52,7 +51,6 @@ export function SiteHeader() {
 
 	return (
 		<header className="sticky top-0 z-50">
-			<TopContactBar />
 			<div
 				className={cn(
 					'bg-brand-primary transition-shadow duration-300',
