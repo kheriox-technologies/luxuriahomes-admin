@@ -65,6 +65,7 @@ export const createFromMedia = action({
 			title,
 			description,
 			key: destKey,
+			sourceKey: args.sourceKey,
 		});
 	},
 });

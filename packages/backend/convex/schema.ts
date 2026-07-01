@@ -707,6 +707,9 @@ export default defineSchema({
 		title: v.string(),
 		description: v.optional(v.string()),
 		key: v.string(),
+		// The original project media key this banner was created from. Used to
+		// surface a "Banner" badge on the source image in the admin gallery.
+		sourceKey: v.optional(v.string()),
 	}),
 	// Enquiries submitted through the public marketing website contact form.
 	// Written by the ungated `web/leads.submitEnquiry` mutation; an admin
@@ -722,6 +725,9 @@ export default defineSchema({
 			v.literal('contacted'),
 			v.literal('archived')
 		),
+		// Whether an admin has read this enquiry. Absent on rows created before
+		// the field was introduced; treat missing as unread.
+		read: v.optional(v.boolean()),
 		createdAt: v.number(),
 	}).index('by_createdAt', ['createdAt']),
 });

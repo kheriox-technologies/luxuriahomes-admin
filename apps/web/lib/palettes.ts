@@ -146,3 +146,41 @@ export function derivePalette(color: string): DerivedPalette {
 		foreground: shade100,
 	};
 }
+
+/**
+ * The CSS custom properties a palette applies, mirroring the switcher's
+ * `applyPalette`. Pure (no DOM), so it can run server-side to bake a persisted
+ * palette into `<html>` at render time. Returns `null` for the default/unknown
+ * key, meaning "apply nothing — use the baked defaults in app/site.css".
+ */
+export function paletteVarsForKey(key: string | undefined): {
+	vars: Record<string, string>;
+	tone?: 'light';
+} | null {
+	if (!key || key === DEFAULT_KEY) {
+		return null;
+	}
+	const palette = PALETTES.find((item) => item.key === key);
+	if (!palette) {
+		return null;
+	}
+	const derived = derivePalette(palette.color);
+	const vars: Record<string, string> = {
+		'--brand-primary': derived.primary,
+		'--brand-primary-soft': derived.primarySoft,
+		'--brand-surface': derived.surface,
+		'--brand-accent': derived.accent,
+		'--brand-accent-foreground': derived.accentForeground,
+		// Mirror the app primary so `bg-primary`/`text-primary` follow along.
+		'--app-primary': derived.primary,
+	};
+	if (derived.tone === 'light') {
+		// Light palette: sections go light, so flip on-dark foregrounds to ink.
+		vars['--brand-ink'] = derived.ink;
+		vars['--app-primary-foreground'] = derived.ink;
+		return { vars, tone: 'light' };
+	}
+	// Dark palette: omit --brand-ink so the app/site.css :root default applies.
+	vars['--app-primary-foreground'] = derived.foreground;
+	return { vars };
+}

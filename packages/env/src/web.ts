@@ -2,6 +2,11 @@ import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
 export const env = createEnv({
+	server: {
+		// Deployment environment, provided by Amplify (e.g. `prod`). Used to gate
+		// dev-only UI such as the palette switcher.
+		ENV: z.string().optional(),
+	},
 	client: {
 		NEXT_PUBLIC_APP_NAME: z.string().min(1),
 		NEXT_PUBLIC_CONVEX_URL: z.string().min(1),
@@ -14,6 +19,9 @@ export const env = createEnv({
 		NEXT_PUBLIC_CONTACT_PHONE: z.string().min(1),
 		NEXT_PUBLIC_CONTACT_ADDRESS: z.string().min(1),
 		NEXT_PUBLIC_QBCC_LICENCE: z.string().optional(),
+		// Persisted brand palette key (see apps/web/lib/palettes.ts). Applied
+		// server-side as the site default; unset falls back to app/site.css.
+		NEXT_PUBLIC_BRAND_PALETTE: z.string().optional(),
 	},
 	experimental__runtimeEnv: {
 		NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
@@ -24,5 +32,6 @@ export const env = createEnv({
 		NEXT_PUBLIC_CONTACT_PHONE: process.env.NEXT_PUBLIC_CONTACT_PHONE,
 		NEXT_PUBLIC_CONTACT_ADDRESS: process.env.NEXT_PUBLIC_CONTACT_ADDRESS,
 		NEXT_PUBLIC_QBCC_LICENCE: process.env.NEXT_PUBLIC_QBCC_LICENCE,
+		NEXT_PUBLIC_BRAND_PALETTE: process.env.NEXT_PUBLIC_BRAND_PALETTE,
 	},
 });

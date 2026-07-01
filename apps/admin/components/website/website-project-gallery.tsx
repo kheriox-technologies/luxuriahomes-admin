@@ -28,7 +28,7 @@ import {
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import {
 	EllipsisVertical,
 	ImageIcon,
@@ -213,10 +213,22 @@ export default function WebsiteProjectGallery({
 
 	const media = useMemo(() => project.media ?? [], [project.media]);
 
-	// Videos first, then images, preserving original order within each group.
+	const banners = useQuery(api.banners.list.list, {});
+	const bannerSourceKeys = useMemo(
+		() =>
+			new Set(
+				(banners ?? []).map((banner) => banner.sourceKey).filter(Boolean)
+			),
+		[banners]
+	);
+
+	// Videos first, then the main image, then banner images, then the remaining
+	// images. Original order is preserved within each group.
 	const entries = useMemo<LightboxMedia[]>(() => {
 		const videos: LightboxMedia[] = [];
-		const images: LightboxMedia[] = [];
+		const mainEntries: LightboxMedia[] = [];
+		const bannerEntries: LightboxMedia[] = [];
+		const others: LightboxMedia[] = [];
 		for (const item of media) {
 			const entry: LightboxMedia = {
 				key: item.key,
@@ -225,12 +237,16 @@ export default function WebsiteProjectGallery({
 			};
 			if (item.type === 'video') {
 				videos.push(entry);
+			} else if (project.mainImageKey === item.key) {
+				mainEntries.push(entry);
+			} else if (bannerSourceKeys.has(item.key)) {
+				bannerEntries.push(entry);
 			} else {
-				images.push(entry);
+				others.push(entry);
 			}
 		}
-		return [...videos, ...images];
-	}, [media]);
+		return [...videos, ...mainEntries, ...bannerEntries, ...others];
+	}, [media, project.mainImageKey, bannerSourceKeys]);
 
 	if (entries.length === 0) {
 		return (
@@ -291,14 +307,27 @@ export default function WebsiteProjectGallery({
 								</>
 							)}
 						</button>
-						{entry.type === 'image' && project.mainImageKey === entry.key ? (
-							<span
-								className="pointer-events-none absolute start-2 top-2 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-white text-xs shadow-md"
-								title="Main image"
-							>
-								<Star className="size-3 fill-current" />
-								Main
-							</span>
+						{entry.type === 'image' ? (
+							<div className="pointer-events-none absolute start-2 top-2 flex flex-col items-start gap-1">
+								{project.mainImageKey === entry.key ? (
+									<span
+										className="inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-white text-xs shadow-md"
+										title="Main image"
+									>
+										<Star className="size-3 fill-current" />
+										Main
+									</span>
+								) : null}
+								{bannerSourceKeys.has(entry.key) ? (
+									<span
+										className="inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-white text-xs shadow-md"
+										title="Added as banner"
+									>
+										<ImagePlus className="size-3" />
+										Banner
+									</span>
+								) : null}
+							</div>
 						) : null}
 						{entry.type === 'image' ? (
 							<ImageActionsMenu mediaKey={entry.key} project={project} />

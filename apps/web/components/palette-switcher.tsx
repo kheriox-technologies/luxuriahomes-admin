@@ -9,6 +9,7 @@ import {
 	derivePalette,
 	PALETTES,
 	type Palette,
+	paletteVarsForKey,
 } from '@/lib/palettes';
 
 const STORAGE_KEY = 'lh-palette';
@@ -26,22 +27,18 @@ const BRAND_VARS = [
 
 function applyPalette(palette: Palette) {
 	const el = document.documentElement;
-	const derived = derivePalette(palette.color);
-	el.style.setProperty('--brand-primary', derived.primary);
-	el.style.setProperty('--brand-primary-soft', derived.primarySoft);
-	el.style.setProperty('--brand-surface', derived.surface);
-	el.style.setProperty('--brand-accent', derived.accent);
-	el.style.setProperty('--brand-accent-foreground', derived.accentForeground);
-	// Mirror the app primary so `bg-primary`/`text-primary` follow along.
-	el.style.setProperty('--app-primary', derived.primary);
-
-	if (derived.tone === 'light') {
-		// Light palette: sections go light, so flip on-dark foregrounds to ink.
-		el.style.setProperty('--brand-ink', derived.ink);
-		el.style.setProperty('--app-primary-foreground', derived.ink);
+	const resolved = paletteVarsForKey(palette.key);
+	if (!resolved) {
+		resetPalette();
+		return;
+	}
+	for (const [name, value] of Object.entries(resolved.vars)) {
+		el.style.setProperty(name, value);
+	}
+	if (resolved.tone === 'light') {
 		el.dataset.paletteTone = 'light';
 	} else {
-		el.style.setProperty('--app-primary-foreground', derived.foreground);
+		// Dark palette leaves --brand-ink to the :root default.
 		el.style.removeProperty('--brand-ink');
 		delete el.dataset.paletteTone;
 	}
