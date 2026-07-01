@@ -78,7 +78,7 @@ export function ContactForm() {
 			<div className="grid gap-5 sm:grid-cols-2">
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="firstName">
-						First name <span className="text-brand-gold">*</span>
+						First name <span className="text-brand-accent">*</span>
 					</Label>
 					<Input
 						autoComplete="given-name"
@@ -90,7 +90,7 @@ export function ContactForm() {
 				</div>
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="lastName">
-						Last name <span className="text-brand-gold">*</span>
+						Last name <span className="text-brand-accent">*</span>
 					</Label>
 					<Input
 						autoComplete="family-name"
@@ -105,7 +105,7 @@ export function ContactForm() {
 			<div className="grid gap-5 sm:grid-cols-2">
 				<div className="flex flex-col gap-2">
 					<Label htmlFor="email">
-						Email <span className="text-brand-gold">*</span>
+						Email <span className="text-brand-accent">*</span>
 					</Label>
 					<Input
 						autoComplete="email"
@@ -130,7 +130,7 @@ export function ContactForm() {
 
 			<div className="flex flex-col gap-2">
 				<Label htmlFor="message">
-					Message <span className="text-brand-gold">*</span>
+					Message <span className="text-brand-accent">*</span>
 				</Label>
 				<textarea
 					className={cn(textareaClass)}

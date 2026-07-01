@@ -17,13 +17,13 @@ interface PageHeroProps {
 /** Compact navy banner used at the top of inner pages. */
 export function PageHero({ eyebrow, title, subtitle, crumbs }: PageHeroProps) {
 	return (
-		<section className="relative overflow-hidden bg-brand-navy">
+		<section className="relative overflow-hidden bg-brand-primary">
 			<div
 				aria-hidden="true"
 				className="absolute inset-0 opacity-[0.04]"
 				style={{
 					backgroundImage:
-						'radial-gradient(circle at 1px 1px, #f8edb8 1px, transparent 0)',
+						'radial-gradient(circle at 1px 1px, var(--brand-accent) 1px, transparent 0)',
 					backgroundSize: '32px 32px',
 				}}
 			/>
@@ -49,13 +49,13 @@ export function PageHero({ eyebrow, title, subtitle, crumbs }: PageHeroProps) {
 								{index > 0 ? <ChevronRight className="size-4" /> : null}
 								{crumb.href ? (
 									<Link
-										className="transition-colors hover:text-brand-cream"
+										className="transition-colors hover:text-brand-surface"
 										href={crumb.href}
 									>
 										{crumb.label}
 									</Link>
 								) : (
-									<span className="text-brand-cream">{crumb.label}</span>
+									<span className="text-brand-surface">{crumb.label}</span>
 								)}
 							</span>
 						))}

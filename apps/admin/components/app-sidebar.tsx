@@ -166,6 +166,7 @@ const items: SidebarItem[] = [
 				url: '/website/banners',
 				path: '/website/banners',
 			},
+			{ title: 'Leads', url: '/leads', path: '/leads' },
 		],
 	},
 	{

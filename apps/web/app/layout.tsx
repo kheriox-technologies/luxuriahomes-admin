@@ -6,7 +6,9 @@ import type { Metadata } from 'next';
 import { Cinzel, Inter } from 'next/font/google';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
+import { PaletteSwitcher } from '@/components/palette-switcher';
 import Providers from '@/components/providers';
+import { paletteVarsForKey } from '@/lib/palettes';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const cinzel = Cinzel({ subsets: ['latin'], variable: '--font-display' });
@@ -32,8 +34,19 @@ export const metadata: Metadata = {
 type RootLayoutProps = Readonly<{ children: React.ReactNode }>;
 
 export default function RootLayout({ children }: RootLayoutProps) {
+	// Persisted brand palette, baked in server-side so it shows on first paint
+	// with no flash. Unset falls back to the defaults in app/site.css.
+	const palette = paletteVarsForKey(env.NEXT_PUBLIC_BRAND_PALETTE);
+	// The palette switcher is a dev-only preview tool; hide it in production.
+	const showPaletteSwitcher = env.ENV !== 'prod';
+
 	return (
-		<html className="light" lang="en">
+		<html
+			className="light"
+			data-palette-tone={palette?.tone}
+			lang="en"
+			style={palette?.vars as React.CSSProperties | undefined}
+		>
 			<body
 				className={cn(
 					inter.variable,
@@ -48,6 +61,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 						<main className="flex-1">{children}</main>
 						<SiteFooter />
 					</div>
+					{showPaletteSwitcher ? <PaletteSwitcher /> : null}
 				</Providers>
 			</body>
 		</html>

@@ -89,13 +89,13 @@ export function ProjectCard({ project }: { project: WebProject }) {
 					sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
 					src={imageSrc}
 				/>
-				<div className="absolute inset-0 bg-gradient-to-t from-brand-navy/55 via-transparent to-transparent opacity-70" />
+				<div className="absolute inset-0 bg-gradient-to-t from-brand-primary/55 via-transparent to-transparent opacity-70" />
 			</div>
 
 			<div className="flex flex-1 flex-col gap-4 p-6">
 				<div className="flex items-start justify-between gap-3">
 					<div className="flex flex-col gap-1">
-						<h3 className="font-display text-foreground text-xl leading-snug transition-colors group-hover:text-brand-gold">
+						<h3 className="font-display text-foreground text-xl leading-snug transition-colors group-hover:text-brand-accent">
 							{project.name}
 						</h3>
 						{project.completedYear ? (
@@ -104,14 +104,14 @@ export function ProjectCard({ project }: { project: WebProject }) {
 							</span>
 						) : null}
 					</div>
-					<ArrowUpRight className="size-5 shrink-0 text-muted-foreground transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand-gold" />
+					<ArrowUpRight className="size-5 shrink-0 text-muted-foreground transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand-accent" />
 				</div>
 
 				{chips.length > 0 ? (
 					<div className="mt-auto flex flex-wrap items-center gap-4 border-border border-t pt-4 text-muted-foreground text-sm">
 						{chips.map((chip) => (
 							<span className="flex items-center gap-1.5" key={chip.label}>
-								<chip.icon className="size-4 text-brand-gold" />
+								<chip.icon className="size-4 text-brand-accent" />
 								{chip.value}
 								<span className="sr-only">{chip.label}</span>
 							</span>

@@ -62,6 +62,7 @@ export const submitEnquiry = mutation({
 			phone,
 			message,
 			status: 'new',
+			read: false,
 			createdAt: Date.now(),
 		});
 

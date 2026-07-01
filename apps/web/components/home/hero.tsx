@@ -12,10 +12,10 @@ export function Hero({ backgroundKeys }: HeroProps) {
 	const headlineLines = SITE_COPY.heroHeadline.split('\n');
 
 	return (
-		<section className="relative isolate overflow-hidden bg-brand-navy">
+		<section className="relative isolate overflow-hidden bg-brand-primary">
 			<HeroSlider imageKeys={backgroundKeys} />
-			<div className="absolute inset-0 bg-gradient-to-r from-brand-navy/85 via-brand-navy/45 to-brand-navy/20" />
-			<div className="absolute inset-0 bg-gradient-to-t from-brand-navy/90 via-brand-navy/20 to-transparent" />
+			<div className="absolute inset-0 bg-gradient-to-r from-brand-primary/65 via-brand-primary/25 to-transparent" />
+			<div className="absolute inset-0 bg-gradient-to-t from-brand-primary/70 via-brand-primary/10 to-transparent" />
 
 			<div className="relative mx-auto flex max-w-7xl flex-col px-6 pt-24 pb-16 sm:pt-32 lg:pt-40">
 				<div className="max-w-3xl">
@@ -26,7 +26,7 @@ export function Hero({ backgroundKeys }: HeroProps) {
 						{headlineLines.map((line, index) => (
 							<span className="block" key={line}>
 								{index === headlineLines.length - 1 ? (
-									<span className="text-brand-cream">{line}</span>
+									<span className="text-brand-surface">{line}</span>
 								) : (
 									line
 								)}
@@ -38,7 +38,7 @@ export function Hero({ backgroundKeys }: HeroProps) {
 					</p>
 					<div className="mt-9 flex flex-col gap-4 sm:flex-row sm:items-center">
 						<Button
-							className="bg-brand-gold text-brand-navy hover:bg-brand-gold/90"
+							className="bg-brand-accent text-brand-accent-foreground hover:bg-brand-accent/90"
 							render={<Link href="/projects" />}
 							size="xl"
 						>

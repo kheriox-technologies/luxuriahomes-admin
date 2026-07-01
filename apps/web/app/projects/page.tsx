@@ -37,7 +37,7 @@ export default async function ProjectsPage() {
 				<div className="mx-auto max-w-7xl px-6">
 					{projects.length === 0 ? (
 						<Empty className="py-20">
-							<Building2 className="size-10 text-brand-gold" />
+							<Building2 className="size-10 text-brand-accent" />
 							<EmptyTitle>Projects coming soon</EmptyTitle>
 							<EmptyDescription>
 								We’re putting the finishing touches on our portfolio. Please

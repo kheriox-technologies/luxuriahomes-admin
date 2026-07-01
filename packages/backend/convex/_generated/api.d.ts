@@ -114,6 +114,8 @@ import type * as inclusions_remove from "../inclusions/remove.js";
 import type * as inclusions_search from "../inclusions/search.js";
 import type * as inclusions_shared from "../inclusions/shared.js";
 import type * as inclusions_update from "../inclusions/update.js";
+import type * as leads_list from "../leads/list.js";
+import type * as leads_updateReadStatus from "../leads/updateReadStatus.js";
 import type * as lib_buildSearchText from "../lib/buildSearchText.js";
 import type * as lib_checkIdentity from "../lib/checkIdentity.js";
 import type * as lib_clerk from "../lib/clerk.js";
@@ -477,6 +479,8 @@ declare const fullApi: ApiFromModules<{
   "inclusions/search": typeof inclusions_search;
   "inclusions/shared": typeof inclusions_shared;
   "inclusions/update": typeof inclusions_update;
+  "leads/list": typeof leads_list;
+  "leads/updateReadStatus": typeof leads_updateReadStatus;
   "lib/buildSearchText": typeof lib_buildSearchText;
   "lib/checkIdentity": typeof lib_checkIdentity;
   "lib/clerk": typeof lib_clerk;

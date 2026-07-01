@@ -3,6 +3,7 @@ import { cn } from '@workspace/ui/lib/utils';
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/layout/brand-logo';
 import { DIFFERENTIATORS, SITE_COPY } from '@/lib/site';
 import { staticCdnUrl } from '@/lib/static-cdn';
 
@@ -19,7 +20,7 @@ export function AboutSection({ imageKey, full = false }: AboutSectionProps) {
 		<section className="bg-muted/40 py-20 sm:py-28" id="about">
 			<div className="mx-auto grid max-w-7xl items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16">
 				<div className="relative order-2 lg:order-1">
-					<div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-brand-navy shadow-xl sm:aspect-[5/4] lg:aspect-[4/5]">
+					<div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-brand-primary shadow-xl sm:aspect-[5/4] lg:aspect-[4/5]">
 						{imageSrc ? (
 							<Image
 								alt="A Luxuria Homes residence"
@@ -30,14 +31,8 @@ export function AboutSection({ imageKey, full = false }: AboutSectionProps) {
 							/>
 						) : (
 							<div className="flex h-full flex-col items-center justify-center gap-6 p-10 text-center">
-								<Image
-									alt="Luxuria Homes"
-									className="h-12 w-auto"
-									height={48}
-									src="/logo-light.png"
-									width={120}
-								/>
-								<p className="font-display text-brand-cream/80 text-sm uppercase tracking-[0.25em]">
+								<BrandLogo className="h-12 text-white" label="Luxuria Homes" />
+								<p className="font-display text-brand-surface/80 text-sm uppercase tracking-[0.25em]">
 									Est. South East Queensland
 								</p>
 							</div>
@@ -58,7 +53,7 @@ export function AboutSection({ imageKey, full = false }: AboutSectionProps) {
 					<p className="text-muted-foreground leading-relaxed">
 						{SITE_COPY.aboutBody}
 					</p>
-					<blockquote className="border-brand-gold border-l-2 pl-5 text-foreground italic leading-relaxed">
+					<blockquote className="border-brand-accent border-l-2 pl-5 text-foreground italic leading-relaxed">
 						{SITE_COPY.mission}
 					</blockquote>
 
@@ -68,7 +63,7 @@ export function AboutSection({ imageKey, full = false }: AboutSectionProps) {
 								<div className="flex items-start gap-3" key={item.title}>
 									<span
 										className={cn(
-											'flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-navy text-brand-cream'
+											'flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary text-brand-surface'
 										)}
 									>
 										<item.icon className="size-5" />

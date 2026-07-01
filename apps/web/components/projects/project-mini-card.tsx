@@ -86,7 +86,7 @@ export function ProjectMiniCard({ project }: { project: WebProject }) {
 				<div className="mt-auto flex flex-wrap items-center gap-4 border-border border-t pt-4 text-muted-foreground text-sm">
 					{chips.map((chip) => (
 						<span className="flex items-center gap-1.5" key={chip.label}>
-							<chip.icon className="size-4 text-brand-gold" />
+							<chip.icon className="size-4 text-brand-accent" />
 							{chip.value}
 							<span className="sr-only">{chip.label}</span>
 						</span>

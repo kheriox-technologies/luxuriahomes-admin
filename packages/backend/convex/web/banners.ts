@@ -16,5 +16,16 @@ export const list = query({
 			key: v.string(),
 		})
 	),
-	handler: async (ctx) => await ctx.db.query('banners').order('desc').collect(),
+	handler: async (ctx) => {
+		const banners = await ctx.db.query('banners').order('desc').collect();
+		// Project to public fields only — `sourceKey` is an internal reference to
+		// the source project media and must not be exposed to the marketing site.
+		return banners.map((banner) => ({
+			_id: banner._id,
+			_creationTime: banner._creationTime,
+			title: banner.title,
+			description: banner.description,
+			key: banner.key,
+		}));
+	},
 });

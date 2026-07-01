@@ -46,7 +46,7 @@ export default async function AboutPage() {
 								className="flex flex-col gap-4 rounded-xl border border-border bg-card p-8"
 								key={area.title}
 							>
-								<span className="font-display text-4xl text-brand-gold/40">
+								<span className="font-display text-4xl text-brand-accent/40">
 									0{index + 1}
 								</span>
 								<h3 className="font-display text-foreground text-xl">
