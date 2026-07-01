@@ -8,7 +8,7 @@ import DeleteUser from './delete-user';
 import EditUser from './edit-user';
 import { formatRelativeTime } from './format-relative-time';
 import type { UserRow } from './types';
-import UserRolesCell from './user-roles-cell';
+import { formatRoleLabel } from './use-role-options';
 
 const EM_DASH = '—';
 
@@ -41,7 +41,11 @@ export function getUserColumns(reload: () => void): ColumnDef<UserRow>[] {
 			accessorKey: 'roles',
 			header: 'Roles',
 			cell: ({ row }) => (
-				<UserRolesCell onUpdated={reload} user={row.original} />
+				<span className="text-sm">
+					{row.original.roles.length > 0
+						? row.original.roles.map(formatRoleLabel).join(', ')
+						: EM_DASH}
+				</span>
 			),
 		},
 		{

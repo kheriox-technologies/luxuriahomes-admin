@@ -1,7 +1,7 @@
 'use node';
 
 import { CopyObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { ConvexError, v } from 'convex/values';
+import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { action } from '../_generated/server';
@@ -17,20 +17,10 @@ const extPattern = /\.([a-z0-9]+)$/i;
  */
 export const createFromMedia = action({
 	args: {
-		title: v.string(),
-		description: v.optional(v.string()),
 		sourceKey: v.string(),
 	},
 	handler: async (ctx, args): Promise<Id<'banners'>> => {
 		await requireAdmin(ctx);
-
-		const title = args.title.trim();
-		if (title === '') {
-			throw new ConvexError({
-				code: 'TITLE_REQUIRED',
-				message: 'Banner title is required',
-			});
-		}
 
 		const region = process.env.AWS_REGION;
 		const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
@@ -59,11 +49,7 @@ export const createFromMedia = action({
 			})
 		);
 
-		const description = args.description?.trim() || undefined;
-
 		return await ctx.runMutation(internal.banners.insert.insert, {
-			title,
-			description,
 			key: destKey,
 			sourceKey: args.sourceKey,
 		});

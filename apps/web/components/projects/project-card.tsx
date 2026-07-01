@@ -98,11 +98,6 @@ export function ProjectCard({ project }: { project: WebProject }) {
 						<h3 className="font-display text-foreground text-xl leading-snug transition-colors group-hover:text-brand-accent">
 							{project.name}
 						</h3>
-						{project.completedYear ? (
-							<span className="text-muted-foreground text-sm">
-								Completed {project.completedYear}
-							</span>
-						) : null}
 					</div>
 					<ArrowUpRight className="size-5 shrink-0 text-muted-foreground transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand-accent" />
 				</div>

@@ -5,6 +5,11 @@ export const list = query({
 	args: {},
 	handler: async (ctx) => {
 		await requireAdmin(ctx);
-		return await ctx.db.query('banners').order('desc').collect();
+		const banners = await ctx.db.query('banners').collect();
+		// Ascending display order. Fall back to `_creationTime` for any row not
+		// yet backfilled with an explicit `order`.
+		return banners.sort(
+			(a, b) => (a.order ?? a._creationTime) - (b.order ?? b._creationTime)
+		);
 	},
 });
