@@ -61,13 +61,14 @@
 	 * Luxuria marketing-site brand palette. The actual --brand-* values are
 	 * defined in apps/web/app/site.css (:root). Registering the tokens here —
 	 * the file that imports tailwindcss — lets Tailwind generate every brand
-	 * utility and its opacity/gradient variants (bg-brand-gold, text-brand-cream/90,
-	 * from-brand-navy/95, …). @theme only works from the Tailwind entry stylesheet.
+	 * utility and its opacity/gradient variants (bg-brand-accent, text-brand-surface/90,
+	 * from-brand-primary/95, …). @theme only works from the Tailwind entry stylesheet.
 	 */
-	--color-brand-navy: var(--brand-navy);
-	--color-brand-navy-soft: var(--brand-navy-soft);
-	--color-brand-cream: var(--brand-cream);
-	--color-brand-gold: var(--brand-gold);
+	--color-brand-primary: var(--brand-primary);
+	--color-brand-primary-soft: var(--brand-primary-soft);
+	--color-brand-surface: var(--brand-surface);
+	--color-brand-accent: var(--brand-accent);
+	--color-brand-accent-foreground: var(--brand-accent-foreground);
 	@keyframes skeleton {
 		to {
 			background-position: -200% 0;

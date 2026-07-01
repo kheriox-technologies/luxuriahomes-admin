@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { Cinzel, Inter } from 'next/font/google';
 import { SiteFooter } from '@/components/layout/site-footer';
 import { SiteHeader } from '@/components/layout/site-header';
+import { PaletteSwitcher } from '@/components/palette-switcher';
 import Providers from '@/components/providers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 						<main className="flex-1">{children}</main>
 						<SiteFooter />
 					</div>
+					<PaletteSwitcher />
 				</Providers>
 			</body>
 		</html>

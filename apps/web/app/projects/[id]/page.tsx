@@ -54,19 +54,19 @@ export default async function ProjectDetailPage({ params }: DetailPageProps) {
 
 	return (
 		<>
-			<section className="relative isolate flex min-h-[55vh] items-end overflow-hidden bg-brand-navy">
+			<section className="relative isolate flex min-h-[55vh] items-end overflow-hidden bg-brand-primary">
 				<Image
 					alt={project.name}
-					className="object-cover opacity-55"
+					className="object-cover"
 					fill
 					priority
 					sizes="100vw"
 					src={heroSrc}
 				/>
-				<div className="absolute inset-0 bg-gradient-to-t from-brand-navy via-brand-navy/40 to-brand-navy/30" />
+				<div className="absolute inset-0 bg-gradient-to-t from-brand-primary/75 via-brand-primary/25 to-transparent" />
 				<div className="relative mx-auto w-full max-w-7xl px-6 pt-24 pb-12">
 					<Link
-						className="inline-flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-brand-cream"
+						className="inline-flex items-center gap-2 text-sm text-white/70 transition-colors hover:text-brand-surface"
 						href="/projects"
 					>
 						<ArrowLeft className="size-4" />
@@ -75,7 +75,7 @@ export default async function ProjectDetailPage({ params }: DetailPageProps) {
 					{project.completedYear ? (
 						<div className="mt-6 flex flex-wrap items-center gap-3">
 							<span className="inline-flex items-center gap-1.5 text-sm text-white/75">
-								<CalendarDays className="size-4 text-brand-cream" />
+								<CalendarDays className="size-4 text-brand-surface" />
 								Completed {project.completedYear}
 							</span>
 						</div>

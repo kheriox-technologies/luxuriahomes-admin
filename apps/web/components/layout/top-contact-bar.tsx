@@ -4,11 +4,11 @@ import { CONTACT, PHONES, telHref } from '@/lib/contact';
 /** Slim utility bar above the navbar with contact details and licence. */
 export function TopContactBar() {
 	return (
-		<div className="hidden border-white/10 border-b bg-brand-navy-soft text-brand-cream/90 lg:block">
+		<div className="hidden border-white/10 border-b bg-brand-primary-soft text-brand-surface/90 lg:block">
 			<div className="mx-auto flex h-10 max-w-7xl items-center justify-between gap-6 px-6 text-xs">
 				<div className="flex items-center gap-6">
 					<a
-						className="flex items-center gap-2 transition-colors hover:text-brand-cream"
+						className="flex items-center gap-2 transition-colors hover:text-brand-surface"
 						href={`mailto:${CONTACT.email}`}
 					>
 						<Mail className="size-3.5 opacity-80" />
@@ -31,10 +31,10 @@ export function TopContactBar() {
 						{PHONES.map((phone, index) => (
 							<span className="flex items-center gap-3" key={phone}>
 								{index > 0 ? (
-									<span className="text-brand-cream/30">·</span>
+									<span className="text-brand-surface/30">·</span>
 								) : null}
 								<a
-									className="transition-colors hover:text-brand-cream"
+									className="transition-colors hover:text-brand-surface"
 									href={telHref(phone)}
 								>
 									{phone}

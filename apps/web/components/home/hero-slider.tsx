@@ -49,7 +49,7 @@ export function HeroSlider({ imageKeys }: HeroSliderProps) {
 						priority={index === 0}
 						sizes="100vw"
 						src={staticCdnUrl(key)}
-						style={{ opacity: index === activeIndex ? 0.95 : 0 }}
+						style={{ opacity: index === activeIndex ? 1 : 0 }}
 					/>
 				))}
 			</div>
@@ -60,7 +60,7 @@ export function HeroSlider({ imageKeys }: HeroSliderProps) {
 						<button
 							aria-current={index === activeIndex}
 							aria-label={`Show slide ${index + 1}`}
-							className="h-2 rounded-full bg-white/40 transition-all duration-300 hover:bg-white/70 aria-[current=true]:w-8 aria-[current=true]:bg-brand-cream data-[current=false]:w-2"
+							className="h-2 rounded-full bg-white/40 transition-all duration-300 hover:bg-white/70 aria-[current=true]:w-8 aria-[current=true]:bg-brand-surface data-[current=false]:w-2"
 							data-current={index === activeIndex}
 							key={key}
 							onClick={() => goTo(index)}

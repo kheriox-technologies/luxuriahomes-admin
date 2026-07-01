@@ -65,7 +65,7 @@ export function ProjectStats({ project }: { project: WebProject }) {
 				<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3 lg:grid-cols-4">
 					{stats.map((stat) => (
 						<div className="flex flex-col gap-2 bg-card p-5" key={stat.label}>
-							<stat.icon className="size-5 text-brand-gold" />
+							<stat.icon className="size-5 text-brand-accent" />
 							<dd className="font-display text-foreground text-xl">
 								{stat.value}
 							</dd>
@@ -81,10 +81,10 @@ export function ProjectStats({ project }: { project: WebProject }) {
 				<div className="flex flex-wrap gap-3">
 					{features.map((feature) => (
 						<span
-							className="inline-flex items-center gap-2 rounded-full border border-brand-gold/30 bg-brand-gold/5 px-4 py-2 font-medium text-foreground text-sm"
+							className="inline-flex items-center gap-2 rounded-full border border-brand-accent/30 bg-brand-accent/5 px-4 py-2 font-medium text-foreground text-sm"
 							key={feature.label}
 						>
-							<feature.icon className="size-4 text-brand-gold" />
+							<feature.icon className="size-4 text-brand-accent" />
 							{feature.label}
 						</span>
 					))}

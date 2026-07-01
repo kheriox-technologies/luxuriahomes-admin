@@ -94,18 +94,18 @@ export function ProjectGallery({ media: rawMedia, projectName }: GalleryProps) {
 									>
 										<track kind="captions" />
 									</video>
-									<span className="absolute inset-0 bg-brand-navy/40" />
+									<span className="absolute inset-0 bg-brand-primary/40" />
 								</>
 							)}
 							<span
 								className={cn(
 									'absolute inset-0 flex items-center justify-center',
 									item.type === 'image' &&
-										'bg-brand-navy/0 transition-colors group-hover:bg-brand-navy/20'
+										'bg-brand-primary/0 transition-colors group-hover:bg-brand-primary/20'
 								)}
 							>
 								{item.type === 'video' ? (
-									<span className="flex size-14 items-center justify-center rounded-full bg-brand-gold text-brand-navy shadow-lg transition-transform group-hover:scale-110">
+									<span className="flex size-14 items-center justify-center rounded-full bg-brand-accent text-brand-accent-foreground shadow-lg transition-transform group-hover:scale-110">
 										<Play className="size-6 translate-x-0.5 fill-current" />
 									</span>
 								) : null}

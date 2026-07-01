@@ -36,10 +36,10 @@ export default function ContactPage() {
 									{PHONES.map((phone, index) => (
 										<span className="flex items-center gap-2" key={phone}>
 											{index > 0 ? (
-												<span className="text-brand-navy/30">·</span>
+												<span className="text-brand-primary/30">·</span>
 											) : null}
 											<a
-												className="transition-colors hover:text-brand-gold"
+												className="transition-colors hover:text-brand-accent"
 												href={telHref(phone)}
 											>
 												{phone}
@@ -50,7 +50,7 @@ export default function ContactPage() {
 							</ContactDetail>
 							<ContactDetail icon={Mail} title="Email Us">
 								<a
-									className="transition-colors hover:text-brand-gold"
+									className="transition-colors hover:text-brand-accent"
 									href={`mailto:${CONTACT.email}`}
 								>
 									{CONTACT.email}
@@ -102,7 +102,7 @@ function ContactDetail({
 }) {
 	return (
 		<div className="flex items-start gap-4">
-			<span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-navy text-brand-cream">
+			<span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-primary text-brand-surface">
 				<Icon className="size-5" />
 			</span>
 			<div className="flex flex-col gap-1">
