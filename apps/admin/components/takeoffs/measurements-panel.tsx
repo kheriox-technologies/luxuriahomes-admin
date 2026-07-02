@@ -626,17 +626,8 @@ export default function MeasurementsPanel({
 				<CalculatorPopover />
 			</div>
 
-			{/* Toolbar: add a category or a root group, expand/collapse, clear all. */}
+			{/* Toolbar: add a root group, expand/collapse, hide all, overflow actions. */}
 			<div className="flex items-center gap-2 border-b p-2">
-				<Button
-					className="flex-1"
-					onClick={handleAddCategory}
-					size="sm"
-					variant="outline"
-				>
-					<Plus />
-					Category
-				</Button>
 				<Button
 					className="flex-1"
 					onClick={() => handleAddGroup()}
@@ -645,6 +636,26 @@ export default function MeasurementsPanel({
 				>
 					<RulerDimensionLine />
 					Measure
+				</Button>
+				<Button
+					aria-label="Expand all"
+					disabled={!anyMeasurements}
+					onClick={() => setOpenKeys(allKeys)}
+					size="icon-sm"
+					title="Expand all"
+					variant="outline"
+				>
+					<ChevronsDownIcon />
+				</Button>
+				<Button
+					aria-label="Collapse all"
+					disabled={!anyMeasurements}
+					onClick={() => setOpenKeys([])}
+					size="icon-sm"
+					title="Collapse all"
+					variant="outline"
+				>
+					<ChevronsUpIcon />
 				</Button>
 				<Button
 					aria-label={allHidden ? 'Show all on canvas' : 'Hide all on canvas'}
@@ -657,9 +668,8 @@ export default function MeasurementsPanel({
 					{allHidden ? <Eye /> : <EyeOff />}
 				</Button>
 				<PanelOverflowMenu
+					onAddCategory={handleAddCategory}
 					onClearAll={onClearAll}
-					onCollapseAll={() => setOpenKeys([])}
-					onExpandAll={() => setOpenKeys(allKeys)}
 				/>
 			</div>
 
@@ -930,12 +940,10 @@ function ConfirmDialog({
 
 // The panel toolbar's overflow menu: expand/collapse all and the clear-all action.
 function PanelOverflowMenu({
-	onExpandAll,
-	onCollapseAll,
+	onAddCategory,
 	onClearAll,
 }: {
-	onExpandAll: () => void;
-	onCollapseAll: () => void;
+	onAddCategory: () => void;
 	onClearAll: () => void;
 }): ReactElement {
 	const [clearAllOpen, setClearAllOpen] = useState(false);
@@ -950,13 +958,9 @@ function PanelOverflowMenu({
 					}
 				/>
 				<MenuPopup align="end">
-					<MenuItem onClick={onExpandAll}>
-						<ChevronsDownIcon />
-						Expand all
-					</MenuItem>
-					<MenuItem onClick={onCollapseAll}>
-						<ChevronsUpIcon />
-						Collapse all
+					<MenuItem onClick={onAddCategory}>
+						<Plus />
+						Add category
 					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setClearAllOpen(true)} variant="destructive">
