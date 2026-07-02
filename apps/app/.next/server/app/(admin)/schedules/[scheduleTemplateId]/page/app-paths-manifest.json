@@ -1,0 +1,3 @@
+{
+  "/(admin)/schedules/[scheduleTemplateId]/page": "app/(admin)/schedules/[scheduleTemplateId]/page.js"
+}

@@ -1,0 +1,723 @@
+'use client';
+// React Compiler can't track mutations on the TanStack Table instance.
+'use no memo';
+
+import { api } from '@workspace/backend/api';
+import type { Id } from '@workspace/backend/dataModel';
+import {
+	Accordion,
+	AccordionItem,
+	AccordionPanel,
+	AccordionPrimitive,
+} from '@workspace/ui/components/accordion';
+import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
+import {
+	Combobox,
+	ComboboxChip,
+	ComboboxChips,
+	ComboboxChipsInput,
+	ComboboxEmpty,
+	ComboboxItem,
+	ComboboxList,
+	ComboboxPopup,
+} from '@workspace/ui/components/combobox';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@workspace/ui/components/empty';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@workspace/ui/components/table';
+import { toastManager } from '@workspace/ui/components/toast';
+import { cn } from '@workspace/ui/lib/utils';
+import { useMutation, useQuery } from 'convex/react';
+import {
+	Ban,
+	Check,
+	ChevronDownIcon,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	DollarSign,
+	EllipsisVertical,
+	ExternalLink,
+	Pencil,
+	SearchIcon,
+	StickyNote,
+	Trash2,
+	X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { signCdnUrl } from '@/actions/cdn';
+import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
+import AddQuotation from '@/components/quotations/add-quotation';
+import DeleteQuotation from '@/components/quotations/delete-quotation';
+import EditQuotation from '@/components/quotations/edit-quotation';
+import type { QuotationFormValues } from '@/components/quotations/quotation-form-shared';
+import QuotationNotesDialog from '@/components/quotations/quotation-notes-dialog';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
+
+interface ProjectQuotation {
+	_id: Id<'projectQuotations'>;
+	companyName: string;
+	noteCount: number;
+	price: number;
+	projectId: Id<'projects'>;
+	s3Key?: string;
+	searchText: string;
+	serviceProviderId: Id<'serviceProviders'>;
+	status: QuotationFormValues['status'];
+	title: string;
+	tradeId: Id<'trades'>;
+	tradeName: string;
+}
+
+interface TradeGroup {
+	budgetPrice: number | null;
+	quotes: ProjectQuotation[];
+	remaining: number | null;
+	tradeId: Id<'trades'>;
+	tradeName: string;
+}
+
+const STATUS_VALUES: QuotationFormValues['status'][] = [
+	'Under Review',
+	'Approved',
+	'Rejected',
+];
+
+function statusBadgeVariant(
+	status: QuotationFormValues['status']
+): 'success' | 'warning' | 'destructive-outline' {
+	if (status === 'Approved') {
+		return 'success';
+	}
+	if (status === 'Rejected') {
+		return 'destructive-outline';
+	}
+	return 'warning';
+}
+
+function QuotationActionsCell({ row }: { row: ProjectQuotation }) {
+	const [editOpen, setEditOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [notesOpen, setNotesOpen] = useState(false);
+	const [isApproving, setIsApproving] = useState(false);
+	const [isRejecting, setIsRejecting] = useState(false);
+	const [isViewingDoc, setIsViewingDoc] = useState(false);
+
+	const approveQuotation = useMutation(api.projectQuotations.approve.approve);
+	const rejectQuotation = useMutation(api.projectQuotations.reject.reject);
+
+	const handleApprove = async () => {
+		setIsApproving(true);
+		try {
+			await approveQuotation({ quotationId: row._id });
+			toastManager.add({ title: 'Quotation approved', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not approve quotation. Please try again.'
+				),
+				title: 'Could not approve quotation',
+				type: 'error',
+			});
+		} finally {
+			setIsApproving(false);
+		}
+	};
+
+	const handleReject = async () => {
+		setIsRejecting(true);
+		try {
+			await rejectQuotation({ quotationId: row._id });
+			toastManager.add({ title: 'Quotation rejected', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not reject quotation. Please try again.'
+				),
+				title: 'Could not reject quotation',
+				type: 'error',
+			});
+		} finally {
+			setIsRejecting(false);
+		}
+	};
+
+	const handleViewDoc = async () => {
+		if (!row.s3Key) {
+			return;
+		}
+		setIsViewingDoc(true);
+		try {
+			const url = await signCdnUrl(row.s3Key);
+			window.open(url, '_blank', 'noopener,noreferrer');
+		} catch {
+			toastManager.add({ title: 'Could not open document.', type: 'error' });
+		} finally {
+			setIsViewingDoc(false);
+		}
+	};
+
+	return (
+		<>
+			<EditQuotation
+				initialPrice={row.price}
+				initialProjectId={row.projectId}
+				initialS3Key={row.s3Key}
+				initialServiceProviderId={row.serviceProviderId}
+				initialStatus={row.status}
+				initialTitle={row.title}
+				initialTradeId={row.tradeId}
+				onOpenChange={setEditOpen}
+				open={editOpen}
+				quotationId={row._id}
+			/>
+			<DeleteQuotation
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
+				quotationId={row._id}
+			/>
+			<QuotationNotesDialog
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				quotationId={row._id}
+			/>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Quotation actions"
+							size="icon"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setEditOpen(true)}>
+						<Pencil /> Edit
+					</MenuItem>
+					{row.s3Key ? (
+						<MenuItem
+							disabled={isViewingDoc}
+							onClick={() => {
+								handleViewDoc().catch(() => {
+									/* Error handled in handleViewDoc */
+								});
+							}}
+						>
+							<ExternalLink /> View Quotation
+						</MenuItem>
+					) : (
+						<MenuItem disabled>
+							<ExternalLink /> View Quotation
+						</MenuItem>
+					)}
+					<MenuItem
+						disabled={isApproving || row.status === 'Approved'}
+						onClick={() => {
+							handleApprove().catch(() => {
+								/* Error handled in handleApprove */
+							});
+						}}
+					>
+						<Check /> Approve
+					</MenuItem>
+					<MenuItem
+						disabled={isRejecting || row.status === 'Rejected'}
+						onClick={() => {
+							handleReject().catch(() => {
+								/* Error handled in handleReject */
+							});
+						}}
+					>
+						<Ban /> Reject
+					</MenuItem>
+					<MenuItem onClick={() => setNotesOpen(true)}>
+						<StickyNote /> View / Edit Notes
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 /> Delete
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+		</>
+	);
+}
+
+function QuotationNotesBadge({ row }: { row: ProjectQuotation }) {
+	const [notesOpen, setNotesOpen] = useState(false);
+	if (row.noteCount === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+	return (
+		<>
+			<QuotationNotesDialog
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				quotationId={row._id}
+			/>
+			<button onClick={() => setNotesOpen(true)} type="button">
+				<Badge size="lg" variant="secondary">
+					{row.noteCount} {row.noteCount === 1 ? 'Note' : 'Notes'}
+				</Badge>
+			</button>
+		</>
+	);
+}
+
+function QuotationPriceCell({ row }: { row: ProjectQuotation }) {
+	const [isViewingDoc, setIsViewingDoc] = useState(false);
+
+	const handleViewDoc = async () => {
+		if (!row.s3Key) {
+			return;
+		}
+		setIsViewingDoc(true);
+		try {
+			const url = await signCdnUrl(row.s3Key);
+			window.open(url, '_blank', 'noopener,noreferrer');
+		} catch {
+			toastManager.add({ title: 'Could not open document.', type: 'error' });
+		} finally {
+			setIsViewingDoc(false);
+		}
+	};
+
+	return (
+		<span className="flex items-center gap-1">
+			<span className="text-sm tabular-nums">
+				{formatBudgetPrice(row.price)}
+			</span>
+			{row.s3Key ? (
+				<Button
+					aria-label="View quotation document"
+					disabled={isViewingDoc}
+					onClick={() => {
+						handleViewDoc().catch(() => {
+							/* Error handled in handleViewDoc */
+						});
+					}}
+					size="icon-sm"
+					type="button"
+					variant="ghost"
+				>
+					<ExternalLink className="size-4" />
+				</Button>
+			) : null}
+		</span>
+	);
+}
+
+export default function ProjectQuotationsTabContent({
+	projectId,
+	initialTradeId,
+	initialStatus,
+}: {
+	projectId: Id<'projects'>;
+	initialTradeId?: Id<'trades'>;
+	initialStatus?: QuotationFormValues['status'];
+}) {
+	const [addOpen, setAddOpen] = useState(false);
+	const [search, setSearch] = useState('');
+	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>(
+		initialTradeId ? [initialTradeId] : []
+	);
+	const [filterStatuses, setFilterStatuses] = useState<
+		QuotationFormValues['status'][]
+	>(initialStatus ? [initialStatus] : []);
+	const [openTradeIds, setOpenTradeIds] = useState<Id<'trades'>[]>([]);
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
+		return () => window.clearTimeout(id);
+	}, [search]);
+
+	const quotations = useQuery(
+		api.projectQuotations.listByProject.listByProject,
+		{
+			projectId,
+		}
+	) as ProjectQuotation[] | undefined;
+	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
+		projectId,
+	});
+	const trades = useQuery(api.trades.list.list, {});
+
+	const budgetByTrade = useMemo(() => {
+		const map = new Map<
+			Id<'trades'>,
+			{ budgetPrice: number | null; remaining: number | null }
+		>();
+		for (const row of tradeSummary ?? []) {
+			const remaining =
+				row.budgetPrice === null
+					? null
+					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
+			map.set(row.tradeId, { budgetPrice: row.budgetPrice, remaining });
+		}
+		return map;
+	}, [tradeSummary]);
+
+	const trimmedSearch = debouncedSearch.trim().toLowerCase();
+
+	const groups = useMemo<TradeGroup[]>(() => {
+		if (!quotations) {
+			return [];
+		}
+		const filtered = quotations.filter((q) => {
+			if (filterTradeIds.length > 0 && !filterTradeIds.includes(q.tradeId)) {
+				return false;
+			}
+			if (filterStatuses.length > 0 && !filterStatuses.includes(q.status)) {
+				return false;
+			}
+			if (
+				trimmedSearch &&
+				!`${q.title} ${q.tradeName} ${q.companyName}`
+					.toLowerCase()
+					.includes(trimmedSearch)
+			) {
+				return false;
+			}
+			return true;
+		});
+
+		const map = new Map<Id<'trades'>, TradeGroup>();
+		for (const q of filtered) {
+			let group = map.get(q.tradeId);
+			if (!group) {
+				const budget = budgetByTrade.get(q.tradeId);
+				group = {
+					tradeId: q.tradeId,
+					tradeName: q.tradeName,
+					budgetPrice: budget?.budgetPrice ?? null,
+					remaining: budget?.remaining ?? null,
+					quotes: [],
+				};
+				map.set(q.tradeId, group);
+			}
+			group.quotes.push(q);
+		}
+		const arr = [...map.values()];
+		for (const group of arr) {
+			group.quotes.sort((a, b) => a.price - b.price);
+		}
+		arr.sort((a, b) =>
+			a.tradeName.localeCompare(b.tradeName, undefined, { sensitivity: 'base' })
+		);
+		return arr;
+	}, [
+		quotations,
+		filterTradeIds,
+		filterStatuses,
+		trimmedSearch,
+		budgetByTrade,
+	]);
+
+	const hasFilters =
+		filterTradeIds.length > 0 ||
+		filterStatuses.length > 0 ||
+		trimmedSearch !== '';
+
+	const tradeItems = useMemo(() => (trades ?? []).map((t) => t._id), [trades]);
+	const tradeLabelById = useMemo(
+		() => new Map((trades ?? []).map((t) => [t._id, t.name])),
+		[trades]
+	);
+
+	let content: React.ReactNode;
+
+	if (quotations === undefined) {
+		content = (
+			<div className="text-muted-foreground text-sm">Loading quotations…</div>
+		);
+	} else if (groups.length === 0) {
+		content = (
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<DollarSign aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>
+						{hasFilters ? 'No matching quotations' : 'No quotations yet'}
+					</EmptyTitle>
+					<EmptyDescription>
+						{hasFilters
+							? 'Try a different trade, status, or search term.'
+							: 'Add a quotation using the Add Quotation button.'}
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		);
+	} else {
+		content = (
+			<Accordion
+				className="rounded-xl border"
+				multiple
+				onValueChange={(value) => setOpenTradeIds(value as Id<'trades'>[])}
+				value={openTradeIds}
+			>
+				{groups.map((group) => (
+					<AccordionItem
+						className="border-b last:border-b-0"
+						key={group.tradeId}
+						value={group.tradeId}
+					>
+						<AccordionPrimitive.Header className="flex">
+							<AccordionPrimitive.Trigger
+								className={cn(
+									'flex flex-1 cursor-pointer items-center justify-between gap-2 px-4 py-3 outline-none transition-colors hover:bg-muted/40',
+									'focus-visible:ring-[3px] focus-visible:ring-ring',
+									'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
+								)}
+								type="button"
+							>
+								<span className="flex items-center gap-2 font-medium text-sm">
+									{group.tradeName}
+									<ChevronDownIcon
+										className="size-4 shrink-0 opacity-70 transition-transform duration-200"
+										data-slot="accordion-indicator"
+									/>
+									<Badge size="lg" variant="outline">
+										{group.quotes.length}
+									</Badge>
+								</span>
+								<span className="flex items-center gap-2">
+									{group.budgetPrice === null ? (
+										<Badge size="lg" variant="outline">
+											No budget
+										</Badge>
+									) : (
+										<>
+											<Badge size="lg" variant="purple">
+												Budget {formatBudgetPrice(group.budgetPrice)}
+											</Badge>
+											<Badge
+												size="lg"
+												variant={
+													(group.remaining ?? 0) >= 0
+														? 'success-outline'
+														: 'destructive-outline'
+												}
+											>
+												Remaining {formatBudgetPrice(group.remaining ?? 0)}
+											</Badge>
+										</>
+									)}
+								</span>
+							</AccordionPrimitive.Trigger>
+						</AccordionPrimitive.Header>
+						<AccordionPanel className="p-0">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Title</TableHead>
+										<TableHead>Service Provider</TableHead>
+										<TableHead>Price</TableHead>
+										<TableHead>Notes</TableHead>
+										<TableHead>Status</TableHead>
+										<TableHead />
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{group.quotes.map((quote) => (
+										<TableRow key={quote._id}>
+											<TableCell className="font-medium">
+												{quote.title}
+											</TableCell>
+											<TableCell className="text-muted-foreground text-sm">
+												{quote.companyName}
+											</TableCell>
+											<TableCell>
+												<QuotationPriceCell row={quote} />
+											</TableCell>
+											<TableCell>
+												<QuotationNotesBadge row={quote} />
+											</TableCell>
+											<TableCell>
+												<Badge
+													size="lg"
+													variant={statusBadgeVariant(quote.status)}
+												>
+													{quote.status}
+												</Badge>
+											</TableCell>
+											<TableCell className="text-right">
+												<QuotationActionsCell row={quote} />
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</AccordionPanel>
+					</AccordionItem>
+				))}
+			</Accordion>
+		);
+	}
+
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+				<InputGroup className="w-full lg:w-64 lg:shrink-0">
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>
+							<SearchIcon aria-hidden />
+						</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label="Search quotations"
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="Search by title, trade, or provider…"
+						type="search"
+						value={search}
+					/>
+				</InputGroup>
+
+				<div className="flex flex-1 flex-col gap-2 sm:flex-row">
+					<div className="min-w-0 flex-1">
+						<Combobox<Id<'trades'>, true>
+							items={tradeItems}
+							itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
+							}
+							value={filterTradeIds}
+						>
+							<ComboboxChips>
+								{filterTradeIds.map((id) => (
+									<ComboboxChip key={id}>
+										{tradeLabelById.get(id) ?? id}
+									</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="All trades" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxEmpty>No trades found.</ComboboxEmpty>
+								<ComboboxList>
+									{(item: Id<'trades'>) => (
+										<ComboboxItem key={item} value={item}>
+											{tradeLabelById.get(item) ?? item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
+
+					<div className="min-w-0 flex-1">
+						<Combobox<QuotationFormValues['status'], true>
+							items={STATUS_VALUES}
+							itemToStringLabel={(item) => item ?? ''}
+							multiple
+							onValueChange={(next) =>
+								setFilterStatuses(
+									(next as QuotationFormValues['status'][] | null) ?? []
+								)
+							}
+							value={filterStatuses}
+						>
+							<ComboboxChips>
+								{filterStatuses.map((status) => (
+									<ComboboxChip key={status}>{status}</ComboboxChip>
+								))}
+								<ComboboxChipsInput placeholder="All statuses" />
+							</ComboboxChips>
+							<ComboboxPopup>
+								<ComboboxList>
+									{(item: QuotationFormValues['status']) => (
+										<ComboboxItem key={item} value={item}>
+											{item}
+										</ComboboxItem>
+									)}
+								</ComboboxList>
+							</ComboboxPopup>
+						</Combobox>
+					</div>
+				</div>
+
+				<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+					{hasFilters ? (
+						<Button
+							onClick={() => {
+								setSearch('');
+								setFilterTradeIds([]);
+								setFilterStatuses([]);
+							}}
+							type="button"
+							variant="outline"
+						>
+							<X />
+							Clear
+						</Button>
+					) : null}
+
+					{groups.length > 0 ? (
+						<>
+							<Button
+								onClick={() => setOpenTradeIds(groups.map((g) => g.tradeId))}
+								type="button"
+								variant="outline"
+							>
+								<ChevronsDownIcon />
+								Expand All
+							</Button>
+							<Button
+								onClick={() => setOpenTradeIds([])}
+								type="button"
+								variant="outline"
+							>
+								<ChevronsUpIcon />
+								Collapse All
+							</Button>
+						</>
+					) : null}
+
+					<AddQuotation
+						defaultStatus="Under Review"
+						onOpenChange={setAddOpen}
+						open={addOpen}
+						projectId={projectId}
+						trigger={
+							<Button onClick={() => setAddOpen(true)} variant="default">
+								Add Quotation
+							</Button>
+						}
+					/>
+				</div>
+			</div>
+			{content}
+		</div>
+	);
+}

@@ -45,6 +45,29 @@ applications:
           - node_modules/**/*
           - apps/client/node_modules/**/*
           - apps/client/.next/cache/**/*
+  - appRoot: apps/app
+    frontend:
+      buildPath: /
+      phases:
+        preBuild:
+          commands:
+            - aws s3 cp $ENV_FILE apps/app/.env
+            - nvm install 22 && nvm use 22
+            - npm install -g pnpm
+            - pnpm install --frozen-lockfile
+        build:
+          commands:
+            - pnpm --filter @workspace/backend exec convex deploy
+            - pnpm turbo build --filter=app
+      artifacts:
+        baseDirectory: apps/app/.next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - apps/app/node_modules/**/*
+          - apps/app/.next/cache/**/*
   - appRoot: apps/web
     frontend:
       buildPath: /
