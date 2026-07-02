@@ -54,7 +54,9 @@ export default function EditTrade({
 				await updateTrade({
 					tradeId,
 					name: parsed.name,
-					description: parsed.description?.trim() || undefined,
+					// Always send a string (empty clears it) so the backend can tell an
+					// intentional clear apart from a name-only update that omits it.
+					description: parsed.description ?? '',
 				});
 				toastManager.add({
 					title: 'Trade updated',
