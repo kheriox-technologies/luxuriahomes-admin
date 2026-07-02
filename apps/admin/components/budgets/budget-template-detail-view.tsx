@@ -11,6 +11,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -47,20 +48,36 @@ function TradeItemRow({
 	item,
 	isEditing,
 	draftValue,
+	nameDraftValue,
 	onDraftChange,
+	onNameDraftChange,
 }: {
 	item: TemplateItem;
 	isEditing: boolean;
 	draftValue: string;
+	nameDraftValue: string;
 	onDraftChange: (value: string) => void;
+	onNameDraftChange: (value: string) => void;
 }) {
 	const tradeName = item.tradeName ?? 'Unknown trade';
 
 	return (
 		<TableRow>
 			<TableCell className="font-medium">
-				{item.tradeName ?? (
-					<span className="text-muted-foreground">Unknown trade</span>
+				{isEditing ? (
+					<Input
+						aria-label={`Trade name for ${tradeName}`}
+						className="max-w-64"
+						nativeInput
+						onChange={(e) => onNameDraftChange(e.target.value)}
+						placeholder="Trade name"
+						type="text"
+						value={nameDraftValue}
+					/>
+				) : (
+					(item.tradeName ?? (
+						<span className="text-muted-foreground">Unknown trade</span>
+					))
 				)}
 			</TableCell>
 			<TableCell>
@@ -100,12 +117,16 @@ function ItemsSection({
 	items,
 	isEditing,
 	drafts,
+	nameDrafts,
 	onDraftChange,
+	onNameDraftChange,
 }: {
 	items: TemplateItem[] | undefined;
 	isEditing: boolean;
 	drafts: Record<string, string>;
+	nameDrafts: Record<string, string>;
 	onDraftChange: (tradeId: string, value: string) => void;
+	onNameDraftChange: (tradeId: string, value: string) => void;
 }) {
 	if (items === undefined) {
 		return <div className="text-muted-foreground text-sm">Loading items…</div>;
@@ -145,7 +166,11 @@ function ItemsSection({
 							isEditing={isEditing}
 							item={item}
 							key={item._id}
+							nameDraftValue={nameDrafts[item.tradeId] ?? ''}
 							onDraftChange={(value) => onDraftChange(item.tradeId, value)}
+							onNameDraftChange={(value) =>
+								onNameDraftChange(item.tradeId, value)
+							}
 						/>
 					))}
 				</TableBody>
@@ -167,9 +192,19 @@ export default function BudgetTemplateDetailView({
 
 	const setPrices = useMutation(api.budgetTemplateItems.setPrices.setPrices);
 	const addItem = useMutation(api.budgetTemplateItems.addItem.addItem);
+	const updateTrade = useMutation(api.trades.update.update);
 
-	const { isEditing, drafts, begin, setDraft, cancel, getChanges } =
-		usePriceEditing();
+	const {
+		isEditing,
+		drafts,
+		nameDrafts,
+		begin,
+		setDraft,
+		setNameDraft,
+		cancel,
+		getChanges,
+		getNameChanges,
+	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
 
 	const usedTradeIds = useMemo(
@@ -182,34 +217,46 @@ export default function BudgetTemplateDetailView({
 			(items ?? []).map((item) => ({
 				tradeId: item.tradeId,
 				price: item.price,
+				name: item.tradeName ?? '',
 			}))
 		);
 	};
 
 	const handleDone = async () => {
 		const changes = getChanges();
-		if (changes.length === 0) {
+		const nameChanges = getNameChanges();
+		if (changes.length === 0 && nameChanges.length === 0) {
 			cancel();
 			return;
 		}
 		setIsSaving(true);
 		try {
-			await setPrices({
-				budgetTemplateId,
-				items: changes.map((change) => ({
-					tradeId: change.tradeId as Id<'trades'>,
-					price: change.price,
-				})),
-			});
-			toastManager.add({ title: 'Prices saved', type: 'success' });
+			await Promise.all([
+				changes.length > 0
+					? setPrices({
+							budgetTemplateId,
+							items: changes.map((change) => ({
+								tradeId: change.tradeId as Id<'trades'>,
+								price: change.price,
+							})),
+						})
+					: Promise.resolve(),
+				...nameChanges.map((change) =>
+					updateTrade({
+						tradeId: change.tradeId as Id<'trades'>,
+						name: change.name,
+					})
+				),
+			]);
+			toastManager.add({ title: 'Changes saved', type: 'success' });
 			cancel();
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
-					'Could not save prices. Please try again in a moment.'
+					'Could not save changes. Please try again in a moment.'
 				),
-				title: 'Could not save prices',
+				title: 'Could not save changes',
 				type: 'error',
 			});
 		} finally {
@@ -291,7 +338,9 @@ export default function BudgetTemplateDetailView({
 				drafts={drafts}
 				isEditing={isEditing}
 				items={items}
+				nameDrafts={nameDrafts}
 				onDraftChange={setDraft}
+				onNameDraftChange={setNameDraft}
 			/>
 		</div>
 	);

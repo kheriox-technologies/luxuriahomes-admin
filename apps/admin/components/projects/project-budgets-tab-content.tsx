@@ -25,6 +25,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -61,13 +62,19 @@ interface TradeBudgetRow {
 interface BudgetEditContextValue {
 	drafts: Record<string, string>;
 	isEditing: boolean;
+	nameDrafts: Record<string, string>;
 	onDraftChange: (tradeId: string, value: string) => void;
+	onNameDraftChange: (tradeId: string, value: string) => void;
 }
 
 const ProjectBudgetsEditContext = createContext<BudgetEditContextValue>({
 	isEditing: false,
 	drafts: {},
+	nameDrafts: {},
 	onDraftChange: () => {
+		/* default no-op */
+	},
+	onNameDraftChange: () => {
 		/* default no-op */
 	},
 });
@@ -84,6 +91,28 @@ const ProjectBudgetsTotalsContext = createContext<BudgetTotalsContextValue>({
 	totalBudget: 0,
 	totalActual: 0,
 });
+
+function TradeNameCell({ row }: { row: TradeBudgetRow }) {
+	const { isEditing, nameDrafts, onNameDraftChange } = useContext(
+		ProjectBudgetsEditContext
+	);
+
+	if (isEditing) {
+		return (
+			<Input
+				aria-label={`Trade name for ${row.tradeName}`}
+				className="max-w-64"
+				nativeInput
+				onChange={(e) => onNameDraftChange(row.tradeId, e.target.value)}
+				placeholder="Trade name"
+				type="text"
+				value={nameDrafts[row.tradeId] ?? ''}
+			/>
+		);
+	}
+
+	return <span className="font-medium">{row.tradeName}</span>;
+}
 
 function BudgetCell({ row }: { row: TradeBudgetRow }) {
 	const { isEditing, drafts, onDraftChange } = useContext(
@@ -270,9 +299,7 @@ function buildColumns(): ColumnDef<TradeBudgetRow>[] {
 		{
 			id: 'trade',
 			header: 'Trade',
-			cell: ({ row }) => (
-				<span className="font-medium">{row.original.tradeName}</span>
-			),
+			cell: ({ row }) => <TradeNameCell row={row.original} />,
 		},
 		{
 			id: 'budget',
@@ -317,12 +344,22 @@ export default function ProjectBudgetsTabContent({
 	}) as TradeBudgetRow[] | undefined;
 
 	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>([]);
-	const { isEditing, drafts, begin, setDraft, cancel, getChanges } =
-		usePriceEditing();
+	const {
+		isEditing,
+		drafts,
+		nameDrafts,
+		begin,
+		setDraft,
+		setNameDraft,
+		cancel,
+		getChanges,
+		getNameChanges,
+	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
 
 	const setPrices = useMutation(api.projectBudgets.setPrices.setPrices);
 	const addItem = useMutation(api.projectBudgets.addItem.addItem);
+	const updateTrade = useMutation(api.trades.update.update);
 
 	const tradeItems = useMemo(
 		() => (rows ?? []).map((row) => row.tradeId),
@@ -371,8 +408,14 @@ export default function ProjectBudgetsTabContent({
 	const columns = useMemo(() => buildColumns(), []);
 
 	const editContextValue = useMemo<BudgetEditContextValue>(
-		() => ({ isEditing, drafts, onDraftChange: setDraft }),
-		[isEditing, drafts, setDraft]
+		() => ({
+			isEditing,
+			drafts,
+			nameDrafts,
+			onDraftChange: setDraft,
+			onNameDraftChange: setNameDraft,
+		}),
+		[isEditing, drafts, nameDrafts, setDraft, setNameDraft]
 	);
 
 	const totalsContextValue = useMemo<BudgetTotalsContextValue>(
@@ -385,25 +428,37 @@ export default function ProjectBudgetsTabContent({
 			(rows ?? []).map((row) => ({
 				tradeId: row.tradeId,
 				price: row.budgetPrice,
+				name: row.tradeName,
 			}))
 		);
 	};
 
 	const handleDone = async () => {
 		const changes = getChanges();
-		if (changes.length === 0) {
+		const nameChanges = getNameChanges();
+		if (changes.length === 0 && nameChanges.length === 0) {
 			cancel();
 			return;
 		}
 		setIsSaving(true);
 		try {
-			await setPrices({
-				projectId,
-				items: changes.map((change) => ({
-					tradeId: change.tradeId as Id<'trades'>,
-					price: change.price,
-				})),
-			});
+			await Promise.all([
+				changes.length > 0
+					? setPrices({
+							projectId,
+							items: changes.map((change) => ({
+								tradeId: change.tradeId as Id<'trades'>,
+								price: change.price,
+							})),
+						})
+					: Promise.resolve(),
+				...nameChanges.map((change) =>
+					updateTrade({
+						tradeId: change.tradeId as Id<'trades'>,
+						name: change.name,
+					})
+				),
+			]);
 			toastManager.add({ title: 'Budgets saved', type: 'success' });
 			cancel();
 		} catch (error) {

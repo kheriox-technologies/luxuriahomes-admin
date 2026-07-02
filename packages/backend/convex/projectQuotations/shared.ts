@@ -27,3 +27,25 @@ export async function getQuotationOrThrow(
 	}
 	return row;
 }
+
+export async function syncQuotationSearchText(
+	ctx: MutationCtx,
+	quotationId: Id<'projectQuotations'>
+) {
+	const quotation = await ctx.db.get(quotationId);
+	if (!quotation) {
+		return;
+	}
+	const [trade, project, serviceProvider] = await Promise.all([
+		ctx.db.get(quotation.tradeId),
+		ctx.db.get(quotation.projectId),
+		ctx.db.get(quotation.serviceProviderId),
+	]);
+	const searchText = buildQuotationSearchText(
+		quotation.title,
+		trade?.name ?? '',
+		project?.name ?? '',
+		serviceProvider?.company ?? ''
+	);
+	await ctx.db.patch(quotationId, { searchText });
+}
