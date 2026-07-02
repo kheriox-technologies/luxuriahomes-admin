@@ -1,3 +1,0 @@
-{
-  "/(admin)/budgets/[budgetTemplateId]/page": "app/(admin)/budgets/[budgetTemplateId]/page.js"
-}
