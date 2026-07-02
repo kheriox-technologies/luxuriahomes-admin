@@ -10,6 +10,7 @@ import type { Metadata } from 'next';
 import { PageHero } from '@/components/page-hero';
 import { ProjectCard } from '@/components/projects/project-card';
 import { ProjectMiniCard } from '@/components/projects/project-mini-card';
+import { resolveCardImageKey } from '@/lib/projects';
 
 export const revalidate = 300;
 
@@ -23,6 +24,10 @@ export default async function ProjectsPage() {
 	const projects = await fetchQuery(api.web.projects.listPublished, {});
 	const completed = projects.filter((p) => p.status === 'completed');
 	const inProgress = projects.filter((p) => p.status === 'in_progress');
+	const inProgressWithImages = inProgress.filter((p) => resolveCardImageKey(p));
+	const inProgressWithoutImages = inProgress.filter(
+		(p) => !resolveCardImageKey(p)
+	);
 
 	return (
 		<>
@@ -62,12 +67,19 @@ export default async function ProjectsPage() {
 											Under Construction
 										</h2>
 										<p className="max-w-2xl text-muted-foreground leading-relaxed">
-											Bespoke residences underway right now. Imagery and full
-											details will follow as each home nears completion.
+											Bespoke residences underway right now. Full details will
+											follow as each home nears completion.
 										</p>
 									</div>
-									<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-										{inProgress.map((project) => (
+									<div className="grid grid-flow-dense auto-rows-fr gap-6 sm:grid-cols-2 lg:grid-cols-3">
+										{inProgressWithImages.map((project) => (
+											<ProjectCard
+												className="sm:row-span-2"
+												key={project._id}
+												project={project}
+											/>
+										))}
+										{inProgressWithoutImages.map((project) => (
 											<ProjectMiniCard key={project._id} project={project} />
 										))}
 									</div>

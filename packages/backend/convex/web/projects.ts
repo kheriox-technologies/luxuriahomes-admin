@@ -38,15 +38,22 @@ export const listCompleted = query({
 	},
 });
 
-// Single project by id — returns null unless it is published AND completed.
-// In-progress projects have no detail page (they only appear as minimal cards),
-// so deep-links to hidden/un-included or in-progress projects 404 on the site.
+// Single project by id — returns null unless the project is published
+// (`include`) AND either completed or an in-progress project that has at least
+// one image. Un-included projects and image-less in-progress projects have no
+// detail page, so deep-links to them 404 on the site.
 export const get = query({
 	args: { id: v.id('websiteProjects') },
 	returns: v.union(webProjectValidator, v.null()),
 	handler: async (ctx, { id }) => {
 		const project = await ctx.db.get(id);
-		if (!project?.include || project.status !== 'completed') {
+		if (!project?.include) {
+			return null;
+		}
+		const hasImage =
+			Boolean(project.mainImageKey) ||
+			Boolean(project.media?.some((m) => m.type === 'image'));
+		if (project.status !== 'completed' && !hasImage) {
 			return null;
 		}
 		return toPublicProject(project);

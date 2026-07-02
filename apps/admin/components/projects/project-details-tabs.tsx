@@ -172,7 +172,10 @@ export default function ProjectDetailsTabs({
 					projectId={project._id}
 				/>
 			</TabsPanel>
-			<TabsPanel className="overflow-auto p-4" value="budgets">
+			<TabsPanel
+				className="flex min-h-0 flex-1 overflow-hidden p-4"
+				value="budgets"
+			>
 				<ProjectBudgetsTabContent projectId={project._id} />
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="contacts">

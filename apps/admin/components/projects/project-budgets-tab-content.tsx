@@ -38,7 +38,11 @@ import { Pencil, Wallet } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useContext, useMemo, useState } from 'react';
 import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
-import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
+import {
+	formatBudgetPrice,
+	isValidMoneyString,
+	parseMoneyString,
+} from '@/components/budgets/budget-form-shared';
 import { usePriceEditing } from '@/components/budgets/use-price-editing';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import DeleteProjectBudget from './delete-project-budget';
@@ -66,6 +70,19 @@ const ProjectBudgetsEditContext = createContext<BudgetEditContextValue>({
 	onDraftChange: () => {
 		/* default no-op */
 	},
+});
+
+interface BudgetTotalsContextValue {
+	totalActual: number;
+	totalBudget: number;
+}
+
+// Totals live in their own context so the column defs stay stable while editing:
+// baking totals into buildColumns() would change the `columns` identity on every
+// keystroke and remount the focused price input.
+const ProjectBudgetsTotalsContext = createContext<BudgetTotalsContextValue>({
+	totalBudget: 0,
+	totalActual: 0,
 });
 
 function BudgetCell({ row }: { row: TradeBudgetRow }) {
@@ -224,10 +241,31 @@ function ColumnHeaderWithTotal({
 	);
 }
 
-function buildColumns(
-	totalBudget: number,
-	totalActual: number
-): ColumnDef<TradeBudgetRow>[] {
+function BudgetTotalHeader() {
+	const { totalBudget } = useContext(ProjectBudgetsTotalsContext);
+	return (
+		<ColumnHeaderWithTotal
+			label="Budget"
+			total={totalBudget}
+			variant="purple"
+		/>
+	);
+}
+
+function ActualTotalHeader() {
+	const { totalActual, totalBudget } = useContext(ProjectBudgetsTotalsContext);
+	return (
+		<ColumnHeaderWithTotal
+			label="Actual"
+			total={totalActual}
+			variant={
+				totalActual <= totalBudget ? 'success-outline' : 'destructive-outline'
+			}
+		/>
+	);
+}
+
+function buildColumns(): ColumnDef<TradeBudgetRow>[] {
 	return [
 		{
 			id: 'trade',
@@ -238,28 +276,12 @@ function buildColumns(
 		},
 		{
 			id: 'budget',
-			header: () => (
-				<ColumnHeaderWithTotal
-					label="Budget"
-					total={totalBudget}
-					variant="purple"
-				/>
-			),
+			header: () => <BudgetTotalHeader />,
 			cell: ({ row }) => <BudgetCell row={row.original} />,
 		},
 		{
 			id: 'actual',
-			header: () => (
-				<ColumnHeaderWithTotal
-					label="Actual"
-					total={totalActual}
-					variant={
-						totalActual <= totalBudget
-							? 'success-outline'
-							: 'destructive-outline'
-					}
-				/>
-			),
+			header: () => <ActualTotalHeader />,
 			cell: ({ row }) => <ActualCell row={row.original} />,
 		},
 		{
@@ -327,25 +349,35 @@ export default function ProjectBudgetsTabContent({
 			: rows;
 	}, [rows, filterTradeIds]);
 
-	const totalBudget = filteredRows.reduce(
-		(sum, row) => sum + (row.budgetPrice ?? 0),
-		0
-	);
+	// While editing, reflect the draft values live so the header total updates in
+	// real time before "Done"; blank/invalid drafts fall back to the saved price
+	// (consistent with getChanges() treating blanks as no-ops).
+	const totalBudget = filteredRows.reduce((sum, row) => {
+		if (isEditing) {
+			const raw = (drafts[row.tradeId] ?? '').trim();
+			if (raw.length > 0 && isValidMoneyString(raw)) {
+				return sum + parseMoneyString(raw);
+			}
+		}
+		return sum + (row.budgetPrice ?? 0);
+	}, 0);
 	const totalActual = filteredRows.reduce(
 		(sum, row) => sum + row.totalQuotationPrice + row.totalOrderPrice,
 		0
 	);
 
-	// Memoized so per-keystroke re-renders (drafts) don't rebuild the table and
-	// remount the price inputs.
-	const columns = useMemo(
-		() => buildColumns(totalBudget, totalActual),
-		[totalBudget, totalActual]
-	);
+	// Stable identity so per-keystroke re-renders (drafts/totals) don't rebuild the
+	// table and remount the price inputs. Totals reach the header via context.
+	const columns = useMemo(() => buildColumns(), []);
 
 	const editContextValue = useMemo<BudgetEditContextValue>(
 		() => ({ isEditing, drafts, onDraftChange: setDraft }),
 		[isEditing, drafts, setDraft]
+	);
+
+	const totalsContextValue = useMemo<BudgetTotalsContextValue>(
+		() => ({ totalBudget, totalActual }),
+		[totalBudget, totalActual]
 	);
 
 	const handleEdit = () => {
@@ -395,90 +427,95 @@ export default function ProjectBudgetsTabContent({
 	}
 
 	return (
-		<ProjectBudgetsEditContext.Provider value={editContextValue}>
-			<div className="flex min-h-0 flex-1 flex-col gap-4">
-				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-					<div className="sm:max-w-md sm:flex-1">
-						<Combobox<Id<'trades'>, true>
-							items={tradeItems}
-							itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
-							multiple
-							onValueChange={(next) =>
-								setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
-							}
-							value={filterTradeIds}
-						>
-							<ComboboxChips>
-								{filterTradeIds.map((id) => (
-									<ComboboxChip key={id}>
-										{tradeLabelById.get(id) ?? id}
-									</ComboboxChip>
+		<ProjectBudgetsTotalsContext.Provider value={totalsContextValue}>
+			<ProjectBudgetsEditContext.Provider value={editContextValue}>
+				<div className="flex min-h-0 flex-1 flex-col gap-4">
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<div className="sm:max-w-md sm:flex-1">
+							<Combobox<Id<'trades'>, true>
+								items={tradeItems}
+								itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
+								multiple
+								onValueChange={(next) =>
+									setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
+								}
+								value={filterTradeIds}
+							>
+								<ComboboxChips>
+									{filterTradeIds.map((id) => (
+										<ComboboxChip key={id}>
+											{tradeLabelById.get(id) ?? id}
+										</ComboboxChip>
+									))}
+									<ComboboxChipsInput placeholder="Filter trades…" />
+								</ComboboxChips>
+								<ComboboxPopup>
+									<ComboboxEmpty>No trades found.</ComboboxEmpty>
+									<ComboboxList>
+										{(item: Id<'trades'>) => (
+											<ComboboxItem key={item} value={item}>
+												{tradeLabelById.get(item) ?? item}
+											</ComboboxItem>
+										)}
+									</ComboboxList>
+								</ComboboxPopup>
+							</Combobox>
+						</div>
+						<div className="flex items-center gap-2">
+							{rows.length > 0 &&
+								(isEditing ? (
+									<Button
+										loading={isSaving}
+										onClick={() => {
+											handleDone().catch(() => {
+												/* Error handled in handleDone */
+											});
+										}}
+										type="button"
+									>
+										Done
+									</Button>
+								) : (
+									<Button onClick={handleEdit} type="button" variant="outline">
+										<Pencil />
+										Edit
+									</Button>
 								))}
-								<ComboboxChipsInput placeholder="Filter trades…" />
-							</ComboboxChips>
-							<ComboboxPopup>
-								<ComboboxEmpty>No trades found.</ComboboxEmpty>
-								<ComboboxList>
-									{(item: Id<'trades'>) => (
-										<ComboboxItem key={item} value={item}>
-											{tradeLabelById.get(item) ?? item}
-										</ComboboxItem>
-									)}
-								</ComboboxList>
-							</ComboboxPopup>
-						</Combobox>
+							<AddBudgetItemDialog
+								excludedTradeIds={budgetedTradeIds}
+								onSubmit={async (args) => {
+									await addItem({ projectId, ...args });
+								}}
+							/>
+						</div>
 					</div>
-					<div className="flex items-center gap-2">
-						{rows.length > 0 &&
-							(isEditing ? (
-								<Button
-									loading={isSaving}
-									onClick={() => {
-										handleDone().catch(() => {
-											/* Error handled in handleDone */
-										});
-									}}
-									type="button"
-								>
-									Done
-								</Button>
-							) : (
-								<Button onClick={handleEdit} type="button" variant="outline">
-									<Pencil />
-									Edit
-								</Button>
-							))}
-						<AddBudgetItemDialog
-							excludedTradeIds={budgetedTradeIds}
-							onSubmit={async (args) => {
-								await addItem({ projectId, ...args });
-							}}
-						/>
-					</div>
-				</div>
 
-				{rows.length === 0 ? (
-					<Empty>
-						<EmptyHeader>
-							<EmptyMedia variant="icon">
-								<Wallet aria-hidden />
-							</EmptyMedia>
-							<EmptyTitle>No trades yet</EmptyTitle>
-							<EmptyDescription>
-								Use “Add Item” to add a budget for a trade.
-							</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
-				) : (
-					<DataTable
-						columns={columns}
-						data={filteredRows}
-						emptyMessage="No trades found."
-						initialPageSize={20}
-						key={filterTradeIds.join(',')}
-					/>
-				)}
-			</div>
-		</ProjectBudgetsEditContext.Provider>
+					{rows.length === 0 ? (
+						<Empty>
+							<EmptyHeader>
+								<EmptyMedia variant="icon">
+									<Wallet aria-hidden />
+								</EmptyMedia>
+								<EmptyTitle>No trades yet</EmptyTitle>
+								<EmptyDescription>
+									Use “Add Item” to add a budget for a trade.
+								</EmptyDescription>
+							</EmptyHeader>
+						</Empty>
+					) : (
+						<div className="flex min-h-0 flex-1 flex-col">
+							<DataTable
+								columns={columns}
+								data={filteredRows}
+								emptyMessage="No trades found."
+								initialPageSize={20}
+								key={filterTradeIds.join(',')}
+								stickyHeader
+							/>
+						</div>
+					)}
+				</div>
+			</ProjectBudgetsEditContext.Provider>
+		</ProjectBudgetsTotalsContext.Provider>
 	);
 }
