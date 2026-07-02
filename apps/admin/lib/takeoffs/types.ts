@@ -53,11 +53,12 @@ export interface Measurement {
 	description?: string;
 	/** Text auto-detected from the PDF inside this shape (drives the group label). */
 	detectedText?: string;
-	/** If set, this shape is part of a combined "Add" group keyed by this id. */
+	/** The group this measurement belongs to (references TakeoffGroup.id). */
 	groupId?: string;
-	/** Custom name for the "Add" group this shape belongs to; overrides detectedText/fallback. */
-	groupLabel?: string;
-	/** Wall height in metres for linear measurements; drives a computed wall area. */
+	/**
+	 * Wall height for linear measurements; drives a computed wall area. Stored in
+	 * metres (entered/displayed in mm in the UI).
+	 */
 	heightMeters?: number;
 	/** When true, the shape is not drawn on the canvas (still listed in the panel). */
 	hidden?: boolean;
@@ -84,11 +85,17 @@ export interface Calibration {
 	page: number;
 }
 
-// A print-style legend box anchored to one page, in BASE canvas-pixel space (the
-// same coordinate system as Measurement.points) so it scales, pans and prints
-// with the page. Height is not stored — the table auto-fits its rows so printing
-// never clips content; resize adjusts width, move adjusts x/y. One legend per page.
+// A print-style legend box scoped to one group on one page, in BASE canvas-pixel
+// space (the same coordinate system as Measurement.points) so it scales, pans and
+// prints with the page. Height is not stored — the table auto-fits its rows so
+// printing never clips content; resize adjusts width, move adjusts x/y. Multiple
+// legends can exist on a page (one per group); each lists only its group's
+// measurements for that page.
 export interface Legend {
+	/** The group whose measurements this legend lists (references TakeoffGroup.id). */
+	groupId: string;
+	/** Unique id (multiple legends can share a page). */
+	id: string;
 	page: number;
 	/** Show the colour swatch column. Defaults to true when unset (legacy legends). */
 	showColor?: boolean;
@@ -156,44 +163,37 @@ export type MeasurementMethod =
 // Whether a scale/calibration sets the PDF-wide default or one page's override.
 export type MethodScope = 'all' | 'page';
 
-// A group inside a category, holding pages by number. A group is homogeneous by
-// shape family (all area / all linear / all count) — the family is derived from
-// the measurements on its pages, never stored, so it reverts to "unset" when its
-// pages are emptied. `pages` are disjoint from every other group/category.
-export interface TakeoffPageGroup {
+// A group in the measurements panel hierarchy. Measurements are filed into a
+// group via `measurement.groupId`; a group may hold measurements of mixed
+// families (area / linear / count), each remembering its own page. `categoryId`
+// places the group inside a category; when absent the group lives at the root.
+export interface TakeoffGroup {
+	categoryId?: string;
+	/** Colour (hex) shared by every shape in this group. */
+	color?: string;
 	id: string;
 	name: string;
-	pages: number[];
 }
 
-// A logical category in the measurements panel hierarchy. Holds Groups and Pages
-// directly. A page lives in exactly one place (root, a category's `pages`, or a
-// group's `pages`); these arrays are disjoint across the whole takeoff.
+// A logical category in the measurements panel hierarchy. Holds groups only
+// (linked by `group.categoryId`); no measurements or pages directly.
 export interface TakeoffCategory {
-	groups: TakeoffPageGroup[];
 	id: string;
 	name: string;
-	pages: number[];
 }
-
-// Where a page is moved to in the hierarchy: loose at root, directly under a
-// category, or inside a group. Used by drag-drop and the add-page dialog.
-export type MoveTarget =
-	| { kind: 'root' }
-	| { kind: 'category'; categoryId: string }
-	| { kind: 'group'; groupId: string };
 
 // The full persistable working set of a takeoff. Mirrors the in-memory state of
-// TakeoffsContent; `legends`, `pageTitles` and `pageMethods` are keyed by page
-// number in memory (converted to/from arrays at the Convex boundary).
+// TakeoffsContent; `pageTitles` and `pageMethods` are keyed by page number in
+// memory (converted to/from arrays at the Convex boundary). `legends` is a flat
+// array (multiple per page, one per group).
 export interface TakeoffPersistState {
-	/** Category → Group → Page organisation of the measurements panel. */
+	/** Category → Group organisation of the measurements panel. */
 	categories: TakeoffCategory[];
 	documentMethod: MeasurementMethod | null;
 	globalWastage: number;
-	legends: Record<number, Legend>;
-	/** Pages shown in the measurements panel, including ones added with no measurements yet. */
-	measurementPages: number[];
+	/** Groups (root-level when `categoryId` is unset), linked to measurements by id. */
+	groups: TakeoffGroup[];
+	legends: Legend[];
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
 	pageTitles: Record<number, string>;
@@ -223,3 +223,15 @@ export type DragKind =
 			orig: Point[];
 			start: Point;
 	  };
+
+// A snapshot of the state a committed undoable action (a shape or count marker)
+// changes, captured before the action so undo can restore it. `draft` is the
+// in-progress draft to restore (currently always empty, since undo clears any
+// draft when popping a committed action). `activeCountId` restores which count set
+// new markers continue appending to. In-draft point removal is handled separately
+// and does not use this stack.
+export interface UndoSnapshot {
+	activeCountId: string | null;
+	draft: Point[];
+	measurements: Measurement[];
+}

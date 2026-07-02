@@ -307,7 +307,6 @@ import type * as takeoffCategories_search from "../takeoffCategories/search.js";
 import type * as takeoffCategories_shared from "../takeoffCategories/shared.js";
 import type * as takeoffCategories_update from "../takeoffCategories/update.js";
 import type * as takeoffs_addToTakeoffs from "../takeoffs/addToTakeoffs.js";
-import type * as takeoffs_generateSaveUrl from "../takeoffs/generateSaveUrl.js";
 import type * as takeoffs_get from "../takeoffs/get.js";
 import type * as takeoffs_list from "../takeoffs/list.js";
 import type * as takeoffs_remove from "../takeoffs/remove.js";
@@ -673,7 +672,6 @@ declare const fullApi: ApiFromModules<{
   "takeoffCategories/shared": typeof takeoffCategories_shared;
   "takeoffCategories/update": typeof takeoffCategories_update;
   "takeoffs/addToTakeoffs": typeof takeoffs_addToTakeoffs;
-  "takeoffs/generateSaveUrl": typeof takeoffs_generateSaveUrl;
   "takeoffs/get": typeof takeoffs_get;
   "takeoffs/list": typeof takeoffs_list;
   "takeoffs/remove": typeof takeoffs_remove;
