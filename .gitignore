@@ -12,6 +12,8 @@ build
 .env
 .env*.local
 !env.example
+.env.dev
+.env.prod
 
 # IDEs and editors
 .vscode/*

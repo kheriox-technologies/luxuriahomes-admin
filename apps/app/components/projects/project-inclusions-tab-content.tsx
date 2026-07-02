@@ -1,0 +1,2492 @@
+/** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: <required complexity> */
+'use client';
+
+import { api } from '@workspace/backend/api';
+import type { Doc, Id } from '@workspace/backend/dataModel';
+import { Alert, AlertDescription } from '@workspace/ui/components/alert';
+import {
+	AlertDialog,
+	AlertDialogClose,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from '@workspace/ui/components/alert-dialog';
+import { Badge } from '@workspace/ui/components/badge';
+import { Button } from '@workspace/ui/components/button';
+import {
+	Card,
+	CardAction,
+	CardDescription,
+	CardHeader,
+	CardPanel,
+	CardTitle,
+} from '@workspace/ui/components/card';
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from '@workspace/ui/components/dialog';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@workspace/ui/components/empty';
+import {
+	Field,
+	FieldDescription,
+	FieldLabel,
+} from '@workspace/ui/components/field';
+import {
+	Frame,
+	FrameDescription,
+	FrameHeader,
+	FramePanel,
+	FrameTitle,
+} from '@workspace/ui/components/frame';
+import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@workspace/ui/components/table';
+import { Textarea } from '@workspace/ui/components/textarea';
+import { toastManager } from '@workspace/ui/components/toast';
+import {
+	ToggleGroup,
+	ToggleGroupItem,
+} from '@workspace/ui/components/toggle-group';
+import { cn } from '@workspace/ui/lib/utils';
+import { useMutation, useQuery } from 'convex/react';
+import type { FunctionReturnType } from 'convex/server';
+import {
+	Check,
+	Download,
+	EllipsisVertical,
+	ExternalLink,
+	ImagePlus,
+	Info,
+	Mail,
+	MapPin,
+	Package,
+	PackageCheck,
+	Pencil,
+	Plus,
+	SearchIcon,
+	ShoppingCart,
+	SlidersHorizontal,
+	SquaresIntersect,
+	StickyNote,
+	Trash2,
+	Truck,
+	X,
+} from 'lucide-react';
+import NextImage from 'next/image';
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
+import { signCdnUrls } from '@/actions/cdn';
+import ComposeEmailDialog from '@/components/email/compose-email-dialog';
+import LocationCombobox from '@/components/inclusions/location-combobox';
+import {
+	NoteImageUploader,
+	type NoteImageUploaderHandle,
+} from '@/components/notes/note-image-uploader';
+import { NoteImagesRow } from '@/components/notes/note-images-row';
+import SelectTradeDialog from '@/components/orders/select-trade-dialog';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
+import type { ComposeAttachment } from '@/lib/email';
+import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
+import {
+	generateGroupInclusionsPdfBase64,
+	generateProjectInclusionsPdfBase64,
+	openGroupInclusionsPdfInNewTab,
+	openProjectInclusionsPdfInNewTab,
+} from '@/lib/pdf/project-inclusions-pdf';
+import { useAppModeStore } from '@/stores/app-mode-store';
+
+type ProjectInclusion = NonNullable<
+	FunctionReturnType<typeof api.projectInclusions.list.list>
+>[number];
+type ProjectInclusionNote = Doc<'projectInclusionNotes'>;
+type InclusionCategory = Doc<'inclusionCategories'>;
+
+interface PendingOrderItem {
+	color?: string;
+	details?: string;
+	inclusionId: Id<'projectInclusions'>;
+	models: string[];
+	title: string;
+	totalQty: number;
+	unit: string;
+	vendor: string;
+}
+
+const audFormatter = new Intl.NumberFormat('en-AU', {
+	style: 'currency',
+	currency: 'AUD',
+});
+
+function formatAud(amount: number): string {
+	return audFormatter.format(amount);
+}
+
+function formatSignedAud(amount: number): string {
+	if (amount === 0) {
+		return '$0.00';
+	}
+	return `${amount > 0 ? '+' : '-'} ${formatAud(Math.abs(amount))}`;
+}
+
+function EmptyProjectInclusionsState() {
+	return (
+		<div className="flex min-h-0 flex-1 flex-col">
+			<Empty>
+				<EmptyHeader>
+					<EmptyMedia variant="icon">
+						<SquaresIntersect aria-hidden />
+					</EmptyMedia>
+					<EmptyTitle>No inclusions on this project yet</EmptyTitle>
+					<EmptyDescription>
+						Open the Inclusions Catalogue and use Add to project on a product
+						variant to attach it here.
+					</EmptyDescription>
+				</EmptyHeader>
+			</Empty>
+		</div>
+	);
+}
+
+function variantClassBadgeVariant(
+	className: ProjectInclusion['class']
+): 'outline' | 'info' | 'yellow' | 'purple' {
+	if (className === 'Standard') {
+		return 'info';
+	}
+	if (className === 'Gold') {
+		return 'yellow';
+	}
+	if (className === 'Platinum') {
+		return 'purple';
+	}
+	return 'outline';
+}
+
+function inclusionStatusBadgeVariant(
+	status: NonNullable<ProjectInclusion['status']>
+): 'success' | 'warning' {
+	return status === 'Approved' ? 'success' : 'warning';
+}
+
+function inclusionOrderStatusBadgeVariant(
+	status: NonNullable<ProjectInclusion['orderStatus']>
+): 'warning' | 'info' | 'purple' | 'success' {
+	switch (status) {
+		case 'Order Created':
+			return 'warning';
+		case 'Ordered':
+			return 'info';
+		case 'In Transit':
+			return 'purple';
+		default:
+			return 'success';
+	}
+}
+
+function inclusionOrderStatusIcon(
+	status: NonNullable<ProjectInclusion['orderStatus']>
+) {
+	switch (status) {
+		case 'Order Created':
+			return ShoppingCart;
+		case 'Ordered':
+			return Package;
+		case 'In Transit':
+			return Truck;
+		default:
+			return PackageCheck;
+	}
+}
+
+function DeleteProjectInclusionDialog({
+	projectInclusionId,
+	title,
+	code,
+	open,
+	onOpenChange,
+}: {
+	projectInclusionId: Id<'projectInclusions'>;
+	title: string;
+	code: string;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+}) {
+	const [isDeleting, setIsDeleting] = useState(false);
+	const removeProjectInclusion = useMutation(
+		api.projectInclusions.remove.remove
+	);
+
+	const onDelete = async () => {
+		setIsDeleting(true);
+		try {
+			await removeProjectInclusion({ projectInclusionId });
+			toastManager.add({
+				title: 'Inclusion deleted',
+				type: 'success',
+			});
+			onOpenChange(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete inclusion. Please try again in a moment.'
+				),
+				title: 'Could not delete inclusion',
+				type: 'error',
+			});
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
+	return (
+		<AlertDialog onOpenChange={onOpenChange} open={open}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete inclusion?</AlertDialogTitle>
+					<AlertDialogDescription>
+						{`This will permanently delete ${title} (${code}) from this project.`}
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</AlertDialogClose>
+					<Button
+						loading={isDeleting}
+						onClick={() => {
+							onDelete().catch(() => {
+								/* Error is handled in onDelete */
+							});
+						}}
+						type="button"
+						variant="destructive"
+					>
+						Delete inclusion
+					</Button>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
+function ordinalSuffix(day: number): string {
+	const mod100 = day % 100;
+	if (mod100 >= 11 && mod100 <= 13) {
+		return 'th';
+	}
+	switch (day % 10) {
+		case 1:
+			return 'st';
+		case 2:
+			return 'nd';
+		case 3:
+			return 'rd';
+		default:
+			return 'th';
+	}
+}
+
+function formatProjectInclusionNoteDate(timestamp: number): string {
+	const d = new Date(timestamp);
+	const weekday = new Intl.DateTimeFormat('en-AU', { weekday: 'short' }).format(
+		d
+	);
+	const day = d.getDate();
+	const month = new Intl.DateTimeFormat('en-AU', { month: 'short' }).format(d);
+	const year = d.getFullYear();
+	return `${weekday}, ${day}${ordinalSuffix(day)} ${month} ${year}`;
+}
+
+function ProjectInclusionNotesCardList({
+	notes,
+}: {
+	notes: ProjectInclusionNote[];
+}) {
+	const deleteNoteMutation = useMutation(
+		api.projectInclusions.deleteNote.deleteNote
+	);
+
+	const onDelete = async (noteId: ProjectInclusionNote['_id']) => {
+		try {
+			await deleteNoteMutation({ noteId });
+			toastManager.add({ title: 'Note deleted', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not delete note. Please try again in a moment.'
+				),
+				title: 'Could not delete note',
+				type: 'error',
+			});
+		}
+	};
+
+	return (
+		<div className="flex flex-col gap-3">
+			{notes.map((entry) => (
+				<Card key={entry._id}>
+					<CardHeader>
+						<CardTitle>{entry.addedBy}</CardTitle>
+						<CardDescription>
+							{formatProjectInclusionNoteDate(entry.timestamp)}
+						</CardDescription>
+						<CardAction>
+							<Button
+								aria-label="Delete note"
+								onClick={() => {
+									onDelete(entry._id).catch(() => {
+										/* Error is handled in onDelete */
+									});
+								}}
+								size="icon"
+								type="button"
+								variant="destructive-outline"
+							>
+								<Trash2 />
+							</Button>
+						</CardAction>
+					</CardHeader>
+					<CardPanel className="flex flex-col gap-3">
+						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
+							{entry.note}
+						</p>
+						{entry.images && entry.images.length > 0 ? (
+							<NoteImagesRow
+								imageKeys={entry.images}
+								title={`Note by ${entry.addedBy}`}
+							/>
+						) : null}
+					</CardPanel>
+				</Card>
+			))}
+		</div>
+	);
+}
+
+function ProjectInclusionNotesDialog({
+	projectInclusionId,
+	title,
+	code,
+	open,
+	onOpenChange,
+}: {
+	projectInclusionId: Id<'projectInclusions'>;
+	title: string;
+	code: string;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+}) {
+	const [noteText, setNoteText] = useState('');
+	const [submitting, setSubmitting] = useState(false);
+	const [images, setImages] = useState<string[]>([]);
+	const [imagesUploading, setImagesUploading] = useState(false);
+	const [uploaderKey, setUploaderKey] = useState(0);
+	const uploaderRef = useRef<NoteImageUploaderHandle>(null);
+
+	const resetForm = () => {
+		setNoteText('');
+		setImages([]);
+		setImagesUploading(false);
+		setUploaderKey((key) => key + 1);
+	};
+
+	const appendNoteMutation = useMutation(
+		api.projectInclusions.appendNote.appendNote
+	);
+	const notes = useQuery(
+		api.projectInclusions.listNotes.listNotes,
+		open ? { projectInclusionId } : 'skip'
+	);
+
+	const onSubmit = async () => {
+		const trimmed = noteText.trim();
+		if (trimmed === '') {
+			toastManager.add({
+				title: 'Write a note before saving',
+				type: 'error',
+			});
+			return;
+		}
+		setSubmitting(true);
+		try {
+			await appendNoteMutation({ projectInclusionId, note: noteText, images });
+			toastManager.add({
+				title: 'Note added',
+				type: 'success',
+			});
+			resetForm();
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not add note. Please try again in a moment.'
+				),
+				title: 'Could not add note',
+				type: 'error',
+			});
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	let notesBody: ReactNode;
+	if (notes === undefined) {
+		notesBody = <p className="text-muted-foreground text-sm">Loading notes…</p>;
+	} else if (notes.length === 0) {
+		notesBody = (
+			<Alert variant="info">
+				<Info aria-hidden className="size-4 shrink-0" />
+				<AlertDescription>
+					No notes have been added for this inclusion yet. Use the field above
+					to add the first one.
+				</AlertDescription>
+			</Alert>
+		);
+	} else {
+		notesBody = <ProjectInclusionNotesCardList notes={notes} />;
+	}
+
+	return (
+		<Dialog
+			onOpenChange={(next) => {
+				onOpenChange(next);
+				if (!next) {
+					resetForm();
+				}
+			}}
+			open={open}
+		>
+			<DialogContent className="flex h-[min(88vh,44rem)] w-[min(92vw,40rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+				<DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6">
+					<DialogTitle>Notes</DialogTitle>
+					<DialogDescription>
+						<span className="font-medium text-foreground">{title}</span>
+						<span className="text-muted-foreground">{` · ${code}`}</span>
+					</DialogDescription>
+				</DialogHeader>
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+					<div className="shrink-0 px-6 py-4">
+						<div className="flex flex-col gap-2">
+							<label
+								className="font-medium text-sm"
+								htmlFor={`note-${projectInclusionId}`}
+							>
+								New note
+							</label>
+							<Textarea
+								className="min-h-[100px] resize-y"
+								id={`note-${projectInclusionId}`}
+								onChange={(e) => setNoteText(e.target.value)}
+								placeholder="Type your note…"
+								value={noteText}
+							/>
+							<NoteImageUploader
+								key={uploaderKey}
+								onChange={setImages}
+								onUploadingChange={setImagesUploading}
+								ref={uploaderRef}
+							/>
+						</div>
+					</div>
+					<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
+						<div className="min-h-0 flex-1 overflow-y-auto pe-1">
+							{notesBody}
+						</div>
+					</div>
+				</div>
+				<DialogFooter className="shrink-0 border-t px-6 py-4">
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Close
+					</DialogClose>
+					<Button
+						disabled={imagesUploading}
+						loading={imagesUploading}
+						onClick={() => uploaderRef.current?.open()}
+						type="button"
+						variant="outline"
+					>
+						<ImagePlus />
+						Add image
+					</Button>
+					<Button
+						disabled={imagesUploading}
+						loading={submitting}
+						onClick={() => {
+							onSubmit().catch(() => {
+								/* Error is handled in onSubmit */
+							});
+						}}
+						type="button"
+					>
+						Save note
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ProjectInclusionImageThumbnail({
+	inclusion,
+	signedImageUrl,
+	size = 64,
+}: {
+	inclusion: ProjectInclusion;
+	signedImageUrl: string;
+	size?: number;
+}) {
+	if (!signedImageUrl) {
+		return (
+			<div
+				className="flex shrink-0 items-center justify-center rounded-md border border-dashed bg-muted/40 text-center text-[0.625rem] text-muted-foreground leading-tight"
+				style={{ height: size, width: size }}
+			>
+				{inclusion.image ? 'Loading…' : 'No image'}
+			</div>
+		);
+	}
+	return (
+		<Dialog>
+			<DialogTrigger
+				render={
+					<button
+						aria-label={`Open image preview for ${inclusion.title} ${inclusion.code}`}
+						className="flex shrink-0 cursor-zoom-in items-center justify-center rounded-md border bg-card p-1"
+						style={{ height: size, width: size }}
+						type="button"
+					/>
+				}
+			>
+				<NextImage
+					alt={`${inclusion.title} ${inclusion.code}`}
+					className="size-full object-contain"
+					height={size}
+					src={signedImageUrl}
+					unoptimized
+					width={size}
+				/>
+			</DialogTrigger>
+			<DialogContent className="sm:max-w-3xl">
+				<DialogHeader>
+					<DialogTitle>{`${inclusion.title} ${inclusion.code}`}</DialogTitle>
+				</DialogHeader>
+				<div className="flex max-h-[75vh] items-center justify-center overflow-hidden rounded-md bg-card p-2">
+					<NextImage
+						alt={`${inclusion.title} ${inclusion.code}`}
+						className="h-auto max-h-[70vh] w-auto max-w-full object-contain"
+						height={1200}
+						src={signedImageUrl}
+						unoptimized
+						width={1200}
+					/>
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+interface PendingLocation {
+	name: string;
+	quantity?: number;
+	unit?: string;
+}
+
+function EditInclusionQuantitiesDialog({
+	inclusion,
+	open,
+	onOpenChange,
+}: {
+	inclusion: ProjectInclusion;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+}) {
+	const [localLocations, setLocalLocations] = useState<PendingLocation[]>([]);
+	const [selectedLocationId, setSelectedLocationId] = useState('');
+	const [newLocationName, setNewLocationName] = useState('');
+	const [pendingQuantity, setPendingQuantity] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+	const unitAbbr = inclusion.unitAbbr ?? inclusion.locations?.[0]?.unit ?? '';
+
+	const locations = useQuery(api.locations.list.list, open ? {} : 'skip');
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+	const addLocation = useMutation(api.locations.add.add);
+
+	const locationNameById = useMemo(() => {
+		const map = new Map<Id<'locations'>, string>();
+		for (const loc of locations ?? []) {
+			map.set(loc._id, loc.name);
+		}
+		return map;
+	}, [locations]);
+
+	const locationIdByName = useMemo(() => {
+		const map = new Map<string, Id<'locations'>>();
+		for (const loc of locations ?? []) {
+			map.set(loc.name, loc._id);
+		}
+		return map;
+	}, [locations]);
+
+	useEffect(() => {
+		if (open) {
+			setLocalLocations(inclusion.locations ?? []);
+			setSelectedLocationId('');
+			setNewLocationName('');
+			setPendingQuantity('');
+			setEditingIndex(null);
+		}
+	}, [open, inclusion.locations]);
+
+	const handleEditLocation = (i: number) => {
+		const entry = localLocations[i];
+		const locationId = locationIdByName.get(entry.name);
+		if (locationId) {
+			setSelectedLocationId(locationId);
+		}
+		setNewLocationName('');
+		setPendingQuantity(entry.quantity?.toString() ?? '');
+		setEditingIndex(i);
+	};
+
+	const resolveLocationName = async (): Promise<string | null> => {
+		const trimmedNew = newLocationName.trim();
+		if (trimmedNew) {
+			const existingId = locationIdByName.get(trimmedNew);
+			if (!existingId) {
+				await addLocation({ name: trimmedNew });
+			}
+			return trimmedNew;
+		}
+		return locationNameById.get(selectedLocationId as Id<'locations'>) ?? null;
+	};
+
+	const hasPendingLocation = Boolean(
+		selectedLocationId || newLocationName.trim()
+	);
+
+	const buildNextLocations = (name: string): PendingLocation[] => {
+		const qty =
+			pendingQuantity !== '' ? Number.parseFloat(pendingQuantity) : undefined;
+		const entry = { name, quantity: qty, unit: unitAbbr || undefined };
+		if (editingIndex !== null) {
+			return localLocations.map((loc, idx) =>
+				idx === editingIndex ? entry : loc
+			);
+		}
+		return [...localLocations, entry];
+	};
+
+	const clearPendingLocation = () => {
+		setSelectedLocationId('');
+		setNewLocationName('');
+		setPendingQuantity('');
+		setEditingIndex(null);
+	};
+
+	const handleSaveAction = async () => {
+		let name: string | null;
+		try {
+			name = await resolveLocationName();
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not add the location. Please try again.'
+				),
+				title: 'Could not add location',
+				type: 'error',
+			});
+			return;
+		}
+		if (!name) {
+			return;
+		}
+		setLocalLocations(buildNextLocations(name));
+		clearPendingLocation();
+	};
+
+	const onSave = async () => {
+		setIsSubmitting(true);
+		try {
+			let finalLocations = localLocations;
+			// Auto-commit a pending selection so the user doesn't have to click "+".
+			if (hasPendingLocation) {
+				const name = await resolveLocationName();
+				if (name) {
+					finalLocations = buildNextLocations(name);
+					setLocalLocations(finalLocations);
+					clearPendingLocation();
+				}
+			}
+			await updateProjectInclusion({
+				projectInclusionId: inclusion._id,
+				locations: finalLocations.length > 0 ? finalLocations : null,
+			});
+			toastManager.add({ title: 'Quantities updated', type: 'success' });
+			onOpenChange(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update quantities. Please try again.'
+				),
+				title: 'Could not update quantities',
+				type: 'error',
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Edit Quantities</DialogTitle>
+					<DialogDescription>
+						<span className="font-medium text-foreground">
+							{inclusion.title}
+						</span>
+						<span className="text-muted-foreground">{` · ${inclusion.code}`}</span>
+					</DialogDescription>
+				</DialogHeader>
+				<div className="flex flex-col gap-3 px-6 pb-2">
+					<div className="flex items-center gap-2">
+						<div className="min-w-0 flex-1">
+							<LocationCombobox
+								id={`edit-quantities-location-${inclusion._id}`}
+								locations={locations}
+								onBlur={() => undefined}
+								onChange={(next) => {
+									setSelectedLocationId(next);
+									if (next) {
+										setNewLocationName('');
+									}
+								}}
+								value={selectedLocationId}
+							/>
+						</div>
+						<InputGroup className="w-32 shrink-0">
+							<InputGroupInput
+								min="0"
+								onChange={(e) => setPendingQuantity(e.target.value)}
+								placeholder="Qty"
+								type="number"
+								value={pendingQuantity}
+							/>
+							{unitAbbr ? (
+								<InputGroupAddon align="inline-end">
+									<InputGroupText>{unitAbbr}</InputGroupText>
+								</InputGroupAddon>
+							) : null}
+						</InputGroup>
+						<Button
+							aria-label={editingIndex !== null ? 'Save edit' : 'Add location'}
+							disabled={!(selectedLocationId || newLocationName.trim())}
+							onClick={() => {
+								handleSaveAction().catch(() => {
+									/* Error handled in handleSaveAction */
+								});
+							}}
+							size="icon"
+							type="button"
+							variant={editingIndex !== null ? 'default' : 'outline'}
+						>
+							{editingIndex !== null ? <Check /> : <Plus />}
+						</Button>
+					</div>
+					<Input
+						aria-label="Add a new location"
+						nativeInput
+						onChange={(e) => {
+							setNewLocationName(e.target.value);
+							if (e.target.value.trim()) {
+								setSelectedLocationId('');
+							}
+						}}
+						placeholder="Or add a new location"
+						value={newLocationName}
+					/>
+					{localLocations.length > 0 ? (
+						<div className="flex flex-col gap-1.5">
+							{localLocations.map((entry, i) => (
+								<Card key={`${entry.name}-${i}`}>
+									<CardPanel className="flex items-center justify-between">
+										<CardTitle className="text-sm">{entry.name}</CardTitle>
+										<div className="inline-flex items-center gap-2">
+											<span className="text-muted-foreground text-sm">
+												{entry.quantity != null
+													? `${entry.quantity}${entry.unit ? ` ${entry.unit}` : ''}`
+													: (entry.unit ?? '')}
+											</span>
+											<Button
+												aria-label={`Edit ${entry.name}`}
+												onClick={() => handleEditLocation(i)}
+												size="icon-sm"
+												type="button"
+												variant="outline"
+											>
+												<Pencil className="size-4" />
+											</Button>
+											<Button
+												aria-label={`Remove ${entry.name}`}
+												onClick={() => {
+													if (editingIndex === i) {
+														setEditingIndex(null);
+													}
+													setLocalLocations((prev) =>
+														prev.filter((_, idx) => idx !== i)
+													);
+												}}
+												size="icon-sm"
+												type="button"
+												variant="destructive-outline"
+											>
+												<Trash2 className="size-4" />
+											</Button>
+										</div>
+									</CardPanel>
+								</Card>
+							))}
+						</div>
+					) : (
+						<p className="text-muted-foreground text-sm">
+							No locations added yet. Use the row above to add one.
+						</p>
+					)}
+				</div>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						disabled={isSubmitting}
+						loading={isSubmitting}
+						onClick={() => {
+							onSave().catch(() => {
+								/* Error handled in onSave */
+							});
+						}}
+						type="button"
+					>
+						Save
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+const VARIATION_PATTERN = /^-?\d+(\.\d{1,2})?$/;
+
+function AdjustVariationDialog({
+	inclusion,
+	open,
+	onOpenChange,
+}: {
+	inclusion: ProjectInclusion;
+	open: boolean;
+	onOpenChange: (v: boolean) => void;
+}) {
+	const [value, setValue] = useState('');
+	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+
+	useEffect(() => {
+		if (open) {
+			setValue(
+				inclusion.variationPrice !== undefined
+					? String(inclusion.variationPrice)
+					: ''
+			);
+		}
+	}, [open, inclusion.variationPrice]);
+
+	const trimmed = value.trim();
+	const isValid = trimmed === '' || VARIATION_PATTERN.test(trimmed);
+
+	const onSave = async () => {
+		setIsSubmitting(true);
+		try {
+			await updateProjectInclusion({
+				projectInclusionId: inclusion._id,
+				variationPrice: trimmed === '' ? null : Number(trimmed),
+			});
+			toastManager.add({ title: 'Variation updated', type: 'success' });
+			onOpenChange(false);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update variation. Please try again.'
+				),
+				title: 'Could not update variation',
+				type: 'error',
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Adjust Variation</DialogTitle>
+					<DialogDescription>
+						<span className="font-medium text-foreground">
+							{inclusion.title}
+						</span>
+						<span className="text-muted-foreground">{` · ${inclusion.code}`}</span>
+					</DialogDescription>
+				</DialogHeader>
+				<div className="px-6 pb-2">
+					<Field data-invalid={!isValid || undefined}>
+						<FieldLabel htmlFor={`adjust-variation-${inclusion._id}`}>
+							Variation (total)
+						</FieldLabel>
+						<InputGroup>
+							<InputGroupAddon align="inline-start">
+								<InputGroupText>$</InputGroupText>
+							</InputGroupAddon>
+							<InputGroupInput
+								aria-invalid={!isValid || undefined}
+								id={`adjust-variation-${inclusion._id}`}
+								inputMode="decimal"
+								onChange={(e) => setValue(e.target.value)}
+								placeholder="0.00"
+								type="text"
+								value={value}
+							/>
+							<InputGroupAddon align="inline-end">
+								<InputGroupText>AUD</InputGroupText>
+							</InputGroupAddon>
+						</InputGroup>
+						<FieldDescription>
+							Combined base and labour variation for this inclusion. Leave blank
+							to clear.
+						</FieldDescription>
+					</Field>
+				</div>
+				<DialogFooter>
+					<DialogClose render={<Button type="button" variant="outline" />}>
+						Cancel
+					</DialogClose>
+					<Button
+						disabled={isSubmitting || !isValid}
+						loading={isSubmitting}
+						onClick={() => {
+							onSave().catch(() => {
+								/* Error handled in onSave */
+							});
+						}}
+						type="button"
+					>
+						Save
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ProjectInclusionNotesLink({
+	inclusion,
+}: {
+	inclusion: ProjectInclusion;
+}) {
+	const [notesOpen, setNotesOpen] = useState(false);
+	if (!inclusion.hasNotes) {
+		return null;
+	}
+	return (
+		<>
+			<button
+				className="text-left text-muted-foreground text-xs underline hover:text-foreground"
+				onClick={() => setNotesOpen(true)}
+				type="button"
+			>
+				View Notes
+			</button>
+			<ProjectInclusionNotesDialog
+				code={inclusion.code}
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				projectInclusionId={inclusion._id}
+				title={inclusion.title}
+			/>
+		</>
+	);
+}
+
+function ProjectInclusionActionsCell({
+	inclusion,
+	projectId,
+	pendingOrderItems,
+	onAddToOrder,
+}: {
+	inclusion: ProjectInclusion;
+	projectId: Id<'projects'>;
+	pendingOrderItems: PendingOrderItem[];
+	onAddToOrder: (inclusion: ProjectInclusion) => void;
+}) {
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [notesOpen, setNotesOpen] = useState(false);
+	const [editQuantitiesOpen, setEditQuantitiesOpen] = useState(false);
+	const [adjustVariationOpen, setAdjustVariationOpen] = useState(false);
+	const [approveLoading, setApproveLoading] = useState(false);
+
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+	const isApproved = inclusion.status === 'Approved';
+
+	const activeVendor = pendingOrderItems[0]?.vendor;
+	const isAlreadyInOrder = pendingOrderItems.some(
+		(item) => item.inclusionId === inclusion._id
+	);
+	const canAddToOrder =
+		isApproved &&
+		!isAlreadyInOrder &&
+		(!activeVendor || activeVendor === inclusion.vendor);
+
+	const onToggleApprove = async () => {
+		setApproveLoading(true);
+		try {
+			await updateProjectInclusion({
+				projectInclusionId: inclusion._id,
+				status: isApproved ? 'Under Review' : 'Approved',
+			});
+			toastManager.add({
+				title: isApproved
+					? 'Inclusion moved to under review'
+					: 'Inclusion approved',
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not update status. Please try again in a moment.'
+				),
+				title: 'Could not update status',
+				type: 'error',
+			});
+		} finally {
+			setApproveLoading(false);
+		}
+	};
+
+	return (
+		<>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Inclusion actions"
+							loading={approveLoading}
+							size="icon-sm"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem
+						onClick={() => {
+							onToggleApprove().catch(() => {
+								/* Error handled in onToggleApprove */
+							});
+						}}
+					>
+						{isApproved ? <X /> : <Check />}
+						{isApproved ? 'Unapprove Inclusion' : 'Approve Inclusion'}
+					</MenuItem>
+					<MenuItem onClick={() => setNotesOpen(true)}>
+						<StickyNote />
+						View / Edit Notes
+					</MenuItem>
+					<MenuItem onClick={() => setEditQuantitiesOpen(true)}>
+						<MapPin />
+						Edit Quantities
+					</MenuItem>
+					<MenuItem
+						disabled={inclusion.class === 'Standard'}
+						onClick={() => {
+							if (inclusion.class !== 'Standard') {
+								setAdjustVariationOpen(true);
+							}
+						}}
+					>
+						<SlidersHorizontal />
+						Adjust Variation
+					</MenuItem>
+					<MenuItem
+						disabled={!canAddToOrder}
+						onClick={() => {
+							if (canAddToOrder) {
+								onAddToOrder(inclusion);
+							}
+						}}
+					>
+						<ShoppingCart />
+						Add to order
+					</MenuItem>
+					{inclusion.orderRefId ? (
+						<MenuItem
+							onClick={() => {
+								window.open(
+									`/projects/${projectId}?tab=orders&orderId=${inclusion.orderRefId}`,
+									'_blank'
+								);
+							}}
+						>
+							<ExternalLink />
+							View Order
+						</MenuItem>
+					) : null}
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete Inclusion
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
+			<DeleteProjectInclusionDialog
+				code={inclusion.code}
+				onOpenChange={setDeleteOpen}
+				open={deleteOpen}
+				projectInclusionId={inclusion._id}
+				title={inclusion.title}
+			/>
+			<ProjectInclusionNotesDialog
+				code={inclusion.code}
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				projectInclusionId={inclusion._id}
+				title={inclusion.title}
+			/>
+			<EditInclusionQuantitiesDialog
+				inclusion={inclusion}
+				onOpenChange={setEditQuantitiesOpen}
+				open={editQuantitiesOpen}
+			/>
+			<AdjustVariationDialog
+				inclusion={inclusion}
+				onOpenChange={setAdjustVariationOpen}
+				open={adjustVariationOpen}
+			/>
+		</>
+	);
+}
+
+function getInclusionTotals(inclusion: ProjectInclusion) {
+	const totalQty =
+		inclusion.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
+	const unit = inclusion.locations?.[0]?.unit;
+	const variation =
+		inclusion.class !== 'Standard' && inclusion.variationPrice !== undefined
+			? formatSignedAud(inclusion.variationPrice)
+			: null;
+	return { totalQty, unit, variation };
+}
+
+function InclusionProductCell({
+	inclusion,
+	signedImageUrl,
+	size,
+}: {
+	inclusion: ProjectInclusion;
+	signedImageUrl: string;
+	size?: number;
+}) {
+	return (
+		<div className="flex min-w-0 items-start gap-3">
+			<ProjectInclusionImageThumbnail
+				inclusion={inclusion}
+				signedImageUrl={signedImageUrl}
+				size={size}
+			/>
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<span className="text-pretty font-medium leading-snug">
+					{inclusion.title}
+				</span>
+				<div className="flex flex-wrap items-center gap-2">
+					<Badge size="lg" variant={variantClassBadgeVariant(inclusion.class)}>
+						{inclusion.class}
+					</Badge>
+					<span className="font-mono text-muted-foreground text-xs">
+						{inclusion.code}
+					</span>
+				</div>
+				<ProjectInclusionNotesLink inclusion={inclusion} />
+			</div>
+		</div>
+	);
+}
+
+function InclusionDetailRow({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+			<span className="shrink-0 font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+				{label}
+			</span>
+			<span className="min-w-0 text-sm">{children}</span>
+		</div>
+	);
+}
+
+function InclusionDetailsCell({ inclusion }: { inclusion: ProjectInclusion }) {
+	const models = inclusion.models.join(', ');
+	return (
+		<div className="flex min-w-0 flex-col gap-1.5">
+			<InclusionDetailRow label="Vendor">{inclusion.vendor}</InclusionDetailRow>
+			{models ? (
+				<InclusionDetailRow label="Models">{models}</InclusionDetailRow>
+			) : null}
+			<InclusionDetailRow label="Colour">
+				{inclusion.color ? (
+					<Badge size="lg" variant="outline">
+						{inclusion.color}
+					</Badge>
+				) : (
+					<span className="text-muted-foreground">—</span>
+				)}
+			</InclusionDetailRow>
+			{inclusion.details ? (
+				<p className="whitespace-pre-wrap text-pretty text-muted-foreground text-sm">
+					{inclusion.details}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+function InclusionQuantityCell({ inclusion }: { inclusion: ProjectInclusion }) {
+	const { totalQty, unit } = getInclusionTotals(inclusion);
+	if (!inclusion.locations || inclusion.locations.length === 0) {
+		return <span className="text-muted-foreground">—</span>;
+	}
+	return (
+		<div className="flex flex-col gap-0.5 text-sm">
+			<span className="font-medium tabular-nums">
+				{totalQty ? `${totalQty}${unit ? ` ${unit}` : ''}` : '—'}
+			</span>
+			{inclusion.locations.map((loc, i) => (
+				<span
+					className="text-muted-foreground text-xs"
+					key={`${loc.name}-${i}`}
+				>
+					{loc.name}
+					{loc.quantity != null
+						? ` (${loc.quantity}${loc.unit ? ` ${loc.unit}` : ''})`
+						: ''}
+				</span>
+			))}
+		</div>
+	);
+}
+
+function InclusionStatusStack({
+	inclusion,
+	projectId,
+}: {
+	inclusion: ProjectInclusion;
+	projectId: Id<'projects'>;
+}) {
+	const displayStatus = inclusion.status ?? 'Under Review';
+	const OrderStatusIcon = inclusion.orderStatus
+		? inclusionOrderStatusIcon(inclusion.orderStatus)
+		: null;
+	return (
+		<div className="flex flex-col items-start gap-1.5">
+			<Badge size="lg" variant={inclusionStatusBadgeVariant(displayStatus)}>
+				<span
+					aria-hidden
+					className="size-1.5 rounded-full bg-current opacity-70"
+				/>
+				{displayStatus}
+			</Badge>
+			{inclusion.orderStatus && inclusion.orderRefId && OrderStatusIcon ? (
+				<button
+					className="text-left"
+					onClick={() => {
+						window.open(
+							`/projects/${projectId}?tab=orders&orderId=${inclusion.orderRefId}`,
+							'_blank'
+						);
+					}}
+					type="button"
+				>
+					<Badge
+						className="cursor-pointer hover:opacity-80"
+						size="lg"
+						variant={inclusionOrderStatusBadgeVariant(inclusion.orderStatus)}
+					>
+						<OrderStatusIcon aria-hidden />
+						{inclusion.orderStatus}
+					</Badge>
+				</button>
+			) : null}
+		</div>
+	);
+}
+
+function InclusionPricingCell({
+	inclusion,
+	showPricing,
+}: {
+	inclusion: ProjectInclusion;
+	showPricing: boolean;
+}) {
+	const { variation } = getInclusionTotals(inclusion);
+	return (
+		<div className="flex flex-col items-end gap-0.5 text-end tabular-nums">
+			<span className="font-medium">
+				{variation ?? (
+					<span className="font-normal text-muted-foreground">—</span>
+				)}
+			</span>
+			{showPricing ? (
+				<div className="flex flex-col gap-0.5 text-muted-foreground text-xs">
+					<span>Cost {formatAud(inclusion.costPrice)}</span>
+					<span>Sale {formatAud(inclusion.salePrice)}</span>
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function ProjectInclusionsTableInFrame({
+	section,
+	mode,
+	groupType,
+	projectId,
+	pendingOrderItems,
+	onAddToOrder,
+	onCreateVendorGroupOrder,
+	onDownloadSectionPdf,
+	onEmailSectionPdf,
+}: {
+	section: InclusionSection;
+	mode: 'builder' | 'client';
+	groupType: GroupBy;
+	projectId: Id<'projects'>;
+	pendingOrderItems: PendingOrderItem[];
+	onAddToOrder: (inclusion: ProjectInclusion) => void;
+	onCreateVendorGroupOrder: (
+		inclusions: ProjectInclusion[],
+		tradeId: Id<'trades'>
+	) => Promise<void>;
+	onDownloadSectionPdf: () => Promise<void>;
+	onEmailSectionPdf: () => Promise<void>;
+}) {
+	const showPricing = mode === 'builder';
+	const [downloadLoading, setDownloadLoading] = useState(false);
+	const [emailLoading, setEmailLoading] = useState(false);
+	const [bulkLoading, setBulkLoading] = useState(false);
+	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+	const [vendorOrderLoading, setVendorOrderLoading] = useState(false);
+	const [vendorOrderConfirmOpen, setVendorOrderConfirmOpen] = useState(false);
+	const [signedImageUrls, setSignedImageUrls] = useState<
+		Record<string, string>
+	>({});
+
+	useEffect(() => {
+		const keys = section.inclusions
+			.map((inc) => inc.image)
+			.filter((img): img is string => Boolean(img));
+		if (keys.length === 0) {
+			return;
+		}
+		signCdnUrls(keys)
+			.then(setSignedImageUrls)
+			.catch(() => {
+				/* images will show as loading if signing fails */
+			});
+	}, [section.inclusions]);
+	const updateProjectInclusion = useMutation(
+		api.projectInclusions.update.update
+	);
+	const allApproved = section.inclusions.every(
+		(inclusion) => inclusion.status === 'Approved'
+	);
+	const approvedCount = section.inclusions.filter(
+		(inclusion) => inclusion.status === 'Approved'
+	).length;
+	const bulkActionLabel = allApproved ? 'Unapprove All' : 'Approve All';
+
+	const onBulkToggle = async () => {
+		setBulkLoading(true);
+		const targetStatus = allApproved ? 'Under Review' : 'Approved';
+		try {
+			await Promise.all(
+				section.inclusions
+					.filter(
+						(inclusion) => (inclusion.status ?? 'Under Review') !== targetStatus
+					)
+					.map((inclusion) =>
+						updateProjectInclusion({
+							projectInclusionId: inclusion._id,
+							status: targetStatus,
+						})
+					)
+			);
+			toastManager.add({
+				title: allApproved
+					? `${section.groupName} inclusions moved to under review`
+					: `${section.groupName} inclusions approved`,
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					`Could not update ${section.groupName} inclusions. Please try again in a moment.`
+				),
+				title: `Could not update ${section.groupName} inclusions`,
+				type: 'error',
+			});
+		} finally {
+			setBulkLoading(false);
+		}
+	};
+
+	const isVendorGroup = groupType === 'vendor';
+	const alreadyOrderedInclusions = section.inclusions.filter(
+		(inc) => inc.orderRefId
+	);
+	const unorderedInclusions = section.inclusions.filter(
+		(inc) => !inc.orderRefId
+	);
+	const showCreateOrderButton =
+		isVendorGroup && allApproved && unorderedInclusions.length > 0;
+
+	const handleVendorGroupOrder = async (
+		inclusions: ProjectInclusion[],
+		tradeId: Id<'trades'>
+	) => {
+		setVendorOrderLoading(true);
+		try {
+			await onCreateVendorGroupOrder(inclusions, tradeId);
+			setVendorOrderConfirmOpen(false);
+		} catch {
+			/* Error handled in onCreateVendorGroupOrder */
+		} finally {
+			setVendorOrderLoading(false);
+		}
+	};
+
+	return (
+		<Frame className="w-full">
+			<FrameHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
+					<FrameTitle>{section.groupName}</FrameTitle>
+					<FrameDescription>
+						{section.inclusions.length}{' '}
+						{section.inclusions.length === 1 ? 'inclusion' : 'inclusions'}
+						{' · '}
+						{approvedCount}/{section.inclusions.length} approved
+					</FrameDescription>
+				</div>
+				<div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+					<Badge className="shrink-0" size="lg" variant="purple">
+						{formatSignedAud(section.totalVariationPrice)}
+					</Badge>
+					{showCreateOrderButton ? (
+						<>
+							<Button
+								loading={vendorOrderLoading}
+								onClick={() => setVendorOrderConfirmOpen(true)}
+								type="button"
+								variant="outline"
+							>
+								<ShoppingCart />
+								Create Order
+							</Button>
+							<SelectTradeDialog
+								description={
+									alreadyOrderedInclusions.length > 0
+										? 'The following items are already part of an order and will be skipped:'
+										: undefined
+								}
+								loading={vendorOrderLoading}
+								onConfirm={(tradeId) => {
+									handleVendorGroupOrder(
+										alreadyOrderedInclusions.length > 0
+											? unorderedInclusions
+											: section.inclusions,
+										tradeId
+									).catch(() => {
+										/* handled */
+									});
+								}}
+								onOpenChange={setVendorOrderConfirmOpen}
+								open={vendorOrderConfirmOpen}
+							>
+								{alreadyOrderedInclusions.length > 0 ? (
+									<ul className="px-6 pb-2 text-sm">
+										{alreadyOrderedInclusions.map((inc) => (
+											<li key={inc._id}>{inc.title}</li>
+										))}
+									</ul>
+								) : null}
+							</SelectTradeDialog>
+						</>
+					) : null}
+					<Button
+						aria-label={`Download ${section.groupName} inclusions PDF`}
+						loading={downloadLoading}
+						onClick={() => {
+							setDownloadLoading(true);
+							onDownloadSectionPdf()
+								.catch(() => {
+									/* Error handled in onDownloadSectionPdf */
+								})
+								.finally(() => setDownloadLoading(false));
+						}}
+						type="button"
+						variant="outline"
+					>
+						<Download aria-hidden />
+					</Button>
+					<Button
+						aria-label={`Email ${section.groupName} inclusions PDF`}
+						loading={emailLoading}
+						onClick={() => {
+							setEmailLoading(true);
+							onEmailSectionPdf()
+								.catch(() => {
+									/* Error handled in onEmailSectionPdf */
+								})
+								.finally(() => setEmailLoading(false));
+						}}
+						type="button"
+						variant="outline"
+					>
+						<Mail aria-hidden />
+					</Button>
+					<AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
+						<AlertDialogTrigger
+							render={
+								<Button loading={bulkLoading} type="button" variant="outline" />
+							}
+						>
+							{bulkActionLabel}
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>{`${bulkActionLabel} in ${section.groupName}?`}</AlertDialogTitle>
+								<AlertDialogDescription>
+									{allApproved
+										? `This will set all inclusions in ${section.groupName} to Under Review.`
+										: `This will set all inclusions in ${section.groupName} to Approved.`}
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogClose
+									render={<Button type="button" variant="outline" />}
+								>
+									Cancel
+								</AlertDialogClose>
+								<Button
+									loading={bulkLoading}
+									onClick={() => {
+										onBulkToggle()
+											.then(() => setBulkConfirmOpen(false))
+											.catch(() => {
+												/* Error is handled in onBulkToggle */
+											});
+									}}
+									type="button"
+								>
+									Confirm
+								</Button>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
+				</div>
+			</FrameHeader>
+			<FramePanel className="p-0">
+				<div className="hidden w-full min-w-0 overflow-x-auto md:block">
+					<Table className="w-full min-w-[44rem]">
+						<TableHeader>
+							<TableRow>
+								<TableHead className="min-w-[16rem]">Product</TableHead>
+								<TableHead className="min-w-[13rem]">Details</TableHead>
+								<TableHead className="whitespace-nowrap">Quantity</TableHead>
+								<TableHead className="whitespace-nowrap">Status</TableHead>
+								<TableHead className="min-w-[7rem] whitespace-nowrap text-end">
+									{showPricing ? 'Pricing' : 'Variation'}
+								</TableHead>
+								<TableHead className="w-[3rem] min-w-[3rem] max-w-[3rem]">
+									<span className="sr-only">Actions</span>
+								</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{section.inclusions.map((inclusion) => (
+								<TableRow className="group" key={inclusion._id}>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionProductCell
+											inclusion={inclusion}
+											signedImageUrl={
+												signedImageUrls[inclusion.image ?? ''] ?? ''
+											}
+										/>
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionDetailsCell inclusion={inclusion} />
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionQuantityCell inclusion={inclusion} />
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionStatusStack
+											inclusion={inclusion}
+											projectId={projectId}
+										/>
+									</TableCell>
+									<TableCell className="whitespace-normal align-top transition-colors group-hover:bg-muted/40!">
+										<InclusionPricingCell
+											inclusion={inclusion}
+											showPricing={showPricing}
+										/>
+									</TableCell>
+									<TableCell className="align-top transition-colors group-hover:bg-muted/40!">
+										<ProjectInclusionActionsCell
+											inclusion={inclusion}
+											onAddToOrder={onAddToOrder}
+											pendingOrderItems={pendingOrderItems}
+											projectId={projectId}
+										/>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</div>
+				<div className="flex flex-col gap-3 p-3 md:hidden">
+					{section.inclusions.map((inclusion) => (
+						<Card key={inclusion._id}>
+							<CardHeader className="border-b">
+								<InclusionProductCell
+									inclusion={inclusion}
+									signedImageUrl={signedImageUrls[inclusion.image ?? ''] ?? ''}
+									size={56}
+								/>
+								<CardAction>
+									<ProjectInclusionActionsCell
+										inclusion={inclusion}
+										onAddToOrder={onAddToOrder}
+										pendingOrderItems={pendingOrderItems}
+										projectId={projectId}
+									/>
+								</CardAction>
+							</CardHeader>
+							<CardPanel className="flex flex-col gap-4">
+								<InclusionDetailsCell inclusion={inclusion} />
+								<div className="flex flex-wrap items-start justify-between gap-4">
+									<div className="flex flex-col gap-1.5">
+										<span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+											Quantity
+										</span>
+										<InclusionQuantityCell inclusion={inclusion} />
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+											Status
+										</span>
+										<InclusionStatusStack
+											inclusion={inclusion}
+											projectId={projectId}
+										/>
+									</div>
+									<div className="flex flex-col items-end gap-1.5">
+										<span className="font-medium text-[0.625rem] text-muted-foreground uppercase tracking-wide">
+											{showPricing ? 'Pricing' : 'Variation'}
+										</span>
+										<InclusionPricingCell
+											inclusion={inclusion}
+											showPricing={showPricing}
+										/>
+									</div>
+								</div>
+							</CardPanel>
+						</Card>
+					))}
+				</div>
+			</FramePanel>
+		</Frame>
+	);
+}
+
+function NewOrderBuilderCard({
+	items,
+	onRemove,
+	onCreateOrder,
+	onCancel,
+	isCreating,
+}: {
+	items: PendingOrderItem[];
+	onRemove: (inclusionId: Id<'projectInclusions'>) => void;
+	onCreateOrder: (tradeId: Id<'trades'>) => void;
+	onCancel: () => void;
+	isCreating: boolean;
+}) {
+	const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
+	if (items.length === 0) {
+		return null;
+	}
+	return (
+		<Frame className="w-full">
+			<SelectTradeDialog
+				loading={isCreating}
+				onConfirm={(tradeId) => onCreateOrder(tradeId)}
+				onOpenChange={setTradeDialogOpen}
+				open={tradeDialogOpen}
+			/>
+			<FrameHeader className="flex flex-row items-center justify-between gap-3">
+				<div className="min-w-0">
+					<FrameTitle>{items[0].vendor}</FrameTitle>
+					<FrameDescription>
+						<Badge size="lg" variant="secondary">
+							{items.length} {items.length === 1 ? 'item' : 'items'}
+						</Badge>
+					</FrameDescription>
+				</div>
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<Button
+						disabled={isCreating}
+						onClick={onCancel}
+						type="button"
+						variant="outline"
+					>
+						Cancel
+					</Button>
+					<Button
+						loading={isCreating}
+						onClick={() => setTradeDialogOpen(true)}
+						type="button"
+					>
+						Create Order
+					</Button>
+				</div>
+			</FrameHeader>
+			<FramePanel className="flex flex-wrap gap-2 p-3">
+				{items.map((item) => (
+					<Badge
+						className="flex items-center gap-1.5 pr-1"
+						key={String(item.inclusionId)}
+						size="lg"
+						variant="outline"
+					>
+						<span>
+							{item.title}
+							{item.totalQty > 0
+								? ` · ${item.totalQty}${item.unit ? ` ${item.unit}` : ''}`
+								: ''}
+						</span>
+						<button
+							aria-label={`Remove ${item.title} from order`}
+							className="flex items-center rounded-sm opacity-60 hover:opacity-100 focus-visible:outline-none focus-visible:ring-1"
+							onClick={() => onRemove(item.inclusionId)}
+							type="button"
+						>
+							<X className="size-3.5" />
+						</button>
+					</Badge>
+				))}
+			</FramePanel>
+		</Frame>
+	);
+}
+
+type GroupBy = 'category' | 'location' | 'vendor';
+
+interface InclusionSection {
+	groupKey: string;
+	groupName: string;
+	inclusions: ProjectInclusion[];
+	totalVariationPrice: number;
+}
+
+export default function ProjectInclusionsTabContent({
+	projectId,
+}: {
+	projectId: Id<'projects'>;
+}) {
+	const inclusions = useQuery(api.projectInclusions.list.list, { projectId });
+	const categories = useQuery(api.inclusionCategories.list.list, {});
+	const project = useQuery(api.projects.get.get, { projectId });
+	const mode = useAppModeStore((state) => state.mode);
+	const addOrder = useMutation(api.projectOrders.add.add);
+
+	const [search, setSearch] = useState('');
+	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const [groupBy, setGroupBy] = useState<GroupBy>('category');
+	const [pendingOrderItems, setPendingOrderItems] = useState<
+		PendingOrderItem[]
+	>([]);
+	const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+	const [emailOpen, setEmailOpen] = useState(false);
+	const [emailAttachments, setEmailAttachments] = useState<ComposeAttachment[]>(
+		[]
+	);
+	const [emailSubject, setEmailSubject] = useState('');
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
+		return () => window.clearTimeout(id);
+	}, [search]);
+
+	const trimmedSearch = debouncedSearch.trim();
+	const variantSearchResults = useQuery(
+		api.inclusionVariants.search.search,
+		trimmedSearch !== '' ? { query: trimmedSearch } : 'skip'
+	);
+
+	const categoryById = useMemo(() => {
+		const map = new Map<InclusionCategory['_id'], string>();
+		if (!categories) {
+			return map;
+		}
+		for (const category of categories) {
+			map.set(category._id, category.name);
+		}
+		return map;
+	}, [categories]);
+
+	const categorySections = useMemo((): InclusionSection[] => {
+		if (!inclusions) {
+			return [];
+		}
+		const grouped = new Map<InclusionCategory['_id'], ProjectInclusion[]>();
+		for (const inclusion of inclusions) {
+			const existing = grouped.get(inclusion.categoryId) ?? [];
+			existing.push(inclusion);
+			grouped.set(inclusion.categoryId, existing);
+		}
+		return [...grouped.entries()]
+			.map(([categoryId, groupedInclusions]) => ({
+				groupKey: String(categoryId),
+				groupName: categoryById.get(categoryId) ?? 'Unknown category',
+				inclusions: [...groupedInclusions].sort((a, b) =>
+					a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+				),
+				totalVariationPrice: groupedInclusions.reduce(
+					(total, inclusion) =>
+						total +
+						(inclusion.class === 'Standard'
+							? 0
+							: (inclusion.variationPrice ?? 0)),
+					0
+				),
+			}))
+			.sort((a, b) =>
+				a.groupName.localeCompare(b.groupName, undefined, {
+					sensitivity: 'base',
+				})
+			);
+	}, [inclusions, categoryById]);
+
+	const sections = useMemo((): InclusionSection[] => {
+		if (!inclusions) {
+			return [];
+		}
+
+		const computeTotal = (group: ProjectInclusion[]) =>
+			group.reduce(
+				(total, inc) =>
+					total + (inc.class === 'Standard' ? 0 : (inc.variationPrice ?? 0)),
+				0
+			);
+		const sortByTitle = (group: ProjectInclusion[]) =>
+			[...group].sort((a, b) =>
+				a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+			);
+
+		if (groupBy === 'category') {
+			return categorySections;
+		}
+
+		if (groupBy === 'location') {
+			const grouped = new Map<string, ProjectInclusion[]>();
+			for (const inclusion of inclusions) {
+				const locationNames = inclusion.locations?.map((l) => l.name) ?? [];
+				const keys = locationNames.length > 0 ? locationNames : ['No Location'];
+				for (const key of keys) {
+					const existing = grouped.get(key) ?? [];
+					existing.push(inclusion);
+					grouped.set(key, existing);
+				}
+			}
+			return [...grouped.entries()]
+				.map(([key, group]) => ({
+					groupKey: key,
+					groupName: key,
+					inclusions: sortByTitle(group),
+					totalVariationPrice: computeTotal(group),
+				}))
+				.sort((a, b) =>
+					a.groupName.localeCompare(b.groupName, undefined, {
+						sensitivity: 'base',
+					})
+				);
+		}
+
+		const grouped = new Map<string, ProjectInclusion[]>();
+		for (const inclusion of inclusions) {
+			const existing = grouped.get(inclusion.vendor) ?? [];
+			existing.push(inclusion);
+			grouped.set(inclusion.vendor, existing);
+		}
+		return [...grouped.entries()]
+			.map(([key, group]) => ({
+				groupKey: key,
+				groupName: key,
+				inclusions: sortByTitle(group),
+				totalVariationPrice: computeTotal(group),
+			}))
+			.sort((a, b) =>
+				a.groupName.localeCompare(b.groupName, undefined, {
+					sensitivity: 'base',
+				})
+			);
+	}, [inclusions, groupBy, categorySections]);
+
+	const visibleSections = useMemo(() => {
+		if (trimmedSearch === '') {
+			return { loading: false as const, list: sections };
+		}
+		if (variantSearchResults === undefined) {
+			return { loading: true as const, list: null };
+		}
+		const codes = new Set(variantSearchResults.map((v) => v.code));
+		const list = sections
+			.map((section) => {
+				const filteredInclusions = section.inclusions.filter((inclusion) =>
+					codes.has(inclusion.code)
+				);
+				const totalVariationPrice = filteredInclusions.reduce(
+					(total, inclusion) =>
+						total +
+						(inclusion.class === 'Standard'
+							? 0
+							: (inclusion.variationPrice ?? 0)),
+					0
+				);
+				return {
+					...section,
+					inclusions: filteredInclusions,
+					totalVariationPrice,
+				};
+			})
+			.filter((section) => section.inclusions.length > 0);
+		return { loading: false as const, list };
+	}, [trimmedSearch, variantSearchResults, sections]);
+
+	const inclusionById = useMemo(() => {
+		const map = new Map<Id<'projectInclusions'>, ProjectInclusion>();
+		for (const inc of inclusions ?? []) {
+			map.set(inc._id, inc);
+		}
+		return map;
+	}, [inclusions]);
+
+	const onAddToOrder = useCallback((inclusion: ProjectInclusion) => {
+		const totalQty =
+			inclusion.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
+		const unit = inclusion.unitAbbr ?? inclusion.locations?.[0]?.unit ?? '';
+		setPendingOrderItems((prev) => [
+			...prev,
+			{
+				inclusionId: inclusion._id,
+				title: inclusion.title,
+				vendor: inclusion.vendor,
+				totalQty,
+				unit,
+				details: inclusion.details,
+				color: inclusion.color,
+				models: inclusion.models,
+			},
+		]);
+	}, []);
+
+	const onRemoveFromOrder = useCallback(
+		(inclusionId: Id<'projectInclusions'>) => {
+			setPendingOrderItems((prev) =>
+				prev.filter((item) => item.inclusionId !== inclusionId)
+			);
+		},
+		[]
+	);
+
+	const handleCreateOrder = useCallback(
+		async (tradeId: Id<'trades'>) => {
+			if (pendingOrderItems.length === 0) {
+				return;
+			}
+			setIsCreatingOrder(true);
+			try {
+				const vendor = pendingOrderItems[0].vendor;
+				const items = pendingOrderItems.map((item) => {
+					const inc = inclusionById.get(item.inclusionId);
+					const descParts = [inc?.details, inc?.color].filter(Boolean);
+					return {
+						name: item.title,
+						description:
+							descParts.length > 0 ? descParts.join(', ') : undefined,
+						quantity: item.totalQty > 0 ? item.totalQty : 1,
+						unit: item.unit || 'unit',
+						price: inc?.costPrice,
+						sku:
+							inc?.models && inc.models.length > 0
+								? inc.models.join(', ')
+								: undefined,
+					};
+				});
+				await addOrder({
+					projectId,
+					vendor,
+					tradeId,
+					items,
+					status: 'Pending',
+					inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
+				});
+				toastManager.add({ title: 'Order created', type: 'success' });
+				setPendingOrderItems([]);
+			} catch (error) {
+				toastManager.add({
+					description: getConvexErrorMessage(
+						error,
+						'Could not create order. Please try again in a moment.'
+					),
+					title: 'Could not create order',
+					type: 'error',
+				});
+			} finally {
+				setIsCreatingOrder(false);
+			}
+		},
+		[pendingOrderItems, inclusionById, addOrder, projectId]
+	);
+
+	const handleCreateVendorGroupOrder = useCallback(
+		async (groupInclusions: ProjectInclusion[], tradeId: Id<'trades'>) => {
+			if (groupInclusions.length === 0) {
+				return;
+			}
+			const vendor = groupInclusions[0].vendor;
+			const items = groupInclusions.map((inc) => {
+				const descParts = [inc.details, inc.color].filter(Boolean);
+				const totalQty =
+					inc.locations?.reduce((sum, l) => sum + (l.quantity ?? 0), 0) ?? 0;
+				const unit = inc.unitAbbr ?? inc.locations?.[0]?.unit ?? 'unit';
+				return {
+					name: inc.title,
+					description: descParts.length > 0 ? descParts.join(', ') : undefined,
+					quantity: totalQty > 0 ? totalQty : 1,
+					unit,
+					price: inc.costPrice,
+					sku: inc.models.length > 0 ? inc.models.join(', ') : undefined,
+				};
+			});
+			await addOrder({
+				projectId,
+				vendor,
+				tradeId,
+				items,
+				status: 'Pending',
+				inclusionIds: groupInclusions.map((inc) => inc._id),
+			});
+			toastManager.add({ title: 'Order created', type: 'success' });
+		},
+		[addOrder, projectId]
+	);
+
+	// Resolve CDN image keys to JPEG data URLs so they embed in the PDF.
+	const resolveImageDataUrls = async (inclusions: ProjectInclusion[]) => {
+		const imageKeys = inclusions
+			.map((inc) => inc.image)
+			.filter((img): img is string => Boolean(img));
+		const pdfImageDataUrls: Record<string, string> = {};
+		if (imageKeys.length > 0) {
+			const signedUrls = await signCdnUrls(imageKeys);
+			await Promise.all(
+				Object.entries(signedUrls).map(async ([key, url]) => {
+					const dataUrl = await fetchUrlAsJpegDataUrl(url);
+					if (dataUrl) {
+						pdfImageDataUrls[key] = dataUrl;
+					}
+				})
+			);
+		}
+		return pdfImageDataUrls;
+	};
+
+	const mapInclusionForPdf = (
+		inclusion: ProjectInclusion,
+		pdfImageDataUrls: Record<string, string>
+	) => ({
+		_id: String(inclusion._id),
+		title: inclusion.title,
+		code: inclusion.code,
+		vendor: inclusion.vendor,
+		models: inclusion.models,
+		color: inclusion.color,
+		locations: inclusion.locations?.map((l) => ({
+			name: l.name,
+			quantity: l.quantity,
+			unit: l.unit,
+		})),
+		details: inclusion.details,
+		status: inclusion.status,
+		class: inclusion.class,
+		variationPrice: inclusion.variationPrice,
+		link: inclusion.link,
+		image: pdfImageDataUrls[inclusion.image ?? ''],
+	});
+
+	// Builds the full project inclusions PDF options, or null if the project
+	// details are still loading (a toast is shown in that case).
+	const buildFullPdfOptions = async () => {
+		if (!project) {
+			toastManager.add({
+				title: 'Could not generate PDF',
+				description: 'Project details are still loading. Please try again.',
+				type: 'error',
+			});
+			return null;
+		}
+		const pdfImageDataUrls = await resolveImageDataUrls(
+			sections.flatMap((s) => s.inclusions)
+		);
+		return {
+			projectName: project.name,
+			projectAddress: project.address,
+			groupedByVendor: groupBy === 'vendor',
+			clients: project.clients.map((client) => ({
+				firstName: client.firstName,
+				lastName: client.lastName,
+				email: client.email,
+				phone: client.phone,
+			})),
+			sections: sections.map((section) => ({
+				sectionId: section.groupKey,
+				sectionName: section.groupName,
+				inclusions: section.inclusions.map((inclusion) =>
+					mapInclusionForPdf(inclusion, pdfImageDataUrls)
+				),
+				totalVariationSalePrice: section.totalVariationPrice,
+			})),
+		};
+	};
+
+	const buildSectionPdfOptions = async (section: InclusionSection) => {
+		if (!project) {
+			toastManager.add({
+				title: 'Could not generate PDF',
+				description: 'Project details are still loading. Please try again.',
+				type: 'error',
+			});
+			return null;
+		}
+		const pdfImageDataUrls = await resolveImageDataUrls(section.inclusions);
+		return {
+			groupName: section.groupName,
+			projectAddress: project.address,
+			groupedByVendor: groupBy === 'vendor',
+			inclusions: section.inclusions.map((inclusion) =>
+				mapInclusionForPdf(inclusion, pdfImageDataUrls)
+			),
+		};
+	};
+
+	const handlePdfError = (error: unknown) => {
+		toastManager.add({
+			title: 'Could not generate PDF',
+			description:
+				error instanceof Error
+					? error.message
+					: 'Please try again in a moment.',
+			type: 'error',
+		});
+	};
+
+	const onDownloadPdf = async () => {
+		try {
+			const options = await buildFullPdfOptions();
+			if (options) {
+				await openProjectInclusionsPdfInNewTab(options);
+			}
+		} catch (error) {
+			handlePdfError(error);
+		}
+	};
+
+	const onEmailPdf = async () => {
+		try {
+			const options = await buildFullPdfOptions();
+			if (!options) {
+				return;
+			}
+			const contentBase64 = await generateProjectInclusionsPdfBase64(options);
+			setEmailAttachments([
+				{
+					id: crypto.randomUUID(),
+					filename: `${options.projectName} - Schedule of Finishes.pdf`,
+					contentType: 'application/pdf',
+					contentBase64,
+					removable: true,
+				},
+			]);
+			setEmailSubject('Schedule of Finishes');
+			setEmailOpen(true);
+		} catch (error) {
+			handlePdfError(error);
+		}
+	};
+
+	const createSectionDownloadHandler =
+		(section: InclusionSection) => async () => {
+			try {
+				const options = await buildSectionPdfOptions(section);
+				if (options) {
+					await openGroupInclusionsPdfInNewTab(options);
+				}
+			} catch (error) {
+				handlePdfError(error);
+			}
+		};
+
+	const createSectionEmailHandler = (section: InclusionSection) => async () => {
+		try {
+			const options = await buildSectionPdfOptions(section);
+			if (!options) {
+				return;
+			}
+			const contentBase64 = await generateGroupInclusionsPdfBase64(options);
+			setEmailAttachments([
+				{
+					id: crypto.randomUUID(),
+					filename: `${section.groupName}.pdf`,
+					contentType: 'application/pdf',
+					contentBase64,
+					removable: true,
+				},
+			]);
+			setEmailSubject(section.groupName);
+			setEmailOpen(true);
+		} catch (error) {
+			handlePdfError(error);
+		}
+	};
+
+	if (inclusions === undefined || categories === undefined) {
+		return <p className="text-muted-foreground text-sm">Loading inclusions…</p>;
+	}
+
+	const toolbar = (
+		<div className="flex min-w-0 flex-row items-center gap-2">
+			<InputGroup className="min-w-0 flex-1">
+				<InputGroupAddon align="inline-start">
+					<InputGroupText>
+						<SearchIcon aria-hidden />
+					</InputGroupText>
+				</InputGroupAddon>
+				<InputGroupInput
+					aria-label="Search inclusions by product variant"
+					onChange={(e) => setSearch(e.target.value)}
+					placeholder="Search product variants (vendor, models, code…)"
+					type="search"
+					value={search}
+				/>
+			</InputGroup>
+			<ToggleGroup
+				aria-label="Group inclusions by"
+				className="shrink-0"
+				onValueChange={(val) => {
+					if (val.length > 0) {
+						setGroupBy(val[0] as GroupBy);
+					}
+				}}
+				value={[groupBy]}
+				variant="outline"
+			>
+				<ToggleGroupItem value="category">Category</ToggleGroupItem>
+				<ToggleGroupItem value="location">Location</ToggleGroupItem>
+				<ToggleGroupItem value="vendor">Vendor</ToggleGroupItem>
+			</ToggleGroup>
+			<Button
+				aria-label="Download project inclusions"
+				className="shrink-0"
+				onClick={() => {
+					onDownloadPdf().catch(() => {
+						/* Error handled in onDownloadPdf */
+					});
+				}}
+				type="button"
+				variant="outline"
+			>
+				<Download aria-hidden />
+				Download
+			</Button>
+			<Button
+				aria-label="Email project inclusions"
+				className="shrink-0"
+				onClick={() => {
+					onEmailPdf().catch(() => {
+						/* Error handled in onEmailPdf */
+					});
+				}}
+				type="button"
+				variant="outline"
+			>
+				<Mail aria-hidden />
+				Email
+			</Button>
+		</div>
+	);
+
+	if (inclusions.length === 0) {
+		return (
+			<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
+				{toolbar}
+				<EmptyProjectInclusionsState />
+			</div>
+		);
+	}
+
+	let listBody: ReactNode;
+	if (visibleSections.loading) {
+		listBody = (
+			<p className="text-muted-foreground text-sm">
+				Searching product variants…
+			</p>
+		);
+	} else if (
+		trimmedSearch !== '' &&
+		visibleSections.list !== null &&
+		visibleSections.list.length === 0
+	) {
+		listBody = (
+			<div className="flex min-h-0 flex-1 flex-col">
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<SearchIcon aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No matching inclusions</EmptyTitle>
+						<EmptyDescription>
+							Try another code, vendor, or model.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			</div>
+		);
+	} else {
+		const frames = visibleSections.list ?? sections;
+		listBody = (
+			<div className={cn('flex flex-col gap-4')}>
+				{frames.map((section) => (
+					<ProjectInclusionsTableInFrame
+						groupType={groupBy}
+						key={section.groupKey}
+						mode={mode}
+						onAddToOrder={onAddToOrder}
+						onCreateVendorGroupOrder={handleCreateVendorGroupOrder}
+						onDownloadSectionPdf={createSectionDownloadHandler(section)}
+						onEmailSectionPdf={createSectionEmailHandler(section)}
+						pendingOrderItems={pendingOrderItems}
+						projectId={projectId}
+						section={section}
+					/>
+				))}
+			</div>
+		);
+	}
+
+	return (
+		<div className={cn('flex min-h-0 flex-1 flex-col gap-4')}>
+			{toolbar}
+			<NewOrderBuilderCard
+				isCreating={isCreatingOrder}
+				items={pendingOrderItems}
+				onCancel={() => setPendingOrderItems([])}
+				onCreateOrder={(tradeId) => {
+					handleCreateOrder(tradeId).catch(() => {
+						/* handled in handleCreateOrder */
+					});
+				}}
+				onRemove={onRemoveFromOrder}
+			/>
+			{listBody}
+			<ComposeEmailDialog
+				defaultAttachments={emailAttachments}
+				defaultSubject={emailSubject}
+				onOpenChange={setEmailOpen}
+				open={emailOpen}
+				projectId={projectId}
+				relatedTable="projectInclusions"
+			/>
+		</div>
+	);
+}

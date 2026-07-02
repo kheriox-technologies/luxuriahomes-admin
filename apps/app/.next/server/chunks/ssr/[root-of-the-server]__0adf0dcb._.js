@@ -1,0 +1,3 @@
+module.exports=[193695,(a,b,c)=>{b.exports=a.x("next/dist/shared/lib/no-fallback-error.external.js",()=>require("next/dist/shared/lib/no-fallback-error.external.js"))},800721,a=>{a.n(a.i(66231))},43619,a=>{a.n(a.i(379962))},13718,a=>{a.n(a.i(685523))},118198,a=>{a.n(a.i(545518))},262212,a=>{a.n(a.i(866114))},963262,a=>{"use strict";a.i(570396);var b=a.i(673727),c=a.i(686695);let d=async()=>{let a=await (0,c.getLandingPath)();(0,b.redirect)(a??"/error?error=arbitrary_octopus")};a.s(["default",0,d])}];
+
+//# sourceMappingURL=%5Broot-of-the-server%5D__0adf0dcb._.js.map

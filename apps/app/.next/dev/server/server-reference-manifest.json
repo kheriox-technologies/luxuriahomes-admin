@@ -1,0 +1,394 @@
+{
+  "node": {
+    "00b3da01bc6fabac667292638710c7e9927debf754": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "invalidateCacheAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "invalidateCacheAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "invalidateCacheAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js"
+        },
+        "app/(auth)/sign-in/[[...sign-in]]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(auth)/sign-in/[[...sign-in]]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "invalidateCacheAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "invalidateCacheAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "invalidateCacheAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "action-browser",
+        "app/(admin)/projects/page": "action-browser",
+        "app/(admin)/users/page": "action-browser",
+        "app/(auth)/sign-in/[[...sign-in]]/page": "action-browser",
+        "app/(client)/client/projects/[projectId]/page": "action-browser",
+        "app/(client)/client/projects/page": "action-browser"
+      },
+      "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js",
+      "exportedName": "invalidateCacheAction"
+    },
+    "0069b1901c8c797b6591bd4a43a5c2c09da4554ca8": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createOrReadKeylessAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createOrReadKeylessAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createOrReadKeylessAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js"
+        },
+        "app/(auth)/sign-in/[[...sign-in]]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(auth)/sign-in/[[...sign-in]]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createOrReadKeylessAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createOrReadKeylessAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "createOrReadKeylessAction",
+          "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "action-browser",
+        "app/(admin)/projects/page": "action-browser",
+        "app/(admin)/users/page": "action-browser",
+        "app/(auth)/sign-in/[[...sign-in]]/page": "action-browser",
+        "app/(client)/client/projects/[projectId]/page": "action-browser",
+        "app/(client)/client/projects/page": "action-browser"
+      },
+      "filename": "node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js",
+      "exportedName": "createOrReadKeylessAction"
+    },
+    "000f79c552fbb05b39a432550070054b4a36d67341": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSuperAdminRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSuperAdminRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSuperAdminRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSuperAdminRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSuperAdminRole",
+          "filename": "apps/app/actions/auth.ts"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "rsc",
+        "app/(admin)/projects/page": "rsc",
+        "app/(admin)/users/page": "rsc",
+        "app/(client)/client/projects/[projectId]/page": "rsc",
+        "app/(client)/client/projects/page": "rsc"
+      },
+      "filename": "apps/app/actions/auth.ts",
+      "exportedName": "hasSuperAdminRole"
+    },
+    "00237240cc682734855abb60eed1ea61507bf8ce45": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getLandingPath",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getLandingPath",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getLandingPath",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getLandingPath",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getLandingPath",
+          "filename": "apps/app/actions/auth.ts"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "rsc",
+        "app/(admin)/projects/page": "rsc",
+        "app/(admin)/users/page": "rsc",
+        "app/(client)/client/projects/[projectId]/page": "rsc",
+        "app/(client)/client/projects/page": "rsc"
+      },
+      "filename": "apps/app/actions/auth.ts",
+      "exportedName": "getLandingPath"
+    },
+    "008ab63adb1024f4ffe4886920d5531523b1176f89": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getAccessibleSurfaces",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getAccessibleSurfaces",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getAccessibleSurfaces",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getAccessibleSurfaces",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "getAccessibleSurfaces",
+          "filename": "apps/app/actions/auth.ts"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "rsc",
+        "app/(admin)/projects/page": "rsc",
+        "app/(admin)/users/page": "rsc",
+        "app/(client)/client/projects/[projectId]/page": "rsc",
+        "app/(client)/client/projects/page": "rsc"
+      },
+      "filename": "apps/app/actions/auth.ts",
+      "exportedName": "getAccessibleSurfaces"
+    },
+    "40419a72f70d6b1a2b19f18b38555ef3c5d7d25f8b": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasAnyRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasAnyRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasAnyRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasAnyRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasAnyRole",
+          "filename": "apps/app/actions/auth.ts"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "rsc",
+        "app/(admin)/projects/page": "rsc",
+        "app/(admin)/users/page": "rsc",
+        "app/(client)/client/projects/[projectId]/page": "rsc",
+        "app/(client)/client/projects/page": "rsc"
+      },
+      "filename": "apps/app/actions/auth.ts",
+      "exportedName": "hasAnyRole"
+    },
+    "4078531c8b70ca6e79f5512530dc080ba018264a96": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasRole",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasRole",
+          "filename": "apps/app/actions/auth.ts"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "rsc",
+        "app/(admin)/projects/page": "rsc",
+        "app/(admin)/users/page": "rsc",
+        "app/(client)/client/projects/[projectId]/page": "rsc",
+        "app/(client)/client/projects/page": "rsc"
+      },
+      "filename": "apps/app/actions/auth.ts",
+      "exportedName": "hasRole"
+    },
+    "407fa7c990f11eea8ffbb59dd799ab0d3fa648c9a9": {
+      "workers": {
+        "app/(admin)/dashboard/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/dashboard/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSurfaceAccess",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSurfaceAccess",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(admin)/users/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(admin)/users/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSurfaceAccess",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSurfaceAccess",
+          "filename": "apps/app/actions/auth.ts"
+        },
+        "app/(client)/client/projects/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "hasSurfaceAccess",
+          "filename": "apps/app/actions/auth.ts"
+        }
+      },
+      "layer": {
+        "app/(admin)/dashboard/page": "rsc",
+        "app/(admin)/projects/page": "rsc",
+        "app/(admin)/users/page": "rsc",
+        "app/(client)/client/projects/[projectId]/page": "rsc",
+        "app/(client)/client/projects/page": "rsc"
+      },
+      "filename": "apps/app/actions/auth.ts",
+      "exportedName": "hasSurfaceAccess"
+    },
+    "40438929adcb230af27d8f2e649fe94f2f2c457659": {
+      "workers": {
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "signCdnUrl",
+          "filename": "apps/app/actions/cdn.ts"
+        }
+      },
+      "layer": {
+        "app/(client)/client/projects/[projectId]/page": "action-browser"
+      },
+      "filename": "apps/app/actions/cdn.ts",
+      "exportedName": "signCdnUrl"
+    },
+    "40df5fb9d13ca3f0e3e141515702d444c990b39ea7": {
+      "workers": {
+        "app/(client)/client/projects/[projectId]/page": {
+          "moduleId": "[project]/apps/app/.next-internal/server/app/(client)/client/projects/[projectId]/page/actions.js { ACTIONS_MODULE0 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/server-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/node_modules/@clerk/nextjs/dist/esm/app-router/keyless-actions.js [app-rsc] (ecmascript)\", ACTIONS_MODULE2 => \"[project]/apps/app/actions/auth.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE3 => \"[project]/apps/app/actions/cdn.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": false,
+          "exportedName": "signCdnUrls",
+          "filename": "apps/app/actions/cdn.ts"
+        }
+      },
+      "layer": {
+        "app/(client)/client/projects/[projectId]/page": "action-browser"
+      },
+      "filename": "apps/app/actions/cdn.ts",
+      "exportedName": "signCdnUrls"
+    }
+  },
+  "edge": {},
+  "encryptionKey": "ixdEhSe7eowqQzM1BHcDmLyGh9JIXBVkToHg3+4kagE="
+}

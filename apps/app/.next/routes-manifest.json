@@ -1,0 +1,289 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/budgets/[budgetTemplateId]",
+      "regex": "^/budgets/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPbudgetTemplateId": "nxtPbudgetTemplateId"
+      },
+      "namedRegex": "^/budgets/(?<nxtPbudgetTemplateId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/client/projects/[projectId]",
+      "regex": "^/client/projects/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPprojectId": "nxtPprojectId"
+      },
+      "namedRegex": "^/client/projects/(?<nxtPprojectId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/inclusions/[inclusionId]",
+      "regex": "^/inclusions/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPinclusionId": "nxtPinclusionId"
+      },
+      "namedRegex": "^/inclusions/(?<nxtPinclusionId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/materials/[materialId]",
+      "regex": "^/materials/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPmaterialId": "nxtPmaterialId"
+      },
+      "namedRegex": "^/materials/(?<nxtPmaterialId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/projects/[projectId]",
+      "regex": "^/projects/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPprojectId": "nxtPprojectId"
+      },
+      "namedRegex": "^/projects/(?<nxtPprojectId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/schedules/[scheduleTemplateId]",
+      "regex": "^/schedules/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPscheduleTemplateId": "nxtPscheduleTemplateId"
+      },
+      "namedRegex": "^/schedules/(?<nxtPscheduleTemplateId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/sign-in/[[...sign-in]]",
+      "regex": "^/sign\\-in(?:/(.+?))?(?:/)?$",
+      "routeKeys": {
+        "nxtPsignin": "nxtPsign-in"
+      },
+      "namedRegex": "^/sign\\-in(?:/(?<nxtPsignin>.+?))?(?:/)?$"
+    },
+    {
+      "page": "/website/[websiteProjectId]",
+      "regex": "^/website/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPwebsiteProjectId": "nxtPwebsiteProjectId"
+      },
+      "namedRegex": "^/website/(?<nxtPwebsiteProjectId>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/budgets",
+      "regex": "^/budgets(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/budgets(?:/)?$"
+    },
+    {
+      "page": "/client",
+      "regex": "^/client(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client(?:/)?$"
+    },
+    {
+      "page": "/client/projects",
+      "regex": "^/client/projects(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/projects(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/document-folders",
+      "regex": "^/document\\-folders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/document\\-folders(?:/)?$"
+    },
+    {
+      "page": "/documents",
+      "regex": "^/documents(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/documents(?:/)?$"
+    },
+    {
+      "page": "/error",
+      "regex": "^/error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/error(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/home",
+      "regex": "^/home(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/home(?:/)?$"
+    },
+    {
+      "page": "/inclusions",
+      "regex": "^/inclusions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/inclusions(?:/)?$"
+    },
+    {
+      "page": "/leads",
+      "regex": "^/leads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/leads(?:/)?$"
+    },
+    {
+      "page": "/locations",
+      "regex": "^/locations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/locations(?:/)?$"
+    },
+    {
+      "page": "/material-colors",
+      "regex": "^/material\\-colors(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/material\\-colors(?:/)?$"
+    },
+    {
+      "page": "/materials",
+      "regex": "^/materials(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/materials(?:/)?$"
+    },
+    {
+      "page": "/notifications",
+      "regex": "^/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/notifications(?:/)?$"
+    },
+    {
+      "page": "/projects",
+      "regex": "^/projects(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/projects(?:/)?$"
+    },
+    {
+      "page": "/schedules",
+      "regex": "^/schedules(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/schedules(?:/)?$"
+    },
+    {
+      "page": "/service-providers",
+      "regex": "^/service\\-providers(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/service\\-providers(?:/)?$"
+    },
+    {
+      "page": "/settings/email-templates",
+      "regex": "^/settings/email\\-templates(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings/email\\-templates(?:/)?$"
+    },
+    {
+      "page": "/settings/signatures",
+      "regex": "^/settings/signatures(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings/signatures(?:/)?$"
+    },
+    {
+      "page": "/takeoff-categories",
+      "regex": "^/takeoff\\-categories(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/takeoff\\-categories(?:/)?$"
+    },
+    {
+      "page": "/tasks",
+      "regex": "^/tasks(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/tasks(?:/)?$"
+    },
+    {
+      "page": "/trades",
+      "regex": "^/trades(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/trades(?:/)?$"
+    },
+    {
+      "page": "/users",
+      "regex": "^/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/users(?:/)?$"
+    },
+    {
+      "page": "/vendors",
+      "regex": "^/vendors(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/vendors(?:/)?$"
+    },
+    {
+      "page": "/website",
+      "regex": "^/website(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/website(?:/)?$"
+    },
+    {
+      "page": "/website/banners",
+      "regex": "^/website/banners(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/website/banners(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

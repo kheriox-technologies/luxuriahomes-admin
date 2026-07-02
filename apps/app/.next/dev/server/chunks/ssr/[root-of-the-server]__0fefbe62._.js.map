@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 22, "column": 0}, "map": {"version":3,"sources":["file:///Users/pdomala/developer/luxuriahomes-admin/apps/app/app/%28auth%29/sign-in/%5B%5B...sign-in%5D%5D/page.tsx"],"sourcesContent":["import { SignIn } from '@clerk/nextjs';\n\nconst Page = () => {\n\treturn (\n\t\t<SignIn\n\t\t\tappearance={{\n\t\t\t\telements: {\n\t\t\t\t\tlogoBox: '!h-16',\n\t\t\t\t\tlogoImage: '!h-16 !w-auto',\n\t\t\t\t},\n\t\t\t}}\n\t\t/>\n\t);\n};\n\nexport default Page;\n"],"names":[],"mappings":";;;;;AAAA;;;AAEA,MAAM,OAAO;IACZ,qBACC,8OAAC,gMAAM;QACN,YAAY;YACX,UAAU;gBACT,SAAS;gBACT,WAAW;YACZ;QACD;;;;;;AAGH;uCAEe"}}]
+}

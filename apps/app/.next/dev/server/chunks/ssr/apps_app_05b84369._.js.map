@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/pdomala/developer/luxuriahomes-admin/apps/app/layouts/centered-layout.tsx"],"sourcesContent":["export const CenteredLayout = ({ children }: { children: React.ReactNode }) => {\n\treturn (\n\t\t<div className=\"flex h-screen items-center justify-center bg-[#1F1F23]\">\n\t\t\t{children}\n\t\t</div>\n\t);\n};\n"],"names":[],"mappings":";;;;;;AAAO,MAAM,iBAAiB,CAAC,EAAE,QAAQ,EAAiC;IACzE,qBACC,8OAAC;QAAI,WAAU;kBACb;;;;;;AAGJ"}},
+    {"offset": {"line": 24, "column": 0}, "map": {"version":3,"sources":["file:///Users/pdomala/developer/luxuriahomes-admin/apps/app/app/%28auth%29/layout.tsx"],"sourcesContent":["import { CenteredLayout } from '@/layouts/centered-layout';\n\ntype LayoutProps = Readonly<{\n\tchildren: React.ReactNode;\n}>;\n\nconst Layout = ({ children }: LayoutProps) => {\n\treturn <CenteredLayout>{children}</CenteredLayout>;\n};\n\nexport default Layout;\n"],"names":[],"mappings":";;;;;AAAA;;;AAMA,MAAM,SAAS,CAAC,EAAE,QAAQ,EAAe;IACxC,qBAAO,8OAAC,+JAAc;kBAAE;;;;;;AACzB;uCAEe"}}]
+}

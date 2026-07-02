@@ -1,0 +1,13 @@
+{
+  "app": {
+    "[project]/apps/app/app/(admin)/dashboard/page": [],
+    "[project]/apps/app/app/(admin)/projects/page": [],
+    "[project]/apps/app/app/(admin)/users/page": [],
+    "[project]/apps/app/app/(auth)/sign-in/[[...sign-in]]/page": [],
+    "[project]/apps/app/app/(client)/client/projects/[projectId]/page": [],
+    "[project]/apps/app/app/(client)/client/projects/page": []
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}
