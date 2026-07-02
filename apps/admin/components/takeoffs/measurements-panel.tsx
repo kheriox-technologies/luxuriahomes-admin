@@ -66,7 +66,6 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { cn } from '@workspace/ui/lib/utils';
 import {
-	Boxes,
 	ChevronDownIcon,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
@@ -86,6 +85,7 @@ import {
 	Plus,
 	RotateCcw,
 	Ruler,
+	RulerDimensionLine,
 	Save,
 	SlidersHorizontal,
 	Square,
@@ -643,8 +643,8 @@ export default function MeasurementsPanel({
 					size="sm"
 					variant="outline"
 				>
-					<Plus />
-					Group
+					<RulerDimensionLine />
+					Measure
 				</Button>
 				<Button
 					aria-label={allHidden ? 'Show all on canvas' : 'Hide all on canvas'}
@@ -668,7 +668,7 @@ export default function MeasurementsPanel({
 			<div className="border-b p-2">
 				{selectedGroup ? (
 					<div className="flex items-center gap-2 rounded-md border border-primary bg-primary/5 px-3 py-2">
-						<Boxes
+						<RulerDimensionLine
 							className="size-4 shrink-0"
 							style={{ color: colorForGroup(selectedGroup) }}
 						/>
@@ -763,7 +763,7 @@ export default function MeasurementsPanel({
 							{draggingGroup ? (
 								<div className="flex items-center gap-2 rounded-lg border bg-muted px-3 py-2 shadow-lg">
 									<GripVertical className="size-4 shrink-0 text-muted-foreground" />
-									<Boxes
+									<RulerDimensionLine
 										className="size-4 shrink-0"
 										style={{ color: colorForGroup(draggingGroup) }}
 									/>
@@ -1413,7 +1413,10 @@ function GroupAccordionItem({
 					>
 						<GripVertical className="size-4" />
 					</button>
-					<Boxes className="size-4 shrink-0" style={{ color: groupColor }} />
+					<RulerDimensionLine
+						className="size-4 shrink-0"
+						style={{ color: groupColor }}
+					/>
 					<InlineTitle
 						autoEdit={ctx.editingKey === grpKey(group.id)}
 						className="min-w-0 flex-1"
