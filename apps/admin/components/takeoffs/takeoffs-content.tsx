@@ -835,7 +835,7 @@ export default function TakeoffsContent({
 				...prev,
 				{
 					id,
-					name: `Group ${siblingCount + 1}`,
+					name: `Measure ${siblingCount + 1}`,
 					categoryId,
 					color: randomShapeColor(),
 				},
