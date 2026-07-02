@@ -75,8 +75,8 @@ export const createCopyAndTakeoff = internalMutation({
 
 		// Seed the new takeoff with the master takeoff-category list so users don't
 		// have to recreate their standard categories by hand. Each master row becomes
-		// an empty embedded category (no groups/pages yet), sorted to match the order
-		// shown in takeoffCategories/list.ts.
+		// an empty embedded category (no groups yet), sorted to match the order shown
+		// in takeoffCategories/list.ts.
 		const masterCategories = await ctx.db.query('takeoffCategories').collect();
 		const seededCategories = masterCategories
 			.sort((a, b) =>
@@ -85,8 +85,6 @@ export const createCopyAndTakeoff = internalMutation({
 			.map((cat) => ({
 				id: crypto.randomUUID(),
 				name: cat.name,
-				groups: [],
-				pages: [],
 			}));
 
 		const documentId = await ctx.db.insert('projectDocuments', {
@@ -111,6 +109,7 @@ export const createCopyAndTakeoff = internalMutation({
 			texts: [],
 			pageTitles: [],
 			categories: seededCategories,
+			groups: [],
 			documentMethod: DEFAULT_TAKEOFF_METHOD,
 			pageMethods: [],
 			globalWastage: DEFAULT_TAKEOFF_WASTAGE,

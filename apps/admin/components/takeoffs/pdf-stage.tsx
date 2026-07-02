@@ -22,7 +22,7 @@ import {
 	circleRadius,
 	distanceSq,
 	distanceToSegmentSq,
-	formatMeters,
+	formatLinear,
 	formatSqm,
 	groupColorMap,
 	isInsideBody,
@@ -42,11 +42,11 @@ import {
 	type Legend,
 	type Measurement,
 	type Point,
+	type TakeoffGroup,
 	type TextAnnotation,
 	type ToolId,
 } from '@/lib/takeoffs/types';
 import LegendOverlay from './legend-overlay';
-import { buildRows } from './measurements-panel';
 import TextOverlay from './text-overlay';
 import type { RenderedSize } from './use-pdf-document';
 
@@ -79,11 +79,14 @@ interface PdfStageProps {
 	draft: Point[];
 	error: string | null;
 	globalWastage: number;
+	/** Groups, for resolving a selected shape's group name badge. */
+	groups: TakeoffGroup[];
 	guides: SnapGuide[];
 	// Shapes to halo as "related" — the selected shape's whole group/parent and
 	// the active Add/Subtract target group.
 	highlightIds: ReadonlySet<string>;
-	legend: Legend | null;
+	/** Legends on the current page (one per group). */
+	legends: Legend[];
 	measurements: Measurement[];
 	metersPerPixel: number | null;
 	newTextId: string | null;
@@ -91,8 +94,11 @@ interface PdfStageProps {
 	onClearSelection: () => void;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
-	onLegendChange: (next: { width: number; x: number; y: number }) => void;
-	onLegendRemove: () => void;
+	onLegendChange: (
+		id: string,
+		next: { width: number; x: number; y: number }
+	) => void;
+	onLegendRemove: (id: string) => void;
 	onPointerUp: (point: Point) => void;
 	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
@@ -341,7 +347,8 @@ export default function PdfStage({
 	cursor,
 	guides,
 	highlightIds,
-	legend,
+	legends,
+	groups,
 	selectedId,
 	selectedMarkerIndex,
 	showMeasurements,
@@ -703,12 +710,9 @@ export default function PdfStage({
 		: undefined;
 	let selectedName = selectedMeasurement?.label;
 	if (selectedMeasurement?.groupId) {
-		const groupRow = buildRows(measurements).find(
-			(row) =>
-				row.kind === 'group' && row.groupId === selectedMeasurement.groupId
-		);
-		if (groupRow?.kind === 'group') {
-			selectedName = groupRow.label;
+		const group = groups.find((g) => g.id === selectedMeasurement.groupId);
+		if (group) {
+			selectedName = group.name;
 		}
 	}
 
@@ -819,17 +823,18 @@ export default function PdfStage({
 								/>
 							</svg>
 						)}
-						{size && legend && (
-							<LegendOverlay
-								globalWastage={globalWastage}
-								legend={legend}
-								measurements={measurements}
-								metersPerPixel={metersPerPixel}
-								onChange={onLegendChange}
-								onRemove={onLegendRemove}
-								scale={scale}
-							/>
-						)}
+						{size &&
+							legends.map((legendItem) => (
+								<LegendOverlay
+									globalWastage={globalWastage}
+									key={legendItem.id}
+									legend={legendItem}
+									measurements={measurements}
+									onChange={(next) => onLegendChange(legendItem.id, next)}
+									onRemove={() => onLegendRemove(legendItem.id)}
+									scale={scale}
+								/>
+							))}
 						{size &&
 							textAnnotations.map((annotation) => (
 								<TextOverlay
@@ -1379,7 +1384,7 @@ function DraftShape({
 			label = formatSqm(polygonArea(livePoints) * metersPerPixel ** 2);
 			labelPos = centroid(livePoints);
 		} else if (tool === 'linear' && livePoints.length >= 2) {
-			label = formatMeters(polylineLength(livePoints) * metersPerPixel);
+			label = formatLinear(polylineLength(livePoints) * metersPerPixel);
 			labelPos = midpoint(
 				livePoints.at(-2) as Point,
 				livePoints.at(-1) as Point

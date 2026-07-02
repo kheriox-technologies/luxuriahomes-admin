@@ -644,8 +644,12 @@ export function snapPolylinePoint(
 	return { guides, point: { x, y } };
 }
 
-export function formatMeters(value: number): string {
-	return `${value.toFixed(2)} m`;
+/** Millimetres per metre — linear values are stored in metres, shown in mm. */
+export const MM_PER_METER = 1000;
+
+/** Format a linear value (stored in metres) as whole millimetres. */
+export function formatLinear(valueMeters: number): string {
+	return `${Math.round(valueMeters * MM_PER_METER)} mm`;
 }
 
 export function formatSqm(value: number): string {
@@ -654,7 +658,7 @@ export function formatSqm(value: number): string {
 
 /**
  * Lines shown in a shape's on-canvas value badge (empty array = no badge):
- * - Linear: `L - x m`, plus `H - x m` and the actual area `A - x m²`
+ * - Linear: `L - x mm`, plus `H - x mm` and the actual area `A - x m²`
  *   (length × height) when a wall height is set.
  * - Area-like (rectangle/circle/polygon, incl. groups & deductions): the area.
  * - Count: the total number of markers in the measurement.
@@ -663,9 +667,9 @@ export function formatSqm(value: number): string {
 export function shapeBadgeLines(m: Measurement): string[] {
 	if (m.type === 'linear') {
 		const length = m.valueMeters ?? 0;
-		const lines = [`L - ${formatMeters(length)}`];
+		const lines = [`L - ${formatLinear(length)}`];
 		if (m.heightMeters && m.heightMeters > 0) {
-			lines.push(`H - ${formatMeters(m.heightMeters)}`);
+			lines.push(`H - ${formatLinear(m.heightMeters)}`);
 			lines.push(`A - ${formatSqm(length * m.heightMeters)}`);
 		}
 		return lines;
@@ -711,6 +715,14 @@ export function roundUpWithWastage(
 	wastagePercent: number
 ): number {
 	return Math.ceil(value * (1 + wastagePercent / 100));
+}
+
+/** Apply wastage to a linear value (metres) and round UP to a whole millimetre. */
+export function roundUpLinearMm(
+	valueMeters: number,
+	wastagePercent: number
+): number {
+	return Math.ceil(valueMeters * MM_PER_METER * (1 + wastagePercent / 100));
 }
 
 /** Apply manual +/− area adjustments to a rounded area, clamped at zero. */

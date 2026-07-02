@@ -35,9 +35,6 @@ export default function ProjectTakeoffWorkspace({
 }) {
 	const takeoff = useQuery(api.takeoffs.get.get, { takeoffId });
 	const save = useMutation(api.takeoffs.save.save);
-	const generateSaveUrl = useAction(
-		api.takeoffs.generateSaveUrl.generateSaveUrl
-	);
 	const generateUploadUrl = useAction(
 		api.projectDocuments.generateUploadUrl.generateUploadUrl
 	);
@@ -90,28 +87,6 @@ export default function ProjectTakeoffWorkspace({
 			}
 		},
 		[]
-	);
-
-	// Overwrite the takeoff's PDF in S3 with the given bytes via a presigned PUT.
-	// Used only by structural page edits (page copy/delete bytes, no overlays
-	// burned in) so the stored PDF always stays a clean document.
-	const uploadPdf = useCallback(
-		async (bytes: Uint8Array) => {
-			const { uploadUrl } = await generateSaveUrl({ takeoffId });
-			const res = await fetch(uploadUrl, {
-				method: 'PUT',
-				body: new Blob([bytes as BlobPart], { type: 'application/pdf' }),
-				// Cache-Control must match the value signed into the presigned PUT.
-				headers: {
-					'Content-Type': 'application/pdf',
-					'Cache-Control': 'no-cache',
-				},
-			});
-			if (!res.ok) {
-				throw new Error(`Upload failed (${res.status})`);
-			}
-		},
-		[generateSaveUrl, takeoffId]
 	);
 
 	const projectId = takeoff?.projectId;
@@ -169,7 +144,6 @@ export default function ProjectTakeoffWorkspace({
 			initial={initialRef.current}
 			onPersist={onPersist}
 			onSaveToDocuments={saveToDocuments}
-			onUploadStructural={uploadPdf}
 			pdfUrl={pdfUrl}
 			ref={contentRef}
 		/>

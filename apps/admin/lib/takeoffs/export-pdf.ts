@@ -10,7 +10,6 @@ import {
 	circleRadius,
 	groupColorMap,
 	rectBounds,
-	resolveMpp,
 	shapeBadgeLines,
 	shapeTopCenter,
 } from '@/lib/takeoffs/geometry';
@@ -50,7 +49,10 @@ export interface AnnotatedPdfInput {
 	documentMethod: MeasurementMethod | null;
 	geometryByPage: Map<number, PageGeometry>;
 	globalWastage: number;
-	legends: Record<number, Legend>;
+	// When set, only measurements/legends in these groups are drawn (used by the
+	// per-group and per-category export actions). Absent → the whole document.
+	groupIds?: Set<string>;
+	legends: Legend[];
 	measurements: Measurement[];
 	pageMethods: Record<number, MeasurementMethod>;
 	// Burn each shape's actual measured value into a badge at its top edge.
@@ -366,10 +368,9 @@ function drawLegend(
 	pageHeight: number,
 	font: PDFFont,
 	boldFont: PDFFont,
-	globalWastage: number,
-	mpp: number | null
+	globalWastage: number
 ) {
-	const entries = buildLegendEntries(measurements, globalWastage, mpp);
+	const entries = buildLegendEntries(measurements, globalWastage);
 	const showColor = legend.showColor ?? true;
 	const showName = legend.showName ?? true;
 	const showDescription = legend.showDescription ?? true;
@@ -582,7 +583,10 @@ function annotatePage(
 	const scaleFactor = geometry.naturalWidth / geometry.baseWidth;
 
 	const pageMeasurements = input.measurements.filter(
-		(m) => m.page === pageNumber && !m.hidden
+		(m) =>
+			m.page === pageNumber &&
+			!m.hidden &&
+			(!input.groupIds || (m.groupId != null && input.groupIds.has(m.groupId)))
 	);
 	for (const m of pageMeasurements) {
 		drawShape(
@@ -612,22 +616,21 @@ function annotatePage(
 		drawTextAnnotation(page, annotation, scaleFactor, pageHeight, font);
 	}
 
-	const legend = input.legends[pageNumber];
-	if (legend) {
-		// Resolve this page's scale so combined area-group values match the panel.
-		const method = input.pageMethods[pageNumber] ?? input.documentMethod;
-		const mpp = method ? resolveMpp(method, geometry) : null;
+	// One legend per group on this page; each lists only its group's measurements.
+	for (const legend of input.legends.filter(
+		(l) =>
+			l.page === pageNumber &&
+			(!input.groupIds || input.groupIds.has(l.groupId))
+	)) {
 		drawLegend(
 			page,
 			legend,
-			// Legend mirrors the on-screen one: page-filtered, non-hidden.
-			pageMeasurements,
+			pageMeasurements.filter((m) => m.groupId === legend.groupId),
 			scaleFactor,
 			pageHeight,
 			font,
 			boldFont,
-			input.globalWastage,
-			mpp
+			input.globalWastage
 		);
 	}
 }

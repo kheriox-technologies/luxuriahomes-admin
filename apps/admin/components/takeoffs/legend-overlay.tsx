@@ -25,17 +25,15 @@ export default function LegendOverlay({
 	legend,
 	measurements,
 	globalWastage,
-	metersPerPixel,
 	scale,
 	onChange,
 	onRemove,
 }: {
 	legend: Legend;
+	/** All non-hidden measurements on this page; filtered to the legend's group. */
 	measurements: Measurement[];
 	/** Document wastage default, used to round the optional measurement column. */
 	globalWastage: number;
-	/** Page scale (metres per base px), needed for combined area-group values. */
-	metersPerPixel: number | null;
 	/** Current zoom scale, to convert screen-pixel drags to base-pixel deltas. */
 	scale: number;
 	onChange: (next: LegendChange) => void;
@@ -43,9 +41,8 @@ export default function LegendOverlay({
 }): ReactElement {
 	const { x, y, width } = legend;
 	const entries = buildLegendEntries(
-		measurements,
-		globalWastage,
-		metersPerPixel
+		measurements.filter((m) => m.groupId === legend.groupId),
+		globalWastage
 	);
 	const showColor = legend.showColor ?? true;
 	const showName = legend.showName ?? true;

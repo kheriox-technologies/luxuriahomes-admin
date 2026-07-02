@@ -120,7 +120,6 @@ export const takeoffMeasurementValidator = v.object({
 	hidden: v.optional(v.boolean()),
 	detectedText: v.optional(v.string()),
 	groupId: v.optional(v.string()),
-	groupLabel: v.optional(v.string()),
 	parentId: v.optional(v.string()),
 	heightMeters: v.optional(v.number()),
 	wastagePercent: v.optional(v.number()),
@@ -128,7 +127,12 @@ export const takeoffMeasurementValidator = v.object({
 	areaSubtractSqm: v.optional(v.number()),
 });
 
+// A print-style legend box scoped to one group on one page. Multiple legends can
+// exist on a page (one per group). Keyed by `id`; `groupId` filters which
+// measurements it lists.
 export const takeoffLegendValidator = v.object({
+	id: v.string(),
+	groupId: v.string(),
 	page: v.number(),
 	x: v.number(),
 	y: v.number(),
@@ -150,19 +154,22 @@ export const takeoffTextValidator = v.object({
 	color: v.optional(v.string()),
 });
 
-// A group inside a category: pages by number, homogeneous by shape family.
-export const takeoffPageGroupValidator = v.object({
+// A group in the measurements panel hierarchy. Measurements link to it via
+// `measurement.groupId`. `categoryId` places it inside a category; when absent
+// the group lives at the root level.
+export const takeoffGroupValidator = v.object({
 	id: v.string(),
 	name: v.string(),
-	pages: v.array(v.number()),
+	categoryId: v.optional(v.string()),
+	// Colour (hex) shared by every shape in this group.
+	color: v.optional(v.string()),
 });
 
-// A category in the measurements panel hierarchy, holding groups and pages.
+// A category in the measurements panel hierarchy. Holds groups (linked by
+// `group.categoryId`); no measurements or pages directly.
 export const takeoffCategoryValidator = v.object({
 	id: v.string(),
 	name: v.string(),
-	groups: v.array(takeoffPageGroupValidator),
-	pages: v.array(v.number()),
 });
 
 // Schema definition
@@ -308,14 +315,12 @@ export default defineSchema({
 		measurements: v.array(takeoffMeasurementValidator),
 		legends: v.array(takeoffLegendValidator),
 		texts: v.array(takeoffTextValidator),
-		// Pages explicitly part of the measurements panel, including ones added with
-		// no measurements yet. Optional for backward compatibility with rows saved
-		// before this field existed (derived from measurement pages on load).
-		measurementPages: v.optional(v.array(v.number())),
 		pageTitles: v.array(v.object({ page: v.number(), title: v.string() })),
-		// Category → Group → Page hierarchy. Optional for backward compatibility
-		// with rows saved before this field existed (defaults to no categories).
+		// Category → Group hierarchy for the measurements panel. Measurements are
+		// filed into groups via `measurement.groupId`. Both optional for backward
+		// compatibility with rows saved before these fields existed.
 		categories: v.optional(v.array(takeoffCategoryValidator)),
+		groups: v.optional(v.array(takeoffGroupValidator)),
 		documentMethod: v.optional(takeoffMethodValidator),
 		pageMethods: v.array(
 			v.object({ page: v.number(), method: takeoffMethodValidator })

@@ -2,7 +2,7 @@
 
 import { Input } from '@workspace/ui/components/input';
 import { cn } from '@workspace/ui/lib/utils';
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 
 // Single click runs onActivate (e.g. select the card / let the parent handle
 // it), double click edits the label inline; Enter/blur commits, Escape cancels.
@@ -12,6 +12,7 @@ export function InlineTitle({
 	onActivate,
 	onEditEnd,
 	className,
+	style,
 	autoEdit,
 }: {
 	value: string;
@@ -20,6 +21,7 @@ export function InlineTitle({
 	/** Called whenever the field leaves edit mode (commit, blur, or Escape). */
 	onEditEnd?: () => void;
 	className?: string;
+	style?: CSSProperties;
 	/** Open directly in edit mode on mount (e.g. for a freshly created item). */
 	autoEdit?: boolean;
 }) {
@@ -54,6 +56,7 @@ export function InlineTitle({
 						onEditEnd?.();
 					}
 				}}
+				style={style}
 				value={draft}
 			/>
 		);
@@ -67,6 +70,7 @@ export function InlineTitle({
 				setDraft(value);
 				setEditing(true);
 			}}
+			style={style}
 			title="Double-click to rename"
 			type="button"
 		>

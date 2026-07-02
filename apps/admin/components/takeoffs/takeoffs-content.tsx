@@ -35,20 +35,16 @@ import {
 	useRef,
 	useState,
 } from 'react';
-import type { PageIndexedState } from '@/lib/takeoffs/edit-pdf';
 import type { AnnotatedPdfInput } from '@/lib/takeoffs/export-pdf';
 import {
 	circleRadius,
 	clipToParent,
 	DEFAULT_WASTAGE,
 	distance,
-	groupFamily,
 	measure,
-	measurementFamily,
 	randomShapeColor,
 	rectArea,
 	resolveMpp,
-	type ShapeFamily,
 	type SnapGuide,
 	scaleToMpp,
 	snapPolylinePoint,
@@ -64,14 +60,15 @@ import type {
 	MeasurementMethod,
 	MeasurementType,
 	MethodScope,
-	MoveTarget,
 	PageGeometry,
 	Point,
 	ScaleSetting,
 	TakeoffCategory,
+	TakeoffGroup,
 	TakeoffPersistState,
 	TextAnnotation,
 	ToolId,
+	UndoSnapshot,
 } from '@/lib/takeoffs/types';
 import { AREA_TYPE_SET } from '@/lib/takeoffs/types';
 import MeasurementsPanel, { type LegendDisplay } from './measurements-panel';
@@ -112,38 +109,15 @@ const LEGEND_WIDTH_RATIO = 0.28;
 const LEGEND_FALLBACK_INSET = 24;
 const LEGEND_FALLBACK_WIDTH = 320;
 
-// Area-drawing tools. Add/Subtract lock drawing to the selected target's family
-// so a group never mixes areas, lines and counts.
-const AREA_TOOL_SET = new Set<ToolId>(['rectangle', 'circle', 'polygon']);
-
-function toolFamily(tool: ToolId): ShapeFamily | null {
-	if (AREA_TOOL_SET.has(tool)) {
-		return 'area';
-	}
-	if (tool === 'linear') {
-		return 'linear';
-	}
-	if (tool === 'count') {
-		return 'count';
-	}
-	return null;
-}
-
-// Remove a page number from every category and group (keeping membership arrays
-// disjoint). Shared by the move handler and page deletion.
-function withoutPageInHierarchy(
-	categories: TakeoffCategory[],
-	page: number
-): TakeoffCategory[] {
-	return categories.map((category) => ({
-		...category,
-		pages: category.pages.filter((p) => p !== page),
-		groups: category.groups.map((group) => ({
-			...group,
-			pages: group.pages.filter((p) => p !== page),
-		})),
-	}));
-}
+// The drawing tools disabled until a group is selected (every measurement must
+// be filed into a group). Pan and text stay enabled.
+const DRAWING_TOOLS = new Set<ToolId>([
+	'linear',
+	'rectangle',
+	'circle',
+	'polygon',
+	'count',
+]);
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 
@@ -202,24 +176,14 @@ const TOOLS: ToolDef[] = [
 	{ id: 'text', label: 'Text', icon: Type },
 ];
 
-function getAddTitle(isCalibrated: boolean, hasSelection: boolean): string {
+function getSubtractTitle(isCalibrated: boolean, canDeduct: boolean): string {
 	if (!isCalibrated) {
 		return 'Calibrate this page first';
 	}
-	if (!hasSelection) {
-		return 'Select a measurement on the canvas, then turn on Add to draw more shapes into it';
+	if (!canDeduct) {
+		return 'Pick an area tool (rectangle, circle, or polygon) to draw a deduction';
 	}
-	return 'Every shape you draw while Add is on joins the selected measurement — switch to Pan or Select to finish';
-}
-
-function getSubtractTitle(isCalibrated: boolean, canSubtract: boolean): string {
-	if (!isCalibrated) {
-		return 'Calibrate this page first';
-	}
-	if (!canSubtract) {
-		return 'Select an area shape on the canvas, then turn on Subtract to deduct from it';
-	}
-	return 'Draw an area while Subtract is on to deduct it from the selected shape';
+	return 'Draw inside an existing area shape to deduct it from that shape';
 }
 
 function dedupeConsecutive(points: Point[]): Point[] {
@@ -266,10 +230,6 @@ export interface TakeoffsContentProps {
 		bytes: Uint8Array;
 		descriptor: string;
 	}) => Promise<void>;
-	/** Persist a structural page edit (copy/delete) to storage immediately. Given
-	 * the restructured PDF bytes (no overlays burned in) so the stored PDF stays
-	 * in sync with the page-indexed working set. */
-	onUploadStructural?: (bytes: Uint8Array) => Promise<void>;
 	/** PDF to load. Defaults to the bundled sample plan (prototype mode). */
 	pdfUrl?: string;
 	ref?: Ref<TakeoffsHandle>;
@@ -279,7 +239,6 @@ export default function TakeoffsContent({
 	pdfUrl = DEFAULT_PDF_URL,
 	initial,
 	onPersist,
-	onUploadStructural,
 	onSaveToDocuments,
 	ref,
 }: TakeoffsContentProps = {}) {
@@ -293,8 +252,6 @@ export default function TakeoffsContent({
 	// The live blob URL backing `workingUrl`, tracked so it can be revoked when
 	// replaced or on unmount.
 	const blobUrlRef = useRef<string | null>(null);
-	// Serializes structural edits and Save PDF so they never read stale bytes.
-	const opBusyRef = useRef(false);
 
 	const {
 		numPages,
@@ -314,32 +271,19 @@ export default function TakeoffsContent({
 	const [spacePanActive, setSpacePanActive] = useState(false);
 	const effectiveTool: ToolId = spacePanActive ? 'pan' : tool;
 	// When on, area shapes drawn from the main toolbar are clipped to and
-	// subtracted from the parent shape that contains them.
+	// subtracted from the selected shape (its group's area members).
 	const [subtractMode, setSubtractMode] = useState(false);
-	// When on, every shape/line drawn joins one combined "Add" group: area
-	// members union into a single area, linear members sum into one length.
-	const [addMode, setAddMode] = useState(false);
 	// When on, each shape shows a badge with its actual measured value, both on
 	// the canvas and in the exported/downloaded PDF. Off by default.
 	const [showMeasurements, setShowMeasurements] = useState(false);
 	// When off, the thumbnails panel lists only pages that have measurements. On
 	// by default so the full document is visible.
 	const [showAllPages, setShowAllPages] = useState(true);
-	// Id of the group currently being drawn into (ref so commit reads it
-	// imperatively without re-running on every change). Null when Add is off.
-	const currentGroupId = useRef<string | null>(null);
-	// The existing measurement that Add/Subtract is locked to (the shape new
-	// draws join as group members or deductions). Set from the selection when the
-	// mode is turned on; survives the tool switch that drawing requires.
-	const addTargetRef = useRef<string | null>(null);
+	// The group new measurements are filed into. Must be set before drawing (the
+	// drawing tools are disabled until it is). Cleared by the panel's Save button.
+	const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 	const [measurements, setMeasurements] = useState<Measurement[]>(
 		initial?.measurements ?? []
-	);
-	// Pages that belong to the measurements panel, including ones added with no
-	// measurements yet. A page only leaves via "Delete page from measurements";
-	// emptying a page's measurements keeps it here (and the panel shows a warning).
-	const [measurementPages, setMeasurementPages] = useState<number[]>(
-		initial?.measurementPages ?? []
 	);
 	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
 	// them synchronously to auto-name area shapes.
@@ -358,15 +302,13 @@ export default function TakeoffsContent({
 	const [pageTitles, setPageTitles] = useState<Record<number, string>>(
 		initial?.pageTitles ?? {}
 	);
-	// Category → Group → Page hierarchy for the measurements panel. A page's
-	// placement is derived from these membership arrays (disjoint across the
-	// whole takeoff); pages in none render loose at root.
+	// Category → Group hierarchy for the measurements panel. Measurements are
+	// filed into a group via `measurement.groupId`.
 	const [categories, setCategories] = useState<TakeoffCategory[]>(
 		initial?.categories ?? []
 	);
-	// When adding a page from the thumbnails panel and categories exist, this
-	// holds the page awaiting a destination choice (null when no dialog is open).
-	const [pendingAddPage, setPendingAddPage] = useState<number | null>(null);
+	// Groups (root-level when `categoryId` is unset).
+	const [groups, setGroups] = useState<TakeoffGroup[]>(initial?.groups ?? []);
 	// Default wastage allowance (%) applied to every measurement; individual
 	// measurements may override it via their row in the measurements panel.
 	const [globalWastage, setGlobalWastage] = useState<number>(
@@ -387,10 +329,6 @@ export default function TakeoffsContent({
 	const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(
 		null
 	);
-	// Id of the shape most recently drawn on this page. Acts as the implicit
-	// Add/Subtract anchor so the next shape can group/deduct without leaving the
-	// drawing tool to reselect. Set on commit; cleared on tool/page change.
-	const [lastDrawnId, setLastDrawnId] = useState<string | null>(null);
 	// Clear both the shape selection and any marker sub-selection together.
 	const clearSelection = useCallback(() => {
 		setSelectedId(null);
@@ -398,11 +336,9 @@ export default function TakeoffsContent({
 	}, []);
 	// Width (px) of the measurements panel, adjustable via the drag handle.
 	const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
-	// Per-page legend boxes (base-pixel space). In-memory only, matching the rest
-	// of this prototype; one legend per page.
-	const [legends, setLegends] = useState<Record<number, Legend>>(
-		initial?.legends ?? {}
-	);
+	// Legend boxes (base-pixel space), scoped to a group on a page. Multiple can
+	// exist on a page (one per group).
+	const [legends, setLegends] = useState<Legend[]>(initial?.legends ?? []);
 	// Per-page text annotations (base-pixel space). In-memory only, like legends,
 	// but many per page (keyed by id). `newTextId` flags the just-placed box so its
 	// textarea auto-focuses once.
@@ -417,14 +353,37 @@ export default function TakeoffsContent({
 	// Id of the count measurement currently being built. Enter/Escape or leaving
 	// the count tool closes it so the next marker starts a new set.
 	const activeCountIdRef = useRef<string | null>(null);
-	// Mirror the selection and last-drawn anchor into refs so the stable
-	// space-pan keydown listener reads the latest values without re-subscribing.
-	const selectedIdRef = useRef<string | null>(null);
-	const lastDrawnIdRef = useRef<string | null>(null);
 	const writeDraft = useCallback((points: Point[]) => {
 		draftRef.current = points;
 		setDraft(points);
 	}, []);
+
+	// Per-group-session undo history. Each snapshot captures the state an undoable
+	// drawing action changes; undo pops and restores it. Cleared whenever the
+	// selected group changes (creation, selection, or Save), so a freshly selected
+	// group starts with nothing to undo. `measurementsRef` mirrors `measurements`
+	// so a snapshot can read the current value outside the setter.
+	const measurementsRef = useRef<Measurement[]>(measurements);
+	useEffect(() => {
+		measurementsRef.current = measurements;
+	}, [measurements]);
+	const undoStackRef = useRef<UndoSnapshot[]>([]);
+	const [undoDepth, setUndoDepth] = useState(0);
+	const pushUndo = useCallback(() => {
+		undoStackRef.current.push({
+			measurements: measurementsRef.current,
+			draft: [],
+			activeCountId: activeCountIdRef.current,
+		});
+		setUndoDepth(undoStackRef.current.length);
+	}, []);
+	const clearUndo = useCallback(() => {
+		undoStackRef.current = [];
+		setUndoDepth(0);
+	}, []);
+	// Undoable when a shape is mid-draft (a point can be removed) or the history
+	// stack holds a committed shape/marker.
+	const canUndo = undoDepth > 0 || draft.length > 0;
 
 	// Calibration dialog state.
 	const [calibLine, setCalibLine] = useState<[Point, Point] | null>(null);
@@ -458,22 +417,38 @@ export default function TakeoffsContent({
 		activeCountIdRef.current = null;
 	}, [writeDraft]);
 
-	// Any page that gains a measurement joins the measurements panel and stays
-	// there even after its measurements are later deleted (only the explicit
-	// delete-page action removes it). This effect just unions new pages in.
+	// Revert the last undoable action in the current group session. While a shape is
+	// being drawn (linear/polygon), remove the last placed point; otherwise pop the
+	// last committed shape or count marker off the history stack.
+	const undo = useCallback(() => {
+		if (draftRef.current.length > 0) {
+			writeDraft(draftRef.current.slice(0, -1));
+			return;
+		}
+		const snap = undoStackRef.current.pop();
+		if (!snap) {
+			return;
+		}
+		setUndoDepth(undoStackRef.current.length);
+		setMeasurements(snap.measurements);
+		writeDraft(snap.draft);
+		activeCountIdRef.current = snap.activeCountId;
+		// The restored state may no longer contain the selected shape/marker.
+		setSelectedId(null);
+		setSelectedMarkerIndex(null);
+	}, [writeDraft]);
+
+	// Reset the undo history whenever the active group changes: a group selected
+	// right after creation, an explicit selection, or Save (which clears it) all
+	// start a fresh session with nothing to undo.
+	const lastSessionGroupRef = useRef(selectedGroupId);
 	useEffect(() => {
-		setMeasurementPages((prev) => {
-			const next = new Set(prev);
-			let changed = false;
-			for (const m of measurements) {
-				if (!next.has(m.page)) {
-					next.add(m.page);
-					changed = true;
-				}
-			}
-			return changed ? [...next].sort((a, b) => a - b) : prev;
-		});
-	}, [measurements]);
+		if (selectedGroupId === lastSessionGroupRef.current) {
+			return;
+		}
+		lastSessionGroupRef.current = selectedGroupId;
+		clearUndo();
+	}, [selectedGroupId, clearUndo]);
 
 	// Persist the working set whenever a persisted slice changes. The caller
 	// supplies a debounced `onPersist`; we skip the first run so hydrating from
@@ -491,22 +466,22 @@ export default function TakeoffsContent({
 		}
 		onPersistRef.current({
 			measurements,
-			measurementPages,
 			legends,
 			texts,
 			pageTitles,
 			categories,
+			groups,
 			documentMethod,
 			pageMethods,
 			globalWastage,
 		});
 	}, [
 		measurements,
-		measurementPages,
 		legends,
 		texts,
 		pageTitles,
 		categories,
+		groups,
 		documentMethod,
 		pageMethods,
 		globalWastage,
@@ -544,22 +519,6 @@ export default function TakeoffsContent({
 		return bytes;
 	}, [workingUrl]);
 
-	// Adopt restructured PDF bytes: cache them, point the viewer at a fresh blob
-	// URL, and revoke the previous blob (pdfjs reads the blob synchronously when
-	// the load effect fires, so the old one is safe to release immediately).
-	const swapWorkingPdf = useCallback((bytes: Uint8Array) => {
-		workingBytesRef.current = bytes;
-		const url = URL.createObjectURL(
-			new Blob([bytes as BlobPart], { type: 'application/pdf' })
-		);
-		const previous = blobUrlRef.current;
-		blobUrlRef.current = url;
-		setWorkingUrl(url);
-		if (previous) {
-			URL.revokeObjectURL(previous);
-		}
-	}, []);
-
 	// Gather the un-annotated working bytes plus the overlay input (measurements,
 	// legends, texts, and per-page geometry) that the PDF exporters consume.
 	// Shared by Save PDF, Download PDF, and Download Page.
@@ -577,8 +536,8 @@ export default function TakeoffsContent({
 		for (const t of texts) {
 			pagesWithOverlays.add(t.page);
 		}
-		for (const key of Object.keys(legends)) {
-			pagesWithOverlays.add(Number(key));
+		for (const legend of legends) {
+			pagesWithOverlays.add(legend.page);
 		}
 		const geometryByPage = new Map<number, PageGeometry>();
 		for (const pageNumber of pagesWithOverlays) {
@@ -616,15 +575,30 @@ export default function TakeoffsContent({
 	// Download PDF: burn the overlays into a copy of the document and open it in a
 	// new tab once the bytes are ready (so the user never sees a blank loading
 	// tab). The stored PDF is never touched — overlays stay live in Convex.
+	// Pages that actually carry a visible measurement — the whole-document export
+	// is limited to these so blank pages aren't included.
+	const measurementPages = useMemo(
+		() =>
+			[
+				...new Set(measurements.filter((m) => !m.hidden).map((m) => m.page)),
+			].sort((a, b) => a - b),
+		[measurements]
+	);
+
 	const handleDownloadPdf = useCallback(async () => {
 		const toastId = toastManager.add({
 			title: 'Preparing PDF…',
 			type: 'loading',
 		});
 		try {
-			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
+			const { buildAnnotatedPdf, buildPagesAnnotatedPdf } = await import(
+				'@/lib/takeoffs/export-pdf'
+			);
 			const { originalBytes, input } = await buildInput();
-			const bytes = await buildAnnotatedPdf(originalBytes, input);
+			const bytes =
+				measurementPages.length > 0
+					? await buildPagesAnnotatedPdf(originalBytes, input, measurementPages)
+					: await buildAnnotatedPdf(originalBytes, input);
 			openPdfBytesInTab(bytes);
 			toastManager.update(toastId, { title: 'PDF ready', type: 'success' });
 		} catch {
@@ -634,12 +608,12 @@ export default function TakeoffsContent({
 				type: 'error',
 			});
 		}
-	}, [buildInput]);
+	}, [buildInput, measurementPages]);
 
 	// Download a subset of pages (category/group/page) with overlays burned in,
 	// opening the result in a new tab. The stored PDF is never touched.
 	const handleDownloadPages = useCallback(
-		async (descriptor: string, pages: number[]) => {
+		async (descriptor: string, pages: number[], groupIds?: Set<string>) => {
 			if (pages.length === 0) {
 				toastManager.add({
 					title: 'Nothing to download',
@@ -657,7 +631,11 @@ export default function TakeoffsContent({
 					'@/lib/takeoffs/export-pdf'
 				);
 				const { originalBytes, input } = await buildInput();
-				const bytes = await buildPagesAnnotatedPdf(originalBytes, input, pages);
+				const bytes = await buildPagesAnnotatedPdf(
+					originalBytes,
+					{ ...input, groupIds },
+					pages
+				);
 				openPdfBytesInTab(bytes);
 				toastManager.update(toastId, { title: 'PDF ready', type: 'success' });
 			} catch {
@@ -671,19 +649,11 @@ export default function TakeoffsContent({
 		[buildInput]
 	);
 
-	// Download Page: open just the given page (with its overlays burned in) in a
-	// new tab so the user can view/download it. The stored PDF is never touched.
-	const handleDownloadPage = useCallback(
-		(pageNumber: number) =>
-			handleDownloadPages(`page ${pageNumber}`, [pageNumber]),
-		[handleDownloadPages]
-	);
-
 	// Save a subset of pages (category/group/page) into the project's Take Offs
 	// documents folder via the parent-supplied upload callback. The descriptor is
 	// woven into the saved file name (alongside the takeoff name + timestamp).
 	const handleSaveSelection = useCallback(
-		async (descriptor: string, pages: number[]) => {
+		async (descriptor: string, pages: number[], groupIds?: Set<string>) => {
 			if (!onSaveToDocuments) {
 				return;
 			}
@@ -704,7 +674,11 @@ export default function TakeoffsContent({
 					'@/lib/takeoffs/export-pdf'
 				);
 				const { originalBytes, input } = await buildInput();
-				const bytes = await buildPagesAnnotatedPdf(originalBytes, input, pages);
+				const bytes = await buildPagesAnnotatedPdf(
+					originalBytes,
+					{ ...input, groupIds },
+					pages
+				);
 				await onSaveToDocuments({ bytes, descriptor });
 				toastManager.update(toastId, {
 					title: 'Saved to Documents',
@@ -721,9 +695,9 @@ export default function TakeoffsContent({
 		[buildInput, onSaveToDocuments]
 	);
 
-	// Save the whole takeoff (all annotated pages) into the Take Offs documents
-	// folder. Exposed to the parent via the imperative handle for the top-bar
-	// "Save to Documents" button.
+	// Save the whole takeoff (every page that has a measurement) into the Take Offs
+	// documents folder. Exposed to the parent via the imperative handle for the
+	// top-bar "Save to Documents" button.
 	const handleSaveWhole = useCallback(async () => {
 		if (!onSaveToDocuments) {
 			return;
@@ -733,9 +707,14 @@ export default function TakeoffsContent({
 			type: 'loading',
 		});
 		try {
-			const { buildAnnotatedPdf } = await import('@/lib/takeoffs/export-pdf');
+			const { buildAnnotatedPdf, buildPagesAnnotatedPdf } = await import(
+				'@/lib/takeoffs/export-pdf'
+			);
 			const { originalBytes, input } = await buildInput();
-			const bytes = await buildAnnotatedPdf(originalBytes, input);
+			const bytes =
+				measurementPages.length > 0
+					? await buildPagesAnnotatedPdf(originalBytes, input, measurementPages)
+					: await buildAnnotatedPdf(originalBytes, input);
 			await onSaveToDocuments({ bytes, descriptor: '' });
 			toastManager.update(toastId, {
 				title: 'Saved to Documents',
@@ -748,7 +727,7 @@ export default function TakeoffsContent({
 				type: 'error',
 			});
 		}
-	}, [buildInput, onSaveToDocuments]);
+	}, [buildInput, measurementPages, onSaveToDocuments]);
 
 	// Expose the download/save actions to the parent so the buttons can live
 	// alongside the PDF-selection combobox (the build needs this component's PDF
@@ -765,114 +744,30 @@ export default function TakeoffsContent({
 	const selectTool = useCallback(
 		(next: ToolId) => {
 			setTool(next);
-			// Add/Subtract stay locked to their target only while drawing within the
-			// target's family; switching to Pan/Select or a mismatched family ends the
-			// session. The target ref (not selectedId) drives the highlight, so it
-			// survives the selection clear below.
-			const target = addTargetRef.current
-				? measurements.find((m) => m.id === addTargetRef.current)
-				: undefined;
-			const nextFamily = toolFamily(next);
-			const sameFamily =
-				target != null && nextFamily === measurementFamily(target.type);
-			const keepSubtract = subtractMode && sameFamily && nextFamily === 'area';
-			const keepAdd = addMode && sameFamily;
-			setSubtractMode(keepSubtract);
-			setAddMode(keepAdd);
-			if (!(keepAdd || keepSubtract)) {
-				addTargetRef.current = null;
-				currentGroupId.current = null;
+			// Deduct works with area tools; keep it on when switching between them
+			// (rectangle/circle/polygon) but end it for any non-area tool.
+			if (!AREA_TYPE_SET.has(next as MeasurementType)) {
+				setSubtractMode(false);
 			}
 			resetDraft();
 			setSelectedId(null);
-			// Switching tools starts fresh — the implicit anchor only holds while you
-			// stay on the tool you drew with.
-			setLastDrawnId(null);
 		},
-		[resetDraft, addMode, subtractMode, measurements]
+		[resetDraft]
 	);
 
-	// Toggle Subtract mode. Turning it on locks onto the selected area shape and
-	// switches to its drawing tool; every area drawn becomes that shape's
-	// deduction. Add and Subtract are mutually exclusive.
+	// Toggle Deduct mode. With an area tool active, every area drawn attaches as a
+	// deduction of whichever existing shape it lands inside (auto-detected on
+	// commit), clipped to that parent's boundary.
 	const setSubtract = useCallback(
 		(on: boolean) => {
 			// Drop focus off the toggle so a subsequent Enter commits the draft via
 			// the global handler instead of re-toggling this still-focused switch.
 			(document.activeElement as HTMLElement | null)?.blur();
-			if (on) {
-				// Lock onto the selection if there is one, else the shape just drawn.
-				const target =
-					measurements.find((m) => m.id === selectedId) ??
-					(lastDrawnId
-						? measurements.find((m) => m.id === lastDrawnId)
-						: undefined);
-				// Subtract only applies to area shapes.
-				if (!(target && AREA_TYPE_SET.has(target.type))) {
-					return;
-				}
-				setSubtractMode(true);
-				setAddMode(false);
-				addTargetRef.current = target.id;
-				currentGroupId.current = null;
-				// Auto-switch to the target's drawing tool without clearing the
-				// selection (selectTool would reset selectedId).
-				setTool(target.type);
-				resetDraft();
-				return;
-			}
-			setSubtractMode(false);
-			addTargetRef.current = null;
 			resetDraft();
 			setSelectedId(null);
+			setSubtractMode(on);
 		},
-		[resetDraft, measurements, selectedId, lastDrawnId]
-	);
-
-	// Toggle Add mode. Turning it on locks onto the selected measurement and
-	// switches to its drawing tool; every shape drawn joins that measurement
-	// (area/linear as a group, count as extra markers). Mutually exclusive with
-	// Subtract; turning it off ends the session.
-	const setAdd = useCallback(
-		(on: boolean) => {
-			// Drop focus off the toggle so a subsequent Enter commits the draft via
-			// the global handler instead of re-toggling this still-focused switch.
-			(document.activeElement as HTMLElement | null)?.blur();
-			if (on) {
-				// Lock onto the selection if there is one, else the shape just drawn.
-				const target =
-					measurements.find((m) => m.id === selectedId) ??
-					(lastDrawnId
-						? measurements.find((m) => m.id === lastDrawnId)
-						: undefined);
-				if (!target) {
-					return;
-				}
-				setAddMode(true);
-				setSubtractMode(false);
-				addTargetRef.current = target.id;
-				// Auto-switch to the target's drawing tool without clearing the
-				// selection (selectTool would reset selectedId).
-				setTool(target.type);
-				resetDraft();
-				if (target.type === 'count') {
-					// Count: subsequent clicks append markers to this count. Set after
-					// resetDraft, which clears the active-count ref.
-					activeCountIdRef.current = target.id;
-					currentGroupId.current = null;
-				} else {
-					// Area/linear: join the target's group, created on first draw.
-					currentGroupId.current = target.groupId ?? null;
-				}
-				return;
-			}
-			setAddMode(false);
-			addTargetRef.current = null;
-			currentGroupId.current = null;
-			resetDraft();
-			setSelectedId(null);
-		},
-		[resetDraft, measurements, selectedId, lastDrawnId]
+		[resetDraft]
 	);
 
 	const goToPage = useCallback(
@@ -880,249 +775,19 @@ export default function TakeoffsContent({
 			setPage(() => Math.min(Math.max(next, 1), numPages || 1));
 			resetDraft();
 			setSelectedId(null);
-			// The Add/Subtract target lives on the page being left, so end the
-			// session: clear the target and turn both modes off.
-			setAddMode(false);
+			// The subtract target lives on the page being left, so end that session.
 			setSubtractMode(false);
-			addTargetRef.current = null;
-			currentGroupId.current = null;
-			// The implicit anchor also lives on the page being left.
-			setLastDrawnId(null);
 		},
 		[numPages, resetDraft]
 	);
 
-	// Push a remapped page-indexed working set into the slice setters (one batched
-	// render → a single persist).
-	const applyPageIndexedState = useCallback((next: PageIndexedState) => {
-		setMeasurements(next.measurements);
-		setMeasurementPages(next.measurementPages);
-		setTexts(next.texts);
-		setLegends(next.legends);
-		setPageMethods(next.pageMethods);
-		setPageTitles(next.pageTitles);
-		setCategories(next.categories);
-	}, []);
-
-	// Clear transient editing state before a structural page edit so a half-drawn
-	// draft or stale auto-naming cache never binds to a now-shifted page.
-	const resetForPageEdit = useCallback(() => {
-		resetDraft();
-		setSelectedId(null);
-		currentGroupId.current = null;
-		pageTextRef.current.clear();
-	}, [resetDraft]);
-
-	// Copy a page: duplicate it in the PDF below the source page, shift the
-	// page-indexed working set up past it (the copy starts empty), persist the new
-	// PDF structure, and reveal the copy.
-	const handleCopyPage = useCallback(
-		async (targetPage: number) => {
-			if (opBusyRef.current) {
-				return;
-			}
-			opBusyRef.current = true;
-			const toastId = toastManager.add({
-				title: 'Copying page…',
-				type: 'loading',
-			});
-			try {
-				resetForPageEdit();
-				const { copyPageInPdf, remapForCopy } = await import(
-					'@/lib/takeoffs/edit-pdf'
-				);
-				const bytes = await currentWorkingBytes();
-				const newBytes = await copyPageInPdf(bytes, targetPage);
-				swapWorkingPdf(newBytes);
-				applyPageIndexedState(
-					remapForCopy(
-						{
-							measurements,
-							measurementPages,
-							texts,
-							legends,
-							pageMethods,
-							pageTitles,
-							categories,
-						},
-						targetPage
-					)
-				);
-				setPage(targetPage + 1);
-				await onUploadStructural?.(newBytes);
-				toastManager.update(toastId, { title: 'Page copied', type: 'success' });
-			} catch {
-				toastManager.update(toastId, {
-					title: 'Could not copy page',
-					description: 'Please try again.',
-					type: 'error',
-				});
-			} finally {
-				opBusyRef.current = false;
-			}
-		},
-		[
-			measurements,
-			measurementPages,
-			texts,
-			legends,
-			pageMethods,
-			pageTitles,
-			categories,
-			currentWorkingBytes,
-			swapWorkingPdf,
-			applyPageIndexedState,
-			resetForPageEdit,
-			onUploadStructural,
-		]
-	);
-
-	// Delete a page: remove it from the PDF, drop its measurements/annotations and
-	// shift the rest down, persist the new structure, and move to a valid page.
-	const handleDeletePage = useCallback(
-		async (targetPage: number) => {
-			if (opBusyRef.current || numPages <= 1) {
-				return;
-			}
-			opBusyRef.current = true;
-			const toastId = toastManager.add({
-				title: 'Deleting page…',
-				type: 'loading',
-			});
-			try {
-				resetForPageEdit();
-				const { removePageInPdf, remapForDelete } = await import(
-					'@/lib/takeoffs/edit-pdf'
-				);
-				const bytes = await currentWorkingBytes();
-				const newBytes = await removePageInPdf(bytes, targetPage);
-				swapWorkingPdf(newBytes);
-				applyPageIndexedState(
-					remapForDelete(
-						{
-							measurements,
-							measurementPages,
-							texts,
-							legends,
-							pageMethods,
-							pageTitles,
-							categories,
-						},
-						targetPage
-					)
-				);
-				// numPages is momentarily stale (the new blob hasn't reloaded yet), so
-				// clamp against the post-delete count computed locally.
-				const newCount = numPages - 1;
-				setPage((current) => {
-					if (current > targetPage) {
-						return current - 1;
-					}
-					return Math.min(current, newCount);
-				});
-				await onUploadStructural?.(newBytes);
-				toastManager.update(toastId, {
-					title: 'Page deleted',
-					type: 'success',
-				});
-			} catch {
-				toastManager.update(toastId, {
-					title: 'Could not delete page',
-					description: 'Please try again.',
-					type: 'error',
-				});
-			} finally {
-				opBusyRef.current = false;
-			}
-		},
-		[
-			numPages,
-			measurements,
-			measurementPages,
-			texts,
-			legends,
-			pageMethods,
-			pageTitles,
-			categories,
-			currentWorkingBytes,
-			swapWorkingPdf,
-			applyPageIndexedState,
-			resetForPageEdit,
-			onUploadStructural,
-		]
-	);
-
-	// Add a page to the measurements panel with no measurements yet, then navigate
-	// to it so the user can start drawing. The page shows a warning until it has a
-	// measurement. No-op if it is already part of the panel.
-	const handleAddToMeasurements = useCallback(
-		(targetPage: number) => {
-			setMeasurementPages((prev) =>
-				prev.includes(targetPage)
-					? prev
-					: [...prev, targetPage].sort((a, b) => a - b)
-			);
-			goToPage(targetPage);
-		},
-		[goToPage]
-	);
-
-	// Remove a page from the measurements panel entirely: drop its membership and
-	// every measurement on it. The PDF page itself is untouched. Page-keyed
-	// titles/methods/legends are left in place (reused if the page is re-added).
-	const handleDeletePageFromMeasurements = useCallback(
-		(targetPage: number) => {
-			setMeasurementPages((prev) => prev.filter((p) => p !== targetPage));
-			setMeasurements((prev) => prev.filter((m) => m.page !== targetPage));
-			setCategories((prev) => withoutPageInHierarchy(prev, targetPage));
-			resetDraft();
-			setSelectedId(null);
-			setAddMode(false);
-			setSubtractMode(false);
-			addTargetRef.current = null;
-			currentGroupId.current = null;
-		},
-		[resetDraft]
-	);
-
-	// --- Category → Group → Page hierarchy handlers ---
-
-	// Move a page into a container (or back to root). Always removes it from every
-	// other category/group first so the membership arrays stay disjoint.
-	const movePage = useCallback((targetPage: number, target: MoveTarget) => {
-		setCategories((prev) => {
-			const cleared = withoutPageInHierarchy(prev, targetPage);
-			if (target.kind === 'root') {
-				return cleared;
-			}
-			if (target.kind === 'category') {
-				return cleared.map((category) =>
-					category.id === target.categoryId
-						? { ...category, pages: [...category.pages, targetPage] }
-						: category
-				);
-			}
-			return cleared.map((category) => ({
-				...category,
-				groups: category.groups.map((group) =>
-					group.id === target.groupId
-						? { ...group, pages: [...group.pages, targetPage] }
-						: group
-				),
-			}));
-		});
-	}, []);
+	// --- Category → Group hierarchy handlers ---
 
 	const addCategory = useCallback(() => {
 		const id = crypto.randomUUID();
 		setCategories((prev) => [
 			...prev,
-			{
-				id,
-				name: `Category ${prev.length + 1}`,
-				groups: [],
-				pages: [],
-			},
+			{ id, name: `Category ${prev.length + 1}` },
 		]);
 		return id;
 	}, []);
@@ -1135,94 +800,91 @@ export default function TakeoffsContent({
 		);
 	}, []);
 
-	// Delete a category container only. Its direct pages and its groups' pages
-	// fall back to root automatically (membership is derived); measurements stay.
-	const deleteCategory = useCallback((categoryId: string) => {
-		setCategories((prev) =>
-			prev.filter((category) => category.id !== categoryId)
-		);
-	}, []);
+	// Delete a category, its groups, and every measurement (and legend) in them.
+	const deleteCategory = useCallback(
+		(categoryId: string) => {
+			const removedGroupIds = new Set(
+				groups.filter((g) => g.categoryId === categoryId).map((g) => g.id)
+			);
+			setGroups((prev) => prev.filter((g) => g.categoryId !== categoryId));
+			setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+			if (removedGroupIds.size > 0) {
+				setMeasurements((prev) =>
+					prev.filter((m) => !(m.groupId && removedGroupIds.has(m.groupId)))
+				);
+				setLegends((prev) =>
+					prev.filter((l) => !removedGroupIds.has(l.groupId))
+				);
+				setSelectedGroupId((cur) =>
+					cur && removedGroupIds.has(cur) ? null : cur
+				);
+			}
+		},
+		[groups]
+	);
 
-	const addGroup = useCallback((categoryId: string) => {
+	// Create a group (root-level when no categoryId) and auto-select it so drawing
+	// files into it immediately.
+	const addGroup = useCallback((categoryId?: string) => {
 		const id = crypto.randomUUID();
-		setCategories((prev) =>
-			prev.map((category) =>
-				category.id === categoryId
-					? {
-							...category,
-							groups: [
-								...category.groups,
-								{
-									id,
-									name: `Group ${category.groups.length + 1}`,
-									pages: [],
-								},
-							],
-						}
-					: category
-			)
-		);
+		setGroups((prev) => {
+			const siblingCount = prev.filter(
+				(g) => g.categoryId === categoryId
+			).length;
+			return [
+				...prev,
+				{
+					id,
+					name: `Group ${siblingCount + 1}`,
+					categoryId,
+					color: randomShapeColor(),
+				},
+			];
+		});
+		setSelectedGroupId(id);
 		return id;
 	}, []);
 
-	const renamePageGroup = useCallback((groupId: string, name: string) => {
-		setCategories((prev) =>
-			prev.map((category) => ({
-				...category,
-				groups: category.groups.map((group) =>
-					group.id === groupId ? { ...group, name } : group
-				),
-			}))
+	const renameGroup = useCallback((groupId: string, name: string) => {
+		setGroups((prev) =>
+			prev.map((g) => (g.id === groupId ? { ...g, name } : g))
 		);
 	}, []);
 
-	// Delete a group, moving its pages up to the parent category (so they aren't
-	// lost from the panel). Measurements are untouched.
-	const deletePageGroup = useCallback((groupId: string) => {
-		setCategories((prev) =>
-			prev.map((category) => {
-				const target = category.groups.find((group) => group.id === groupId);
-				if (!target) {
-					return category;
-				}
-				return {
-					...category,
-					pages: [...category.pages, ...target.pages],
-					groups: category.groups.filter((group) => group.id !== groupId),
-				};
-			})
-		);
+	// Move a group into a category (or back to root when categoryId is undefined).
+	const moveGroup = useCallback(
+		(groupId: string, categoryId: string | undefined) => {
+			setGroups((prev) =>
+				prev.map((g) => (g.id === groupId ? { ...g, categoryId } : g))
+			);
+		},
+		[]
+	);
+
+	// Delete a group and every measurement (and legend) filed into it.
+	const deleteGroup = useCallback((groupId: string) => {
+		setGroups((prev) => prev.filter((g) => g.id !== groupId));
+		setMeasurements((prev) => prev.filter((m) => m.groupId !== groupId));
+		setLegends((prev) => prev.filter((l) => l.groupId !== groupId));
+		setSelectedId(null);
+		setSelectedMarkerIndex(null);
+		setSelectedGroupId((cur) => (cur === groupId ? null : cur));
 	}, []);
 
-	// Request adding a page from the thumbnails panel. With no categories the page
-	// goes straight to root (legacy behaviour); otherwise a destination dialog asks
-	// where to place it.
-	const requestAddToMeasurements = useCallback(
-		(targetPage: number) => {
-			if (categories.length === 0) {
-				handleAddToMeasurements(targetPage);
-				return;
-			}
-			setPendingAddPage(targetPage);
-		},
-		[categories.length, handleAddToMeasurements]
-	);
+	// Select a group as the drawing target (panel handles the exclusive open).
+	const selectGroup = useCallback((groupId: string) => {
+		setSelectedGroupId(groupId);
+	}, []);
 
-	// Commit the pending add-page choice from the destination dialog: add the page
-	// to the panel, navigate to it, and place it in the chosen container.
-	const confirmAddToMeasurements = useCallback(
-		(target: MoveTarget) => {
-			if (pendingAddPage === null) {
-				return;
-			}
-			handleAddToMeasurements(pendingAddPage);
-			if (target.kind !== 'root') {
-				movePage(pendingAddPage, target);
-			}
-			setPendingAddPage(null);
-		},
-		[pendingAddPage, handleAddToMeasurements, movePage]
-	);
+	// End the current group session (the panel's Save button): return to Pan and
+	// clear the selection. Autosave has already persisted the measurements.
+	const saveGroupSession = useCallback(() => {
+		setTool('pan');
+		setSubtractMode(false);
+		setSelectedGroupId(null);
+		resetDraft();
+		setSelectedId(null);
+	}, [resetDraft]);
 
 	// Replace a committed shape's points and recompute its value/perimeter live.
 	const updateMeasurementPoints = useCallback(
@@ -1367,67 +1029,40 @@ export default function TakeoffsContent({
 			if (!metersPerPixel) {
 				return;
 			}
-			// In Add mode, the shape joins the locked target's group. Resolve/create
-			// the group id here (not inside the state updater) so the ref/UUID side
-			// effects stay out of the pure updater. Count targets append markers via
-			// handleStageClick and never reach commit. A family mismatch (guarded
-			// against by tool gating) is ignored so a group can't be corrupted.
-			const targetId = addTargetRef.current;
-			// Hoisted out of the updater so it can be recorded as the implicit
-			// Add/Subtract anchor (see setLastDrawnId below) once the shape commits.
-			const newId = crypto.randomUUID();
-			let groupId: string | undefined;
-			if (addMode && targetId) {
-				const target = measurements.find((m) => m.id === targetId);
-				if (
-					target &&
-					target.type !== 'count' &&
-					AREA_TYPE_SET.has(target.type) === AREA_TYPE_SET.has(type)
-				) {
-					const gid =
-						currentGroupId.current ?? target.groupId ?? crypto.randomUUID();
-					currentGroupId.current = gid;
-					groupId = gid;
-				}
+			// A normal shape files into the selected group; a subtract-mode area shape
+			// reuses its parent's group. Without either, there is nowhere to file it.
+			if (!(selectedGroupId || subtractMode)) {
+				return;
 			}
+			// A committed shape is undone as a whole (not peeled point-by-point).
+			pushUndo();
+			const newId = crypto.randomUUID();
 			setMeasurements((prev) => {
-				// In subtract mode, clip the new area shape to the parent it overlaps
-				// and store it as that parent's deduction; if none overlaps, it commits
-				// as a normal area shape. Add and Subtract are mutually exclusive.
+				// In deduct mode, clip the new area shape to the existing shape it was
+				// drawn inside and store it as that parent's deduction.
 				let finalType = type;
 				let finalPoints = points;
 				let parentId: string | undefined;
-				if (!addMode && subtractMode && AREA_TYPE_SET.has(type)) {
-					// When subtracting from a group, any of its area members is an
-					// eligible parent (so the deduction attaches to whichever it's drawn
-					// over); for a lone target, only that shape is eligible.
-					const target = targetId
-						? prev.find((m) => m.id === targetId)
-						: undefined;
-					let allowedParentIds: string[] | undefined;
-					if (target) {
-						allowedParentIds = target.groupId
-							? prev
-									.filter(
-										(m) =>
-											m.groupId === target.groupId &&
-											!m.parentId &&
-											AREA_TYPE_SET.has(m.type)
-									)
-									.map((m) => m.id)
-							: [target.id];
+				if (subtractMode && AREA_TYPE_SET.has(type)) {
+					// Auto-detect the parent as the existing area shape the deduction is
+					// drawn inside (largest overlap, topmost) and clip it to that
+					// parent's boundary. A deduction that lands on no shape is discarded.
+					const clipped = clipToParent({ type, points }, prev, page);
+					if (!clipped) {
+						return prev;
 					}
-					const clipped = clipToParent(
-						{ type, points },
-						prev,
-						page,
-						allowedParentIds
-					);
-					if (clipped) {
-						parentId = clipped.parentId;
-						finalType = clipped.type;
-						finalPoints = clipped.points;
-					}
+					parentId = clipped.parentId;
+					finalType = clipped.type;
+					finalPoints = clipped.points;
+				}
+				// A deduction inherits its parent's group; a normal shape uses the
+				// selected group. If neither resolves (a subtract miss with no group),
+				// discard the draw so no orphan measurement is created.
+				const groupId = parentId
+					? prev.find((m) => m.id === parentId)?.groupId
+					: (selectedGroupId ?? undefined);
+				if (!(parentId || groupId)) {
+					return prev;
 				}
 				// Auto-name area shapes from the PDF text inside them; fall back to the
 				// generic numbered label when no text is detected.
@@ -1442,29 +1077,19 @@ export default function TakeoffsContent({
 							prev.filter((m) => m.type === finalType && !m.parentId).length + 1
 						}`;
 				const label = detectedText ?? fallbackLabel;
-				// Deductions render red; every other shape gets a colour. Group members
-				// reuse the group's existing colour (or the anchor's, the first time a
-				// lone shape becomes a group) so the whole group stays uniform.
+				// Deductions render red (no colour); other shapes take their group's
+				// colour so the group reads uniformly, falling back to an existing
+				// member's colour (legacy groups) or a new random colour.
 				let color: string | undefined;
 				if (!parentId) {
-					color = groupId
-						? (prev.find((m) => m.groupId === groupId)?.color ??
-							(targetId
-								? prev.find((m) => m.id === targetId)?.color
-								: undefined) ??
-							randomShapeColor())
-						: randomShapeColor();
+					color =
+						(groupId && groups.find((g) => g.id === groupId)?.color) ||
+						(groupId &&
+							prev.find((m) => m.groupId === groupId && !m.parentId)?.color) ||
+						randomShapeColor();
 				}
-				// When this is the first shape added to a lone target, tag the anchor
-				// with the new group id so the two read as one group.
-				const tagged =
-					groupId && targetId
-						? prev.map((m) =>
-								m.id === targetId && !m.groupId ? { ...m, groupId } : m
-							)
-						: prev;
 				return [
-					...tagged,
+					...prev,
 					{
 						id: newId,
 						page,
@@ -1479,11 +1104,8 @@ export default function TakeoffsContent({
 					},
 				];
 			});
-			// Lock the implicit anchor to the shape just drawn so Add/Subtract can
-			// group/deduct the next one without leaving the drawing tool.
-			setLastDrawnId(newId);
 		},
-		[page, metersPerPixel, subtractMode, addMode, measurements]
+		[page, metersPerPixel, subtractMode, selectedGroupId, groups, pushUndo]
 	);
 
 	const finishDraft = useCallback(() => {
@@ -1565,6 +1187,7 @@ export default function TakeoffsContent({
 				return;
 			}
 			if (tool === 'count') {
+				pushUndo();
 				setMeasurements((prev) => {
 					const active = activeCountIdRef.current
 						? prev.find(
@@ -1587,6 +1210,15 @@ export default function TakeoffsContent({
 					const countOnPage = prev.filter(
 						(m) => m.type === 'count' && m.page === page
 					).length;
+					// Take the selected group's colour so the group reads uniformly,
+					// falling back to an existing member's colour or a new random colour.
+					const countColor =
+						(selectedGroupId &&
+							groups.find((g) => g.id === selectedGroupId)?.color) ||
+						(selectedGroupId &&
+							prev.find((m) => m.groupId === selectedGroupId && !m.parentId)
+								?.color) ||
+						randomShapeColor();
 					return [
 						...prev,
 						{
@@ -1595,8 +1227,9 @@ export default function TakeoffsContent({
 							type: 'count',
 							points: [point],
 							count: 1,
-							color: randomShapeColor(),
+							color: countColor,
 							label: countOnPage === 0 ? 'Count' : `Count ${countOnPage + 1}`,
+							groupId: selectedGroupId ?? undefined,
 						},
 					];
 				});
@@ -1620,7 +1253,38 @@ export default function TakeoffsContent({
 				writeDraft([...draftRef.current, point]);
 			}
 		},
-		[tool, page, calibTargetScope, writeDraft, computeSnap, selectTool]
+		[
+			tool,
+			page,
+			selectedGroupId,
+			groups,
+			calibTargetScope,
+			writeDraft,
+			computeSnap,
+			selectTool,
+			pushUndo,
+		]
+	);
+
+	// Resolve a shape id to its group id, following deductions (which carry a
+	// `parentId` instead of their own `groupId`) up to their parent's group.
+	const resolveShapeGroupId = useCallback(
+		(id: string): string | null => {
+			const target = measurements.find((m) => m.id === id);
+			if (!target) {
+				return null;
+			}
+			if (target.groupId) {
+				return target.groupId;
+			}
+			if (target.parentId) {
+				return (
+					measurements.find((m) => m.id === target.parentId)?.groupId ?? null
+				);
+			}
+			return null;
+		},
+		[measurements]
 	);
 
 	// A pointer drag has begun (rectangle/circle draw, or move/resize of a
@@ -1633,6 +1297,9 @@ export default function TakeoffsContent({
 				writeDraft([drag.start]);
 			} else {
 				setSelectedId(drag.id);
+				// Also select the shape's group so the panel highlights it and shows
+				// the Save button (mirrors the panel-row path in focusMeasurement).
+				setSelectedGroupId(resolveShapeGroupId(drag.id));
 				// Track which marker was grabbed (for highlight/delete); clear the
 				// sub-selection when grabbing a non-count shape.
 				setSelectedMarkerIndex(drag.mode === 'marker' ? drag.index : null);
@@ -1642,7 +1309,7 @@ export default function TakeoffsContent({
 				setCanvasSelectNonce((n) => n + 1);
 			}
 		},
-		[writeDraft]
+		[writeDraft, resolveShapeGroupId]
 	);
 
 	// Pointer moved. Apply the active drag live, or update the draft cursor for
@@ -1767,56 +1434,15 @@ export default function TakeoffsContent({
 	);
 
 	const deleteMeasurement = useCallback((id: string) => {
-		// Deleting a parent also removes its deductions, but deleting a member of an
-		// Add group removes only that member (the rest of the group stays intact).
+		// Deleting a parent also removes its deductions.
 		setMeasurements((prev) =>
 			prev.filter((m) => m.id !== id && m.parentId !== id)
 		);
 		setSelectedId((current) => (current === id ? null : current));
 		setSelectedMarkerIndex(null);
-		// If the deleted shape was the Add/Subtract target, end the session.
-		if (addTargetRef.current === id) {
-			setAddMode(false);
-			setSubtractMode(false);
-			addTargetRef.current = null;
-			currentGroupId.current = null;
-		}
+		// A subtract session is keyed on the selection, so end it on any delete.
+		setSubtractMode(false);
 	}, []);
-
-	// Delete every member of an Add group at once (and their deductions). Used by
-	// the measurements panel's "Delete group" action; the canvas Delete key still
-	// removes only the selected member via deleteMeasurement.
-	const deleteGroup = useCallback(
-		(groupId: string) => {
-			const removedIds = new Set(
-				measurements.filter((m) => m.groupId === groupId).map((m) => m.id)
-			);
-			if (removedIds.size === 0) {
-				return;
-			}
-			setMeasurements((prev) =>
-				prev.filter(
-					(m) =>
-						!(
-							removedIds.has(m.id) ||
-							(m.parentId && removedIds.has(m.parentId))
-						)
-				)
-			);
-			setSelectedId((current) =>
-				current && removedIds.has(current) ? null : current
-			);
-			setSelectedMarkerIndex(null);
-			// If the Add/Subtract target belonged to this group, end the session.
-			if (addTargetRef.current && removedIds.has(addTargetRef.current)) {
-				setAddMode(false);
-				setSubtractMode(false);
-				addTargetRef.current = null;
-				currentGroupId.current = null;
-			}
-		},
-		[measurements]
-	);
 
 	// Remove a single marker from a count. Dropping the last marker removes the
 	// whole count measurement and clears its selection.
@@ -1845,16 +1471,10 @@ export default function TakeoffsContent({
 	}, []);
 
 	// Pages that currently hold at least one measurement (for the thumbnail "M"
-	// indicator and the per-page accordion in the measurements panel).
+	// indicator).
 	const pagesWithMeasurements = useMemo(
 		() => new Set(measurements.map((m) => m.page)),
 		[measurements]
-	);
-	// Pages already in the measurements panel (with or without measurements) —
-	// drives the disabled state of the thumbnail "Add to Measurements" action.
-	const pagesInMeasurements = useMemo(
-		() => new Set(measurementPages),
-		[measurementPages]
 	);
 	// Page numbers shown in the thumbnails panel: every page when "Show All Pages"
 	// is on, otherwise only pages that hold at least one measurement.
@@ -1890,14 +1510,12 @@ export default function TakeoffsContent({
 			}
 			setTool('pan');
 			setSubtractMode(false);
-			setAddMode(false);
-			addTargetRef.current = null;
-			currentGroupId.current = null;
 			setPage(Math.min(Math.max(target.page, 1), numPages || 1));
 			resetDraft();
 			setSelectedId(id);
+			setSelectedGroupId(resolveShapeGroupId(id));
 		},
-		[measurements, numPages, resetDraft]
+		[measurements, numPages, resetDraft, resolveShapeGroupId]
 	);
 
 	const renameMeasurement = useCallback((id: string, label: string) => {
@@ -1917,204 +1535,234 @@ export default function TakeoffsContent({
 		[]
 	);
 
-	const renameGroup = useCallback((groupId: string, label: string) => {
-		setMeasurements((prev) =>
-			prev.map((m) => (m.groupId === groupId ? { ...m, groupLabel: label } : m))
-		);
-	}, []);
-
 	const renamePage = useCallback((targetPage: number, title: string) => {
 		setPageTitles((prev) => ({ ...prev, [targetPage]: title }));
 	}, []);
 
-	// Recolour a shape; if it belongs to an Add group, recolour the whole group.
-	const recolorMeasurement = useCallback((id: string, color: string) => {
-		setMeasurements((prev) => {
-			const gid = prev.find((m) => m.id === id)?.groupId;
-			return prev.map((m) => {
-				if (gid ? m.groupId === gid : m.id === id) {
-					return { ...m, color };
-				}
-				return m;
-			});
-		});
+	// Recolour a group: update the group's colour and repaint every shape in it
+	// (deductions stay red, so they are left untouched).
+	const recolorGroup = useCallback((groupId: string, color: string) => {
+		setGroups((prev) =>
+			prev.map((g) => (g.id === groupId ? { ...g, color } : g))
+		);
+		setMeasurements((prev) =>
+			prev.map((m) =>
+				m.groupId === groupId && !m.parentId ? { ...m, color } : m
+			)
+		);
 	}, []);
 
 	// Override a measurement's wastage %, or clear it (null) to follow the global
-	// default. If the shape belongs to an Add group, apply to the whole group.
+	// default.
 	const setMeasurementWastage = useCallback(
 		(id: string, percent: number | null) => {
-			setMeasurements((prev) => {
-				const gid = prev.find((m) => m.id === id)?.groupId;
-				return prev.map((m) => {
-					if (gid ? m.groupId === gid : m.id === id) {
-						if (percent === null) {
-							const { wastagePercent: _removed, ...rest } = m;
-							return rest;
-						}
-						return { ...m, wastagePercent: percent };
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					if (m.id !== id) {
+						return m;
 					}
-					return m;
-				});
-			});
+					if (percent === null) {
+						const { wastagePercent: _removed, ...rest } = m;
+						return rest;
+					}
+					return { ...m, wastagePercent: percent };
+				})
+			);
 		},
 		[]
 	);
 
-	// Set a linear measurement's wall height (metres), or clear it (null). If the
-	// shape belongs to an Add group, apply to the whole group.
+	// Set a linear measurement's wall height (metres), or clear it (null).
 	const setMeasurementHeight = useCallback(
 		(id: string, heightMeters: number | null) => {
-			setMeasurements((prev) => {
-				const gid = prev.find((m) => m.id === id)?.groupId;
-				return prev.map((m) => {
-					if (gid ? m.groupId === gid : m.id === id) {
-						if (heightMeters === null) {
-							const { heightMeters: _removed, ...rest } = m;
-							return rest;
-						}
-						return { ...m, heightMeters };
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					if (m.id !== id) {
+						return m;
 					}
-					return m;
-				});
-			});
+					if (heightMeters === null) {
+						const { heightMeters: _removed, ...rest } = m;
+						return rest;
+					}
+					return { ...m, heightMeters };
+				})
+			);
 		},
 		[]
 	);
 
-	// Set or clear a manual +/− area adjustment (m²) on a measurement. If the
-	// shape belongs to an Add group, apply to the whole group (like height).
+	// Set or clear a manual +/− area adjustment (m²) on a measurement.
 	const setMeasurementAreaAdjust = useCallback(
 		(
 			id: string,
 			field: 'areaAddSqm' | 'areaSubtractSqm',
 			value: number | null
 		) => {
-			setMeasurements((prev) => {
-				const gid = prev.find((m) => m.id === id)?.groupId;
-				return prev.map((m) => {
-					if (gid ? m.groupId === gid : m.id === id) {
-						const next = { ...m, [field]: value };
-						if (value === null) {
-							delete next[field];
-						}
-						return next;
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					if (m.id !== id) {
+						return m;
 					}
-					return m;
-				});
-			});
+					const next = { ...m, [field]: value };
+					if (value === null) {
+						delete next[field];
+					}
+					return next;
+				})
+			);
 		},
 		[]
 	);
 
-	// Toggle a shape's canvas visibility (panel still lists it). If the shape
-	// belongs to an Add group, toggle the whole group; a parent also toggles its
-	// deductions so they stay in sync.
+	// Toggle a shape's canvas visibility (panel still lists it). A parent also
+	// toggles its deductions so they stay in sync.
 	const toggleMeasurementHidden = useCallback((id: string) => {
 		setMeasurements((prev) => {
 			const target = prev.find((m) => m.id === id);
 			if (!target) {
 				return prev;
 			}
-			const gid = target.groupId;
 			const next = !target.hidden;
-			return prev.map((m) => {
-				const inScope = gid
-					? m.groupId === gid
-					: m.id === id || m.parentId === id;
-				return inScope ? { ...m, hidden: next } : m;
-			});
-		});
-	}, []);
-
-	// Toggle canvas visibility for every shape on a page. If all are already
-	// hidden, show them all; otherwise hide them all.
-	const togglePageHidden = useCallback((targetPage: number) => {
-		setMeasurements((prev) => {
-			const onPage = prev.filter((m) => m.page === targetPage);
-			const allHidden = onPage.length > 0 && onPage.every((m) => m.hidden);
 			return prev.map((m) =>
-				m.page === targetPage ? { ...m, hidden: !allHidden } : m
+				m.id === id || m.parentId === id ? { ...m, hidden: next } : m
 			);
 		});
 	}, []);
 
-	// Add a legend to a page (no-op if it already has one), sized relative to that
-	// page's geometry. The geometry fetch is async, so this resolves it then writes
-	// the legend; on failure it falls back to fixed base-pixel defaults.
+	// Toggle canvas visibility for every measurement in a group. If all are
+	// already hidden, show them all; otherwise hide them all.
+	const toggleGroupHidden = useCallback((groupId: string) => {
+		setMeasurements((prev) => {
+			const inGroup = prev.filter((m) => m.groupId === groupId && !m.parentId);
+			const allHidden = inGroup.length > 0 && inGroup.every((m) => m.hidden);
+			return prev.map((m) =>
+				m.groupId === groupId ? { ...m, hidden: !allHidden } : m
+			);
+		});
+	}, []);
+
+	// Toggle canvas visibility for every measurement in a category's groups. If
+	// all are already hidden, show them all; otherwise hide them all.
+	const toggleCategoryHidden = useCallback(
+		(categoryId: string) => {
+			const categoryGroupIds = new Set(
+				groups.filter((g) => g.categoryId === categoryId).map((g) => g.id)
+			);
+			setMeasurements((prev) => {
+				const inCategory = prev.filter(
+					(m) => m.groupId && categoryGroupIds.has(m.groupId) && !m.parentId
+				);
+				const allHidden =
+					inCategory.length > 0 && inCategory.every((m) => m.hidden);
+				return prev.map((m) =>
+					m.groupId && categoryGroupIds.has(m.groupId)
+						? { ...m, hidden: !allHidden }
+						: m
+				);
+			});
+		},
+		[groups]
+	);
+
+	// Toggle canvas visibility for every measurement. If all are already hidden,
+	// show them all; otherwise hide them all.
+	const toggleAllHidden = useCallback(() => {
+		setMeasurements((prev) => {
+			const tops = prev.filter((m) => !m.parentId);
+			const allHidden = tops.length > 0 && tops.every((m) => m.hidden);
+			return prev.map((m) => ({ ...m, hidden: !allHidden }));
+		});
+	}, []);
+
+	// Add a legend for a group on every page the group covers (skipping pages that
+	// already have this group's legend), each sized relative to that page's
+	// geometry. The geometry fetch is async; failures fall back to fixed defaults.
 	const addLegend = useCallback(
-		(targetPage: number, display: LegendDisplay) => {
-			if (legends[targetPage]) {
-				return;
-			}
+		(groupId: string, display: LegendDisplay) => {
 			const flags = {
 				showColor: display.color,
 				showName: display.name,
 				showDescription: display.description,
 				showMeasurement: display.measurement,
 			};
-			const write = (legend: Legend) =>
-				setLegends((prev) =>
-					prev[targetPage] ? prev : { ...prev, [targetPage]: legend }
-				);
-			getPageGeometry(targetPage)
-				.then((geom) => {
-					write(
-						geom
-							? {
-									page: targetPage,
-									x: Math.round(geom.baseWidth * LEGEND_INSET_RATIO),
-									y: Math.round(geom.baseHeight * LEGEND_INSET_RATIO),
-									width: Math.round(geom.baseWidth * LEGEND_WIDTH_RATIO),
-									...flags,
-								}
-							: {
-									page: targetPage,
-									x: LEGEND_FALLBACK_INSET,
-									y: LEGEND_FALLBACK_INSET,
-									width: LEGEND_FALLBACK_WIDTH,
-									...flags,
-								}
+			const pages = [
+				...new Set(
+					measurements
+						.filter((m) => m.groupId === groupId && !m.parentId)
+						.map((m) => m.page)
+				),
+			];
+			for (const targetPage of pages) {
+				const legendId = crypto.randomUUID();
+				const write = (legend: Legend) =>
+					setLegends((prev) =>
+						prev.some((l) => l.groupId === groupId && l.page === targetPage)
+							? prev
+							: [...prev, legend]
 					);
-				})
-				.catch(() => {
-					write({
-						page: targetPage,
-						x: LEGEND_FALLBACK_INSET,
-						y: LEGEND_FALLBACK_INSET,
-						width: LEGEND_FALLBACK_WIDTH,
-						...flags,
+				getPageGeometry(targetPage)
+					.then((geom) => {
+						write(
+							geom
+								? {
+										id: legendId,
+										groupId,
+										page: targetPage,
+										x: Math.round(geom.baseWidth * LEGEND_INSET_RATIO),
+										y: Math.round(geom.baseHeight * LEGEND_INSET_RATIO),
+										width: Math.round(geom.baseWidth * LEGEND_WIDTH_RATIO),
+										...flags,
+									}
+								: {
+										id: legendId,
+										groupId,
+										page: targetPage,
+										x: LEGEND_FALLBACK_INSET,
+										y: LEGEND_FALLBACK_INSET,
+										width: LEGEND_FALLBACK_WIDTH,
+										...flags,
+									}
+						);
+					})
+					.catch(() => {
+						write({
+							id: legendId,
+							groupId,
+							page: targetPage,
+							x: LEGEND_FALLBACK_INSET,
+							y: LEGEND_FALLBACK_INSET,
+							width: LEGEND_FALLBACK_WIDTH,
+							...flags,
+						});
 					});
-				});
+			}
 		},
-		[legends, getPageGeometry]
+		[measurements, getPageGeometry]
 	);
 
-	const removeLegend = useCallback((targetPage: number) => {
-		setLegends((prev) => {
-			const next = { ...prev };
-			delete next[targetPage];
-			return next;
-		});
+	// Remove every legend belonging to a group (from the group action menu).
+	const removeGroupLegend = useCallback((groupId: string) => {
+		setLegends((prev) => prev.filter((l) => l.groupId !== groupId));
 	}, []);
 
-	// Patch the current page's legend position/size (from drag-move / resize).
+	// Patch a legend's position/size by id (from drag-move / resize on canvas).
 	const updateLegend = useCallback(
-		(next: { width: number; x: number; y: number }) => {
-			setLegends((prev) => {
-				const current = prev[page];
-				if (!current) {
-					return prev;
-				}
-				return { ...prev, [page]: { ...current, ...next } };
-			});
+		(id: string, next: { width: number; x: number; y: number }) => {
+			setLegends((prev) =>
+				prev.map((l) => (l.id === id ? { ...l, ...next } : l))
+			);
 		},
-		[page]
+		[]
 	);
 
-	// Pages that currently have a legend, for the per-page actions menu.
-	const legendPages = useMemo(
-		() => new Set(Object.keys(legends).map(Number)),
+	// Remove a single legend by id (the X on the canvas legend box).
+	const removeLegend = useCallback((id: string) => {
+		setLegends((prev) => prev.filter((l) => l.id !== id));
+	}, []);
+
+	// Ids of groups that currently have a legend, for the group action menus.
+	const legendGroupIds = useMemo(
+		() => new Set(legends.map((l) => l.groupId)),
 		[legends]
 	);
 
@@ -2205,6 +1853,15 @@ export default function TakeoffsContent({
 			) {
 				return;
 			}
+			if (
+				(event.metaKey || event.ctrlKey) &&
+				(event.key === 'z' || event.key === 'Z') &&
+				!event.shiftKey
+			) {
+				event.preventDefault();
+				undo();
+				return;
+			}
 			const editingSelection =
 				tool === 'pan' && selectedId !== null && draftRef.current.length === 0;
 			if (event.key === 'Enter') {
@@ -2240,15 +1897,8 @@ export default function TakeoffsContent({
 		deleteMeasurement,
 		deleteMarker,
 		clearSelection,
+		undo,
 	]);
-
-	// Keep the refs the space-pan listener reads in sync with the live state.
-	useEffect(() => {
-		selectedIdRef.current = selectedId;
-	}, [selectedId]);
-	useEffect(() => {
-		lastDrawnIdRef.current = lastDrawnId;
-	}, [lastDrawnId]);
 
 	// Hold space to temporarily pan, release to return to the active tool.
 	useEffect(() => {
@@ -2269,13 +1919,11 @@ export default function TakeoffsContent({
 			}
 			// Stop the page from scrolling while space pans the canvas.
 			event.preventDefault();
+			// Drop focus off any focused control (e.g. the active tool button):
+			// native buttons fire their click on Space keyup, which would re-run
+			// selectTool → resetDraft and close the open count set mid-panning.
+			(document.activeElement as HTMLElement | null)?.blur();
 			setSpacePanActive(true);
-			// Surface the implicit anchor as a real selection so the just-drawn shape
-			// stays highlighted and Add/Subtract stay enabled through and after the
-			// pan. Only when nothing is already selected, so an explicit pick wins.
-			if (!selectedIdRef.current && lastDrawnIdRef.current) {
-				setSelectedId(lastDrawnIdRef.current);
-			}
 		};
 		const handleKeyUp = (event: KeyboardEvent) => {
 			if (event.code === 'Space') {
@@ -2299,80 +1947,23 @@ export default function TakeoffsContent({
 		(tool === 'linear' && draft.length >= 2) ||
 		(tool === 'polygon' && draft.length >= 3);
 
-	// The currently selected measurement, if any.
-	const selectedMeasurement = selectedId
-		? measurements.find((m) => m.id === selectedId)
-		: undefined;
-	// The anchor that enables Add/Subtract: an explicit selection wins, otherwise
-	// fall back to the shape just drawn so the next shape can group/deduct without
-	// a trip back to Pan to reselect.
-	const anchorMeasurement =
-		selectedMeasurement ??
-		(lastDrawnId ? measurements.find((m) => m.id === lastDrawnId) : undefined);
-	// Add works on any anchor measurement; Subtract only on an area shape.
-	const canAddToSelection = anchorMeasurement != null;
-	const canSubtractFromSelection =
-		anchorMeasurement != null && AREA_TYPE_SET.has(anchorMeasurement.type);
-	// Switches stay enabled while their mode is on (so you can turn it off) and
-	// otherwise require a compatible selection.
-	const addDisabled = !(isCalibrated && (addMode || canAddToSelection));
-	const subtractDisabled = !(
-		isCalibrated &&
-		(subtractMode || canSubtractFromSelection)
-	);
+	// Deduct is available while an area tool is active (so you can draw a deduction
+	// inside an existing shape). The switch stays enabled while its mode is on so
+	// you can turn it off again.
+	const isAreaTool = AREA_TYPE_SET.has(tool as MeasurementType);
+	const subtractDisabled = !(isCalibrated && (subtractMode || isAreaTool));
+	// Drawing tools are disabled until a group is selected (every measurement is
+	// filed into a group). Subtract editing of an existing shape is exempt.
+	const drawingDisabled = selectedGroupId === null && !subtractMode;
 
-	// The page-group the current page belongs to, and that group's shape family
-	// derived from the measurements across all its pages (null when the page is
-	// loose or its group is still empty). A typed group restricts drawing on its
-	// pages to that one family, so the group stays homogeneous.
-	const activeGroup = useMemo(() => {
-		for (const category of categories) {
-			const group = category.groups.find((g) => g.pages.includes(page));
-			if (group) {
-				return group;
-			}
-		}
-		return null;
-	}, [categories, page]);
-	const activeGroupFamily = useMemo(
-		() => (activeGroup ? groupFamily(activeGroup.pages, measurements) : null),
-		[activeGroup, measurements]
-	);
-
-	// While locked to an Add/Subtract target, only same-family drawing tools stay
-	// usable. The target's family drives which tool buttons are disabled; otherwise
-	// a typed page-group constrains the page to its family.
-	const lockedTarget =
-		(addMode || subtractMode) && addTargetRef.current
-			? measurements.find((m) => m.id === addTargetRef.current)
-			: undefined;
-	const lockedFamily = lockedTarget
-		? measurementFamily(lockedTarget.type)
-		: activeGroupFamily;
-
-	// Halo every shape that belongs to the selected group/parent or the locked
-	// Add/Subtract target so the relationship reads on the canvas.
+	// Halo every shape related to the selected one (its group members and any
+	// deductions) so the relationship reads on the canvas.
 	const highlightIds = (() => {
-		const ids = new Set<string>();
-		// Selecting a member halos the whole group/parent — but a lone shape keeps
-		// just its edit handles (no halo) to avoid noise on ordinary selection.
-		if (selectedId) {
-			const related = relatedIds(measurements, selectedId);
-			if (related.size > 1) {
-				for (const x of related) {
-					ids.add(x);
-				}
-			}
+		if (!selectedId) {
+			return EMPTY_IDS;
 		}
-		// The Add/Subtract target always halos (even when lone) so you can see what
-		// you're drawing into.
-		const targetId = addMode || subtractMode ? addTargetRef.current : null;
-		if (targetId) {
-			for (const x of relatedIds(measurements, targetId)) {
-				ids.add(x);
-			}
-		}
-		return ids.size > 0 ? ids : EMPTY_IDS;
+		const related = relatedIds(measurements, selectedId);
+		return related.size > 1 ? related : EMPTY_IDS;
 	})();
 
 	return (
@@ -2381,26 +1972,15 @@ export default function TakeoffsContent({
 				<div className="flex items-center gap-1 rounded-lg border bg-card p-1">
 					{TOOLS.map((toolDef) => {
 						const Icon = toolDef.icon;
-						const family = toolFamily(toolDef.id);
-						// While Add/Subtract is locked to a target, disable drawing tools
-						// of a different family so a group never mixes families.
-						const familyLocked =
-							lockedFamily !== null &&
-							family !== null &&
-							family !== lockedFamily;
 						const needsCalibration = toolDef.needsCalibration && !isCalibrated;
-						const disabled = needsCalibration || familyLocked;
-						// A page-group constraint (vs an Add/Subtract lock) needs a
-						// different explanation.
-						const groupLocked =
-							familyLocked && !lockedTarget && activeGroupFamily !== null;
+						// Measurement tools need a selected group; pan/text are exempt.
+						const needsGroup = DRAWING_TOOLS.has(toolDef.id) && drawingDisabled;
+						const disabled = needsCalibration || needsGroup;
 						let title = toolDef.label;
 						if (needsCalibration) {
 							title = 'Calibrate this page first';
-						} else if (groupLocked) {
-							title = `This group only allows ${activeGroupFamily} measurements`;
-						} else if (familyLocked) {
-							title = 'Turn off Add/Subtract to use a different tool';
+						} else if (needsGroup) {
+							title = 'Select or create a group first';
 						}
 						return (
 							<Button
@@ -2422,36 +2002,17 @@ export default function TakeoffsContent({
 					<div
 						className={cn(
 							'flex items-center gap-2 px-3 py-1.5',
-							addDisabled && 'opacity-64'
-						)}
-						title={getAddTitle(isCalibrated, canAddToSelection || addMode)}
-					>
-						<Switch
-							checked={addMode}
-							disabled={addDisabled}
-							id="add-toggle"
-							onCheckedChange={setAdd}
-						/>
-						<Label htmlFor="add-toggle">Add</Label>
-					</div>
-
-					<div
-						className={cn(
-							'flex items-center gap-2 px-3 py-1.5',
 							subtractDisabled && 'opacity-64'
 						)}
-						title={getSubtractTitle(
-							isCalibrated,
-							canSubtractFromSelection || subtractMode
-						)}
+						title={getSubtractTitle(isCalibrated, isAreaTool || subtractMode)}
 					>
 						<Switch
 							checked={subtractMode}
 							disabled={subtractDisabled}
-							id="subtract-toggle"
+							id="deduct-toggle"
 							onCheckedChange={setSubtract}
 						/>
-						<Label htmlFor="subtract-toggle">Subtract</Label>
+						<Label htmlFor="deduct-toggle">Deduct</Label>
 					</div>
 
 					<div
@@ -2487,14 +2048,23 @@ export default function TakeoffsContent({
 			<div className="flex min-h-0 min-w-0 flex-1 gap-3">
 				<PdfThumbnails
 					currentPage={page}
+					documentMethod={documentMethod}
 					numPages={numPages}
-					onAddToMeasurements={requestAddToMeasurements}
-					onCopyPage={handleCopyPage}
-					onDeletePage={handleDeletePage}
+					onCalibrate={(scope, targetPage) =>
+						startCalibration(scope, targetPage)
+					}
+					onOpenScaleDialog={(scope, targetPage) =>
+						openScaleDialog(scope, targetPage)
+					}
 					onRenamePage={renamePage}
+					onResetPage={(targetPage) => {
+						resetPageMethod(targetPage).catch(() => {
+							// Recompute failure leaves existing values unchanged.
+						});
+					}}
 					onSelectPage={goToPage}
 					onToggleShowAll={toggleShowAllPages}
-					pagesInMeasurements={pagesInMeasurements}
+					pageMethods={pageMethods}
 					pagesWithMeasurements={pagesWithMeasurements}
 					pageTitles={pageTitles}
 					ready={ready}
@@ -2509,9 +2079,10 @@ export default function TakeoffsContent({
 						draft={draft}
 						error={error}
 						globalWastage={globalWastage}
+						groups={groups}
 						guides={snapGuides}
 						highlightIds={highlightIds}
-						legend={legends[page] ?? null}
+						legends={legends.filter((l) => l.page === page)}
 						measurements={measurements.filter(
 							(m) => m.page === page && !m.hidden
 						)}
@@ -2522,7 +2093,7 @@ export default function TakeoffsContent({
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
 						onLegendChange={updateLegend}
-						onLegendRemove={() => removeLegend(page)}
+						onLegendRemove={removeLegend}
 						onPointerUp={handlePointerUp}
 						onStageClick={handleStageClick}
 						onStageDoubleClick={finishDraft}
@@ -2554,72 +2125,49 @@ export default function TakeoffsContent({
 				</button>
 
 				<MeasurementsPanel
+					canUndo={canUndo}
 					canvasSelectNonce={canvasSelectNonce}
 					categories={categories}
-					documentMethod={documentMethod}
 					globalWastage={globalWastage}
-					legendPages={legendPages}
-					measurementPages={measurementPages}
+					groups={groups}
+					legendGroupIds={legendGroupIds}
 					measurements={measurements}
-					metersPerPixel={metersPerPixel}
 					onAddCategory={addCategory}
 					onAddGroup={addGroup}
 					onAddLegend={addLegend}
-					onCalibrate={(scope, targetPage) =>
-						startCalibration(scope, targetPage)
-					}
 					onClearAll={() => {
 						setMeasurements([]);
+						setLegends([]);
 						resetDraft();
 						setSelectedId(null);
-						setAddMode(false);
+						setSelectedGroupId(null);
 						setSubtractMode(false);
-						addTargetRef.current = null;
-						currentGroupId.current = null;
-					}}
-					onClearPage={() => {
-						setMeasurements((prev) => prev.filter((m) => m.page !== page));
-						resetDraft();
-						setSelectedId(null);
-						setAddMode(false);
-						setSubtractMode(false);
-						addTargetRef.current = null;
-						currentGroupId.current = null;
 					}}
 					onDelete={deleteMeasurement}
 					onDeleteCategory={deleteCategory}
 					onDeleteGroup={deleteGroup}
-					onDeletePageFromMeasurements={handleDeletePageFromMeasurements}
-					onDeletePageGroup={deletePageGroup}
-					onDownloadPage={handleDownloadPage}
 					onDownloadSelection={handleDownloadPages}
-					onMovePage={movePage}
-					onOpenScaleDialog={(scope, targetPage) =>
-						openScaleDialog(scope, targetPage)
-					}
-					onRecolorMeasurement={recolorMeasurement}
-					onRemoveLegend={removeLegend}
+					onMoveGroup={moveGroup}
+					onRecolorGroup={recolorGroup}
+					onRemoveLegend={removeGroupLegend}
 					onRenameCategory={renameCategory}
 					onRenameGroup={renameGroup}
 					onRenameMeasurement={renameMeasurement}
-					onRenamePage={renamePage}
-					onRenamePageGroup={renamePageGroup}
-					onResetPage={(targetPage) => {
-						resetPageMethod(targetPage).catch(() => {
-							// Recompute failure leaves existing values unchanged.
-						});
-					}}
+					onSaveGroup={saveGroupSession}
 					onSaveSelection={onSaveToDocuments ? handleSaveSelection : undefined}
+					onSelectGroup={selectGroup}
 					onSelectMeasurement={focusMeasurement}
 					onSetMeasurementAreaAdjust={setMeasurementAreaAdjust}
 					onSetMeasurementDescription={setMeasurementDescription}
 					onSetMeasurementHeight={setMeasurementHeight}
 					onSetMeasurementWastage={setMeasurementWastage}
+					onToggleAllHidden={toggleAllHidden}
+					onToggleCategoryHidden={toggleCategoryHidden}
+					onToggleGroupHidden={toggleGroupHidden}
 					onToggleMeasurementHidden={toggleMeasurementHidden}
-					onTogglePageHidden={togglePageHidden}
-					page={page}
-					pageMethods={pageMethods}
+					onUndo={undo}
 					pageTitles={pageTitles}
+					selectedGroupId={selectedGroupId}
 					selectedId={selectedId}
 					width={panelWidth}
 				/>
@@ -2660,127 +2208,7 @@ export default function TakeoffsContent({
 				open={scaleDialogOpen}
 				page={scaleDialogPage}
 			/>
-
-			<AddDestinationDialog
-				categories={categories}
-				onCancel={() => setPendingAddPage(null)}
-				onConfirm={confirmAddToMeasurements}
-				open={pendingAddPage !== null}
-				page={pendingAddPage}
-			/>
 		</div>
-	);
-}
-
-// Dialog shown when adding a page from the thumbnails panel while categories
-// exist: a small tree (Root → Categories → Groups) to choose where the new page
-// lands. Root means loose at the top level.
-function AddDestinationDialog({
-	open,
-	page,
-	categories,
-	onConfirm,
-	onCancel,
-}: {
-	open: boolean;
-	page: number | null;
-	categories: TakeoffCategory[];
-	onConfirm: (target: MoveTarget) => void;
-	onCancel: () => void;
-}): ReactElement {
-	const [selected, setSelected] = useState<MoveTarget>({ kind: 'root' });
-
-	// Reset the selection to Root each time the dialog opens.
-	useEffect(() => {
-		if (open) {
-			setSelected({ kind: 'root' });
-		}
-	}, [open]);
-
-	const isSelected = (target: MoveTarget): boolean => {
-		if (target.kind === 'root') {
-			return selected.kind === 'root';
-		}
-		if (target.kind === 'category') {
-			return (
-				selected.kind === 'category' &&
-				selected.categoryId === target.categoryId
-			);
-		}
-		return selected.kind === 'group' && selected.groupId === target.groupId;
-	};
-
-	const DestButton = ({
-		target,
-		label,
-		indent,
-	}: {
-		target: MoveTarget;
-		label: string;
-		indent: number;
-	}) => (
-		<Button
-			className="w-full justify-start"
-			onClick={() => setSelected(target)}
-			size="sm"
-			style={{ paddingLeft: `${0.5 + indent}rem` }}
-			variant={isSelected(target) ? 'default' : 'ghost'}
-		>
-			{label}
-		</Button>
-	);
-
-	return (
-		<Dialog
-			onOpenChange={(next) => {
-				if (!next) {
-					onCancel();
-				}
-			}}
-			open={open}
-		>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Add page to…</DialogTitle>
-					<DialogDescription>
-						Choose where to place {page === null ? 'this page' : `Page ${page}`}{' '}
-						in the measurements panel.
-					</DialogDescription>
-				</DialogHeader>
-				<DialogPanel className="flex max-h-80 flex-col gap-0.5 overflow-y-auto">
-					<DestButton
-						indent={0}
-						label="Root (no category)"
-						target={{ kind: 'root' }}
-					/>
-					{categories.map((category) => (
-						<div className="flex flex-col gap-0.5" key={category.id}>
-							<DestButton
-								indent={1}
-								label={category.name}
-								target={{ kind: 'category', categoryId: category.id }}
-							/>
-							{category.groups.map((group) => (
-								<DestButton
-									indent={2}
-									key={group.id}
-									label={group.name}
-									target={{ kind: 'group', groupId: group.id }}
-								/>
-							))}
-						</div>
-					))}
-				</DialogPanel>
-				<DialogFooter>
-					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
-					</DialogClose>
-					<Button onClick={() => onConfirm(selected)} type="button">
-						Add page
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
 	);
 }
 
