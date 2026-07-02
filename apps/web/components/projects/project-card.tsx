@@ -1,3 +1,4 @@
+import { cn } from '@workspace/ui/lib/utils';
 import {
 	ArrowUpRight,
 	Bath,
@@ -71,14 +72,23 @@ function specChips(project: WebProject): SpecChip[] {
 	return chips;
 }
 
-export function ProjectCard({ project }: { project: WebProject }) {
+export function ProjectCard({
+	project,
+	className,
+}: {
+	project: WebProject;
+	className?: string;
+}) {
 	const imageKey = resolveCardImageKey(project);
 	const imageSrc = imageKey ? staticCdnUrl(imageKey) : '/placeholder.svg';
 	const chips = specChips(project);
 
 	return (
 		<Link
-			className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+			className={cn(
+				'group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl',
+				className
+			)}
 			href={`/projects/${project._id}`}
 		>
 			<div className="relative aspect-[4/3] overflow-hidden bg-muted">

@@ -33,7 +33,11 @@ import PageHeading from '@/components/page-heading';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import AddBudgetItemDialog from './add-budget-item-dialog';
 import AddBudgetTemplateToProject from './add-budget-template-to-project';
-import { formatBudgetPrice } from './budget-form-shared';
+import {
+	formatBudgetPrice,
+	isValidMoneyString,
+	parseMoneyString,
+} from './budget-form-shared';
 import DeleteBudgetTemplateItem from './delete-budget-template-item';
 import { usePriceEditing } from './use-price-editing';
 
@@ -125,9 +129,9 @@ function ItemsSection({
 	}
 
 	return (
-		<div className="rounded-lg border">
-			<Table>
-				<TableHeader>
+		<div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+			<Table containerClassName="min-h-0 flex-1 overflow-y-auto">
+				<TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-background">
 					<TableRow>
 						<TableHead>Trade</TableHead>
 						<TableHead>Price</TableHead>
@@ -225,6 +229,19 @@ export default function BudgetTemplateDetailView({
 		);
 	}
 
+	const displayTotal =
+		isEditing && items
+			? items.reduce((sum, item) => {
+					const raw = (drafts[item.tradeId] ?? '').trim();
+					return (
+						sum +
+						(raw.length > 0 && isValidMoneyString(raw)
+							? parseMoneyString(raw)
+							: (item.price ?? 0))
+					);
+				}, 0)
+			: template.totalPrice;
+
 	return (
 		<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
 			<PageHeading
@@ -264,8 +281,8 @@ export default function BudgetTemplateDetailView({
 					</>
 				}
 				titleTrailing={
-					<Badge size="lg" variant="outline">
-						Total {formatBudgetPrice(template.totalPrice)}
+					<Badge size="lg" variant="purple">
+						Total {formatBudgetPrice(displayTotal)}
 					</Badge>
 				}
 			/>
