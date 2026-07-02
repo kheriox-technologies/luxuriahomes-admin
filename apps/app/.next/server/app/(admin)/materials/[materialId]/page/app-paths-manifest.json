@@ -1,3 +1,0 @@
-{
-  "/(admin)/materials/[materialId]/page": "app/(admin)/materials/[materialId]/page.js"
-}
