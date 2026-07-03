@@ -1,17 +1,29 @@
 'use client';
 
+import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import {
 	Combobox,
+	ComboboxCollection,
 	ComboboxEmpty,
+	ComboboxGroup,
+	ComboboxGroupLabel,
 	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
 } from '@workspace/ui/components/combobox';
+import { useQuery } from 'convex/react';
 import { useMemo } from 'react';
+import { groupTradesByStage } from '@/components/trades/trade-stage-form-shared';
 
 type Trade = Doc<'trades'>;
+
+interface TradeIdGroup {
+	items: Id<'trades'>[];
+	key: string;
+	value: string;
+}
 
 export default function TradeCombobox({
 	id,
@@ -30,7 +42,7 @@ export default function TradeCombobox({
 	onBlur: () => void;
 	invalid?: boolean;
 }) {
-	const items = useMemo(() => (trades ?? []).map((t) => t._id), [trades]);
+	const stages = useQuery(api.tradeStages.list.list, {});
 	const labelById = useMemo(() => {
 		const m = new Map<Id<'trades'>, string>();
 		for (const t of trades ?? []) {
@@ -39,8 +51,18 @@ export default function TradeCombobox({
 		return m;
 	}, [trades]);
 
+	const groups = useMemo<TradeIdGroup[]>(
+		() =>
+			groupTradesByStage(stages, trades).map((group) => ({
+				key: group.key,
+				value: group.value,
+				items: group.items.map((t) => t._id),
+			})),
+		[stages, trades]
+	);
+
 	const selected =
-		value !== '' && items.some((idItem) => idItem === value)
+		value !== '' && labelById.has(value as Id<'trades'>)
 			? (value as Id<'trades'>)
 			: null;
 
@@ -49,7 +71,7 @@ export default function TradeCombobox({
 	return (
 		<Combobox<Id<'trades'>>
 			disabled={disabled || busy}
-			items={items}
+			items={groups}
 			itemToStringLabel={(item) => labelById.get(item) ?? ''}
 			onValueChange={(next) => {
 				onChange(next ?? '');
@@ -65,10 +87,17 @@ export default function TradeCombobox({
 			<ComboboxPopup>
 				<ComboboxEmpty>No trade found.</ComboboxEmpty>
 				<ComboboxList>
-					{(item: Id<'trades'>) => (
-						<ComboboxItem key={item} value={item}>
-							{labelById.get(item) ?? item}
-						</ComboboxItem>
+					{(group: TradeIdGroup) => (
+						<ComboboxGroup items={group.items} key={group.key}>
+							<ComboboxGroupLabel>{group.value}</ComboboxGroupLabel>
+							<ComboboxCollection>
+								{(item: Id<'trades'>) => (
+									<ComboboxItem key={item} value={item}>
+										{labelById.get(item) ?? item}
+									</ComboboxItem>
+								)}
+							</ComboboxCollection>
+						</ComboboxGroup>
 					)}
 				</ComboboxList>
 			</ComboboxPopup>

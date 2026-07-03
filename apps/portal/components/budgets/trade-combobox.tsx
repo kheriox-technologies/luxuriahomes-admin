@@ -1,14 +1,24 @@
 'use client';
 
+import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import {
 	Combobox,
+	ComboboxCollection,
 	ComboboxEmpty,
+	ComboboxGroup,
+	ComboboxGroupLabel,
 	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
 } from '@workspace/ui/components/combobox';
+import { useQuery } from 'convex/react';
+import { useMemo } from 'react';
+import {
+	groupTradesByStage,
+	type TradeStageGroup,
+} from '@/components/trades/trade-stage-form-shared';
 
 export default function TradeCombobox({
 	id,
@@ -27,7 +37,12 @@ export default function TradeCombobox({
 	onBlur: () => void;
 	invalid?: boolean;
 }) {
+	const stages = useQuery(api.tradeStages.list.list, {});
 	const items = trades ?? [];
+	const groups = useMemo(
+		() => groupTradesByStage(stages, trades),
+		[stages, trades]
+	);
 	const selected =
 		value !== '' ? (items.find((t) => t._id === value) ?? null) : null;
 	const busy = trades === undefined;
@@ -35,7 +50,7 @@ export default function TradeCombobox({
 	return (
 		<Combobox<Doc<'trades'>>
 			disabled={disabled || busy}
-			items={items}
+			items={groups}
 			itemToStringLabel={(item) => item.name}
 			onValueChange={(next) => {
 				onChange(next?._id ?? '');
@@ -51,10 +66,17 @@ export default function TradeCombobox({
 			<ComboboxPopup>
 				<ComboboxEmpty>No trade found.</ComboboxEmpty>
 				<ComboboxList>
-					{(item: Doc<'trades'>) => (
-						<ComboboxItem key={item._id} value={item}>
-							{item.name}
-						</ComboboxItem>
+					{(group: TradeStageGroup) => (
+						<ComboboxGroup items={group.items} key={group.key}>
+							<ComboboxGroupLabel>{group.value}</ComboboxGroupLabel>
+							<ComboboxCollection>
+								{(item: Doc<'trades'>) => (
+									<ComboboxItem key={item._id} value={item}>
+										{item.name}
+									</ComboboxItem>
+								)}
+							</ComboboxCollection>
+						</ComboboxGroup>
 					)}
 				</ComboboxList>
 			</ComboboxPopup>

@@ -14,19 +14,36 @@ export const listByTemplate = query({
 			)
 			.collect();
 
-		// Enrich each item with its trade name, fetching each trade only once.
-		const tradeNameById = new Map<Id<'trades'>, string | null>();
+		// Enrich each item with its trade's name, stage and order, fetching each
+		// trade only once. The stage/order drive the client-side grouping + DnD.
+		const tradeById = new Map<
+			Id<'trades'>,
+			{
+				name: string | null;
+				stageId: Id<'tradeStages'> | null;
+				order: number | null;
+			}
+		>();
 		for (const item of items) {
-			if (!tradeNameById.has(item.tradeId)) {
+			if (!tradeById.has(item.tradeId)) {
 				const trade = await ctx.db.get(item.tradeId);
-				tradeNameById.set(item.tradeId, trade?.name ?? null);
+				tradeById.set(item.tradeId, {
+					name: trade?.name ?? null,
+					stageId: trade?.stageId ?? null,
+					order: trade?.order ?? null,
+				});
 			}
 		}
 
-		const enriched = items.map((item) => ({
-			...item,
-			tradeName: tradeNameById.get(item.tradeId) ?? null,
-		}));
+		const enriched = items.map((item) => {
+			const trade = tradeById.get(item.tradeId);
+			return {
+				...item,
+				tradeName: trade?.name ?? null,
+				stageId: trade?.stageId ?? null,
+				tradeOrder: trade?.order ?? null,
+			};
+		});
 
 		return enriched.sort((a, b) =>
 			(a.tradeName ?? '').localeCompare(b.tradeName ?? '', undefined, {
