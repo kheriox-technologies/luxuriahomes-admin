@@ -1,6 +1,7 @@
 'use client';
 import { useUser } from '@clerk/nextjs';
 import { api } from '@workspace/backend/api';
+import { BrandLogo } from '@workspace/ui/components/brand-logo';
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -37,7 +38,6 @@ import {
 	Users,
 	Wallet,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -273,12 +273,9 @@ const AppSidebar = () => {
 			<SidebarHeader>
 				<div className="mt-2 mb-2 flex justify-center">
 					<Link href="/">
-						<Image
-							alt="Logo"
-							height={32}
-							priority
-							src="/lh-admin-logo-no-bg.png"
-							width={150}
+						<BrandLogo
+							className="h-14 text-sidebar-foreground"
+							label="Luxuria Homes"
 						/>
 					</Link>
 				</div>

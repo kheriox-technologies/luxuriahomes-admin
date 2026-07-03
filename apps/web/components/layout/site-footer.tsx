@@ -1,8 +1,8 @@
+import { BrandLogo } from '@workspace/ui/components/brand-logo';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { CONTACT, PHONES, telHref } from '@/lib/contact';
 import { NAV_LINKS, SERVICES } from '@/lib/site';
-import { BrandLogo } from './brand-logo';
 
 const currentYear = new Date().getFullYear();
 

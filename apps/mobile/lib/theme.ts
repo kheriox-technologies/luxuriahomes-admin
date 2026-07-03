@@ -1,10 +1,11 @@
 // Brand + semantic colors for places that need raw values (navigation theme,
 // icons, status bars). Class-based styling should use the tailwind tokens.
 
+// Linen palette raw tones: ink = dark-on-light, linen = light-on-dark.
 export const brand = {
-	navy: '#001f30',
-	navyLight: '#133244',
-	gold: '#fff0a9',
+	ink: '#2b2927',
+	inkLight: '#514e4a',
+	linen: '#f5ebe0',
 } as const;
 
 export const palette = {

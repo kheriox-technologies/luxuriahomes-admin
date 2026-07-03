@@ -18,7 +18,7 @@ export default function TabsLayout() {
 		<Tabs
 			screenOptions={{
 				headerShown: false,
-				tabBarActiveTintColor: isDark ? brand.gold : brand.navy,
+				tabBarActiveTintColor: isDark ? brand.linen : brand.ink,
 				tabBarInactiveTintColor: colors.mutedForeground,
 				tabBarStyle: {
 					backgroundColor: colors.card,

@@ -90,7 +90,7 @@ export default function SettingsScreen() {
 							onPress={() => setPreference(option.value)}
 						>
 							<Icon
-								color={selected ? '#fff0a9' : colors.mutedForeground}
+								color={selected ? '#2b2927' : colors.mutedForeground}
 								size={16}
 								strokeWidth={2}
 							/>

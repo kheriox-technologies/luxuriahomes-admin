@@ -18,7 +18,7 @@ function AccessDenied() {
 			style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
 		>
 			<View className="h-16 w-16 items-center justify-center rounded-full bg-white/10">
-				<ShieldX color={brand.gold} size={30} strokeWidth={1.75} />
+				<ShieldX color={brand.linen} size={30} strokeWidth={1.75} />
 			</View>
 			<Text className="text-center font-sans-bold text-primary-foreground text-xl">
 				Access restricted
@@ -30,11 +30,11 @@ function AccessDenied() {
 					: ''}
 			</Text>
 			<Button
-				className="mt-4 bg-gold"
+				className="mt-4 bg-linen"
 				onPress={() => signOut()}
 				variant="primary"
 			>
-				<Text className="font-sans-semibold text-base text-navy">Sign out</Text>
+				<Text className="font-sans-semibold text-base text-ink">Sign out</Text>
 			</Button>
 		</View>
 	);

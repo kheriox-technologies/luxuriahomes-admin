@@ -1,9 +1,9 @@
+import { BrandLogo } from '@workspace/ui/components/brand-logo';
 import { Button } from '@workspace/ui/components/button';
 import { cn } from '@workspace/ui/lib/utils';
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BrandLogo } from '@/components/layout/brand-logo';
 import { DIFFERENTIATORS, SITE_COPY } from '@/lib/site';
 import { staticCdnUrl } from '@/lib/static-cdn';
 

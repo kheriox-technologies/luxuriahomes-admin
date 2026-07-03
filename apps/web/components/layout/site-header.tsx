@@ -1,5 +1,6 @@
 'use client';
 
+import { BrandLogo } from '@workspace/ui/components/brand-logo';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Sheet,
@@ -15,7 +16,6 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { PHONES, telHref } from '@/lib/contact';
 import { NAV_LINKS } from '@/lib/site';
-import { BrandLogo } from './brand-logo';
 
 function isActive(pathname: string, href: string): boolean {
 	if (href === '/') {

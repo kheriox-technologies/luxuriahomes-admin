@@ -17,7 +17,7 @@ const containerStyles: Record<BadgeVariant, string> = {
 	warning: 'bg-warning/15',
 	info: 'bg-info/15',
 	destructive: 'bg-destructive/15',
-	gold: 'bg-gold/25',
+	gold: 'bg-linen/25',
 	outline: 'border border-border bg-transparent',
 };
 
@@ -27,7 +27,7 @@ const textStyles: Record<BadgeVariant, string> = {
 	warning: 'text-warning',
 	info: 'text-info',
 	destructive: 'text-destructive',
-	gold: 'text-[#8a6d00] dark:text-gold',
+	gold: 'text-[#8a6d00] dark:text-linen',
 	outline: 'text-muted-foreground',
 };
 

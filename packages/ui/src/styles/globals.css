@@ -83,9 +83,14 @@
 	--card-foreground: oklch(0.145 0 0);
 	--popover: oklch(1 0 0);
 	--popover-foreground: oklch(0.145 0 0);
-	/* App brand tokens (Clerk and other libs may redefine --primary for their own UI). */
-	--app-primary: oklch(0.2266 0.0493 236.73);
-	--app-primary-foreground: oklch(0.9509 0.0908 97.67);
+	/*
+	 * App brand tokens (Clerk and other libs may redefine --primary for their own UI).
+	 * Admin (portal) uses ink-on-linen primary: dark ink fill with light linen text.
+	 * The web marketing site overrides --app-primary at runtime via its linen palette
+	 * (light linen fill / ink text), so this default only applies to the portal.
+	 */
+	--app-primary: #2b2927;
+	--app-primary-foreground: #f5ebe0;
 	--primary: var(--app-primary);
 	--primary-foreground: var(--app-primary-foreground);
 	--secondary: oklch(0.97 0 0);
@@ -104,13 +109,13 @@
 	--chart-4: oklch(0.488 0.243 264.376);
 	--chart-5: oklch(0.424 0.199 265.638);
 	--radius: 0.375rem;
-	--sidebar: oklch(0.2266 0.0493 236.73);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.488 0.243 264.376);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.3043 0.0493 236.73);
-	--sidebar-accent-foreground: oklch(0.9509 0.0908 97.67);
-	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar: #f5ebe0;
+	--sidebar-foreground: #2b2927;
+	--sidebar-primary: #514e4a;
+	--sidebar-primary-foreground: #fefcfa;
+	--sidebar-accent: #bcb4ac;
+	--sidebar-accent-foreground: #2b2927;
+	--sidebar-border: oklch(0 0 0 / 8%);
 	--sidebar-ring: oklch(0.556 0 0);
 	/* --sidebar: oklch(0.985 0 0);
 	--sidebar-foreground: oklch(0.145 0 0);
@@ -136,8 +141,8 @@
 	--card-foreground: oklch(0.985 0 0);
 	--popover: oklch(0.205 0 0);
 	--popover-foreground: oklch(0.985 0 0);
-	--app-primary: oklch(0.2266 0.0493 236.73);
-	--app-primary-foreground: oklch(0.9509 0.0908 97.67);
+	--app-primary: #2b2927;
+	--app-primary-foreground: #f5ebe0;
 	--primary: var(--app-primary);
 	--primary-foreground: var(--app-primary-foreground);
 	--secondary: oklch(0.269 0 0);
@@ -155,12 +160,12 @@
 	--chart-3: oklch(0.546 0.245 262.881);
 	--chart-4: oklch(0.488 0.243 264.376);
 	--chart-5: oklch(0.424 0.199 265.638);
-	--sidebar: oklch(0.2266 0.0493 236.73);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.488 0.243 264.376);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.3043 0.0493 236.73);
-	--sidebar-accent-foreground: oklch(0.9509 0.0908 97.67);
+	--sidebar: #2b2927;
+	--sidebar-foreground: #f5ebe0;
+	--sidebar-primary: #bcb4ac;
+	--sidebar-primary-foreground: #2b2927;
+	--sidebar-accent: #514e4a;
+	--sidebar-accent-foreground: #f5ebe0;
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.556 0 0);
 	/* --sidebar: oklch(0.205 0 0);
