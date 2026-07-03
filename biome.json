@@ -27,6 +27,8 @@
       "!**/.nuxt",
       "!bts.jsonc",
       "!**/.expo",
+      "!apps/mobile/ios",
+      "!apps/mobile/android",
       "!**/.wrangler",
       "!**/.alchemy",
       "!**/.svelte-kit",
@@ -43,6 +45,16 @@
         "rules": {
           "style": {
             "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/mobile/global.css"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noUnknownAtRules": "off"
           }
         }
       }

@@ -33,6 +33,7 @@ import type * as budgetTemplates_remove from "../budgetTemplates/remove.js";
 import type * as budgetTemplates_search from "../budgetTemplates/search.js";
 import type * as budgetTemplates_shared from "../budgetTemplates/shared.js";
 import type * as budgetTemplates_update from "../budgetTemplates/update.js";
+import type * as cdn_signUrl from "../cdn/signUrl.js";
 import type * as clientPortal_documents_create from "../clientPortal/documents/create.js";
 import type * as clientPortal_documents_generateUploadUrl from "../clientPortal/documents/generateUploadUrl.js";
 import type * as clientPortal_documents_list from "../clientPortal/documents/list.js";
@@ -405,6 +406,7 @@ declare const fullApi: ApiFromModules<{
   "budgetTemplates/search": typeof budgetTemplates_search;
   "budgetTemplates/shared": typeof budgetTemplates_shared;
   "budgetTemplates/update": typeof budgetTemplates_update;
+  "cdn/signUrl": typeof cdn_signUrl;
   "clientPortal/documents/create": typeof clientPortal_documents_create;
   "clientPortal/documents/generateUploadUrl": typeof clientPortal_documents_generateUploadUrl;
   "clientPortal/documents/list": typeof clientPortal_documents_list;

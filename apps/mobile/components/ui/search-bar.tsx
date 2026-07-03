@@ -1,0 +1,41 @@
+import { Search, X } from 'lucide-react-native';
+import { Pressable, TextInput, View } from 'react-native';
+import { useThemeColors } from '@/components/theme';
+
+export function SearchBar({
+	value,
+	onChangeText,
+	placeholder = 'Search',
+}: {
+	value: string;
+	onChangeText: (text: string) => void;
+	placeholder?: string;
+}) {
+	const colors = useThemeColors();
+	return (
+		<View className="min-h-[44px] flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
+			<Search color={colors.mutedForeground} size={18} strokeWidth={2} />
+			<TextInput
+				accessibilityLabel={placeholder}
+				autoCapitalize="none"
+				autoCorrect={false}
+				className="flex-1 py-2.5 font-sans text-base text-foreground"
+				onChangeText={onChangeText}
+				placeholder={placeholder}
+				placeholderTextColor={colors.mutedForeground}
+				returnKeyType="search"
+				value={value}
+			/>
+			{value.length > 0 && (
+				<Pressable
+					accessibilityLabel="Clear search"
+					accessibilityRole="button"
+					hitSlop={8}
+					onPress={() => onChangeText('')}
+				>
+					<X color={colors.mutedForeground} size={18} strokeWidth={2} />
+				</Pressable>
+			)}
+		</View>
+	);
+}
