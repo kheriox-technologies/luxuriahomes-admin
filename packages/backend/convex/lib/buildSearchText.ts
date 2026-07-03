@@ -114,6 +114,10 @@ export function buildTradeSearchText(
 	return buildSearchText([name, description]);
 }
 
+export function buildTradeStageSearchText(name: string): string {
+	return buildSearchText([name]);
+}
+
 export function buildBudgetTemplateSearchText(
 	title: string,
 	description?: string

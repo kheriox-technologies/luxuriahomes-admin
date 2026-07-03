@@ -10,10 +10,10 @@ import {
 	ComboboxPopup,
 } from '@workspace/ui/components/combobox';
 
-export default function TradeCombobox({
+export default function TradeStageCombobox({
 	id,
 	disabled,
-	trades,
+	stages,
 	value,
 	onChange,
 	onBlur,
@@ -21,19 +21,19 @@ export default function TradeCombobox({
 }: {
 	id: string;
 	disabled?: boolean;
-	trades: Doc<'trades'>[] | undefined;
-	value: Id<'trades'> | '';
-	onChange: (next: Id<'trades'> | '') => void;
-	onBlur: () => void;
+	stages: Doc<'tradeStages'>[] | undefined;
+	value: Id<'tradeStages'> | '';
+	onChange: (next: Id<'tradeStages'> | '') => void;
+	onBlur?: () => void;
 	invalid?: boolean;
 }) {
-	const items = trades ?? [];
+	const items = stages ?? [];
 	const selected =
-		value !== '' ? (items.find((t) => t._id === value) ?? null) : null;
-	const busy = trades === undefined;
+		value !== '' ? (items.find((s) => s._id === value) ?? null) : null;
+	const busy = stages === undefined;
 
 	return (
-		<Combobox<Doc<'trades'>>
+		<Combobox<Doc<'tradeStages'>>
 			disabled={disabled || busy}
 			items={items}
 			itemToStringLabel={(item) => item.name}
@@ -46,12 +46,12 @@ export default function TradeCombobox({
 				aria-invalid={invalid}
 				id={id}
 				onBlur={onBlur}
-				placeholder={busy ? 'Loading trades…' : 'Search trades'}
+				placeholder={busy ? 'Loading stages…' : 'Search stages'}
 			/>
 			<ComboboxPopup>
-				<ComboboxEmpty>No trade found.</ComboboxEmpty>
+				<ComboboxEmpty>No stage found.</ComboboxEmpty>
 				<ComboboxList>
-					{(item: Doc<'trades'>) => (
+					{(item: Doc<'tradeStages'>) => (
 						<ComboboxItem key={item._id} value={item}>
 							{item.name}
 						</ComboboxItem>

@@ -316,6 +316,7 @@ export default function ProjectServiceProvidersTabContent({
 				columns={columns}
 				data={serviceProviders}
 				emptyMessage="No service providers."
+				verticalAlign="top"
 			/>
 		</div>
 	);

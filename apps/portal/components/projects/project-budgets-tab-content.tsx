@@ -1,23 +1,9 @@
 'use client';
-// React Compiler can't track mutations on the TanStack Table instance.
-'use no memo';
 
-import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Combobox,
-	ComboboxChip,
-	ComboboxChips,
-	ComboboxChipsInput,
-	ComboboxEmpty,
-	ComboboxItem,
-	ComboboxList,
-	ComboboxPopup,
-} from '@workspace/ui/components/combobox';
-import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	Empty,
 	EmptyDescription,
@@ -35,9 +21,15 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { Pencil, Wallet } from 'lucide-react';
+import {
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	Pencil,
+	SearchIcon,
+	Wallet,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
 import {
 	formatBudgetPrice,
@@ -45,6 +37,11 @@ import {
 	parseMoneyString,
 } from '@/components/budgets/budget-form-shared';
 import { usePriceEditing } from '@/components/budgets/use-price-editing';
+import {
+	type StageGroup,
+	StageGroupedList,
+	type StageGroupedListHandle,
+} from '@/components/trades/stage-grouped-list';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import DeleteProjectBudget from './delete-project-budget';
 
@@ -53,101 +50,25 @@ interface TradeBudgetRow {
 	orderCount: number;
 	projectBudgetId: Id<'projectBudgets'> | null;
 	quotationCount: number;
+	stageId: Id<'tradeStages'> | null;
 	totalOrderPrice: number;
 	totalQuotationPrice: number;
 	tradeId: Id<'trades'>;
 	tradeName: string;
+	tradeOrder: number | null;
 }
 
-interface BudgetEditContextValue {
-	drafts: Record<string, string>;
-	isEditing: boolean;
-	nameDrafts: Record<string, string>;
-	onDraftChange: (tradeId: string, value: string) => void;
-	onNameDraftChange: (tradeId: string, value: string) => void;
-}
+// Shared grid so the header row and the data rows line up column-for-column.
+const ROW_GRID =
+	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_auto] items-center gap-3';
 
-const ProjectBudgetsEditContext = createContext<BudgetEditContextValue>({
-	isEditing: false,
-	drafts: {},
-	nameDrafts: {},
-	onDraftChange: () => {
-		/* default no-op */
-	},
-	onNameDraftChange: () => {
-		/* default no-op */
-	},
-});
-
-interface BudgetTotalsContextValue {
-	totalActual: number;
-	totalBudget: number;
-}
-
-// Totals live in their own context so the column defs stay stable while editing:
-// baking totals into buildColumns() would change the `columns` identity on every
-// keystroke and remount the focused price input.
-const ProjectBudgetsTotalsContext = createContext<BudgetTotalsContextValue>({
-	totalBudget: 0,
-	totalActual: 0,
-});
-
-function TradeNameCell({ row }: { row: TradeBudgetRow }) {
-	const { isEditing, nameDrafts, onNameDraftChange } = useContext(
-		ProjectBudgetsEditContext
-	);
-
-	if (isEditing) {
-		return (
-			<Input
-				aria-label={`Trade name for ${row.tradeName}`}
-				className="max-w-64"
-				nativeInput
-				onChange={(e) => onNameDraftChange(row.tradeId, e.target.value)}
-				placeholder="Trade name"
-				type="text"
-				value={nameDrafts[row.tradeId] ?? ''}
-			/>
-		);
-	}
-
-	return <span className="font-medium">{row.tradeName}</span>;
-}
-
-function BudgetCell({ row }: { row: TradeBudgetRow }) {
-	const { isEditing, drafts, onDraftChange } = useContext(
-		ProjectBudgetsEditContext
-	);
-
-	if (isEditing) {
-		return (
-			<InputGroup className="max-w-44">
-				<InputGroupAddon align="inline-start">
-					<InputGroupText>$</InputGroupText>
-				</InputGroupAddon>
-				<InputGroupInput
-					aria-label={`Budget for ${row.tradeName}`}
-					inputMode="decimal"
-					nativeInput
-					onChange={(e) => onDraftChange(row.tradeId, e.target.value)}
-					placeholder="0.00"
-					type="text"
-					value={drafts[row.tradeId] ?? ''}
-				/>
-				<InputGroupAddon align="inline-end">
-					<InputGroupText>AUD</InputGroupText>
-				</InputGroupAddon>
-			</InputGroup>
-		);
-	}
-
-	if (row.budgetPrice === null) {
-		return <span className="text-muted-foreground text-sm">—</span>;
-	}
-	return (
-		<span className="tabular-nums">{formatBudgetPrice(row.budgetPrice)}</span>
-	);
-}
+const FILTER_PARAMS = [
+	'orderId',
+	'orderTaskId',
+	'orderTradeId',
+	'quotationTradeId',
+	'quotationStatus',
+] as const;
 
 function actualColorClass(actual: number, budgetPrice: number | null): string {
 	if (budgetPrice === null) {
@@ -156,6 +77,13 @@ function actualColorClass(actual: number, budgetPrice: number | null): string {
 	return actual <= budgetPrice
 		? 'text-success-foreground'
 		: 'text-destructive-foreground';
+}
+
+function BudgetValue({ price }: { price: number | null }) {
+	if (price === null) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+	return <span className="tabular-nums">{formatBudgetPrice(price)}</span>;
 }
 
 function ActualCell({ row }: { row: TradeBudgetRow }) {
@@ -174,26 +102,6 @@ function ActualCell({ row }: { row: TradeBudgetRow }) {
 		</span>
 	);
 }
-
-function BudgetActionsCell({ row }: { row: TradeBudgetRow }) {
-	if (!row.projectBudgetId) {
-		return null;
-	}
-	return (
-		<DeleteProjectBudget
-			projectBudgetId={row.projectBudgetId}
-			tradeName={row.tradeName}
-		/>
-	);
-}
-
-const FILTER_PARAMS = [
-	'orderId',
-	'orderTaskId',
-	'orderTradeId',
-	'quotationTradeId',
-	'quotationStatus',
-] as const;
 
 function QuotationsCountCell({ row }: { row: TradeBudgetRow }) {
 	const router = useRouter();
@@ -251,89 +159,6 @@ function OrdersCountCell({ row }: { row: TradeBudgetRow }) {
 	);
 }
 
-function ColumnHeaderWithTotal({
-	label,
-	total,
-	variant = 'outline',
-}: {
-	label: string;
-	total: number;
-	variant?: 'outline' | 'purple' | 'success-outline' | 'destructive-outline';
-}) {
-	return (
-		<div className="flex items-center gap-2">
-			<span>{label}</span>
-			<Badge size="lg" variant={variant}>
-				{formatBudgetPrice(total)}
-			</Badge>
-		</div>
-	);
-}
-
-function BudgetTotalHeader() {
-	const { totalBudget } = useContext(ProjectBudgetsTotalsContext);
-	return (
-		<ColumnHeaderWithTotal
-			label="Budget"
-			total={totalBudget}
-			variant="purple"
-		/>
-	);
-}
-
-function ActualTotalHeader() {
-	const { totalActual, totalBudget } = useContext(ProjectBudgetsTotalsContext);
-	return (
-		<ColumnHeaderWithTotal
-			label="Actual"
-			total={totalActual}
-			variant={
-				totalActual <= totalBudget ? 'success-outline' : 'destructive-outline'
-			}
-		/>
-	);
-}
-
-function buildColumns(): ColumnDef<TradeBudgetRow>[] {
-	return [
-		{
-			id: 'trade',
-			header: 'Trade',
-			cell: ({ row }) => <TradeNameCell row={row.original} />,
-		},
-		{
-			id: 'budget',
-			header: () => <BudgetTotalHeader />,
-			cell: ({ row }) => <BudgetCell row={row.original} />,
-		},
-		{
-			id: 'actual',
-			header: () => <ActualTotalHeader />,
-			cell: ({ row }) => <ActualCell row={row.original} />,
-		},
-		{
-			id: 'quotations',
-			header: 'Quotations',
-			cell: ({ row }) => <QuotationsCountCell row={row.original} />,
-		},
-		{
-			id: 'orders',
-			header: 'Orders',
-			cell: ({ row }) => <OrdersCountCell row={row.original} />,
-		},
-		{
-			id: 'actions',
-			header: '',
-			size: 60,
-			cell: ({ row }) => (
-				<div className="flex justify-end">
-					<BudgetActionsCell row={row.original} />
-				</div>
-			),
-		},
-	];
-}
-
 export default function ProjectBudgetsTabContent({
 	projectId,
 }: {
@@ -342,8 +167,8 @@ export default function ProjectBudgetsTabContent({
 	const rows = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
 		projectId,
 	}) as TradeBudgetRow[] | undefined;
+	const stages = useQuery(api.tradeStages.list.list, {});
 
-	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>([]);
 	const {
 		isEditing,
 		drafts,
@@ -356,40 +181,84 @@ export default function ProjectBudgetsTabContent({
 		getNameChanges,
 	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
+	const [search, setSearch] = useState('');
+	const listRef = useRef<StageGroupedListHandle>(null);
 
 	const setPrices = useMutation(api.projectBudgets.setPrices.setPrices);
 	const addItem = useMutation(api.projectBudgets.addItem.addItem);
 	const updateTrade = useMutation(api.trades.update.update);
-
-	const tradeItems = useMemo(
-		() => (rows ?? []).map((row) => row.tradeId),
-		[rows]
-	);
-	const tradeLabelById = useMemo(
-		() => new Map((rows ?? []).map((row) => [row.tradeId, row.tradeName])),
-		[rows]
-	);
-	const budgetedTradeIds = useMemo(
-		() =>
-			(rows ?? [])
-				.filter((row) => row.budgetPrice !== null)
-				.map((row) => row.tradeId),
-		[rows]
-	);
-
-	const filteredRows = useMemo(() => {
-		if (rows === undefined) {
-			return [];
+	const reorderTrades = useMutation(
+		api.trades.reorderTrades.reorderTrades
+	).withOptimisticUpdate((store, args) => {
+		const byId = new Map(args.updates.map((u) => [u.tradeId, u]));
+		const current = store.getQuery(
+			api.projectBudgets.tradeSummary.tradeSummary,
+			{
+				projectId,
+			}
+		);
+		if (current) {
+			store.setQuery(
+				api.projectBudgets.tradeSummary.tradeSummary,
+				{ projectId },
+				current.map((row) => {
+					const update = byId.get(row.tradeId);
+					return update
+						? {
+								...row,
+								stageId: update.stageId ?? null,
+								tradeOrder: update.order,
+							}
+						: row;
+				})
+			);
 		}
-		return filterTradeIds.length > 0
-			? rows.filter((row) => filterTradeIds.includes(row.tradeId))
-			: rows;
-	}, [rows, filterTradeIds]);
+		const trades = store.getQuery(api.trades.list.list, {});
+		if (trades) {
+			store.setQuery(
+				api.trades.list.list,
+				{},
+				trades.map((trade) => {
+					const update = byId.get(trade._id);
+					return update
+						? {
+								...trade,
+								stageId: update.stageId ?? undefined,
+								order: update.order,
+							}
+						: trade;
+				})
+			);
+		}
+	});
+	const reorderStages = useMutation(
+		api.tradeStages.reorder.reorder
+	).withOptimisticUpdate((store, args) => {
+		const current = store.getQuery(api.tradeStages.list.list, {});
+		if (!current) {
+			return;
+		}
+		const orderById = new Map(args.stageIds.map((id, index) => [id, index]));
+		store.setQuery(
+			api.tradeStages.list.list,
+			{},
+			current
+				.map((stage) =>
+					orderById.has(stage._id)
+						? { ...stage, order: orderById.get(stage._id) as number }
+						: stage
+				)
+				.sort((a, b) => a.order - b.order)
+		);
+	});
 
-	// While editing, reflect the draft values live so the header total updates in
-	// real time before "Done"; blank/invalid drafts fall back to the saved price
-	// (consistent with getChanges() treating blanks as no-ops).
-	const totalBudget = filteredRows.reduce((sum, row) => {
+	const budgetedTradeIds = (rows ?? [])
+		.filter((row) => row.budgetPrice !== null)
+		.map((row) => row.tradeId);
+
+	// Live totals: reflect draft prices while editing so the header updates before
+	// "Done"; blank/invalid drafts fall back to the saved price.
+	const totalBudget = (rows ?? []).reduce((sum, row) => {
 		if (isEditing) {
 			const raw = (drafts[row.tradeId] ?? '').trim();
 			if (raw.length > 0 && isValidMoneyString(raw)) {
@@ -398,30 +267,35 @@ export default function ProjectBudgetsTabContent({
 		}
 		return sum + (row.budgetPrice ?? 0);
 	}, 0);
-	const totalActual = filteredRows.reduce(
+	const totalActual = (rows ?? []).reduce(
 		(sum, row) => sum + row.totalQuotationPrice + row.totalOrderPrice,
 		0
 	);
 
-	// Stable identity so per-keystroke re-renders (drafts/totals) don't rebuild the
-	// table and remount the price inputs. Totals reach the header via context.
-	const columns = useMemo(() => buildColumns(), []);
-
-	const editContextValue = useMemo<BudgetEditContextValue>(
-		() => ({
-			isEditing,
-			drafts,
-			nameDrafts,
-			onDraftChange: setDraft,
-			onNameDraftChange: setNameDraft,
-		}),
-		[isEditing, drafts, nameDrafts, setDraft, setNameDraft]
-	);
-
-	const totalsContextValue = useMemo<BudgetTotalsContextValue>(
-		() => ({ totalBudget, totalActual }),
-		[totalBudget, totalActual]
-	);
+	const persistItems = (
+		groups: StageGroup<TradeBudgetRow>[],
+		affectedKeys: string[]
+	) => {
+		const updates: Array<{
+			tradeId: Id<'trades'>;
+			stageId: Id<'tradeStages'> | null;
+			order: number;
+		}> = [];
+		for (const key of new Set(affectedKeys)) {
+			const group = groups.find((g) => g.key === key);
+			if (!group) {
+				continue;
+			}
+			group.items.forEach((row, order) => {
+				updates.push({ tradeId: row.tradeId, stageId: group.stageId, order });
+			});
+		}
+		if (updates.length > 0) {
+			reorderTrades({ updates }).catch(() => {
+				/* Convex reactive queries revert the UI automatically */
+			});
+		}
+	};
 
 	const handleEdit = () => {
 		begin(
@@ -475,6 +349,79 @@ export default function ProjectBudgetsTabContent({
 		}
 	};
 
+	const renderRowContent = (row: TradeBudgetRow) => (
+		<div className={cn(ROW_GRID, 'flex-1')}>
+			{isEditing ? (
+				<Input
+					aria-label={`Trade name for ${row.tradeName}`}
+					nativeInput
+					onChange={(e) => setNameDraft(row.tradeId, e.target.value)}
+					placeholder="Trade name"
+					type="text"
+					value={nameDrafts[row.tradeId] ?? ''}
+				/>
+			) : (
+				<span className="font-medium text-sm">{row.tradeName}</span>
+			)}
+			{isEditing ? (
+				<InputGroup>
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>$</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label={`Budget for ${row.tradeName}`}
+						inputMode="decimal"
+						nativeInput
+						onChange={(e) => setDraft(row.tradeId, e.target.value)}
+						placeholder="0.00"
+						type="text"
+						value={drafts[row.tradeId] ?? ''}
+					/>
+					<InputGroupAddon align="inline-end">
+						<InputGroupText>AUD</InputGroupText>
+					</InputGroupAddon>
+				</InputGroup>
+			) : (
+				<BudgetValue price={row.budgetPrice} />
+			)}
+			<ActualCell row={row} />
+			<QuotationsCountCell row={row} />
+			<OrdersCountCell row={row} />
+			<div className="flex justify-end">
+				{row.projectBudgetId ? (
+					<DeleteProjectBudget
+						projectBudgetId={row.projectBudgetId}
+						tradeName={row.tradeName}
+					/>
+				) : null}
+			</div>
+		</div>
+	);
+
+	const renderStageBadges = (group: StageGroup<TradeBudgetRow>) => {
+		const subtotal = group.items.reduce((sum, row) => {
+			if (isEditing) {
+				const raw = (drafts[row.tradeId] ?? '').trim();
+				if (raw.length > 0 && isValidMoneyString(raw)) {
+					return sum + parseMoneyString(raw);
+				}
+			}
+			return sum + (row.budgetPrice ?? 0);
+		}, 0);
+		return (
+			<>
+				<Badge size="lg" variant="secondary">
+					{group.items.length}
+				</Badge>
+				{group.items.length > 0 ? (
+					<Badge size="lg" variant="purple">
+						{formatBudgetPrice(subtotal)}
+					</Badge>
+				) : null}
+			</>
+		);
+	};
+
 	if (rows === undefined) {
 		return (
 			<div className="text-muted-foreground text-sm">Loading budgets…</div>
@@ -482,95 +429,147 @@ export default function ProjectBudgetsTabContent({
 	}
 
 	return (
-		<ProjectBudgetsTotalsContext.Provider value={totalsContextValue}>
-			<ProjectBudgetsEditContext.Provider value={editContextValue}>
-				<div className="flex min-h-0 flex-1 flex-col gap-4">
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<div className="sm:max-w-md sm:flex-1">
-							<Combobox<Id<'trades'>, true>
-								items={tradeItems}
-								itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
-								multiple
-								onValueChange={(next) =>
-									setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
-								}
-								value={filterTradeIds}
-							>
-								<ComboboxChips>
-									{filterTradeIds.map((id) => (
-										<ComboboxChip key={id}>
-											{tradeLabelById.get(id) ?? id}
-										</ComboboxChip>
-									))}
-									<ComboboxChipsInput placeholder="Filter trades…" />
-								</ComboboxChips>
-								<ComboboxPopup>
-									<ComboboxEmpty>No trades found.</ComboboxEmpty>
-									<ComboboxList>
-										{(item: Id<'trades'>) => (
-											<ComboboxItem key={item} value={item}>
-												{tradeLabelById.get(item) ?? item}
-											</ComboboxItem>
-										)}
-									</ComboboxList>
-								</ComboboxPopup>
-							</Combobox>
-						</div>
-						<div className="flex items-center gap-2">
-							{rows.length > 0 &&
-								(isEditing ? (
-									<Button
-										loading={isSaving}
-										onClick={() => {
-											handleDone().catch(() => {
-												/* Error handled in handleDone */
-											});
-										}}
-										type="button"
-									>
-										Done
-									</Button>
-								) : (
-									<Button onClick={handleEdit} type="button" variant="outline">
-										<Pencil />
-										Edit
-									</Button>
-								))}
-							<AddBudgetItemDialog
-								excludedTradeIds={budgetedTradeIds}
-								onSubmit={async (args) => {
-									await addItem({ projectId, ...args });
+		<div className="flex min-h-0 flex-1 flex-col gap-4">
+			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+				<InputGroup className="w-full sm:max-w-md">
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>
+							<SearchIcon aria-hidden />
+						</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label="Search budgets"
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="Search by stage or trade…"
+						type="search"
+						value={search}
+					/>
+				</InputGroup>
+				<div className="flex items-center gap-2">
+					<Button
+						aria-label="Expand all"
+						onClick={() => listRef.current?.expandAll()}
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						<ChevronsDownIcon />
+					</Button>
+					<Button
+						aria-label="Collapse all"
+						onClick={() => listRef.current?.collapseAll()}
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						<ChevronsUpIcon />
+					</Button>
+					{rows.length > 0 &&
+						(isEditing ? (
+							<Button
+								loading={isSaving}
+								onClick={() => {
+									handleDone().catch(() => {
+										/* Error handled in handleDone */
+									});
 								}}
-							/>
+								type="button"
+							>
+								Done
+							</Button>
+						) : (
+							<Button onClick={handleEdit} type="button" variant="outline">
+								<Pencil />
+								Edit
+							</Button>
+						))}
+					<AddBudgetItemDialog
+						excludedTradeIds={budgetedTradeIds}
+						onSubmit={async (args) => {
+							await addItem({ projectId, ...args });
+						}}
+					/>
+				</div>
+			</div>
+
+			{rows.length === 0 ? (
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<Wallet aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>No trades yet</EmptyTitle>
+						<EmptyDescription>
+							Use “Add Item” to add a budget for a trade.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			) : (
+				<div className="flex min-h-0 flex-1 flex-col gap-2">
+					{/* Column header — a leading spacer matches each row's drag grip. */}
+					<div className="flex items-center gap-2 px-3 text-muted-foreground text-xs">
+						<span aria-hidden className="w-4 shrink-0" />
+						<div className={cn(ROW_GRID, 'flex-1')}>
+							<span>Trade</span>
+							<span className="flex items-center gap-2">
+								Budget
+								<Badge size="lg" variant="purple">
+									{formatBudgetPrice(totalBudget)}
+								</Badge>
+							</span>
+							<span className="flex items-center gap-2">
+								Actual
+								<Badge
+									size="lg"
+									variant={
+										totalActual <= totalBudget
+											? 'success-outline'
+											: 'destructive-outline'
+									}
+								>
+									{formatBudgetPrice(totalActual)}
+								</Badge>
+							</span>
+							<span>Quotations</span>
+							<span>Orders</span>
+							<span />
 						</div>
 					</div>
-
-					{rows.length === 0 ? (
-						<Empty>
-							<EmptyHeader>
-								<EmptyMedia variant="icon">
-									<Wallet aria-hidden />
-								</EmptyMedia>
-								<EmptyTitle>No trades yet</EmptyTitle>
-								<EmptyDescription>
-									Use “Add Item” to add a budget for a trade.
-								</EmptyDescription>
-							</EmptyHeader>
-						</Empty>
-					) : (
-						<div className="flex min-h-0 flex-1 flex-col">
-							<DataTable
-								columns={columns}
-								data={filteredRows}
-								emptyMessage="No trades found."
-								initialPageSize={20}
-								key={filterTradeIds.join(',')}
-								stickyHeader
-							/>
-						</div>
-					)}
+					<StageGroupedList<TradeBudgetRow>
+						emptyGroupLabel="No trades in this stage."
+						getItemId={(row) => row.tradeId}
+						getItemName={(row) => row.tradeName}
+						getItemOrder={(row) => row.tradeOrder ?? undefined}
+						getStageId={(row) => row.stageId}
+						items={rows}
+						loadingLabel="Loading budgets…"
+						noResults={
+							<Empty>
+								<EmptyHeader>
+									<EmptyMedia variant="icon">
+										<Wallet aria-hidden />
+									</EmptyMedia>
+									<EmptyTitle>No matching trades</EmptyTitle>
+									<EmptyDescription>
+										Try a different stage or trade name.
+									</EmptyDescription>
+								</EmptyHeader>
+							</Empty>
+						}
+						onPersistItems={persistItems}
+						onReorderStages={(stageIds) => {
+							reorderStages({ stageIds }).catch(() => {
+								/* Convex reactive queries revert the UI automatically */
+							});
+						}}
+						ref={listRef}
+						renderRowContent={renderRowContent}
+						renderStageBadges={renderStageBadges}
+						search={search}
+						stages={stages}
+					/>
 				</div>
-			</ProjectBudgetsEditContext.Provider>
-		</ProjectBudgetsTotalsContext.Provider>
+			)}
+		</div>
 	);
 }

@@ -39,7 +39,7 @@ import { SingleFileUpload } from '@workspace/ui/components/single-file-upload';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
-import TradeCombobox from '@/components/budgets/trade-combobox';
+import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	formatFieldErrors,
@@ -82,7 +82,6 @@ export default function EditQuotation({
 		initialTradeId as string
 	);
 
-	const trades = useQuery(api.trades.list.list, {});
 	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
 
 	const filteredServiceProviders = selectedTradeId
@@ -92,7 +91,6 @@ export default function EditQuotation({
 		: (serviceProviders ?? []);
 
 	const updateQuotation = useMutation(api.projectQuotations.update.update);
-	const addTrade = useMutation(api.trades.add.add);
 	const generateUploadUrl = useAction(
 		api.projectQuotations.generateUploadUrl.generateUploadUrl
 	);
@@ -101,7 +99,6 @@ export default function EditQuotation({
 		defaultValues: {
 			title: initialTitle,
 			tradeId: initialTradeId as string,
-			newTradeName: '',
 			serviceProviderId: initialServiceProviderId as string,
 			price: String(initialPrice),
 			status: initialStatus,
@@ -111,14 +108,10 @@ export default function EditQuotation({
 		onSubmit: async ({ value }) => {
 			const parsed = quotationFormSchema.parse(value);
 			try {
-				const newName = parsed.newTradeName?.trim();
-				const resolvedTradeId = newName
-					? await addTrade({ name: newName })
-					: (parsed.tradeId as Id<'trades'>);
 				await updateQuotation({
 					quotationId,
 					title: parsed.title,
-					tradeId: resolvedTradeId,
+					tradeId: parsed.tradeId as Id<'trades'>,
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -240,16 +233,16 @@ export default function EditQuotation({
 										return (
 											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-												<TradeCombobox
+												<TradeSelect
+													allowCreate
 													id={field.name}
 													invalid={invalid}
 													onBlur={field.handleBlur}
-													onChange={(next) => {
+													onValueChange={(next) => {
 														field.handleChange(next);
 														setSelectedTradeId(next);
 														form.setFieldValue('serviceProviderId', '');
 													}}
-													trades={trades}
 													value={field.state.value as Id<'trades'> | ''}
 												/>
 												{invalid ? (
@@ -260,25 +253,6 @@ export default function EditQuotation({
 											</Field>
 										);
 									}}
-								</form.Field>
-
-								<form.Field name="newTradeName">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>
-												Or create new trade
-											</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												nativeInput
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="New trade name"
-												value={field.state.value ?? ''}
-											/>
-										</Field>
-									)}
 								</form.Field>
 
 								<form.Field name="serviceProviderId">

@@ -26,6 +26,7 @@ import {
 	tradeFormFieldError,
 	tradeFormSchema,
 } from './trade-form-shared';
+import TradeStageInlineSelect from './trade-stage-inline-select';
 
 const FORM_ID = 'edit-trade-form';
 
@@ -33,15 +34,30 @@ export default function EditTrade({
 	tradeId,
 	initialName,
 	initialDescription,
+	initialStageId,
 	trigger,
 }: {
 	tradeId: Id<'trades'>;
 	initialName: string;
 	initialDescription?: string;
+	initialStageId?: Id<'tradeStages'>;
 	trigger: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
+	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
+	const [newStageName, setNewStageName] = useState('');
 	const updateTrade = useMutation(api.trades.update.update);
+	const addStage = useMutation(api.tradeStages.add.add);
+
+	// Resolve the target stage: create one from a typed name, use the selected id,
+	// or null to move the trade to Ungrouped.
+	const resolveStageId = async (): Promise<Id<'tradeStages'> | null> => {
+		const trimmed = newStageName.trim();
+		if (trimmed) {
+			return await addStage({ name: trimmed });
+		}
+		return stageId || null;
+	};
 
 	const form = useForm({
 		defaultValues: emptyTradeFormValues,
@@ -57,6 +73,7 @@ export default function EditTrade({
 					// Always send a string (empty clears it) so the backend can tell an
 					// intentional clear apart from a name-only update that omits it.
 					description: parsed.description ?? '',
+					stageId: await resolveStageId(),
 				});
 				toastManager.add({
 					title: 'Trade updated',
@@ -87,10 +104,14 @@ export default function EditTrade({
 				},
 				{ keepDefaultValues: true }
 			);
+			setStageId(initialStageId ?? '');
+			setNewStageName('');
 			return;
 		}
 		form.reset();
-	}, [form, initialName, initialDescription, open]);
+		setStageId('');
+		setNewStageName('');
+	}, [form, initialName, initialDescription, initialStageId, open]);
 
 	return (
 		<Dialog
@@ -161,6 +182,13 @@ export default function EditTrade({
 								</Field>
 							)}
 						</form.Field>
+						<TradeStageInlineSelect
+							idPrefix="edit-trade"
+							newStageName={newStageName}
+							onNewStageNameChange={setNewStageName}
+							onStageIdChange={setStageId}
+							stageId={stageId}
+						/>
 					</DialogPanel>
 				</form>
 				<DialogFooter>

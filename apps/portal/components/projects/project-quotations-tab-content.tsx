@@ -17,7 +17,6 @@ import {
 	ComboboxChip,
 	ComboboxChips,
 	ComboboxChipsInput,
-	ComboboxEmpty,
 	ComboboxItem,
 	ComboboxList,
 	ComboboxPopup,
@@ -76,6 +75,7 @@ import DeleteQuotation from '@/components/quotations/delete-quotation';
 import EditQuotation from '@/components/quotations/edit-quotation';
 import type { QuotationFormValues } from '@/components/quotations/quotation-form-shared';
 import QuotationNotesDialog from '@/components/quotations/quotation-notes-dialog';
+import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 interface ProjectQuotation {
@@ -371,7 +371,6 @@ export default function ProjectQuotationsTabContent({
 	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
 		projectId,
 	});
-	const trades = useQuery(api.trades.list.list, {});
 
 	const budgetByTrade = useMemo(() => {
 		const map = new Map<
@@ -448,12 +447,6 @@ export default function ProjectQuotationsTabContent({
 		filterTradeIds.length > 0 ||
 		filterStatuses.length > 0 ||
 		trimmedSearch !== '';
-
-	const tradeItems = useMemo(() => (trades ?? []).map((t) => t._id), [trades]);
-	const tradeLabelById = useMemo(
-		() => new Map((trades ?? []).map((t) => [t._id, t.name])),
-		[trades]
-	);
 
 	let content: React.ReactNode;
 
@@ -606,34 +599,12 @@ export default function ProjectQuotationsTabContent({
 
 				<div className="flex flex-1 flex-col gap-2 sm:flex-row">
 					<div className="min-w-0 flex-1">
-						<Combobox<Id<'trades'>, true>
-							items={tradeItems}
-							itemToStringLabel={(item) => tradeLabelById.get(item) ?? ''}
+						<TradeSelect
 							multiple
-							onValueChange={(next) =>
-								setFilterTradeIds((next as Id<'trades'>[] | null) ?? [])
-							}
+							onValueChange={setFilterTradeIds}
+							placeholder="All trades"
 							value={filterTradeIds}
-						>
-							<ComboboxChips>
-								{filterTradeIds.map((id) => (
-									<ComboboxChip key={id}>
-										{tradeLabelById.get(id) ?? id}
-									</ComboboxChip>
-								))}
-								<ComboboxChipsInput placeholder="All trades" />
-							</ComboboxChips>
-							<ComboboxPopup>
-								<ComboboxEmpty>No trades found.</ComboboxEmpty>
-								<ComboboxList>
-									{(item: Id<'trades'>) => (
-										<ComboboxItem key={item} value={item}>
-											{tradeLabelById.get(item) ?? item}
-										</ComboboxItem>
-									)}
-								</ComboboxList>
-							</ComboboxPopup>
-						</Combobox>
+						/>
 					</div>
 
 					<div className="min-w-0 flex-1">

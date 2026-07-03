@@ -298,6 +298,7 @@ export default function ServiceProvidersPageContent() {
 				data={serviceProviders}
 				emptyMessage="No matching service providers."
 				key={trimmedSearch}
+				verticalAlign="top"
 			/>
 		);
 	}

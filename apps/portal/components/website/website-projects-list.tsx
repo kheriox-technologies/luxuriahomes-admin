@@ -229,6 +229,7 @@ export default function WebsiteProjectsList({
 			key={resetKey}
 			onRowClick={(project) => router.push(`/website/${project._id}` as Route)}
 			stickyHeader
+			verticalAlign="top"
 		/>
 	);
 }

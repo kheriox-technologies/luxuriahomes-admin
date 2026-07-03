@@ -1,6 +1,5 @@
 'use client';
 
-import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -13,9 +12,8 @@ import {
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
-import { useQuery } from 'convex/react';
 import { type ReactNode, useEffect, useState } from 'react';
-import TradeCombobox from '@/components/budgets/trade-combobox';
+import TradeSelect from '@/components/trades/trade-select';
 
 export default function SelectTradeDialog({
 	open,
@@ -32,7 +30,6 @@ export default function SelectTradeDialog({
 	description?: ReactNode;
 	children?: ReactNode;
 }) {
-	const trades = useQuery(api.trades.list.list, {});
 	const [tradeId, setTradeId] = useState<Id<'trades'> | ''>('');
 
 	useEffect(() => {
@@ -54,13 +51,10 @@ export default function SelectTradeDialog({
 				<div className="px-6">
 					<Field>
 						<FieldLabel htmlFor="select-trade-dialog-trade">Trade</FieldLabel>
-						<TradeCombobox
+						<TradeSelect
+							allowCreate
 							id="select-trade-dialog-trade"
-							onBlur={() => {
-								/* no-op */
-							}}
-							onChange={(next) => setTradeId(next)}
-							trades={trades}
+							onValueChange={(next) => setTradeId(next)}
 							value={tradeId}
 						/>
 					</Field>

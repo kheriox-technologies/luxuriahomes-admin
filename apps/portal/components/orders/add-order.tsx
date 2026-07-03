@@ -28,9 +28,9 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
-import TradeCombobox from '@/components/budgets/trade-combobox';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
+import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyOrderFormValues,
@@ -53,7 +53,6 @@ export default function AddOrder({
 	const addOrder = useMutation(api.projectOrders.add.add);
 	const addVendor = useMutation(api.vendors.add.add);
 	const vendors = useQuery(api.vendors.list.list, {});
-	const trades = useQuery(api.trades.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const unitItems = useMemo(() => (units ?? []).map((u) => u.abbr), [units]);
 	const unitLabelByAbbr = useMemo(() => {
@@ -197,12 +196,12 @@ export default function AddOrder({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-										<TradeCombobox
+										<TradeSelect
+											allowCreate
 											id={field.name}
 											invalid={invalid}
 											onBlur={field.handleBlur}
-											onChange={(next) => field.handleChange(next)}
-											trades={trades}
+											onValueChange={(next) => field.handleChange(next)}
 											value={field.state.value as Id<'trades'> | ''}
 										/>
 										{invalid ? (
