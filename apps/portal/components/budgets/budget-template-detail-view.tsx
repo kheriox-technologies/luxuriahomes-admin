@@ -368,10 +368,15 @@ export default function BudgetTemplateDetailView({
 	};
 
 	const renderStageBadges = (group: StageGroup<TemplateItem>) => {
-		const subtotal = group.items.reduce(
-			(sum, item) => sum + (item.price ?? 0),
-			0
-		);
+		const subtotal = group.items.reduce((sum, item) => {
+			if (isEditing) {
+				const raw = (drafts[item.tradeId] ?? '').trim();
+				if (raw.length > 0 && isValidMoneyString(raw)) {
+					return sum + parseMoneyString(raw);
+				}
+			}
+			return sum + (item.price ?? 0);
+		}, 0);
 		return (
 			<>
 				<Badge size="lg" variant="secondary">

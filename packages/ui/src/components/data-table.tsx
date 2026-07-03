@@ -41,6 +41,7 @@ interface DataTableProps<TData, TValue> {
 	onRowClick?: (row: TData) => void;
 	showPagination?: boolean;
 	stickyHeader?: boolean;
+	verticalAlign?: 'top' | 'center';
 }
 
 export function DataTable<TData, TValue>({
@@ -51,6 +52,7 @@ export function DataTable<TData, TValue>({
 	emptyMessage = 'No results.',
 	showPagination = true,
 	stickyHeader = false,
+	verticalAlign = 'center',
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -137,7 +139,12 @@ export function DataTable<TData, TValue>({
 									const width = getColumnWidth(columnSize, size);
 									return (
 										<TableCell
-											className="min-w-0 whitespace-normal break-words align-top"
+											className={cn(
+												'min-w-0 whitespace-normal break-words',
+												verticalAlign === 'top'
+													? 'align-top'
+													: 'align-middle'
+											)}
 											key={cell.id}
 											style={
 												width

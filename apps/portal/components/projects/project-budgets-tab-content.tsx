@@ -399,16 +399,21 @@ export default function ProjectBudgetsTabContent({
 	);
 
 	const renderStageBadges = (group: StageGroup<TradeBudgetRow>) => {
-		const subtotal = group.items.reduce(
-			(sum, row) => sum + (row.budgetPrice ?? 0),
-			0
-		);
+		const subtotal = group.items.reduce((sum, row) => {
+			if (isEditing) {
+				const raw = (drafts[row.tradeId] ?? '').trim();
+				if (raw.length > 0 && isValidMoneyString(raw)) {
+					return sum + parseMoneyString(raw);
+				}
+			}
+			return sum + (row.budgetPrice ?? 0);
+		}, 0);
 		return (
 			<>
 				<Badge size="lg" variant="secondary">
 					{group.items.length}
 				</Badge>
-				{subtotal > 0 ? (
+				{group.items.length > 0 ? (
 					<Badge size="lg" variant="purple">
 						{formatBudgetPrice(subtotal)}
 					</Badge>

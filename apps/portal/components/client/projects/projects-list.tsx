@@ -168,6 +168,7 @@ export default function ProjectsList({
 					emptyMessage="No matching projects."
 					key={trimmedSearch}
 					onRowClick={(project) => openProject(project._id)}
+					verticalAlign="top"
 				/>
 			</div>
 		</>

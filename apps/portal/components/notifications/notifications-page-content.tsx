@@ -210,7 +210,14 @@ export default function NotificationsPageContent() {
 	} else if (filtered.length === 0) {
 		content = <EmptyNotificationsState filter={filter} />;
 	} else {
-		content = <DataTable columns={columns} data={filtered} key={filter} />;
+		content = (
+			<DataTable
+				columns={columns}
+				data={filtered}
+				key={filter}
+				verticalAlign="top"
+			/>
+		);
 	}
 
 	return (
