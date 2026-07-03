@@ -8,9 +8,7 @@
   "type": "module",
   "exports": {
     "./web": "./src/web.ts",
-    "./admin": "./src/admin.ts",
-    "./client": "./src/client.ts",
-    "./app": "./src/app.ts"
+    "./portal": "./src/portal.ts"
   },
   "dependencies": {
     "@t3-oss/env-nextjs": "^0.13.1",

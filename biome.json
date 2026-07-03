@@ -46,16 +46,6 @@
           }
         }
       }
-    },
-    {
-      "includes": ["apps/admin/emails/**"],
-      "linter": {
-        "rules": {
-          "correctness": {
-            "noUnusedImports": "off"
-          }
-        }
-      }
     }
   ],
   "formatter": {

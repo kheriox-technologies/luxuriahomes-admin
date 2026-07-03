@@ -68,7 +68,7 @@ export const taskStatusValidator = v.union(
 );
 
 // --- Takeoffs ---
-// Mirrors apps/admin/lib/takeoffs/types.ts. All point coordinates are in BASE
+// Mirrors apps/portal/lib/takeoffs/types.ts. All point coordinates are in BASE
 // canvas-pixel space (the unscaled rendered page), independent of zoom/pan.
 export const takeoffPointValidator = v.object({
 	x: v.number(),

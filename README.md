@@ -1,4 +1,4 @@
-# monorepo-template
+# luxuria-homes
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, and more.
 
@@ -34,7 +34,7 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the w
 ## Project Structure
 
 ```
-monorepo-template/
+luxuria-homes/
 ├── apps/
 │   ├── web/         # Frontend application (Next.js)
 ```
