@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Development
 pnpm dev            # Start all apps (Turborepo)
-pnpm dev:admin      # Start only the admin app
+pnpm dev:portal     # Start only the portal app
 
 # Build & Type Check
 pnpm build          # Build all workspaces
@@ -26,7 +26,7 @@ pnpm env:push       # Push environment variables
 
 This is a **Turborepo monorepo** with the following workspaces:
 
-- `apps/admin` — Next.js 16 admin dashboard (primary app)
+- `apps/portal` — Next.js 16 unified portal (admin + client surfaces, primary app)
 - `packages/backend` — Convex serverless backend (shared across apps)
 - `packages/ui` — Shared shadcn/ui + Base UI component library
 - `packages/env` — Type-safe environment variable configuration
@@ -58,7 +58,7 @@ const data = await fetchQuery(api.projects.list, {});
 
 ## Auth & Permissions
 
-- Middleware lives in `apps/admin/proxy.ts` — Clerk-based with permission caching (60s TTL)
+- Middleware lives in `apps/portal/proxy.ts` — Clerk-based with permission caching (60s TTL)
 - Role-based access is enforced via Clerk session claims (custom metadata)
 - Route guards are in `guards/` — check these when adding new protected routes
 - Two app modes: `'builder'` and `'client'` (toggled via Zustand `useAppModeStore`)

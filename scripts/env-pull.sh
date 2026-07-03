@@ -8,12 +8,8 @@ fi
 
 S3_BUCKET="s3://apse2-lha-${ENV}-config"
 
-aws s3 cp "$S3_BUCKET/app/env/.env.local" apps/app/.env.local
-aws s3 cp "$S3_BUCKET/app/env/.env.$ENV" "apps/app/.env.$ENV"
-aws s3 cp "$S3_BUCKET/admin/env/.env.local" apps/admin/.env.local
-aws s3 cp "$S3_BUCKET/admin/env/.env.$ENV" "apps/admin/.env.$ENV"
-aws s3 cp "$S3_BUCKET/client/env/.env.local" apps/client/.env.local
-aws s3 cp "$S3_BUCKET/client/env/.env.$ENV" "apps/client/.env.$ENV"
+aws s3 cp "$S3_BUCKET/portal/env/.env.local" apps/portal/.env.local
+aws s3 cp "$S3_BUCKET/portal/env/.env.$ENV" "apps/portal/.env.$ENV"
 aws s3 cp "$S3_BUCKET/web/env/.env.local" apps/web/.env.local
 aws s3 cp "$S3_BUCKET/web/env/.env.$ENV" "apps/web/.env.$ENV"
 aws s3 cp "$S3_BUCKET/backend/env/.env.local" packages/backend/.env.local

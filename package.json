@@ -1,5 +1,5 @@
 {
-  "name": "monorepo-template",
+  "name": "luxuria-homes",
   "private": true,
   "engines": {
     "node": ">=22"
@@ -15,9 +15,7 @@
     "check-types": "turbo check-types",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
-    "dev:admin": "turbo -F admin dev",
-    "dev:client": "turbo -F client dev",
-    "dev:app": "turbo -F app dev",
+    "dev:portal": "turbo -F portal dev",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "prepare": "husky",
