@@ -41,6 +41,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useState } from 'react';
 import TradeCombobox from '@/components/budgets/trade-combobox';
+import TradeStageInlineSelect from '@/components/trades/trade-stage-inline-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyQuotationFormValues,
@@ -80,6 +81,10 @@ export default function AddQuotation({
 	const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 	const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 	const [selectedTradeId, setSelectedTradeId] = useState<string>('');
+	const [newTradeStageId, setNewTradeStageId] = useState<
+		Id<'tradeStages'> | ''
+	>('');
+	const [newTradeStageName, setNewTradeStageName] = useState('');
 
 	const trades = useQuery(api.trades.list.list, {});
 	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
@@ -92,6 +97,7 @@ export default function AddQuotation({
 
 	const addQuotation = useMutation(api.projectQuotations.add.add);
 	const addTrade = useMutation(api.trades.add.add);
+	const addStage = useMutation(api.tradeStages.add.add);
 	const generateUploadUrl = useAction(
 		api.projectQuotations.generateUploadUrl.generateUploadUrl
 	);
@@ -108,9 +114,16 @@ export default function AddQuotation({
 			const parsed = quotationFormSchema.parse(value);
 			try {
 				const newName = parsed.newTradeName?.trim();
-				const resolvedTradeId = newName
-					? await addTrade({ name: newName })
-					: (parsed.tradeId as Id<'trades'>);
+				let resolvedTradeId: Id<'trades'>;
+				if (newName) {
+					const trimmedStage = newTradeStageName.trim();
+					const stageId = trimmedStage
+						? await addStage({ name: trimmedStage })
+						: newTradeStageId || undefined;
+					resolvedTradeId = await addTrade({ name: newName, stageId });
+				} else {
+					resolvedTradeId = parsed.tradeId as Id<'trades'>;
+				}
 				await addQuotation({
 					projectId,
 					title: parsed.title,
@@ -140,6 +153,8 @@ export default function AddQuotation({
 		form.reset();
 		setUploadedFileName(null);
 		setSelectedTradeId('');
+		setNewTradeStageId('');
+		setNewTradeStageName('');
 	};
 
 	const handleFileChange = async (file: File | null) => {
@@ -286,6 +301,14 @@ export default function AddQuotation({
 										</Field>
 									)}
 								</form.Field>
+
+								<TradeStageInlineSelect
+									idPrefix="add-quotation-trade"
+									newStageName={newTradeStageName}
+									onNewStageNameChange={setNewTradeStageName}
+									onStageIdChange={setNewTradeStageId}
+									stageId={newTradeStageId}
+								/>
 
 								<form.Field name="serviceProviderId">
 									{(field) => {

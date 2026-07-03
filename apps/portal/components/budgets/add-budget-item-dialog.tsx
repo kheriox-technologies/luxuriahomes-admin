@@ -29,6 +29,7 @@ import {
 import { useQuery } from 'convex/react';
 import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import TradeStageInlineSelect from '@/components/trades/trade-stage-inline-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { isValidMoneyString, parseMoneyString } from './budget-form-shared';
 import TradeCombobox from './trade-combobox';
@@ -37,6 +38,8 @@ type AddMode = 'existing' | 'new';
 
 export interface AddBudgetItemArgs {
 	newTradeName?: string;
+	newTradeStageId?: Id<'tradeStages'>;
+	newTradeStageName?: string;
 	price: number;
 	tradeId?: Id<'trades'>;
 }
@@ -54,6 +57,10 @@ export default function AddBudgetItemDialog({
 	const [mode, setMode] = useState<AddMode>('existing');
 	const [tradeId, setTradeId] = useState<Id<'trades'> | ''>('');
 	const [newTradeName, setNewTradeName] = useState('');
+	const [newTradeStageId, setNewTradeStageId] = useState<
+		Id<'tradeStages'> | ''
+	>('');
+	const [newTradeStageName, setNewTradeStageName] = useState('');
 	const [price, setPrice] = useState('0');
 	const [isSaving, setIsSaving] = useState(false);
 
@@ -75,6 +82,8 @@ export default function AddBudgetItemDialog({
 			setMode('existing');
 			setTradeId('');
 			setNewTradeName('');
+			setNewTradeStageId('');
+			setNewTradeStageName('');
 			setPrice('0');
 		}
 	}, [open]);
@@ -101,7 +110,13 @@ export default function AddBudgetItemDialog({
 			await onSubmit({
 				price: parsedPrice,
 				...(mode === 'new'
-					? { newTradeName: newTradeName.trim() }
+					? {
+							newTradeName: newTradeName.trim(),
+							newTradeStageId: newTradeStageName.trim()
+								? undefined
+								: newTradeStageId || undefined,
+							newTradeStageName: newTradeStageName.trim() || undefined,
+						}
 					: { tradeId: tradeId as Id<'trades'> }),
 			});
 			toastManager.add({ title: 'Item added', type: 'success' });
@@ -164,15 +179,26 @@ export default function AddBudgetItemDialog({
 							/>
 						</Field>
 					) : (
-						<Field>
-							<FieldLabel htmlFor="add-budget-item-name">Trade name</FieldLabel>
-							<Input
-								id="add-budget-item-name"
-								onChange={(e) => setNewTradeName(e.target.value)}
-								placeholder="e.g. Electrical"
-								value={newTradeName}
+						<>
+							<Field>
+								<FieldLabel htmlFor="add-budget-item-name">
+									Trade name
+								</FieldLabel>
+								<Input
+									id="add-budget-item-name"
+									onChange={(e) => setNewTradeName(e.target.value)}
+									placeholder="e.g. Electrical"
+									value={newTradeName}
+								/>
+							</Field>
+							<TradeStageInlineSelect
+								idPrefix="add-budget-item"
+								newStageName={newTradeStageName}
+								onNewStageNameChange={setNewTradeStageName}
+								onStageIdChange={setNewTradeStageId}
+								stageId={newTradeStageId}
 							/>
-						</Field>
+						</>
 					)}
 
 					<Field>

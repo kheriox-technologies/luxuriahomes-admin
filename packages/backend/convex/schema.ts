@@ -352,11 +352,26 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_locations', { searchField: 'searchText' }),
+	tradeStages: defineTable({
+		name: v.string(),
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_trade_stages', { searchField: 'searchText' }),
 	trades: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),
+		// Optional so pre-existing stage-less trades remain valid; they surface in
+		// the "Ungrouped" bucket on the UI until moved into a stage.
+		stageId: v.optional(v.id('tradeStages')),
+		// Sort position within the trade's stage (or within Ungrouped). Optional for
+		// legacy rows; they fall back to alphabetical until first reordered.
+		order: v.optional(v.number()),
 		searchText: v.string(),
-	}).searchIndex('search_trades', { searchField: 'searchText' }),
+	})
+		.index('by_stage', ['stageId'])
+		.searchIndex('search_trades', { searchField: 'searchText' }),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

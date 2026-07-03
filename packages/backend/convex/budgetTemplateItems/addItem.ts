@@ -6,15 +6,18 @@ import {
 	parseItemPrice,
 	recomputeTemplateTotal,
 } from '../budgetTemplates/shared';
-import { buildTradeSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
-import { getTradeOrThrow, parseTradeName } from '../trades/shared';
+import { createTradeStage } from '../tradeStages/shared';
+import { createTrade, getTradeOrThrow } from '../trades/shared';
 
 export const addItem = mutation({
 	args: {
 		budgetTemplateId: v.id('budgetTemplates'),
 		tradeId: v.optional(v.id('trades')),
 		newTradeName: v.optional(v.string()),
+		// Stage for a newly created trade: an existing stage id, or a name to create.
+		newTradeStageId: v.optional(v.id('tradeStages')),
+		newTradeStageName: v.optional(v.string()),
 		price: v.number(),
 	},
 	handler: async (ctx, args) => {
@@ -26,9 +29,10 @@ export const addItem = mutation({
 		// use the selected existing trade.
 		let tradeId: Id<'trades'>;
 		if (args.newTradeName !== undefined) {
-			const name = parseTradeName(args.newTradeName);
-			const searchText = buildTradeSearchText(name);
-			tradeId = await ctx.db.insert('trades', { name, searchText });
+			const stageId = args.newTradeStageName
+				? await createTradeStage(ctx, args.newTradeStageName)
+				: args.newTradeStageId;
+			tradeId = await createTrade(ctx, { name: args.newTradeName, stageId });
 		} else {
 			if (!args.tradeId) {
 				throw new ConvexError({

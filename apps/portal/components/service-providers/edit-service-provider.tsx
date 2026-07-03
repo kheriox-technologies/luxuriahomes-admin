@@ -35,6 +35,7 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useEffect, useState } from 'react';
+import TradeStageInlineSelect from '@/components/trades/trade-stage-inline-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	ServiceProviderContactCard,
@@ -106,6 +107,10 @@ export default function EditServiceProvider({
 
 	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
 	const [newTradeName, setNewTradeName] = useState('');
+	const [newTradeStageId, setNewTradeStageId] = useState<
+		Id<'tradeStages'> | ''
+	>('');
+	const [newTradeStageName, setNewTradeStageName] = useState('');
 	const [contacts, setContacts] = useState<ContactDraftValues[]>([]);
 	const [draft, setDraft] = useState<ContactDraftValues>(emptyContactDraft);
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -113,6 +118,7 @@ export default function EditServiceProvider({
 	const trades = useQuery(api.trades.list.list, {});
 	const updateServiceProvider = useMutation(api.serviceProviders.update.update);
 	const addTrade = useMutation(api.trades.add.add);
+	const addStage = useMutation(api.tradeStages.add.add);
 
 	const form = useForm({
 		defaultValues: emptyServiceProviderFormValues,
@@ -125,7 +131,14 @@ export default function EditServiceProvider({
 				const trimmedNewTrade = newTradeName.trim();
 				let tradeIds = [...selectedTradeIds];
 				if (trimmedNewTrade) {
-					const newTradeId = await addTrade({ name: trimmedNewTrade });
+					const trimmedStage = newTradeStageName.trim();
+					const stageId = trimmedStage
+						? await addStage({ name: trimmedStage })
+						: newTradeStageId || undefined;
+					const newTradeId = await addTrade({
+						name: trimmedNewTrade,
+						stageId,
+					});
 					tradeIds = [...tradeIds, newTradeId as string];
 				}
 				await updateServiceProvider({
@@ -184,6 +197,8 @@ export default function EditServiceProvider({
 			);
 			setSelectedTradeIds(initialTradeIds);
 			setNewTradeName('');
+			setNewTradeStageId('');
+			setNewTradeStageName('');
 			setContacts(
 				initialContacts.map((c) => ({
 					name: c.name,
@@ -200,6 +215,8 @@ export default function EditServiceProvider({
 		form.reset();
 		setSelectedTradeIds([]);
 		setNewTradeName('');
+		setNewTradeStageId('');
+		setNewTradeStageName('');
 		setContacts([]);
 		setDraft(emptyContactDraft);
 		setEditingIndex(null);
@@ -541,6 +558,15 @@ export default function EditServiceProvider({
 									placeholder="Or type a new trade name…"
 									value={newTradeName}
 								/>
+								{newTradeName.trim() ? (
+									<TradeStageInlineSelect
+										idPrefix="edit-sp-trade"
+										newStageName={newTradeStageName}
+										onNewStageNameChange={setNewTradeStageName}
+										onStageIdChange={setNewTradeStageId}
+										stageId={newTradeStageId}
+									/>
+								) : null}
 							</FramePanel>
 						</Frame>
 

@@ -6,7 +6,7 @@ import { requireAdmin } from '../lib/checkIdentity';
 import { syncMaterialSearchText } from '../materials/shared';
 import { syncQuotationSearchText } from '../projectQuotations/shared';
 import { syncServiceProviderSearchText } from '../serviceProviders/shared';
-import { getTradeOrThrow, parseTradeName } from './shared';
+import { getTradeOrThrow, nextTradeOrder, parseTradeName } from './shared';
 
 /**
  * Trade names are denormalized into the searchText of every material, quotation,
@@ -45,6 +45,9 @@ export const update = mutation({
 		tradeId: v.id('trades'),
 		name: v.string(),
 		description: v.optional(v.string()),
+		// undefined → leave the stage unchanged; null → move to Ungrouped; an id →
+		// move into that stage (appended to its end).
+		stageId: v.optional(v.union(v.id('tradeStages'), v.null())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -58,7 +61,22 @@ export const update = mutation({
 				? existing.description
 				: args.description.trim() || undefined;
 		const searchText = buildTradeSearchText(name, description);
-		await ctx.db.patch(args.tradeId, { name, description, searchText });
+		const patch: {
+			name: string;
+			description: string | undefined;
+			searchText: string;
+			stageId?: Id<'tradeStages'> | undefined;
+			order?: number;
+		} = { name, description, searchText };
+		// Re-slot into the target stage only when the caller changes it.
+		if (args.stageId !== undefined) {
+			const nextStageId = args.stageId ?? undefined;
+			if (nextStageId !== existing.stageId) {
+				patch.stageId = nextStageId;
+				patch.order = await nextTradeOrder(ctx, nextStageId);
+			}
+		}
+		await ctx.db.patch(args.tradeId, patch);
 		if (existing.name !== name) {
 			await reindexTradeReferences(ctx, args.tradeId);
 		}

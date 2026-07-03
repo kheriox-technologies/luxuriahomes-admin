@@ -2,6 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
+import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Dialog,
@@ -28,16 +29,35 @@ import {
 	tradeFormFieldError,
 	tradeFormSchema,
 } from './trade-form-shared';
+import TradeStageInlineSelect from './trade-stage-inline-select';
 
 const FORM_ID = 'add-trade-form';
 
 export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 	const [open, setOpen] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
+	const [newStageName, setNewStageName] = useState('');
 	const multi = useMultiAdd();
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const addTrade = useMutation(api.trades.add.add);
 	const addManyTrades = useMutation(api.trades.addMany.addMany);
+	const addStage = useMutation(api.tradeStages.add.add);
+
+	// Resolve the chosen stage: create one when a new name is typed, otherwise use
+	// the selected stage id (or none, leaving the trade Ungrouped).
+	const resolveStageId = async (): Promise<Id<'tradeStages'> | undefined> => {
+		const trimmed = newStageName.trim();
+		if (trimmed) {
+			return await addStage({ name: trimmed });
+		}
+		return stageId || undefined;
+	};
+
+	const resetStage = () => {
+		setStageId('');
+		setNewStageName('');
+	};
 
 	const form = useForm({
 		defaultValues: emptyTradeFormValues,
@@ -50,6 +70,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 				await addTrade({
 					name: parsed.name,
 					description: parsed.description?.trim() || undefined,
+					stageId: await resolveStageId(),
 				});
 				toastManager.add({
 					title: 'Trade added',
@@ -57,6 +78,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 				});
 				form.reset();
 				multi.reset();
+				resetStage();
 				setOpen(false);
 			} catch (error) {
 				toastManager.add({
@@ -69,6 +91,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 				});
 				form.reset();
 				multi.reset();
+				resetStage();
 				setOpen(false);
 			}
 		},
@@ -95,13 +118,14 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 		}
 		setIsSaving(true);
 		try {
-			await addManyTrades({ names });
+			await addManyTrades({ names, stageId: await resolveStageId() });
 			toastManager.add({
 				title: `${names.length} trades added`,
 				type: 'success',
 			});
 			form.reset();
 			multi.reset();
+			resetStage();
 			setOpen(false);
 		} catch (error) {
 			toastManager.add({
@@ -124,6 +148,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 				if (!nextOpen) {
 					form.reset();
 					multi.reset();
+					resetStage();
 				}
 			}}
 			open={open}
@@ -193,6 +218,13 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 							}}
 						</form.Field>
 						<PendingItemsList items={multi.items} onRemove={multi.removeItem} />
+						<TradeStageInlineSelect
+							idPrefix="add-trade"
+							newStageName={newStageName}
+							onNewStageNameChange={setNewStageName}
+							onStageIdChange={setStageId}
+							stageId={stageId}
+						/>
 						{multi.isMultiAdd ? null : (
 							<form.Field name="description">
 								{(field) => (
