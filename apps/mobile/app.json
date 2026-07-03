@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Luxuria Homes",
+    "slug": "luxuria-homes-admin",
+    "version": "1.0.0",
+    "scheme": "luxuriahomes",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "au.com.luxuriahomes.admin",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "au.com.luxuriahomes.admin",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#001f30"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#001f30",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

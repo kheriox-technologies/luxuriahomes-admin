@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Semantic tokens as RGB triplets (converted from packages/ui oklch values) */
+:root {
+	--background: 249 250 251;
+	--foreground: 10 10 10;
+	--card: 255 255 255;
+	--card-foreground: 10 10 10;
+	--muted: 245 245 245;
+	--muted-foreground: 115 115 115;
+	--border: 229 229 229;
+	--primary: 0 31 48; /* brand navy */
+	--primary-foreground: 255 240 169; /* brand gold/cream */
+	--accent: 19 50 68; /* navy accent */
+	--destructive: 223 34 37;
+}
+
+.dark:root {
+	--background: 31 31 35;
+	--foreground: 250 250 250;
+	--card: 23 23 23;
+	--card-foreground: 250 250 250;
+	--muted: 38 38 38;
+	--muted-foreground: 161 161 161;
+	--border: 53 53 57;
+	--primary: 0 31 48;
+	--primary-foreground: 255 240 169;
+	--accent: 19 50 68;
+	--destructive: 255 100 103;
+}
