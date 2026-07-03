@@ -8,7 +8,7 @@ import {
 	SquareKanban,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { ScreenHeader } from '@/components/screen-header';
 import { useThemeColors } from '@/components/theme';
 import {
@@ -16,7 +16,7 @@ import {
 	type ActionSheetItem,
 } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
-import { Card } from '@/components/ui/card';
+import { PressableCard } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -150,64 +150,60 @@ export default function TasksScreen() {
 							item.dueDate < now &&
 							item.status !== 'done';
 						return (
-							<Pressable
+							<PressableCard
 								accessibilityLabel={`Task ${item.title}. Tap to move.`}
-								accessibilityRole="button"
+								className="mx-4 mb-2 gap-2 p-3.5"
 								onPress={() => {
 									setTarget(item);
 									sheetRef.current?.present();
 								}}
 							>
-								<Card className="mx-4 mb-2 gap-2 p-3.5 active:bg-muted/50">
-									<Text className="font-sans-semibold text-foreground text-sm">
-										{item.title}
+								<Text className="font-sans-semibold text-foreground text-sm">
+									{item.title}
+								</Text>
+								{item.description ? (
+									<Text
+										className="font-sans text-muted-foreground text-xs"
+										numberOfLines={2}
+									>
+										{item.description}
 									</Text>
-									{item.description ? (
+								) : null}
+								<View className="flex-row items-center gap-2">
+									{projectName ? (
 										<Text
 											className="font-sans text-muted-foreground text-xs"
-											numberOfLines={2}
+											numberOfLines={1}
 										>
-											{item.description}
+											{projectName}
 										</Text>
 									) : null}
-									<View className="flex-row items-center gap-2">
-										{projectName ? (
+									{item.dueDate ? (
+										<View className="flex-row items-center gap-1">
+											<CalendarClock
+												color={
+													overdue ? colors.destructive : colors.mutedForeground
+												}
+												size={12}
+												strokeWidth={2}
+											/>
 											<Text
-												className="font-sans text-muted-foreground text-xs"
-												numberOfLines={1}
+												className={
+													overdue
+														? 'font-sans-medium text-destructive text-xs'
+														: 'font-sans text-muted-foreground text-xs'
+												}
 											>
-												{projectName}
+												{formatDate(item.dueDate)}
 											</Text>
-										) : null}
-										{item.dueDate ? (
-											<View className="flex-row items-center gap-1">
-												<CalendarClock
-													color={
-														overdue
-															? colors.destructive
-															: colors.mutedForeground
-													}
-													size={12}
-													strokeWidth={2}
-												/>
-												<Text
-													className={
-														overdue
-															? 'font-sans-medium text-destructive text-xs'
-															: 'font-sans text-muted-foreground text-xs'
-													}
-												>
-													{formatDate(item.dueDate)}
-												</Text>
-											</View>
-										) : null}
-										<View className="flex-1" />
-										{assigneeName ? (
-											<Avatar name={assigneeName} size="sm" />
-										) : null}
-									</View>
-								</Card>
-							</Pressable>
+										</View>
+									) : null}
+									<View className="flex-1" />
+									{assigneeName ? (
+										<Avatar name={assigneeName} size="sm" />
+									) : null}
+								</View>
+							</PressableCard>
 						);
 					}}
 				/>

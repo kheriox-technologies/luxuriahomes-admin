@@ -22,7 +22,7 @@ import {
 	View,
 } from 'react-native';
 import { useThemeColors } from '@/components/theme';
-import { Card } from '@/components/ui/card';
+import { PressableCard } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
@@ -153,67 +153,63 @@ export default function DocumentsScreen() {
 				) : null}
 
 				{folders.map((folder) => (
-					<Pressable
+					<PressableCard
 						accessibilityLabel={`Open folder ${folder.name}`}
-						accessibilityRole="button"
+						className="mx-4 mb-2 flex-row items-center gap-3 p-3.5"
 						key={folder._id}
 						onPress={() => setFolderPath(folder.path)}
 					>
-						<Card className="mx-4 mb-2 flex-row items-center gap-3 p-3.5 active:bg-muted/50">
-							<Folder
-								color={colors.mutedForeground}
-								size={20}
-								strokeWidth={1.75}
-							/>
-							<Text className="flex-1 font-sans-medium text-foreground text-sm">
-								{folder.name}
-							</Text>
-							<ChevronRight
-								color={colors.mutedForeground}
-								size={16}
-								strokeWidth={2}
-							/>
-						</Card>
-					</Pressable>
+						<Folder
+							color={colors.mutedForeground}
+							size={20}
+							strokeWidth={1.75}
+						/>
+						<Text className="flex-1 font-sans-medium text-foreground text-sm">
+							{folder.name}
+						</Text>
+						<ChevronRight
+							color={colors.mutedForeground}
+							size={16}
+							strokeWidth={2}
+						/>
+					</PressableCard>
 				))}
 
 				{documents.map((document) => {
 					const Icon = fileIcon(document.mimeType);
 					const isOpening = openingId === document._id;
 					return (
-						<Pressable
+						<PressableCard
 							accessibilityLabel={`Open document ${document.name}`}
-							accessibilityRole="button"
+							className="mx-4 mb-2 flex-row items-center gap-3 p-3.5"
 							disabled={isOpening}
 							key={document._id}
 							onPress={() => openDocument(document)}
 						>
-							<Card className="mx-4 mb-2 flex-row items-center gap-3 p-3.5 active:bg-muted/50">
-								<Icon
+							<Icon
+								color={colors.mutedForeground}
+								size={20}
+								strokeWidth={1.75}
+							/>
+							<View className="flex-1">
+								<Text
+									className="font-sans-medium text-foreground text-sm"
+									numberOfLines={1}
+								>
+									{document.name}
+								</Text>
+								<Text className="font-sans text-muted-foreground text-xs">
+									{formatDate(document.uploadedAt)}
+									{document.size ? ` · ${formatSize(document.size)}` : ''}
+								</Text>
+							</View>
+							{isOpening ? (
+								<ActivityIndicator
 									color={colors.mutedForeground}
-									size={20}
-									strokeWidth={1.75}
+									size="small"
 								/>
-								<View className="flex-1">
-									<Text
-										className="font-sans-medium text-foreground text-sm"
-										numberOfLines={1}
-									>
-										{document.name}
-									</Text>
-									<Text className="font-sans text-muted-foreground text-xs">
-										{formatDate(document.uploadedAt)}
-										{document.size ? ` · ${formatSize(document.size)}` : ''}
-									</Text>
-								</View>
-								{isOpening ? (
-									<ActivityIndicator
-										color={colors.mutedForeground}
-										size="small"
-									/>
-								) : null}
-							</Card>
-						</Pressable>
+							) : null}
+						</PressableCard>
 					);
 				})}
 			</ScrollView>

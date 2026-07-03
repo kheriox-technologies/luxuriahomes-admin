@@ -72,7 +72,7 @@ export const GroupCard = memo(
 							<Text className="font-sans text-muted-foreground text-xs">
 								{groupMeasurements.length}
 							</Text>
-							<View className={cn(expanded && 'rotate-180')}>
+							<View className={cn('rotate-0', expanded && 'rotate-180')}>
 								<ChevronDown
 									color={colors.mutedForeground}
 									size={16}

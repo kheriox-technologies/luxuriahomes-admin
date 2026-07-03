@@ -28,11 +28,13 @@ export function PressableCard({
 	className,
 	onPress,
 	accessibilityLabel,
+	disabled,
 }: {
 	children: ReactNode;
 	className?: string;
 	onPress?: () => void;
 	accessibilityLabel?: string;
+	disabled?: boolean;
 }) {
 	const scale = useSharedValue(1);
 	const animatedStyle = useAnimatedStyle(() => ({
@@ -44,6 +46,7 @@ export function PressableCard({
 			accessibilityLabel={accessibilityLabel}
 			accessibilityRole="button"
 			className={cn('rounded-xl border border-border bg-card', className)}
+			disabled={disabled}
 			onPress={onPress}
 			onPressIn={() => {
 				scale.value = withSpring(PRESS_SCALE, { damping: 20, stiffness: 300 });

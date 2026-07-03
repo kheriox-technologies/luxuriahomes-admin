@@ -156,7 +156,7 @@ export const StageCard = memo(
 									strokeWidth={2}
 								/>
 							</Pressable>
-							<View className={cn(expanded && 'rotate-180')}>
+							<View className={cn('rotate-0', expanded && 'rotate-180')}>
 								<ChevronDown
 									color={colors.mutedForeground}
 									size={18}

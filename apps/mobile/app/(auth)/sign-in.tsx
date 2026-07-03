@@ -51,16 +51,29 @@ export default function SignInScreen() {
 		setError(null);
 		setGoogleLoading(true);
 		try {
-			const { createdSessionId, setActive: setActiveSso } = await startSSOFlow({
+			const {
+				createdSessionId,
+				setActive: setActiveSso,
+				signIn: ssoSignIn,
+				signUp: ssoSignUp,
+			} = await startSSOFlow({
 				strategy: 'oauth_google',
 				redirectUrl: makeRedirectUri({
 					scheme: 'luxuriahomes',
 					path: 'sso-callback',
 				}),
 			});
-			if (createdSessionId && setActiveSso) {
-				await setActiveSso({ session: createdSessionId });
+			// On re-login after sign-out, Clerk can complete the flow without a
+			// top-level createdSessionId — the session id lives on signIn/signUp.
+			const sessionId =
+				createdSessionId ??
+				ssoSignIn?.createdSessionId ??
+				ssoSignUp?.createdSessionId;
+			if (sessionId && setActiveSso) {
+				await setActiveSso({ session: sessionId });
 				router.replace('/(app)/(tabs)/dashboard');
+			} else {
+				setError('Google sign-in did not complete. Please try again.');
 			}
 		} catch {
 			setError('Google sign-in failed. Please try again.');
