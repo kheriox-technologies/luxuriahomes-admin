@@ -18,6 +18,15 @@ const textStyles: Record<ButtonVariant, string> = {
 	destructive: 'text-white',
 };
 
+// Raw spinner colors matching each variant's foreground (ActivityIndicator
+// needs a color value, not a class). Ink on light fills, white on destructive.
+const spinnerColors: Record<ButtonVariant, string> = {
+	primary: '#2b2927',
+	secondary: '#2b2927',
+	ghost: '#2b2927',
+	destructive: '#ffffff',
+};
+
 export function Button({
 	children,
 	onPress,
@@ -49,7 +58,11 @@ export function Button({
 			disabled={isDisabled}
 			onPress={onPress}
 		>
-			{loading ? <ActivityIndicator color="#fff0a9" size="small" /> : icon}
+			{loading ? (
+				<ActivityIndicator color={spinnerColors[variant]} size="small" />
+			) : (
+				icon
+			)}
 			<Text className={cn('font-sans-semibold text-base', textStyles[variant])}>
 				{children}
 			</Text>

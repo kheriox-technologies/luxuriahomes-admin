@@ -1,4 +1,5 @@
 'use client';
+import { BrandLogo } from '@workspace/ui/components/brand-logo';
 import {
 	Sidebar,
 	SidebarContent,
@@ -10,7 +11,6 @@ import {
 	SidebarMenuItem,
 } from '@workspace/ui/components/sidebar';
 import { Building2, type LucideIcon } from 'lucide-react';
-import Image from 'next/image';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -37,12 +37,9 @@ const ClientSidebar = () => {
 			<SidebarHeader>
 				<div className="mt-2 mb-2 flex justify-center">
 					<Link href="/">
-						<Image
-							alt="Logo"
-							height={32}
-							priority
-							src="/lh-admin-logo-no-bg.png"
-							width={150}
+						<BrandLogo
+							className="h-14 text-sidebar-foreground"
+							label="Luxuria Homes"
 						/>
 					</Link>
 				</div>

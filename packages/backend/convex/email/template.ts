@@ -18,8 +18,8 @@ export interface EmailBranding {
 	webUrl: string;
 }
 
-const DEFAULT_PRIMARY_COLOR = '#111111';
-const DEFAULT_FOREGROUND_COLOR = '#ffffff';
+const DEFAULT_PRIMARY_COLOR = '#f5ebe0';
+const DEFAULT_FOREGROUND_COLOR = '#2b2927';
 const DEFAULT_APP_NAME = 'Luxuria Homes';
 
 /** Matches the literal escape sequence `\n` stored in address env vars. */

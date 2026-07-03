@@ -7,7 +7,7 @@ import { brand } from '@/lib/theme';
 function LoadingScreen() {
 	return (
 		<View className="flex-1 items-center justify-center bg-primary">
-			<ActivityIndicator color={brand.gold} size="large" />
+			<ActivityIndicator color={brand.linen} size="large" />
 		</View>
 	);
 }

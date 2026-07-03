@@ -43,14 +43,14 @@ export default function Providers({ children }: { children: ReactNode }) {
 						localization={{
 							signIn: {
 								start: {
-									title: 'Luxuria Homes Portal',
-									titleCombined: 'Luxuria Homes Portal',
+									title: 'Welcome Back',
+									titleCombined: 'Welcome Back',
 								},
 							},
 							signUp: {
 								start: {
-									title: 'Luxuria Homes Portal',
-									titleCombined: 'Luxuria Homes Portal',
+									title: 'Welcome Back',
+									titleCombined: 'Welcome Back',
 								},
 							},
 						}}

@@ -11,9 +11,9 @@
 	--muted: 245 245 245;
 	--muted-foreground: 115 115 115;
 	--border: 229 229 229;
-	--primary: 0 31 48; /* brand navy */
-	--primary-foreground: 255 240 169; /* brand gold/cream */
-	--accent: 19 50 68; /* navy accent */
+	--primary: 245 235 224; /* brand linen */
+	--primary-foreground: 43 41 39; /* brand ink */
+	--accent: 188 180 172; /* linen soft (press-darken) */
 	--destructive: 223 34 37;
 }
 
@@ -25,8 +25,8 @@
 	--muted: 38 38 38;
 	--muted-foreground: 161 161 161;
 	--border: 53 53 57;
-	--primary: 0 31 48;
-	--primary-foreground: 255 240 169;
-	--accent: 19 50 68;
+	--primary: 245 235 224;
+	--primary-foreground: 43 41 39;
+	--accent: 188 180 172;
 	--destructive: 255 100 103;
 }

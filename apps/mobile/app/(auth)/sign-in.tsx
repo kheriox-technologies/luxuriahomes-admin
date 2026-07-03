@@ -174,13 +174,13 @@ export default function SignInScreen() {
 					) : null}
 
 					<Button
-						className="bg-gold active:opacity-90"
+						className="bg-linen active:opacity-90"
 						disabled={!(email && password)}
 						loading={emailLoading}
 						onPress={onEmailPress}
 						variant="primary"
 					>
-						<Text className="font-sans-semibold text-base text-navy">
+						<Text className="font-sans-semibold text-base text-ink">
 							Sign in
 						</Text>
 					</Button>
@@ -199,7 +199,7 @@ export default function SignInScreen() {
 					>
 						<Text
 							className="font-sans-semibold text-base"
-							style={{ color: brand.navy }}
+							style={{ color: brand.ink }}
 						>
 							Continue with Google
 						</Text>
