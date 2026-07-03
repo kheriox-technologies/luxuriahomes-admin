@@ -2,6 +2,7 @@
 
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
+import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Dialog,
@@ -20,13 +21,13 @@ import { useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useState } from 'react';
 import UnitCombobox from '@/components/inclusions/unit-combobox';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyMaterialFormValues,
 	materialFormFieldError,
 	materialFormSchema,
 } from './material-form-shared';
-import TradeCombobox from './trade-combobox';
 
 const FORM_ID = 'add-material-form';
 
@@ -36,7 +37,6 @@ export default function AddMaterial({
 	trigger?: ReactElement;
 } = {}) {
 	const [open, setOpen] = useState(false);
-	const trades = useQuery(api.trades.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const vendors = useQuery(api.vendors.list.list, {});
 	const addMaterial = useMutation(api.materials.add.add);
@@ -163,13 +163,13 @@ export default function AddMaterial({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-										<TradeCombobox
+										<TradeSelect
+											allowCreate
 											id={field.name}
 											invalid={invalid}
 											onBlur={field.handleBlur}
-											onChange={(next) => field.handleChange(next)}
-											trades={trades}
-											value={field.state.value}
+											onValueChange={(next) => field.handleChange(next)}
+											value={field.state.value as Id<'trades'> | ''}
 										/>
 										{invalid ? (
 											<FieldError>

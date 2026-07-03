@@ -88,3 +88,25 @@ export function groupTradesByStage(
 	}
 	return groups;
 }
+
+export interface TradeIdStageGroup {
+	items: Id<'trades'>[];
+	key: string;
+	value: string;
+}
+
+/**
+ * Same grouping as {@link groupTradesByStage}, but each group's `items` is a list
+ * of trade ids — for comboboxes whose selected value is `Id<'trades'>` rather
+ * than the full document.
+ */
+export function groupTradeIdsByStage(
+	stages: Doc<'tradeStages'>[] | undefined,
+	trades: Doc<'trades'>[] | undefined
+): TradeIdStageGroup[] {
+	return groupTradesByStage(stages, trades).map((group) => ({
+		key: group.key,
+		value: group.value,
+		items: group.items.map((trade) => trade._id),
+	}));
+}

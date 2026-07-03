@@ -4,16 +4,6 @@ import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Combobox,
-	ComboboxChip,
-	ComboboxChips,
-	ComboboxChipsInput,
-	ComboboxEmpty,
-	ComboboxItem,
-	ComboboxList,
-	ComboboxPopup,
-} from '@workspace/ui/components/combobox';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import {
 	Frame,
@@ -33,9 +23,9 @@ import {
 	SheetTrigger,
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { type ReactElement, useState } from 'react';
-import TradeStageInlineSelect from '@/components/trades/trade-stage-inline-select';
+import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	ServiceProviderContactCard,
@@ -75,20 +65,12 @@ export default function AddServiceProvider({
 		}
 	};
 
-	const [selectedTradeIds, setSelectedTradeIds] = useState<string[]>([]);
-	const [newTradeName, setNewTradeName] = useState('');
-	const [newTradeStageId, setNewTradeStageId] = useState<
-		Id<'tradeStages'> | ''
-	>('');
-	const [newTradeStageName, setNewTradeStageName] = useState('');
+	const [selectedTradeIds, setSelectedTradeIds] = useState<Id<'trades'>[]>([]);
 	const [contacts, setContacts] = useState<ContactDraftValues[]>([]);
 	const [draft, setDraft] = useState<ContactDraftValues>(emptyContactDraft);
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
-	const trades = useQuery(api.trades.list.list, {});
 	const addServiceProvider = useMutation(api.serviceProviders.add.add);
-	const addTrade = useMutation(api.trades.add.add);
-	const addStage = useMutation(api.tradeStages.add.add);
 	const addToProject = useMutation(api.projectServiceProviders.add.add);
 
 	const form = useForm({
@@ -99,19 +81,6 @@ export default function AddServiceProvider({
 		onSubmit: async ({ value }) => {
 			const parsed = serviceProviderFormSchema.parse(value);
 			try {
-				const trimmedNewTrade = newTradeName.trim();
-				let tradeIds = [...selectedTradeIds];
-				if (trimmedNewTrade) {
-					const trimmedStage = newTradeStageName.trim();
-					const stageId = trimmedStage
-						? await addStage({ name: trimmedStage })
-						: newTradeStageId || undefined;
-					const newTradeId = await addTrade({
-						name: trimmedNewTrade,
-						stageId,
-					});
-					tradeIds = [...tradeIds, newTradeId as string];
-				}
 				const newId = await addServiceProvider({
 					company: parsed.company,
 					name: parsed.name,
@@ -122,7 +91,7 @@ export default function AddServiceProvider({
 					qbccLicense: parsed.qbccLicense || undefined,
 					website: parsed.website || undefined,
 					address: parsed.address || undefined,
-					tradeIds: tradeIds as never,
+					tradeIds: selectedTradeIds as never,
 					contacts: contacts.map((c) => ({
 						name: c.name,
 						email: c.email || undefined,
@@ -158,9 +127,6 @@ export default function AddServiceProvider({
 	const resetAll = () => {
 		form.reset();
 		setSelectedTradeIds([]);
-		setNewTradeName('');
-		setNewTradeStageId('');
-		setNewTradeStageName('');
 		setContacts([]);
 		setDraft(emptyContactDraft);
 		setEditingIndex(null);
@@ -456,59 +422,12 @@ export default function AddServiceProvider({
 								</FrameTitle>
 							</FrameHeader>
 							<FramePanel className="space-y-3">
-								{(() => {
-									const tradeItems = (trades ?? []).map((t) => t._id);
-									const labelById = new Map(
-										(trades ?? []).map((t) => [t._id, t.name])
-									);
-									return (
-										<Combobox
-											items={tradeItems}
-											itemToStringLabel={(val) =>
-												labelById.get(val as Id<'trades'>) ?? String(val ?? '')
-											}
-											multiple
-											onValueChange={(val) =>
-												setSelectedTradeIds(val as string[])
-											}
-											value={selectedTradeIds}
-										>
-											<ComboboxChips>
-												{selectedTradeIds.map((id) => (
-													<ComboboxChip key={id}>
-														{labelById.get(id as Id<'trades'>) ?? id}
-													</ComboboxChip>
-												))}
-												<ComboboxChipsInput placeholder="Search trades…" />
-											</ComboboxChips>
-											<ComboboxPopup>
-												<ComboboxEmpty>No trades found.</ComboboxEmpty>
-												<ComboboxList>
-													{(item: Id<'trades'>) => (
-														<ComboboxItem key={item} value={item}>
-															{labelById.get(item) ?? item}
-														</ComboboxItem>
-													)}
-												</ComboboxList>
-											</ComboboxPopup>
-										</Combobox>
-									);
-								})()}
-								<Input
-									nativeInput
-									onChange={(e) => setNewTradeName(e.target.value)}
-									placeholder="Or type a new trade name…"
-									value={newTradeName}
+								<TradeSelect
+									allowCreate
+									multiple
+									onValueChange={setSelectedTradeIds}
+									value={selectedTradeIds}
 								/>
-								{newTradeName.trim() ? (
-									<TradeStageInlineSelect
-										idPrefix="add-sp-trade"
-										newStageName={newTradeStageName}
-										onNewStageNameChange={setNewTradeStageName}
-										onStageIdChange={setNewTradeStageId}
-										stageId={newTradeStageId}
-									/>
-								) : null}
 							</FramePanel>
 						</Frame>
 

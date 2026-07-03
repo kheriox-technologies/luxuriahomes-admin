@@ -40,8 +40,7 @@ import { SingleFileUpload } from '@workspace/ui/components/single-file-upload';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { type ReactElement, useState } from 'react';
-import TradeCombobox from '@/components/budgets/trade-combobox';
-import TradeStageInlineSelect from '@/components/trades/trade-stage-inline-select';
+import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyQuotationFormValues,
@@ -81,12 +80,7 @@ export default function AddQuotation({
 	const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 	const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 	const [selectedTradeId, setSelectedTradeId] = useState<string>('');
-	const [newTradeStageId, setNewTradeStageId] = useState<
-		Id<'tradeStages'> | ''
-	>('');
-	const [newTradeStageName, setNewTradeStageName] = useState('');
 
-	const trades = useQuery(api.trades.list.list, {});
 	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
 
 	const filteredServiceProviders = selectedTradeId
@@ -96,8 +90,6 @@ export default function AddQuotation({
 		: (serviceProviders ?? []);
 
 	const addQuotation = useMutation(api.projectQuotations.add.add);
-	const addTrade = useMutation(api.trades.add.add);
-	const addStage = useMutation(api.tradeStages.add.add);
 	const generateUploadUrl = useAction(
 		api.projectQuotations.generateUploadUrl.generateUploadUrl
 	);
@@ -113,21 +105,10 @@ export default function AddQuotation({
 		onSubmit: async ({ value }) => {
 			const parsed = quotationFormSchema.parse(value);
 			try {
-				const newName = parsed.newTradeName?.trim();
-				let resolvedTradeId: Id<'trades'>;
-				if (newName) {
-					const trimmedStage = newTradeStageName.trim();
-					const stageId = trimmedStage
-						? await addStage({ name: trimmedStage })
-						: newTradeStageId || undefined;
-					resolvedTradeId = await addTrade({ name: newName, stageId });
-				} else {
-					resolvedTradeId = parsed.tradeId as Id<'trades'>;
-				}
 				await addQuotation({
 					projectId,
 					title: parsed.title,
-					tradeId: resolvedTradeId,
+					tradeId: parsed.tradeId as Id<'trades'>,
 					serviceProviderId: parsed.serviceProviderId as Id<'serviceProviders'>,
 					s3Key: parsed.s3Key,
 					price: parseMoneyString(parsed.price),
@@ -153,8 +134,6 @@ export default function AddQuotation({
 		form.reset();
 		setUploadedFileName(null);
 		setSelectedTradeId('');
-		setNewTradeStageId('');
-		setNewTradeStageName('');
 	};
 
 	const handleFileChange = async (file: File | null) => {
@@ -261,16 +240,16 @@ export default function AddQuotation({
 										return (
 											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-												<TradeCombobox
+												<TradeSelect
+													allowCreate
 													id={field.name}
 													invalid={invalid}
 													onBlur={field.handleBlur}
-													onChange={(next) => {
+													onValueChange={(next) => {
 														field.handleChange(next);
 														setSelectedTradeId(next);
 														form.setFieldValue('serviceProviderId', '');
 													}}
-													trades={trades}
 													value={field.state.value as Id<'trades'> | ''}
 												/>
 												{invalid ? (
@@ -282,33 +261,6 @@ export default function AddQuotation({
 										);
 									}}
 								</form.Field>
-
-								<form.Field name="newTradeName">
-									{(field) => (
-										<Field>
-											<FieldLabel htmlFor={field.name}>
-												Or create new trade
-											</FieldLabel>
-											<Input
-												id={field.name}
-												name={field.name}
-												nativeInput
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												placeholder="New trade name"
-												value={field.state.value ?? ''}
-											/>
-										</Field>
-									)}
-								</form.Field>
-
-								<TradeStageInlineSelect
-									idPrefix="add-quotation-trade"
-									newStageName={newTradeStageName}
-									onNewStageNameChange={setNewTradeStageName}
-									onStageIdChange={setNewTradeStageId}
-									stageId={newTradeStageId}
-								/>
 
 								<form.Field name="serviceProviderId">
 									{(field) => {
