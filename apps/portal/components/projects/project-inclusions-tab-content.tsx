@@ -406,12 +406,14 @@ function ProjectInclusionNotesCardList({
 }
 
 function ProjectInclusionNotesDialog({
+	projectId,
 	projectInclusionId,
 	title,
 	code,
 	open,
 	onOpenChange,
 }: {
+	projectId: Id<'projects'>;
 	projectInclusionId: Id<'projectInclusions'>;
 	title: string;
 	code: string;
@@ -526,6 +528,7 @@ function ProjectInclusionNotesDialog({
 								key={uploaderKey}
 								onChange={setImages}
 								onUploadingChange={setImagesUploading}
+								projectId={projectId}
 								ref={uploaderRef}
 							/>
 						</div>
@@ -1061,6 +1064,7 @@ function ProjectInclusionNotesLink({
 				code={inclusion.code}
 				onOpenChange={setNotesOpen}
 				open={notesOpen}
+				projectId={inclusion.projectId}
 				projectInclusionId={inclusion._id}
 				title={inclusion.title}
 			/>
@@ -1214,6 +1218,7 @@ function ProjectInclusionActionsCell({
 				code={inclusion.code}
 				onOpenChange={setNotesOpen}
 				open={notesOpen}
+				projectId={inclusion.projectId}
 				projectInclusionId={inclusion._id}
 				title={inclusion.title}
 			/>
