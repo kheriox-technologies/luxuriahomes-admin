@@ -16,6 +16,7 @@ import {
 	type ProjectOverview,
 	ProjectOverviewCard,
 } from '@/components/dashboard/project-overview-card';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ScreenHeader } from '@/components/screen-header';
 import {
 	ActionSheet,
@@ -65,6 +66,9 @@ export default function DashboardScreen() {
 		() => getWindowRange(windowKey),
 		[windowKey]
 	);
+
+	const windowLabel =
+		WINDOW_OPTIONS.find((option) => option.value === windowKey)?.label ?? '';
 
 	const overview = useQuery(
 		api.dashboard.scheduleOverview.scheduleOverview,
@@ -126,6 +130,7 @@ export default function DashboardScreen() {
 	return (
 		<View className="flex-1 bg-background">
 			<ScreenHeader
+				rightSlot={<NotificationBell />}
 				subtitle={`Here's what's coming up, ${firstName}`}
 				title="Dashboard"
 			/>
@@ -185,6 +190,7 @@ export default function DashboardScreen() {
 							index={index}
 							onTaskStatusPress={openStatusSheet}
 							overview={item}
+							windowLabel={windowLabel}
 						/>
 					)}
 				/>

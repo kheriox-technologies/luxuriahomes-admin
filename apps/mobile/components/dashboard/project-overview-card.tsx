@@ -117,10 +117,12 @@ export const ProjectOverviewCard = memo(
 		overview,
 		index,
 		onTaskStatusPress,
+		windowLabel,
 	}: {
 		overview: ProjectOverview;
 		index: number;
 		onTaskStatusPress: (task: OverviewTask) => void;
+		windowLabel: string;
 	}) => {
 		const colors = useThemeColors();
 		const [expanded, setExpanded] = useState(false);
@@ -151,6 +153,28 @@ export const ProjectOverviewCard = memo(
 						>
 							{overview.projectName}
 						</Text>
+						<View className="flex-row items-center gap-2">
+							<View className="flex-row items-center gap-1">
+								<AlertTriangle
+									color={colors.destructive}
+									size={13}
+									strokeWidth={2}
+								/>
+								<Text className="font-sans-medium text-destructive text-xs">
+									{overdue.length}
+								</Text>
+							</View>
+							<View className="flex-row items-center gap-1">
+								<ListChecks
+									color={colors.mutedForeground}
+									size={13}
+									strokeWidth={2}
+								/>
+								<Text className="font-sans-medium text-muted-foreground text-xs">
+									{upcoming.length}
+								</Text>
+							</View>
+						</View>
 						<View className={cn('rotate-0', expanded && 'rotate-180')}>
 							<ChevronDown
 								color={colors.mutedForeground}
@@ -162,7 +186,7 @@ export const ProjectOverviewCard = memo(
 
 					{expanded && isEmpty ? (
 						<Text className="pt-3 font-sans text-muted-foreground text-sm">
-							Nothing scheduled in this window.
+							Nothing scheduled for this project in next {windowLabel}.
 						</Text>
 					) : null}
 
