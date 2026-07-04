@@ -75,7 +75,7 @@ export default function NotificationsScreen() {
 				<Pressable
 					accessibilityLabel="Back"
 					accessibilityRole="button"
-					className="h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
+					className="h-10 w-10 items-center justify-center rounded-lg border border-border bg-card"
 					hitSlop={4}
 					onPress={() => router.back()}
 				>
@@ -95,7 +95,7 @@ export default function NotificationsScreen() {
 					<Pressable
 						accessibilityLabel="Mark all as read"
 						accessibilityRole="button"
-						className="h-10 flex-row items-center gap-1.5 rounded-full border border-border bg-card px-3"
+						className="h-10 flex-row items-center gap-1.5 rounded-lg border border-border bg-card px-3"
 						hitSlop={4}
 						onPress={() => markAllRead({})}
 					>

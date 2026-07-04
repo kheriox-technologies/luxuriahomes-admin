@@ -41,7 +41,7 @@ export function Select<T extends string>({
 				accessibilityRole="button"
 				accessibilityState={{ expanded: false }}
 				className={cn(
-					'h-9 flex-row items-center justify-between gap-1.5 rounded-full border border-border bg-card px-3 active:bg-muted',
+					'h-9 flex-row items-center justify-between gap-1.5 rounded-lg border border-border bg-card px-3 active:bg-muted',
 					className
 				)}
 				hitSlop={4}

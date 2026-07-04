@@ -248,7 +248,7 @@ export default function DocumentsScreen() {
 					<Pressable
 						accessibilityLabel="Go to root folder"
 						accessibilityRole="button"
-						className="h-8 w-8 items-center justify-center rounded-full active:bg-muted"
+						className="h-8 w-8 items-center justify-center rounded-lg active:bg-muted"
 						hitSlop={4}
 						onPress={() => setFolderPath('')}
 					>
@@ -292,7 +292,7 @@ export default function DocumentsScreen() {
 				<Pressable
 					accessibilityLabel="New folder"
 					accessibilityRole="button"
-					className="h-9 w-9 items-center justify-center rounded-full active:bg-muted"
+					className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
 					hitSlop={4}
 					onPress={promptNewFolder}
 				>
@@ -301,7 +301,7 @@ export default function DocumentsScreen() {
 				<Pressable
 					accessibilityLabel="Upload"
 					accessibilityRole="button"
-					className="h-9 w-9 items-center justify-center rounded-full active:bg-muted"
+					className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
 					disabled={uploading}
 					hitSlop={4}
 					onPress={() => uploadSheetRef.current?.present()}

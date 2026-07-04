@@ -71,7 +71,7 @@ function TaskRow({
 			<Pressable
 				accessibilityLabel={`Change status of ${task.name}`}
 				accessibilityRole="button"
-				className="h-9 w-9 items-center justify-center rounded-full active:bg-muted"
+				className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
 				hitSlop={4}
 				onPress={() =>
 					onStatusPress({
@@ -148,7 +148,7 @@ export const StageCard = memo(
 							<Pressable
 								accessibilityLabel={`Change status of ${stage.name}`}
 								accessibilityRole="button"
-								className="h-9 w-9 items-center justify-center rounded-full active:bg-muted"
+								className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
 								hitSlop={4}
 								onPress={() =>
 									onStatusPress({

@@ -28,7 +28,7 @@ export function ScheduleToolbar({
 	const colors = useThemeColors();
 	return (
 		<View className="flex-row items-center justify-between gap-3 border-border border-b bg-background px-4 py-2">
-			<View className="h-9 shrink flex-row items-center gap-1.5 rounded-full border border-border bg-card px-3">
+			<View className="h-9 shrink flex-row items-center gap-1.5 rounded-lg border border-border bg-card px-3">
 				<CalendarRange
 					color={colors.mutedForeground}
 					size={15}
@@ -48,7 +48,7 @@ export function ScheduleToolbar({
 				<Pressable
 					accessibilityLabel="Scroll to today"
 					accessibilityRole="button"
-					className="h-9 flex-row items-center gap-1.5 rounded-full border border-border bg-card px-3 active:bg-muted"
+					className="h-9 flex-row items-center gap-1.5 rounded-lg border border-border bg-card px-3 active:bg-muted"
 					hitSlop={4}
 					onPress={onToday}
 				>
@@ -60,7 +60,7 @@ export function ScheduleToolbar({
 				<Pressable
 					accessibilityLabel="Expand all stages"
 					accessibilityRole="button"
-					className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+					className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
 					hitSlop={4}
 					onPress={onExpandAll}
 				>
@@ -69,7 +69,7 @@ export function ScheduleToolbar({
 				<Pressable
 					accessibilityLabel="Collapse all stages"
 					accessibilityRole="button"
-					className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+					className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
 					hitSlop={4}
 					onPress={onCollapseAll}
 				>

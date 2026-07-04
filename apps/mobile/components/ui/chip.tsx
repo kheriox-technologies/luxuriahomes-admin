@@ -17,7 +17,7 @@ export function Chip({
 			accessibilityRole="button"
 			accessibilityState={{ selected }}
 			className={cn(
-				'min-h-[36px] items-center justify-center rounded-full border px-4 py-1.5',
+				'min-h-[36px] items-center justify-center rounded-lg border px-4 py-1.5',
 				selected ? 'border-primary bg-primary' : 'border-border bg-card',
 				className
 			)}

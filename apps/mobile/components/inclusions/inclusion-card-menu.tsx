@@ -40,7 +40,7 @@ export function InclusionCardMenu({
 			<Pressable
 				accessibilityLabel="Inclusion actions"
 				accessibilityRole="button"
-				className="h-8 w-8 items-center justify-center rounded-full active:bg-muted"
+				className="h-8 w-8 items-center justify-center rounded-lg active:bg-muted"
 				hitSlop={6}
 				onPress={() => sheetRef.current?.present()}
 			>
