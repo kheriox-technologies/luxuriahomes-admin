@@ -12,6 +12,7 @@ import { ChipBar } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
+import { OrderStatusPill } from '@/components/ui/status-pill';
 import { formatCurrency } from '@/lib/format';
 
 type ProjectInclusion = Doc<'projectInclusions'> & {
@@ -23,9 +24,9 @@ const CLASS_FILTERS = ['All', 'Standard', 'Gold', 'Platinum'] as const;
 type ClassFilter = (typeof CLASS_FILTERS)[number];
 
 const classVariants: Record<string, BadgeVariant> = {
-	Standard: 'default',
-	Gold: 'gold',
-	Platinum: 'info',
+	Standard: 'info',
+	Gold: 'yellow',
+	Platinum: 'purple',
 };
 
 function InclusionRow({ inclusion }: { inclusion: ProjectInclusion }) {
@@ -59,7 +60,7 @@ function InclusionRow({ inclusion }: { inclusion: ProjectInclusion }) {
 					</Badge>
 				) : null}
 				{inclusion.orderStatus ? (
-					<Badge variant="info">{inclusion.orderStatus}</Badge>
+					<OrderStatusPill status={inclusion.orderStatus} />
 				) : null}
 				{(inclusion.locations ?? []).map((location) => (
 					<Badge key={location.name} variant="outline">
