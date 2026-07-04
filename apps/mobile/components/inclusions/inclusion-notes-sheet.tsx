@@ -211,7 +211,7 @@ export function InclusionNotesSheet({
 			>
 				<BottomSheetScrollView
 					contentContainerClassName="gap-4 px-4 pt-1"
-					style={{ paddingBottom: insets.bottom + 16 }}
+					contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
 				>
 					<Text
 						className="font-sans-semibold text-base text-foreground"
