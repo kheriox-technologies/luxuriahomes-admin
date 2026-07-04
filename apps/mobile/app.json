@@ -30,7 +30,13 @@
           "imageWidth": 200
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Luxuria Homes to access your photos to attach images to inclusion notes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
