@@ -50,7 +50,7 @@ export default function ProjectDetailLayout() {
 					<Pressable
 						accessibilityLabel="Back to projects"
 						accessibilityRole="button"
-						className="h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
+						className="h-10 w-10 items-center justify-center rounded-lg border border-border bg-card"
 						hitSlop={4}
 						onPress={() => router.back()}
 					>

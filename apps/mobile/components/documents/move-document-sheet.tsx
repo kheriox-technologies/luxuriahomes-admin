@@ -118,7 +118,7 @@ export function MoveDocumentSheet({
 					<Pressable
 						accessibilityLabel="Go to root folder"
 						accessibilityRole="button"
-						className="h-8 w-8 items-center justify-center rounded-full active:bg-muted"
+						className="h-8 w-8 items-center justify-center rounded-lg active:bg-muted"
 						hitSlop={4}
 						onPress={() => setTargetPath('')}
 					>
@@ -132,7 +132,7 @@ export function MoveDocumentSheet({
 						<Pressable
 							accessibilityLabel="Go up one folder"
 							accessibilityRole="button"
-							className="h-8 flex-row items-center gap-1 rounded-full px-2 active:bg-muted"
+							className="h-8 flex-row items-center gap-1 rounded-lg px-2 active:bg-muted"
 							hitSlop={4}
 							onPress={goUp}
 						>

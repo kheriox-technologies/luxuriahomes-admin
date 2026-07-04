@@ -49,7 +49,7 @@ export function Badge({
 	return (
 		<View
 			className={cn(
-				'flex-row items-center self-start rounded-full px-2.5 py-1',
+				'flex-row items-center self-start rounded-sm px-2.5 py-1',
 				containerStyles[variant],
 				className
 			)}

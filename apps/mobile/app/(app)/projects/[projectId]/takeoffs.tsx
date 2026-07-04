@@ -165,7 +165,7 @@ export default function TakeoffsScreen() {
 						<Pressable
 							accessibilityLabel="Expand all categories"
 							accessibilityRole="button"
-							className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+							className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
 							hitSlop={4}
 							onPress={expandAll}
 						>
@@ -178,7 +178,7 @@ export default function TakeoffsScreen() {
 						<Pressable
 							accessibilityLabel="Collapse all categories"
 							accessibilityRole="button"
-							className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+							className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
 							hitSlop={4}
 							onPress={collapseAll}
 						>

@@ -15,7 +15,7 @@
       "package": "au.com.luxuriahomes.admin",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#001f30"
+        "backgroundColor": "#F5EBE0"
       }
     },
     "plugins": [
@@ -25,7 +25,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#001f30",
+          "backgroundColor": "#F5EBE0",
           "image": "./assets/splash-icon.png",
           "imageWidth": 200
         }

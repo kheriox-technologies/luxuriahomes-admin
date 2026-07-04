@@ -3,6 +3,7 @@ import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { getDocumentAsync } from 'expo-document-picker';
+import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import {
 	launchImageLibraryAsync,
 	requestMediaLibraryPermissionsAsync,
@@ -47,6 +48,9 @@ import { PressableCard } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format';
+import { toJpegUri } from '@/lib/image';
+
+const fileExtension = /\.[^.]+$/;
 
 type ProjectDocument = Doc<'projectDocuments'>;
 type ProjectFolder = Doc<'projectDocumentFolders'>;
@@ -138,14 +142,13 @@ export default function DocumentsScreen() {
 			fileName: asset.name,
 			contentType: asset.mimeType,
 		});
-		const blob = await (await fetch(asset.uri)).blob();
-		const response = await fetch(uploadUrl, {
-			method: 'PUT',
-			body: blob,
+		const response = await uploadAsync(uploadUrl, asset.uri, {
+			httpMethod: 'PUT',
+			uploadType: FileSystemUploadType.BINARY_CONTENT,
 			headers: { 'Content-Type': asset.mimeType },
 		});
-		if (!response.ok) {
-			throw new Error('Upload failed');
+		if (response.status < 200 || response.status >= 300) {
+			throw new Error(`Upload failed (${response.status})`);
 		}
 		await createDocument({
 			projectId: projectId as Id<'projects'>,
@@ -180,11 +183,14 @@ export default function DocumentsScreen() {
 		}
 		setUploading(true);
 		try {
+			// Convert to JPEG so the image renders on the web portal (iOS returns HEIC).
+			const jpegUri = await toJpegUri(asset.uri);
+			const baseName =
+				asset.fileName?.replace(fileExtension, '') ?? `photo-${Date.now()}`;
 			await uploadOne({
-				uri: asset.uri,
-				name: asset.fileName ?? `photo-${Date.now()}.jpg`,
-				mimeType: asset.mimeType ?? 'image/jpeg',
-				size: asset.fileSize,
+				uri: jpegUri,
+				name: `${baseName}.jpg`,
+				mimeType: 'image/jpeg',
 			});
 		} catch {
 			Alert.alert('Unable to upload', 'Please try again.');
@@ -242,7 +248,7 @@ export default function DocumentsScreen() {
 					<Pressable
 						accessibilityLabel="Go to root folder"
 						accessibilityRole="button"
-						className="h-8 w-8 items-center justify-center rounded-full active:bg-muted"
+						className="h-8 w-8 items-center justify-center rounded-lg active:bg-muted"
 						hitSlop={4}
 						onPress={() => setFolderPath('')}
 					>
@@ -286,7 +292,7 @@ export default function DocumentsScreen() {
 				<Pressable
 					accessibilityLabel="New folder"
 					accessibilityRole="button"
-					className="h-9 w-9 items-center justify-center rounded-full active:bg-muted"
+					className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
 					hitSlop={4}
 					onPress={promptNewFolder}
 				>
@@ -295,7 +301,7 @@ export default function DocumentsScreen() {
 				<Pressable
 					accessibilityLabel="Upload"
 					accessibilityRole="button"
-					className="h-9 w-9 items-center justify-center rounded-full active:bg-muted"
+					className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
 					disabled={uploading}
 					hitSlop={4}
 					onPress={() => uploadSheetRef.current?.present()}

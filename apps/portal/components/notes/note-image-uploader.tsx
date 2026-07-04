@@ -1,6 +1,7 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
+import type { Id } from '@workspace/backend/dataModel';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction } from 'convex/react';
 import { X } from 'lucide-react';
@@ -30,20 +31,30 @@ const THUMB_SIZE = 64;
  * the admin image upload action and reports the resulting S3 keys to the parent
  * through `onChange`. Renders only the selected-image previews; call `open()` on
  * the ref to launch the file picker. Remount with a fresh `key` to reset.
+ *
+ * Pass `projectId` for inclusion notes so images are stored under the shared
+ * project-scoped key (`projects/{id}/inclusion-notes/…`), matching the mobile
+ * and client-portal upload paths. Without it, images go to the generic
+ * `images/inclusions/…` store (tasks, quotations, orders).
  */
 export function NoteImageUploader({
 	ref,
+	projectId,
 	onChange,
 	onUploadingChange,
 	disabled,
 }: {
 	ref?: Ref<NoteImageUploaderHandle>;
+	projectId?: Id<'projects'>;
 	onChange: (keys: string[]) => void;
 	onUploadingChange?: (uploading: boolean) => void;
 	disabled?: boolean;
 }) {
-	const generateUploadUrl = useAction(
+	const generateGenericUploadUrl = useAction(
 		api.fileStorage.generateS3UploadUrl.generateS3UploadUrl
+	);
+	const generateInclusionUploadUrl = useAction(
+		api.projectInclusions.generateNoteImageUploadUrl.generateNoteImageUploadUrl
 	);
 	const [images, setImages] = useState<PendingImage[]>([]);
 	const [uploadingCount, setUploadingCount] = useState(0);
@@ -75,13 +86,13 @@ export function NoteImageUploader({
 		const previewUrl = URL.createObjectURL(file);
 		try {
 			const ext = file.name.split('.').pop() ?? 'jpg';
-			const { uploadUrl, s3Key } = await generateUploadUrl({
-				contentType: file.type || 'application/octet-stream',
-				ext,
-			});
+			const contentType = file.type || 'application/octet-stream';
+			const { uploadUrl, s3Key } = projectId
+				? await generateInclusionUploadUrl({ projectId, contentType, ext })
+				: await generateGenericUploadUrl({ contentType, ext });
 			const response = await fetch(uploadUrl, {
 				method: 'PUT',
-				headers: { 'Content-Type': file.type || 'application/octet-stream' },
+				headers: { 'Content-Type': contentType },
 				body: file,
 			});
 			if (!response.ok) {

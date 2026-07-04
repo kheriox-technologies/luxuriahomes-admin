@@ -54,7 +54,7 @@ export function DocumentCardMenu({
 			<Pressable
 				accessibilityLabel="Document actions"
 				accessibilityRole="button"
-				className="h-8 w-8 items-center justify-center rounded-full active:bg-muted"
+				className="h-8 w-8 items-center justify-center rounded-lg active:bg-muted"
 				hitSlop={6}
 				onPress={() => sheetRef.current?.present()}
 			>

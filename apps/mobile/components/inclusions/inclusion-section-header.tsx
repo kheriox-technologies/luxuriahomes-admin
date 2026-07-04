@@ -36,7 +36,7 @@ function HeaderIconButton({
 		<Pressable
 			accessibilityLabel={label}
 			accessibilityRole="button"
-			className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+			className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
 			disabled={busy}
 			hitSlop={4}
 			onPress={onPress}

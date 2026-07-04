@@ -62,9 +62,9 @@ function escapeHtml(value: string): string {
 function buildHeader(branding: EmailBranding): string {
 	const logoOrName = branding.logoUrl
 		? `<img alt="${escapeHtml(branding.appName)}" src="${escapeHtml(branding.logoUrl)}" style="display:inline-block;height:40px;max-height:40px;width:auto;border:0;outline:none;text-decoration:none;" />`
-		: `<span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:${branding.foregroundColor};">${escapeHtml(branding.appName)}</span>`;
+		: `<span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:${branding.primaryColor};">${escapeHtml(branding.appName)}</span>`;
 
-	return `<tr><td align="center" style="background:${branding.primaryColor};padding:24px;">${logoOrName}</td></tr>`;
+	return `<tr><td align="center" style="background:${branding.foregroundColor};padding:24px;">${logoOrName}</td></tr>`;
 }
 
 function buildBody(bodyHtml: string): string {

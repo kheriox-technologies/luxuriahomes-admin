@@ -10,7 +10,7 @@ import {
 	LayoutDashboard,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, ScrollView, Text, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import {
 	type OverviewTask,
 	type ProjectOverview,
@@ -22,8 +22,9 @@ import {
 	ActionSheet,
 	type ActionSheetItem,
 } from '@/components/ui/action-sheet';
-import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { Select } from '@/components/ui/select';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import type { ScheduleStatus } from '@/components/ui/status-pill';
 import {
@@ -122,6 +123,15 @@ export default function DashboardScreen() {
 		});
 	};
 
+	const projectOptions = useMemo(
+		() =>
+			(projects ?? []).map((project) => ({
+				label: project.name,
+				value: project._id,
+			})),
+		[projects]
+	);
+
 	const firstName = user?.firstName ?? 'there';
 	const isLoading =
 		projects === undefined ||
@@ -135,40 +145,24 @@ export default function DashboardScreen() {
 				title="Dashboard"
 			/>
 
-			<View className="gap-2 pb-3">
-				<ScrollView
-					contentContainerClassName="gap-2 px-4"
-					horizontal
-					showsHorizontalScrollIndicator={false}
-				>
-					{WINDOW_OPTIONS.map((option) => (
-						<Chip
-							key={option.value}
-							label={option.label}
-							onPress={() => setWindowKey(option.value)}
-							selected={windowKey === option.value}
-						/>
-					))}
-				</ScrollView>
-				{projects && projects.length > 0 ? (
-					<ScrollView
-						contentContainerClassName="gap-2 px-4"
-						horizontal
-						showsHorizontalScrollIndicator={false}
-					>
-						{projects.map((project) => (
-							<Chip
-								key={project._id}
-								label={project.name}
-								onPress={() => toggleProject(project._id)}
-								selected={selectedIds.includes(project._id)}
-							/>
-						))}
-					</ScrollView>
+			<View className="flex-row items-center gap-2 px-4 pb-3">
+				{projectOptions.length > 0 ? (
+					<MultiSelect
+						className="flex-1"
+						maxSelected={MAX_PROJECTS}
+						onToggle={toggleProject}
+						options={projectOptions}
+						placeholder="Select projects…"
+						title="Select projects"
+						values={selectedIds}
+					/>
 				) : null}
-				<Text className="px-4 font-sans text-muted-foreground text-xs">
-					Up to {MAX_PROJECTS} projects at a time
-				</Text>
+				<Select
+					onChange={setWindowKey}
+					options={WINDOW_OPTIONS}
+					title="Time window"
+					value={windowKey}
+				/>
 			</View>
 
 			{isLoading ? (

@@ -8,6 +8,7 @@ import {
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { FileSystemUploadType, uploadAsync } from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import {
 	launchImageLibraryAsync,
@@ -27,6 +28,7 @@ import { useThemeColors } from '@/components/theme';
 import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { formatDate } from '@/lib/format';
+import { toJpegUri } from '@/lib/image';
 import { useSignedUrl } from '@/lib/use-signed-url';
 import type { ProjectInclusion } from './types';
 
@@ -141,20 +143,21 @@ export function InclusionNotesSheet({
 	};
 
 	const uploadImage = async (image: PickedImage): Promise<string> => {
-		const ext = image.mimeType.split('/')[1] ?? 'jpg';
+		// Convert to JPEG so the image renders on the web portal (iOS returns HEIC).
+		const jpegUri = await toJpegUri(image.uri);
+		const contentType = 'image/jpeg';
 		const { uploadUrl, s3Key } = await generateUploadUrl({
 			projectId: inclusion?.projectId as ProjectInclusion['projectId'],
-			contentType: image.mimeType,
-			ext,
+			contentType,
+			ext: 'jpg',
 		});
-		const blob = await (await fetch(image.uri)).blob();
-		const response = await fetch(uploadUrl, {
-			method: 'PUT',
-			body: blob,
-			headers: { 'Content-Type': image.mimeType },
+		const response = await uploadAsync(uploadUrl, jpegUri, {
+			httpMethod: 'PUT',
+			uploadType: FileSystemUploadType.BINARY_CONTENT,
+			headers: { 'Content-Type': contentType },
 		});
-		if (!response.ok) {
-			throw new Error('Image upload failed');
+		if (response.status < 200 || response.status >= 300) {
+			throw new Error(`Image upload failed (${response.status})`);
 		}
 		return s3Key;
 	};
@@ -208,7 +211,7 @@ export function InclusionNotesSheet({
 			>
 				<BottomSheetScrollView
 					contentContainerClassName="gap-4 px-4 pt-1"
-					style={{ paddingBottom: insets.bottom + 16 }}
+					contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
 				>
 					<Text
 						className="font-sans-semibold text-base text-foreground"
