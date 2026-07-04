@@ -20,19 +20,35 @@ export const GroupCard = memo(
 		measurements,
 		globalWastage,
 		pageTitleByPage,
+		searchText,
 	}: {
 		group: TakeoffGroup;
 		measurements: Measurement[];
 		globalWastage: number;
 		pageTitleByPage: Map<number, string>;
+		searchText?: string;
 	}) => {
 		const colors = useThemeColors();
 		const [expanded, setExpanded] = useState(false);
 
-		const groupMeasurements = useMemo(
+		const allMembers = useMemo(
 			() => measurements.filter((m) => m.groupId === group.id && !m.parentId),
 			[group.id, measurements]
 		);
+
+		// While searching, show only rows whose name matches — unless the group name
+		// itself matches, in which case every row stays visible.
+		const q = searchText?.trim().toLowerCase() ?? '';
+		const groupNameMatches = q !== '' && group.name.toLowerCase().includes(q);
+		const groupMeasurements = useMemo(() => {
+			if (q === '' || groupNameMatches) {
+				return allMembers;
+			}
+			return allMembers.filter((m) => m.label.toLowerCase().includes(q));
+		}, [allMembers, groupNameMatches, q]);
+
+		// Searching force-expands the group so matching rows are visible.
+		const isExpanded = q !== '' ? true : expanded;
 
 		const deductionsByParent = useMemo(() => {
 			const map = new Map<string, Measurement[]>();
@@ -55,9 +71,9 @@ export const GroupCard = memo(
 			<Animated.View layout={LinearTransition.duration(200)}>
 				<Card className="mx-4 mb-2 overflow-hidden">
 					<Pressable
-						accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} group ${group.name}`}
+						accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} group ${group.name}`}
 						accessibilityRole="button"
-						accessibilityState={{ expanded }}
+						accessibilityState={{ expanded: isExpanded }}
 						className="gap-2 p-3.5 active:bg-muted/50"
 						onPress={() => setExpanded((prev) => !prev)}
 					>
@@ -72,7 +88,7 @@ export const GroupCard = memo(
 							<Text className="font-sans text-muted-foreground text-xs">
 								{groupMeasurements.length}
 							</Text>
-							<View className={cn('rotate-0', expanded && 'rotate-180')}>
+							<View className={cn('rotate-0', isExpanded && 'rotate-180')}>
 								<ChevronDown
 									color={colors.mutedForeground}
 									size={16}
@@ -83,7 +99,7 @@ export const GroupCard = memo(
 						<GroupBadges totals={totals} />
 					</Pressable>
 
-					{expanded &&
+					{isExpanded &&
 						groupMeasurements.map((measurement) => (
 							<View key={measurement.id}>
 								<MeasurementRow
@@ -106,7 +122,7 @@ export const GroupCard = memo(
 								)}
 							</View>
 						))}
-					{expanded && groupMeasurements.length === 0 ? (
+					{isExpanded && groupMeasurements.length === 0 ? (
 						<Text className="border-border border-t px-4 py-3 font-sans text-muted-foreground text-sm">
 							No measurements in this group.
 						</Text>

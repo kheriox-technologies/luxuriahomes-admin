@@ -87,6 +87,7 @@ import {
 	Ruler,
 	RulerDimensionLine,
 	Save,
+	SearchIcon,
 	SlidersHorizontal,
 	Square,
 	Table,
@@ -331,6 +332,7 @@ interface GroupItemContext {
 	onToggleGroupHidden: (groupId: string) => void;
 	onToggleMeasurementHidden: (id: string) => void;
 	pageTitles: Record<number, string>;
+	searchQuery: string;
 	selectedGroupId: string | null;
 	selectedId: string | null;
 	setAdjustForAll: (members: Measurement[], shown: boolean) => void;
@@ -442,9 +444,32 @@ export default function MeasurementsPanel({
 	const anyMeasurements = measurements.some((m) => !m.parentId);
 	const allHidden =
 		anyMeasurements && measurements.every((m) => m.parentId || m.hidden);
-	const rootGroups = groups.filter((g) => !g.categoryId);
+
+	// Free-text filter over measurement names (see the search input below the
+	// toolbar). Empty query = everything visible (no behavior change).
+	const [search, setSearch] = useState('');
+	const q = search.trim().toLowerCase();
+	const groupNameMatches = (group: TakeoffGroup) =>
+		group.name.toLowerCase().includes(q);
+	// A group is visible when there is no query, its name matches, or one of its
+	// top-level measurements matches.
+	const groupIsVisible = (group: TakeoffGroup) =>
+		q === '' ||
+		groupNameMatches(group) ||
+		measurements.some(
+			(m) =>
+				m.groupId === group.id &&
+				!m.parentId &&
+				m.label.toLowerCase().includes(q)
+		);
+
+	const rootGroups = groups.filter((g) => !g.categoryId && groupIsVisible(g));
 	const groupsByCategory = (categoryId: string) =>
-		groups.filter((g) => g.categoryId === categoryId);
+		groups.filter((g) => g.categoryId === categoryId && groupIsVisible(g));
+	// Categories with at least one visible group under the current query.
+	const visibleCategories = categories.filter(
+		(c) => groupsByCategory(c.id).length > 0
+	);
 
 	// Every accordion node key, for Expand all.
 	const allKeys = [
@@ -540,6 +565,32 @@ export default function MeasurementsPanel({
 			prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
 		);
 
+	// Search drives expansion: while typing, open every category/group that has a
+	// match so the filtered rows are visible; clearing the query collapses back.
+	useEffect(() => {
+		if (q === '') {
+			setOpenKeys([]);
+			return;
+		}
+		const keys = new Set<string>();
+		for (const group of groups) {
+			const matches =
+				group.name.toLowerCase().includes(q) ||
+				measurements.some(
+					(m) =>
+						m.groupId === group.id &&
+						!m.parentId &&
+						m.label.toLowerCase().includes(q)
+				);
+			if (matches) {
+				for (const key of chainKeysForGroup(group)) {
+					keys.add(key);
+				}
+			}
+		}
+		setOpenKeys([...keys]);
+	}, [q, groups, measurements]);
+
 	// Add a category: collapse everything and drop the new name into edit mode.
 	const handleAddCategory = () => {
 		const id = onAddCategory();
@@ -577,6 +628,7 @@ export default function MeasurementsPanel({
 	const ctx: GroupItemContext = {
 		measurements,
 		pageTitles,
+		searchQuery: q,
 		globalWastage,
 		selectedId,
 		selectedGroupId,
@@ -673,6 +725,24 @@ export default function MeasurementsPanel({
 				/>
 			</div>
 
+			{/* Search: filters measurement rows by name and auto-expands matches. */}
+			<div className="border-b p-2">
+				<InputGroup>
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>
+							<SearchIcon aria-hidden />
+						</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label="Search measurements"
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="Search measurements…"
+						type="search"
+						value={search}
+					/>
+				</InputGroup>
+			</div>
+
 			{/* Selected-group banner: shows the active drawing group + a Save button,
 			or a prompt when nothing is selected. */}
 			<div className="border-b p-2">
@@ -710,9 +780,14 @@ export default function MeasurementsPanel({
 			</div>
 
 			<ScrollArea className="min-h-0 flex-1" scrollFade>
-				{categories.length === 0 && groups.length === 0 ? (
+				{(categories.length === 0 && groups.length === 0) ||
+				(q !== '' &&
+					visibleCategories.length === 0 &&
+					rootGroups.length === 0) ? (
 					<p className="px-2 py-6 text-center text-muted-foreground text-sm">
-						No groups yet. Add a category or a group to start.
+						{categories.length === 0 && groups.length === 0
+							? 'No groups yet. Add a category or a group to start.'
+							: `No measurements match “${search.trim()}”.`}
 					</p>
 				) : (
 					<DndContext
@@ -722,7 +797,7 @@ export default function MeasurementsPanel({
 						sensors={sensors}
 					>
 						<div className="flex flex-col gap-1 p-1">
-							{categories.length > 0 && (
+							{visibleCategories.length > 0 && (
 								<Accordion
 									multiple
 									{...scopeAccordion(
@@ -731,7 +806,7 @@ export default function MeasurementsPanel({
 										categories.map((c) => catKey(c.id))
 									)}
 								>
-									{categories.map((category) => (
+									{visibleCategories.map((category) => (
 										<CategoryAccordionItem
 											category={category}
 											ctx={ctx}
@@ -1356,6 +1431,16 @@ function GroupAccordionItem({
 	const groupMeasurements = ctx.measurements.filter(
 		(m) => m.groupId === group.id
 	);
+	// While searching, render only rows whose name matches — unless the group name
+	// itself matches, in which case every row stays visible. Group-level values
+	// (colour, totals, hidden state) still derive from the full `members` list.
+	const groupNameMatches =
+		ctx.searchQuery !== '' &&
+		group.name.toLowerCase().includes(ctx.searchQuery);
+	const visibleMembers =
+		ctx.searchQuery === '' || groupNameMatches
+			? members
+			: members.filter((m) => m.label.toLowerCase().includes(ctx.searchQuery));
 	// One colour drives the whole group: its stored colour, else an existing
 	// member's colour (legacy groups), else the neutral fallback.
 	const groupColor = group.color ?? members[0]?.color ?? FALLBACK_COLOR;
@@ -1498,13 +1583,13 @@ function GroupAccordionItem({
 				/>
 			</AccordionPrimitive.Header>
 			<AccordionPanel className="px-2 pt-1 pb-2">
-				{members.length === 0 ? (
+				{visibleMembers.length === 0 ? (
 					<p className="px-2 py-2 text-muted-foreground text-xs">
 						No measurements yet. Select this group, then draw on the canvas.
 					</p>
 				) : (
 					<ul className="flex flex-col gap-2">
-						{members.map((m) => (
+						{visibleMembers.map((m) => (
 							<MeasurementRow
 								adjustmentsShown={ctx.adjustShown(m)}
 								globalWastage={ctx.globalWastage}
