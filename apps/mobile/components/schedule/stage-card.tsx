@@ -40,7 +40,7 @@ function TaskRow({
 }) {
 	const colors = useThemeColors();
 	return (
-		<View className="flex-row items-center gap-3 border-border border-t px-4 py-3">
+		<View className="flex-row items-center gap-3 border-border border-t bg-muted/30 px-4 py-3">
 			<View className="flex-1 gap-1">
 				<Text className="font-sans-medium text-foreground text-sm">
 					{task.name}
@@ -110,6 +110,10 @@ export const StageCard = memo(
 	}) => {
 		const colors = useThemeColors();
 		const completed = tasks.filter((task) => task.status === 'Complete').length;
+		const durationDays = Math.max(
+			1,
+			Math.round((stage.endDate - stage.startDate) / 86_400_000) + 1
+		);
 
 		return (
 			<Animated.View
@@ -132,6 +136,7 @@ export const StageCard = memo(
 								<Text className="font-sans text-muted-foreground text-xs">
 									{formatShortDate(stage.startDate)} –{' '}
 									{formatShortDate(stage.endDate)}
+									{`  ·  ${durationDays}d`}
 									{tasks.length > 0
 										? `  ·  ${completed}/${tasks.length} tasks`
 										: ''}
@@ -182,7 +187,7 @@ export const StageCard = memo(
 							/>
 						))}
 					{expanded && tasks.length === 0 ? (
-						<Text className="border-border border-t px-4 py-3 font-sans text-muted-foreground text-sm">
+						<Text className="border-border border-t bg-muted/30 px-4 py-3 font-sans text-muted-foreground text-sm">
 							No tasks in this stage.
 						</Text>
 					) : null}

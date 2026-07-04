@@ -9,8 +9,19 @@ import {
 	CircleDashed,
 	CirclePlay,
 } from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList } from 'react-native';
+import {
+	FlatList,
+	type StyleProp,
+	View,
+	type ViewProps,
+	type ViewStyle,
+} from 'react-native';
+import {
+	computeScheduleSpan,
+	ScheduleToolbar,
+} from '@/components/schedule/schedule-toolbar';
 import {
 	StageCard,
 	type StatusTarget,
@@ -33,8 +44,32 @@ const STATUS_OPTIONS: {
 	{ status: 'Complete', icon: CheckCircle2 },
 ];
 
+// Earlier cells get a higher zIndex so an expanding stage paints on top of the
+// following card during the layout transition (otherwise its newly revealed
+// rows are drawn behind the next stage).
+function ScheduleCell({
+	index,
+	children,
+	style,
+	onLayout,
+}: {
+	index: number;
+	children?: ReactNode;
+	style?: StyleProp<ViewStyle>;
+	onLayout?: ViewProps['onLayout'];
+}) {
+	return (
+		<View onLayout={onLayout} style={[style, { zIndex: 10_000 - index }]}>
+			{children}
+		</View>
+	);
+}
+
 export default function ScheduleScreen() {
 	const { projectId } = useLocalSearchParams<{ projectId: string }>();
+	const project = useQuery(api.projects.get.get, {
+		projectId: projectId as Id<'projects'>,
+	});
 	const stages = useQuery(api.projectStages.listByProject.listByProject, {
 		projectId: projectId as Id<'projects'>,
 	});
@@ -51,6 +86,12 @@ export default function ScheduleScreen() {
 	const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
 	const [target, setTarget] = useState<StatusTarget | null>(null);
 	const sheetRef = useRef<BottomSheetModal>(null);
+	const listRef = useRef<FlatList>(null);
+
+	const span = useMemo(
+		() => computeScheduleSpan(project?.startDate, stages ?? [], tasks ?? []),
+		[project, stages, tasks]
+	);
 
 	const tasksByStage = useMemo(() => {
 		const map = new Map<string, Task[]>();
@@ -79,6 +120,38 @@ export default function ScheduleScreen() {
 			return next;
 		});
 	}, []);
+
+	const expandAll = useCallback(() => {
+		setExpandedStages(new Set((stages ?? []).map((stage) => stage._id)));
+	}, [stages]);
+
+	const collapseAll = useCallback(() => {
+		setExpandedStages(new Set());
+	}, []);
+
+	const scrollToToday = useCallback(() => {
+		if (!stages || stages.length === 0) {
+			return;
+		}
+		const now = new Date();
+		const todayMs = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate()
+		).getTime();
+		let index = stages.findIndex(
+			(stage) => todayMs >= stage.startDate && todayMs <= stage.endDate
+		);
+		if (index === -1) {
+			index = stages.findIndex((stage) => stage.startDate >= todayMs);
+		}
+		if (index === -1) {
+			index = stages.length - 1;
+		}
+		const targetStage = stages[index];
+		setExpandedStages((prev) => new Set(prev).add(targetStage._id));
+		listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0 });
+	}, [stages]);
 
 	const openStatusSheet = useCallback((statusTarget: StatusTarget) => {
 		setTarget(statusTarget);
@@ -120,8 +193,19 @@ export default function ScheduleScreen() {
 
 	return (
 		<>
+			{stages.length > 0 ? (
+				<ScheduleToolbar
+					days={span.days}
+					endDate={span.end}
+					onCollapseAll={collapseAll}
+					onExpandAll={expandAll}
+					onToday={scrollToToday}
+					startDate={span.start}
+				/>
+			) : null}
 			<FlatList
-				contentContainerClassName="pt-1 pb-6"
+				CellRendererComponent={ScheduleCell}
+				contentContainerClassName="pt-4 pb-6"
 				data={stages}
 				keyExtractor={(item) => item._id}
 				ListEmptyComponent={
@@ -131,6 +215,20 @@ export default function ScheduleScreen() {
 						title="No schedule yet"
 					/>
 				}
+				onScrollToIndexFailed={({ index, averageItemLength }) => {
+					listRef.current?.scrollToOffset({
+						offset: index * averageItemLength,
+						animated: true,
+					});
+					setTimeout(() => {
+						listRef.current?.scrollToIndex({
+							index,
+							animated: true,
+							viewPosition: 0,
+						});
+					}, 400);
+				}}
+				ref={listRef}
 				renderItem={({ item, index }) => (
 					<StageCard
 						expanded={expandedStages.has(item._id)}
