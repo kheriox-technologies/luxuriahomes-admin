@@ -36,7 +36,8 @@
         {
           "photosPermission": "Allow Luxuria Homes to access your photos to attach images to inclusion notes."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
