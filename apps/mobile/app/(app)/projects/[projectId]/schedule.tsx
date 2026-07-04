@@ -32,6 +32,7 @@ import {
 	type ActionSheetItem,
 } from '@/components/ui/action-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
+import { SearchBar } from '@/components/ui/search-bar';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import type { ScheduleStatus } from '@/components/ui/status-pill';
 
@@ -84,6 +85,7 @@ export default function ScheduleScreen() {
 	);
 
 	const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
+	const [search, setSearch] = useState('');
 	const [target, setTarget] = useState<StatusTarget | null>(null);
 	const sheetRef = useRef<BottomSheetModal>(null);
 	const listRef = useRef<FlatList>(null);
@@ -108,6 +110,44 @@ export default function ScheduleScreen() {
 		}
 		return map;
 	}, [tasks]);
+
+	// Filter stages/tasks by the search query. When a stage name matches, all its
+	// tasks are shown; otherwise only matching tasks are shown and the stage is
+	// force-expanded so the matches are visible. Mirrors the portal behavior.
+	const { displayedStages, tasksByStageFiltered, forceExpandedStageIds } =
+		useMemo(() => {
+			const lowerSearch = search.trim().toLowerCase();
+			if (!lowerSearch) {
+				return {
+					displayedStages: stages ?? [],
+					tasksByStageFiltered: tasksByStage,
+					forceExpandedStageIds: new Set<string>(),
+				};
+			}
+			const matches = (name: string) =>
+				name.toLowerCase().includes(lowerSearch);
+			const filteredStages: NonNullable<typeof stages> = [];
+			const filteredMap = new Map<string, Task[]>();
+			const forceExpanded = new Set<string>();
+			for (const stage of stages ?? []) {
+				const allTasks = tasksByStage.get(stage._id) ?? [];
+				const stageNameMatches = matches(stage.name);
+				const matchingTasks = allTasks.filter((t) => matches(t.name));
+				if (!stageNameMatches && matchingTasks.length === 0) {
+					continue;
+				}
+				filteredStages.push(stage);
+				filteredMap.set(stage._id, stageNameMatches ? allTasks : matchingTasks);
+				if (matchingTasks.length > 0) {
+					forceExpanded.add(stage._id);
+				}
+			}
+			return {
+				displayedStages: filteredStages,
+				tasksByStageFiltered: filteredMap,
+				forceExpandedStageIds: forceExpanded,
+			};
+		}, [search, stages, tasksByStage]);
 
 	const toggleStage = useCallback((stageId: string) => {
 		setExpandedStages((prev) => {
@@ -194,26 +234,43 @@ export default function ScheduleScreen() {
 	return (
 		<>
 			{stages.length > 0 ? (
-				<ScheduleToolbar
-					days={span.days}
-					endDate={span.end}
-					onCollapseAll={collapseAll}
-					onExpandAll={expandAll}
-					onToday={scrollToToday}
-					startDate={span.start}
-				/>
+				<>
+					<ScheduleToolbar
+						days={span.days}
+						endDate={span.end}
+						onCollapseAll={collapseAll}
+						onExpandAll={expandAll}
+						onToday={scrollToToday}
+						startDate={span.start}
+					/>
+					<View className="px-4 pt-3">
+						<SearchBar
+							onChangeText={setSearch}
+							placeholder="Search stages or tasks"
+							value={search}
+						/>
+					</View>
+				</>
 			) : null}
 			<FlatList
 				CellRendererComponent={ScheduleCell}
 				contentContainerClassName="pt-4 pb-6"
-				data={stages}
+				data={displayedStages}
 				keyExtractor={(item) => item._id}
 				ListEmptyComponent={
-					<EmptyState
-						description="Apply a schedule template to this project in the web portal."
-						icon={CalendarX}
-						title="No schedule yet"
-					/>
+					search.trim().length > 0 ? (
+						<EmptyState
+							description="No stages or tasks match your search."
+							icon={CalendarX}
+							title="No results"
+						/>
+					) : (
+						<EmptyState
+							description="Apply a schedule template to this project in the web portal."
+							icon={CalendarX}
+							title="No schedule yet"
+						/>
+					)
 				}
 				onScrollToIndexFailed={({ index, averageItemLength }) => {
 					listRef.current?.scrollToOffset({
@@ -231,12 +288,15 @@ export default function ScheduleScreen() {
 				ref={listRef}
 				renderItem={({ item, index }) => (
 					<StageCard
-						expanded={expandedStages.has(item._id)}
+						expanded={
+							forceExpandedStageIds.has(item._id) ||
+							expandedStages.has(item._id)
+						}
 						index={index}
 						onStatusPress={openStatusSheet}
 						onToggle={() => toggleStage(item._id)}
 						stage={item}
-						tasks={tasksByStage.get(item._id) ?? []}
+						tasks={tasksByStageFiltered.get(item._id) ?? []}
 					/>
 				)}
 			/>

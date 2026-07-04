@@ -1,4 +1,9 @@
-import { CalendarClock, ChevronsDown, ChevronsUp } from 'lucide-react-native';
+import {
+	CalendarClock,
+	CalendarRange,
+	ChevronsDown,
+	ChevronsUp,
+} from 'lucide-react-native';
 import { Pressable, Text, View } from 'react-native';
 import { useThemeColors } from '@/components/theme';
 import { formatShortDate } from '@/lib/format';
@@ -23,11 +28,19 @@ export function ScheduleToolbar({
 	const colors = useThemeColors();
 	return (
 		<View className="flex-row items-center justify-between gap-3 border-border border-b bg-background px-4 py-2">
-			<View className="flex-1">
+			<View className="h-9 shrink flex-row items-center gap-1.5 rounded-full border border-border bg-card px-3">
+				<CalendarRange
+					color={colors.mutedForeground}
+					size={15}
+					strokeWidth={2}
+				/>
+				<Text
+					className="font-sans-medium text-foreground text-sm"
+					numberOfLines={1}
+				>
+					{formatShortDate(startDate)} – {formatShortDate(endDate)}
+				</Text>
 				<Text className="font-sans text-muted-foreground text-xs">
-					<Text className="font-sans-medium text-foreground text-sm">
-						{formatShortDate(startDate)} – {formatShortDate(endDate)}
-					</Text>{' '}
 					({days} {days === 1 ? 'day' : 'days'})
 				</Text>
 			</View>
