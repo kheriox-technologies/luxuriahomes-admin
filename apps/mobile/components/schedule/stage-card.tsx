@@ -65,7 +65,9 @@ function TaskRow({
 					</View>
 				</View>
 			</View>
-			<ScheduleStatusPill status={task.status as ScheduleStatus} />
+			<View>
+				<ScheduleStatusPill status={task.status as ScheduleStatus} />
+			</View>
 			<Pressable
 				accessibilityLabel={`Change status of ${task.name}`}
 				accessibilityRole="button"
@@ -135,7 +137,9 @@ export const StageCard = memo(
 										: ''}
 								</Text>
 							</View>
-							<ScheduleStatusPill status={stage.status as ScheduleStatus} />
+							<View>
+								<ScheduleStatusPill status={stage.status as ScheduleStatus} />
+							</View>
 							<Pressable
 								accessibilityLabel={`Change status of ${stage.name}`}
 								accessibilityRole="button"
