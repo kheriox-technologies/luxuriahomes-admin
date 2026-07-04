@@ -85,12 +85,12 @@
 	--popover-foreground: oklch(0.145 0 0);
 	/*
 	 * App brand tokens (Clerk and other libs may redefine --primary for their own UI).
-	 * Admin (portal) uses ink-on-linen primary: dark ink fill with light linen text.
+	 * Admin (portal) uses linen-on-ink primary: light linen fill with dark ink text.
 	 * The web marketing site overrides --app-primary at runtime via its linen palette
 	 * (light linen fill / ink text), so this default only applies to the portal.
 	 */
-	--app-primary: #2b2927;
-	--app-primary-foreground: #f5ebe0;
+	--app-primary: #f5ebe0;
+	--app-primary-foreground: #2b2927;
 	--primary: var(--app-primary);
 	--primary-foreground: var(--app-primary-foreground);
 	--secondary: oklch(0.97 0 0);
@@ -141,8 +141,8 @@
 	--card-foreground: oklch(0.985 0 0);
 	--popover: oklch(0.205 0 0);
 	--popover-foreground: oklch(0.985 0 0);
-	--app-primary: #2b2927;
-	--app-primary-foreground: #f5ebe0;
+	--app-primary: #f5ebe0;
+	--app-primary-foreground: #2b2927;
 	--primary: var(--app-primary);
 	--primary-foreground: var(--app-primary-foreground);
 	--secondary: oklch(0.269 0 0);

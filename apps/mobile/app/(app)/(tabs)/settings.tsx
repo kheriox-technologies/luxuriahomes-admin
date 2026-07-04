@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react-native';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ScreenHeader } from '@/components/screen-header';
 import {
 	type ThemePreference,
@@ -42,7 +43,7 @@ export default function SettingsScreen() {
 			className="flex-1 bg-background"
 			contentContainerClassName="pb-8"
 		>
-			<ScreenHeader title="Settings" />
+			<ScreenHeader rightSlot={<NotificationBell />} title="Settings" />
 
 			<Card className="mx-4 flex-row items-center gap-3 p-4">
 				{user?.imageUrl ? (

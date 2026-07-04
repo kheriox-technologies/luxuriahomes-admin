@@ -16,11 +16,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const SECTIONS = [
 	{ key: 'schedule', label: 'Schedule' },
-	{ key: 'takeoffs', label: 'Take Offs' },
 	{ key: 'inclusions', label: 'Inclusions' },
 	{ key: 'documents', label: 'Documents' },
-	{ key: 'clients', label: 'Clients' },
+	{ key: 'takeoffs', label: 'Take Offs' },
 	{ key: 'orders', label: 'Orders' },
+	{ key: 'clients', label: 'Clients' },
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]['key'];

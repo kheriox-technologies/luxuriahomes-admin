@@ -2,12 +2,15 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import { PencilRuler } from 'lucide-react-native';
+import { ChevronsDown, ChevronsUp, PencilRuler } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { CategoryAccordion } from '@/components/takeoffs/category-accordion';
 import { GroupCard } from '@/components/takeoffs/group-card';
+import { useThemeColors } from '@/components/theme';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
+import { SearchBar } from '@/components/ui/search-bar';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import {
@@ -25,6 +28,11 @@ export default function TakeoffsScreen() {
 	const [selectedTakeoffId, setSelectedTakeoffId] = useState<string | null>(
 		null
 	);
+	const [search, setSearch] = useState('');
+	const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(
+		new Set()
+	);
+	const colors = useThemeColors();
 
 	// Auto-select the first takeoff once loaded.
 	useEffect(() => {
@@ -80,7 +88,48 @@ export default function TakeoffsScreen() {
 		);
 	}
 
-	const uncategorised = groupsByCategory.get('uncategorised') ?? [];
+	const q = search.trim().toLowerCase();
+
+	// Top-level measurements (excluding deductions) for a group.
+	const topLevelInGroup = (groupId: string) =>
+		measurements.filter((m) => m.groupId === groupId && !m.parentId);
+
+	// A group shows when there's no query, its name matches, or a measurement
+	// name matches — mirroring the portal's measurements panel.
+	const groupIsVisible = (group: TakeoffGroup) =>
+		q === '' ||
+		group.name.toLowerCase().includes(q) ||
+		topLevelInGroup(group.id).some((m) => m.label.toLowerCase().includes(q));
+
+	// Count of measurements shown for a group under the current query.
+	const displayedCount = (group: TakeoffGroup) => {
+		const members = topLevelInGroup(group.id);
+		if (q === '' || group.name.toLowerCase().includes(q)) {
+			return members.length;
+		}
+		return members.filter((m) => m.label.toLowerCase().includes(q)).length;
+	};
+
+	const uncategorised = (groupsByCategory.get('uncategorised') ?? []).filter(
+		groupIsVisible
+	);
+	// Categories that have at least one visible group under the current query.
+	const visibleCategories = categories
+		.map((category) => ({
+			category,
+			visibleGroups: (groupsByCategory.get(category.id) ?? []).filter(
+				groupIsVisible
+			),
+		}))
+		.filter((entry) => entry.visibleGroups.length > 0);
+
+	const expandAll = () =>
+		setExpandedCategoryIds(
+			new Set(visibleCategories.map((e) => e.category.id))
+		);
+	const collapseAll = () => setExpandedCategoryIds(new Set());
+
+	const hasResults = visibleCategories.length > 0 || uncategorised.length > 0;
 
 	return (
 		<ScrollView className="flex-1" contentContainerClassName="pb-6">
@@ -105,33 +154,65 @@ export default function TakeoffsScreen() {
 				<ListSkeleton rows={3} />
 			) : (
 				<>
-					<View className="flex-row items-center justify-between px-4 pb-1">
-						<Text className="font-sans text-muted-foreground text-xs">
-							{measurements.filter((m) => !m.parentId).length} measurements ·{' '}
-							{globalWastage}% global wastage
-						</Text>
+					<View className="flex-row items-center gap-2 px-4 pt-1 pb-2">
+						<View className="flex-1">
+							<SearchBar
+								onChangeText={setSearch}
+								placeholder="Search measurements"
+								value={search}
+							/>
+						</View>
+						<Pressable
+							accessibilityLabel="Expand all categories"
+							accessibilityRole="button"
+							className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+							hitSlop={4}
+							onPress={expandAll}
+						>
+							<ChevronsDown
+								color={colors.foreground}
+								size={18}
+								strokeWidth={2}
+							/>
+						</Pressable>
+						<Pressable
+							accessibilityLabel="Collapse all categories"
+							accessibilityRole="button"
+							className="h-9 w-9 items-center justify-center rounded-full border border-border bg-card active:bg-muted"
+							hitSlop={4}
+							onPress={collapseAll}
+						>
+							<ChevronsUp color={colors.foreground} size={18} strokeWidth={2} />
+						</Pressable>
 					</View>
 
-					{categories.map((category) => {
-						const categoryGroups = groupsByCategory.get(category.id) ?? [];
-						if (categoryGroups.length === 0) {
-							return null;
-						}
-						return (
-							<View key={category.id}>
-								<SectionHeader title={category.name} />
-								{categoryGroups.map((group) => (
-									<GroupCard
-										globalWastage={globalWastage}
-										group={group}
-										key={group.id}
-										measurements={measurements}
-										pageTitleByPage={pageTitleByPage}
-									/>
-								))}
-							</View>
-						);
-					})}
+					{visibleCategories.map(({ category, visibleGroups }) => (
+						<CategoryAccordion
+							category={category}
+							expanded={q !== '' ? true : expandedCategoryIds.has(category.id)}
+							globalWastage={globalWastage}
+							groups={visibleGroups}
+							key={category.id}
+							measurementCount={visibleGroups.reduce(
+								(sum, group) => sum + displayedCount(group),
+								0
+							)}
+							measurements={measurements}
+							onToggle={() =>
+								setExpandedCategoryIds((prev) => {
+									const next = new Set(prev);
+									if (next.has(category.id)) {
+										next.delete(category.id);
+									} else {
+										next.add(category.id);
+									}
+									return next;
+								})
+							}
+							pageTitleByPage={pageTitleByPage}
+							searchText={search}
+						/>
+					))}
 
 					{uncategorised.length > 0 ? (
 						<View>
@@ -143,6 +224,7 @@ export default function TakeoffsScreen() {
 									key={group.id}
 									measurements={measurements}
 									pageTitleByPage={pageTitleByPage}
+									searchText={search}
 								/>
 							))}
 						</View>
@@ -153,6 +235,14 @@ export default function TakeoffsScreen() {
 							description="Measurements taken in the web portal will appear here."
 							icon={PencilRuler}
 							title="No measurements yet"
+						/>
+					) : null}
+
+					{groups.length > 0 && !hasResults ? (
+						<EmptyState
+							description="No measurements match your search."
+							icon={PencilRuler}
+							title="No results"
 						/>
 					) : null}
 				</>

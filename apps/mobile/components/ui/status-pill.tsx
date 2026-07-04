@@ -11,13 +11,13 @@ export type OrderStatus = 'Pending' | 'Ordered' | 'In Transit' | 'Delivered';
 
 const scheduleVariants: Record<ScheduleStatus, BadgeVariant> = {
 	Pending: 'default',
-	'In Progress': 'info',
+	'In Progress': 'warning',
 	Complete: 'success',
 };
 
 const kanbanVariants: Record<KanbanStatus, BadgeVariant> = {
-	planned: 'default',
-	in_progress: 'info',
+	planned: 'info',
+	in_progress: 'warning',
 	blocked: 'destructive',
 	done: 'success',
 };
@@ -30,9 +30,9 @@ export const kanbanLabels: Record<KanbanStatus, string> = {
 };
 
 const orderVariants: Record<OrderStatus, BadgeVariant> = {
-	Pending: 'default',
+	Pending: 'warning',
 	Ordered: 'info',
-	'In Transit': 'warning',
+	'In Transit': 'purple',
 	Delivered: 'success',
 };
 

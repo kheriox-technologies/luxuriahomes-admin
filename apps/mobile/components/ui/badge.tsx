@@ -8,6 +8,8 @@ export type BadgeVariant =
 	| 'warning'
 	| 'info'
 	| 'destructive'
+	| 'purple'
+	| 'yellow'
 	| 'gold'
 	| 'outline';
 
@@ -17,6 +19,8 @@ const containerStyles: Record<BadgeVariant, string> = {
 	warning: 'bg-warning/15',
 	info: 'bg-info/15',
 	destructive: 'bg-destructive/15',
+	purple: 'bg-violet-100 dark:bg-violet-900/40',
+	yellow: 'bg-yellow-100 dark:bg-yellow-900/40',
 	gold: 'bg-linen/25',
 	outline: 'border border-border bg-transparent',
 };
@@ -27,6 +31,8 @@ const textStyles: Record<BadgeVariant, string> = {
 	warning: 'text-warning',
 	info: 'text-info',
 	destructive: 'text-destructive',
+	purple: 'text-violet-800 dark:text-violet-200',
+	yellow: 'text-yellow-800 dark:text-yellow-200',
 	gold: 'text-[#8a6d00] dark:text-linen',
 	outline: 'text-muted-foreground',
 };
