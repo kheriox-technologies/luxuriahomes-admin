@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 
 import '@workspace/ui/globals.css';
+import './portal-theme.css';
 import { cn } from '@workspace/ui/lib/utils';
 import Providers from '@/components/providers';
 

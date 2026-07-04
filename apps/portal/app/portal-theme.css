@@ -1,0 +1,9 @@
+/* Portal-only override: invert primary fill/text (dark ink on linen). */
+:root {
+	--app-primary: #2b2927;
+	--app-primary-foreground: #f5ebe0;
+}
+.dark {
+	--app-primary: #2b2927;
+	--app-primary-foreground: #f5ebe0;
+}
