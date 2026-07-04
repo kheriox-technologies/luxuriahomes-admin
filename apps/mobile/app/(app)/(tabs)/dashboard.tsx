@@ -1,24 +1,45 @@
 import { useUser } from '@clerk/clerk-expo';
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
-import { useQuery } from 'convex/react';
-import { LayoutDashboard } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
+import {
+	CheckCircle2,
+	CircleDashed,
+	CirclePlay,
+	LayoutDashboard,
+} from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, ScrollView, Text, View } from 'react-native';
 import {
+	type OverviewTask,
 	type ProjectOverview,
 	ProjectOverviewCard,
 } from '@/components/dashboard/project-overview-card';
 import { ScreenHeader } from '@/components/screen-header';
+import {
+	ActionSheet,
+	type ActionSheetItem,
+} from '@/components/ui/action-sheet';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListSkeleton } from '@/components/ui/skeleton';
+import type { ScheduleStatus } from '@/components/ui/status-pill';
 import {
 	getWindowRange,
 	MAX_PROJECTS,
 	WINDOW_OPTIONS,
 	type WindowKey,
 } from '@/lib/dashboard';
+
+const STATUS_OPTIONS: {
+	status: ScheduleStatus;
+	icon: typeof CircleDashed;
+}[] = [
+	{ status: 'Pending', icon: CircleDashed },
+	{ status: 'In Progress', icon: CirclePlay },
+	{ status: 'Complete', icon: CheckCircle2 },
+];
 
 export default function DashboardScreen() {
 	const { user } = useUser();
@@ -51,6 +72,39 @@ export default function DashboardScreen() {
 			? { projectIds: selectedIds, rangeStart, rangeEnd }
 			: 'skip'
 	);
+
+	const updateTaskStatus = useMutation(
+		api.projectTasks.updateStatus.updateStatus
+	);
+	const [statusTarget, setStatusTarget] = useState<OverviewTask | null>(null);
+	const sheetRef = useRef<BottomSheetModal>(null);
+
+	const openStatusSheet = useCallback((task: OverviewTask) => {
+		setStatusTarget(task);
+		sheetRef.current?.present();
+	}, []);
+
+	const sheetItems: ActionSheetItem[] = useMemo(() => {
+		if (!statusTarget) {
+			return [];
+		}
+		return STATUS_OPTIONS.map(({ status, icon }) => ({
+			key: status,
+			label: status === statusTarget.status ? `${status} (current)` : status,
+			icon,
+			selected: status === statusTarget.status,
+			onPress: () => {
+				sheetRef.current?.dismiss();
+				if (status === statusTarget.status) {
+					return;
+				}
+				updateTaskStatus({
+					taskId: statusTarget._id as Id<'projectTasks'>,
+					status,
+				});
+			},
+		}));
+	}, [statusTarget, updateTaskStatus]);
 
 	const toggleProject = (projectId: Id<'projects'>) => {
 		setSelectedIds((prev) => {
@@ -127,10 +181,20 @@ export default function DashboardScreen() {
 						/>
 					}
 					renderItem={({ item, index }) => (
-						<ProjectOverviewCard index={index} overview={item} />
+						<ProjectOverviewCard
+							index={index}
+							onTaskStatusPress={openStatusSheet}
+							overview={item}
+						/>
 					)}
 				/>
 			)}
+			<ActionSheet
+				items={sheetItems}
+				onDismiss={() => setStatusTarget(null)}
+				ref={sheetRef}
+				title={statusTarget ? `Set status — ${statusTarget.name}` : undefined}
+			/>
 		</View>
 	);
 }

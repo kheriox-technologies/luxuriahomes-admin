@@ -1,14 +1,16 @@
-import { useRouter } from 'expo-router';
 import {
 	AlertTriangle,
-	ChevronRight,
+	ChevronDown,
 	ListChecks,
 	Package,
 	ShoppingCart,
 } from 'lucide-react-native';
-import { memo, type ReactNode } from 'react';
+import { memo, type ReactNode, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+	FadeInDown,
+	LinearTransition,
+} from 'react-native-reanimated';
 import { useThemeColors } from '@/components/theme';
 import { Card } from '@/components/ui/card';
 import {
@@ -16,9 +18,10 @@ import {
 	type ScheduleStatus,
 	ScheduleStatusPill,
 } from '@/components/ui/status-pill';
+import { cn } from '@/lib/cn';
 import { formatShortDate } from '@/lib/format';
 
-interface OverviewTask {
+export interface OverviewTask {
 	_id: string;
 	endDate: number;
 	isOverdue: boolean;
@@ -73,10 +76,54 @@ function SectionLabel({
 	);
 }
 
+function TaskRow({
+	task,
+	dotClassName,
+	subtitle,
+	onStatusPress,
+}: {
+	task: OverviewTask;
+	dotClassName: string;
+	subtitle: string;
+	onStatusPress: (task: OverviewTask) => void;
+}) {
+	return (
+		<Pressable
+			accessibilityHint="Opens status options"
+			accessibilityLabel={`Update status for ${task.name}`}
+			accessibilityRole="button"
+			className="flex-row items-center gap-2 py-1.5 active:opacity-60"
+			onPress={() => onStatusPress(task)}
+		>
+			<View className={cn('h-2 w-2 rounded-full', dotClassName)} />
+			<View className="flex-1">
+				<Text
+					className="font-sans-medium text-foreground text-sm"
+					numberOfLines={1}
+				>
+					{task.name}
+				</Text>
+				<Text className="font-sans text-muted-foreground text-xs">
+					{subtitle}
+				</Text>
+			</View>
+			<ScheduleStatusPill status={task.status as ScheduleStatus} />
+		</Pressable>
+	);
+}
+
 export const ProjectOverviewCard = memo(
-	({ overview, index }: { overview: ProjectOverview; index: number }) => {
-		const router = useRouter();
+	({
+		overview,
+		index,
+		onTaskStatusPress,
+	}: {
+		overview: ProjectOverview;
+		index: number;
+		onTaskStatusPress: (task: OverviewTask) => void;
+	}) => {
 		const colors = useThemeColors();
+		const [expanded, setExpanded] = useState(false);
 
 		const overdue = overview.tasks.filter((task) => task.isOverdue);
 		const upcoming = overview.tasks.filter((task) => !task.isOverdue);
@@ -88,18 +135,15 @@ export const ProjectOverviewCard = memo(
 		return (
 			<Animated.View
 				entering={FadeInDown.delay(Math.min(index * 60, 300)).duration(350)}
+				layout={LinearTransition.duration(200)}
 			>
 				<Card className="mx-4 mb-3 p-4">
 					<Pressable
-						accessibilityLabel={`Open ${overview.projectName} schedule`}
+						accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${overview.projectName}`}
 						accessibilityRole="button"
-						className="flex-row items-center justify-between gap-2"
-						onPress={() =>
-							router.push({
-								pathname: '/(app)/projects/[projectId]/schedule',
-								params: { projectId: overview.projectId },
-							})
-						}
+						accessibilityState={{ expanded }}
+						className="flex-row items-center justify-between gap-2 active:opacity-70"
+						onPress={() => setExpanded((prev) => !prev)}
 					>
 						<Text
 							className="flex-1 font-sans-semibold text-base text-foreground"
@@ -107,20 +151,22 @@ export const ProjectOverviewCard = memo(
 						>
 							{overview.projectName}
 						</Text>
-						<ChevronRight
-							color={colors.mutedForeground}
-							size={18}
-							strokeWidth={2}
-						/>
+						<View className={cn('rotate-0', expanded && 'rotate-180')}>
+							<ChevronDown
+								color={colors.mutedForeground}
+								size={18}
+								strokeWidth={2}
+							/>
+						</View>
 					</Pressable>
 
-					{isEmpty ? (
+					{expanded && isEmpty ? (
 						<Text className="pt-3 font-sans text-muted-foreground text-sm">
 							Nothing scheduled in this window.
 						</Text>
 					) : null}
 
-					{overdue.length > 0 ? (
+					{expanded && overdue.length > 0 ? (
 						<>
 							<SectionLabel
 								count={overdue.length}
@@ -134,29 +180,18 @@ export const ProjectOverviewCard = memo(
 								label="Overdue"
 							/>
 							{overdue.map((task) => (
-								<View
-									className="flex-row items-center gap-2 py-1.5"
+								<TaskRow
+									dotClassName="bg-destructive"
 									key={task._id}
-								>
-									<View className="h-2 w-2 rounded-full bg-destructive" />
-									<View className="flex-1">
-										<Text
-											className="font-sans-medium text-foreground text-sm"
-											numberOfLines={1}
-										>
-											{task.name}
-										</Text>
-										<Text className="font-sans text-muted-foreground text-xs">
-											{task.stageName} · due {formatShortDate(task.endDate)}
-										</Text>
-									</View>
-									<ScheduleStatusPill status={task.status as ScheduleStatus} />
-								</View>
+									onStatusPress={onTaskStatusPress}
+									subtitle={`${task.stageName} · due ${formatShortDate(task.endDate)}`}
+									task={task}
+								/>
 							))}
 						</>
 					) : null}
 
-					{upcoming.length > 0 ? (
+					{expanded && upcoming.length > 0 ? (
 						<>
 							<SectionLabel
 								count={upcoming.length}
@@ -170,30 +205,18 @@ export const ProjectOverviewCard = memo(
 								label="Tasks"
 							/>
 							{upcoming.map((task) => (
-								<View
-									className="flex-row items-center gap-2 py-1.5"
+								<TaskRow
+									dotClassName="bg-info"
 									key={task._id}
-								>
-									<View className="h-2 w-2 rounded-full bg-info" />
-									<View className="flex-1">
-										<Text
-											className="font-sans-medium text-foreground text-sm"
-											numberOfLines={1}
-										>
-											{task.name}
-										</Text>
-										<Text className="font-sans text-muted-foreground text-xs">
-											{task.stageName} · {formatShortDate(task.startDate)} –{' '}
-											{formatShortDate(task.endDate)}
-										</Text>
-									</View>
-									<ScheduleStatusPill status={task.status as ScheduleStatus} />
-								</View>
+									onStatusPress={onTaskStatusPress}
+									subtitle={`${task.stageName} · ${formatShortDate(task.startDate)} – ${formatShortDate(task.endDate)}`}
+									task={task}
+								/>
 							))}
 						</>
 					) : null}
 
-					{overview.orderTasks.length > 0 ? (
+					{expanded && overview.orderTasks.length > 0 ? (
 						<>
 							<SectionLabel
 								count={overview.orderTasks.length}
@@ -232,7 +255,7 @@ export const ProjectOverviewCard = memo(
 						</>
 					) : null}
 
-					{overview.orders.length > 0 ? (
+					{expanded && overview.orders.length > 0 ? (
 						<>
 							<SectionLabel
 								count={overview.orders.length}
