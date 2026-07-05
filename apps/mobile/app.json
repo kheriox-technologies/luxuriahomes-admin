@@ -9,10 +9,12 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "au.com.luxuriahomes.admin",
+      "buildNumber": "1",
       "supportsTablet": true
     },
     "android": {
       "package": "au.com.luxuriahomes.admin",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5EBE0"
