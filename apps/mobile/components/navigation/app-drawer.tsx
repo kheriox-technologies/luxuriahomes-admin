@@ -2,7 +2,7 @@ import { useClerk, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { LogOut, Wallet } from 'lucide-react-native';
+import { FileText, LogOut, Wallet } from 'lucide-react-native';
 import {
 	createContext,
 	type ReactNode,
@@ -156,6 +156,20 @@ function AppDrawer({ onClose }: { onClose: () => void }) {
 						<Wallet color={colors.foreground} size={20} strokeWidth={2} />
 						<Text className="font-sans-medium text-base text-foreground">
 							Budgets
+						</Text>
+					</Pressable>
+					<Pressable
+						accessibilityLabel="Documents"
+						accessibilityRole="button"
+						className="h-12 flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+						onPress={() => {
+							onClose();
+							router.push('/(app)/documents');
+						}}
+					>
+						<FileText color={colors.foreground} size={20} strokeWidth={2} />
+						<Text className="font-sans-medium text-base text-foreground">
+							Documents
 						</Text>
 					</Pressable>
 				</ScrollView>
