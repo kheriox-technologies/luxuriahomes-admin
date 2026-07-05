@@ -6,7 +6,6 @@ import type { LucideIcon } from 'lucide-react-native';
 import { ChevronsDown, ChevronsUp, ShoppingCart } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
-import { OrderActionsProvider } from '@/components/orders/order-actions-provider';
 import { OrderTradeAccordion } from '@/components/orders/order-trade-accordion';
 import {
 	ORDER_STATUSES,
@@ -232,9 +231,5 @@ function OrdersBody({ projectId }: { projectId: Id<'projects'> }) {
 
 export default function OrdersScreen() {
 	const { projectId } = useLocalSearchParams<{ projectId: string }>();
-	return (
-		<OrderActionsProvider projectId={projectId as Id<'projects'>}>
-			<OrdersBody projectId={projectId as Id<'projects'>} />
-		</OrderActionsProvider>
-	);
+	return <OrdersBody projectId={projectId as Id<'projects'>} />;
 }
