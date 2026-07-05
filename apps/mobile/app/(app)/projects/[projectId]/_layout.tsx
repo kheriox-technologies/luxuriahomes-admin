@@ -20,6 +20,7 @@ const SECTIONS = [
 	{ key: 'documents', label: 'Documents' },
 	{ key: 'takeoffs', label: 'Take Offs' },
 	{ key: 'service-providers', label: 'Service Providers' },
+	{ key: 'budgets', label: 'Budgets' },
 	{ key: 'orders', label: 'Orders' },
 	{ key: 'clients', label: 'Clients' },
 ] as const;
