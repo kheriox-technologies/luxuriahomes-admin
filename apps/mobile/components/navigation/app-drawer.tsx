@@ -2,7 +2,7 @@ import { useClerk, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { FileText, LogOut, Wallet } from 'lucide-react-native';
+import { FileText, LogOut, Users, Wallet } from 'lucide-react-native';
 import {
 	createContext,
 	type ReactNode,
@@ -22,6 +22,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { Avatar } from '@/components/ui/avatar';
+import { getRoles, isSuperAdmin } from '@/lib/roles';
 
 interface AppDrawerContextValue {
 	close: () => void;
@@ -65,6 +66,7 @@ function AppDrawer({ onClose }: { onClose: () => void }) {
 	const fullName = user?.fullName ?? 'User';
 	const email = user?.primaryEmailAddress?.emailAddress ?? '';
 	const version = Constants.expoConfig?.version ?? '1.0.0';
+	const canViewUsers = isSuperAdmin(getRoles(user?.publicMetadata));
 
 	useEffect(() => {
 		const subscription = BackHandler.addEventListener(
@@ -172,6 +174,22 @@ function AppDrawer({ onClose }: { onClose: () => void }) {
 							Documents
 						</Text>
 					</Pressable>
+					{canViewUsers ? (
+						<Pressable
+							accessibilityLabel="Users"
+							accessibilityRole="button"
+							className="h-12 flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+							onPress={() => {
+								onClose();
+								router.push('/(app)/users');
+							}}
+						>
+							<Users color={colors.foreground} size={20} strokeWidth={2} />
+							<Text className="font-sans-medium text-base text-foreground">
+								Users
+							</Text>
+						</Pressable>
+					) : null}
 				</ScrollView>
 
 				<View className="border-border border-t" />

@@ -20,3 +20,17 @@ export function getRoles(publicMetadata: unknown): string[] {
 export function isAdmin(roles: string[]): boolean {
 	return roles.includes(ADMIN_ROLE) || roles.includes(SUPER_ADMIN_ROLE);
 }
+
+export function isSuperAdmin(roles: string[]): boolean {
+	return roles.includes(SUPER_ADMIN_ROLE);
+}
+
+// Converts a role slug (e.g. "super-admin") into a human label ("Super Admin").
+// Mirrors formatRoleLabel in apps/portal/components/users/use-role-options.ts.
+export function formatRoleLabel(role: string): string {
+	return role
+		.split('-')
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(' ');
+}
