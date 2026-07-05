@@ -36,6 +36,16 @@ export function formatCurrency(value: number | undefined): string {
 	return currencyFormatter.format(value);
 }
 
+const MINUS_SIGN = '−';
+
+export function formatSignedCurrency(value: number): string {
+	if (value === 0) {
+		return currencyFormatter.format(0);
+	}
+	const sign = value > 0 ? '+' : MINUS_SIGN;
+	return `${sign}${currencyFormatter.format(Math.abs(value))}`;
+}
+
 const whitespace = /\s+/;
 
 export function getInitials(name: string): string {

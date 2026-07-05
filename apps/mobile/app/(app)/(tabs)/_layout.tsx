@@ -4,6 +4,7 @@ import {
 	CircleUserRound,
 	LayoutDashboard,
 	SquareKanban,
+	SquaresIntersect,
 } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useAppDrawer } from '@/components/navigation/app-drawer';
@@ -47,6 +48,15 @@ export default function TabsLayout() {
 					title: 'Projects',
 					tabBarIcon: ({ color, size }) => (
 						<Building2 color={color} size={size} strokeWidth={1.75} />
+					),
+				}}
+			/>
+			<Tabs.Screen
+				name="inclusions"
+				options={{
+					title: 'Inclusions',
+					tabBarIcon: ({ color, size }) => (
+						<SquaresIntersect color={color} size={size} strokeWidth={1.75} />
 					),
 				}}
 			/>
