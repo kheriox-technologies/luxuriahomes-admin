@@ -1,111 +1,235 @@
 import { api } from '@workspace/backend/api';
-import type { Doc, Id } from '@workspace/backend/dataModel';
+import type { Id } from '@workspace/backend/dataModel';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
-import { ShoppingCart } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import { ChevronsDown, ChevronsUp, ShoppingCart } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
-import { Card } from '@/components/ui/card';
-import { ChipBar } from '@/components/ui/chip';
+import { FlatList, Pressable, View } from 'react-native';
+import { OrderTradeAccordion } from '@/components/orders/order-trade-accordion';
+import {
+	ORDER_STATUSES,
+	type OrderGroup,
+	type OrderStatus,
+	type ProjectOrder,
+} from '@/components/orders/types';
+import { useThemeColors } from '@/components/theme';
 import { EmptyState } from '@/components/ui/empty-state';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { SearchBar } from '@/components/ui/search-bar';
 import { ListSkeleton } from '@/components/ui/skeleton';
-import { OrderStatusPill } from '@/components/ui/status-pill';
-import { formatShortDate } from '@/lib/format';
 
-type ProjectOrder = Doc<'projectOrders'>;
+const STATUS_OPTIONS = ORDER_STATUSES.map((value) => ({ value, label: value }));
 
-const STATUS_FILTERS = [
-	'All',
-	'Pending',
-	'Ordered',
-	'In Transit',
-	'Delivered',
-] as const;
-type StatusFilter = (typeof STATUS_FILTERS)[number];
-
-function OrderCard({ order }: { order: ProjectOrder }) {
-	const itemsLabel =
-		order.items.length === 1 ? '1 item' : `${order.items.length} items`;
+function ToolbarIconButton({
+	icon: Icon,
+	label,
+	onPress,
+}: {
+	icon: LucideIcon;
+	label: string;
+	onPress: () => void;
+}) {
+	const colors = useThemeColors();
 	return (
-		<Card className="mx-4 mb-2 gap-2 p-3.5">
-			<View className="flex-row items-center justify-between gap-2">
-				<Text className="flex-1 font-sans-semibold text-foreground text-sm">
-					{order.orderId} · {order.vendor}
-				</Text>
-				<OrderStatusPill status={order.status} />
-			</View>
-			<Text className="font-sans text-muted-foreground text-xs">
-				{itemsLabel}
-				{order.orderBy ? ` · Order by ${formatShortDate(order.orderBy)}` : ''}
-				{order.deliverBy
-					? ` · Deliver by ${formatShortDate(order.deliverBy)}`
-					: ''}
-			</Text>
-			{order.items.slice(0, 3).map((item) => (
-				<Text
-					className="font-sans text-muted-foreground text-xs"
-					key={item.name}
-					numberOfLines={1}
-				>
-					• {item.name} × {item.quantity} {item.unit}
-				</Text>
-			))}
-			{order.items.length > 3 ? (
-				<Text className="font-sans text-muted-foreground text-xs">
-					+{order.items.length - 3} more
-				</Text>
-			) : null}
-		</Card>
+		<Pressable
+			accessibilityLabel={label}
+			accessibilityRole="button"
+			className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+			hitSlop={4}
+			onPress={onPress}
+		>
+			<Icon color={colors.foreground} size={18} strokeWidth={2} />
+		</Pressable>
 	);
 }
 
-export default function OrdersScreen() {
-	const { projectId } = useLocalSearchParams<{ projectId: string }>();
-	const orders = useQuery(api.projectOrders.list.list, {
-		projectId: projectId as Id<'projects'>,
-	}) as ProjectOrder[] | undefined;
-	const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
+function OrdersBody({ projectId }: { projectId: Id<'projects'> }) {
+	const orders = useQuery(api.projectOrders.list.list, { projectId }) as
+		| ProjectOrder[]
+		| undefined;
+	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
+		projectId,
+	});
 
-	const filtered = useMemo(() => {
+	const [search, setSearch] = useState('');
+	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>([]);
+	const [filterStatuses, setFilterStatuses] = useState<OrderStatus[]>([]);
+	const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+
+	const budgetByTradeId = useMemo(() => {
+		const map = new Map<
+			Id<'trades'>,
+			{ budgetPrice: number | null; remaining: number | null }
+		>();
+		for (const row of tradeSummary ?? []) {
+			const remaining =
+				row.budgetPrice === null
+					? null
+					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
+			map.set(row.tradeId, { budgetPrice: row.budgetPrice, remaining });
+		}
+		return map;
+	}, [tradeSummary]);
+
+	// Trade filter options come from the trades that actually have orders.
+	const tradeOptions = useMemo(() => {
+		const map = new Map<Id<'trades'>, string>();
+		for (const order of orders ?? []) {
+			map.set(order.tradeId, order.tradeName);
+		}
+		return [...map.entries()]
+			.map(([value, label]) => ({ value, label }))
+			.sort((a, b) => a.label.localeCompare(b.label));
+	}, [orders]);
+
+	const trimmedSearch = search.trim().toLowerCase();
+
+	const groups = useMemo<OrderGroup[]>(() => {
 		if (!orders) {
 			return [];
 		}
-		if (statusFilter === 'All') {
-			return orders;
+		const filtered = orders.filter((order) => {
+			if (
+				filterTradeIds.length > 0 &&
+				!filterTradeIds.includes(order.tradeId)
+			) {
+				return false;
+			}
+			if (
+				filterStatuses.length > 0 &&
+				!filterStatuses.includes(order.status as OrderStatus)
+			) {
+				return false;
+			}
+			if (
+				trimmedSearch &&
+				!order.orderId.toLowerCase().includes(trimmedSearch)
+			) {
+				return false;
+			}
+			return true;
+		});
+
+		const map = new Map<string, OrderGroup>();
+		for (const order of filtered) {
+			const key = order.tradeId as string;
+			let group = map.get(key);
+			if (!group) {
+				const budget = budgetByTradeId.get(order.tradeId);
+				group = {
+					key,
+					tradeId: order.tradeId,
+					tradeName: order.tradeName,
+					orders: [],
+					budgetPrice: budget?.budgetPrice ?? null,
+					remaining: budget?.remaining ?? null,
+				};
+				map.set(key, group);
+			}
+			group.orders.push(order);
 		}
-		return orders.filter((order) => order.status === statusFilter);
-	}, [orders, statusFilter]);
+		return [...map.values()].sort((a, b) =>
+			a.tradeName.localeCompare(b.tradeName, undefined, { sensitivity: 'base' })
+		);
+	}, [orders, trimmedSearch, filterTradeIds, filterStatuses, budgetByTradeId]);
 
 	if (orders === undefined) {
 		return <ListSkeleton />;
 	}
 
+	const toggleTrade = (value: Id<'trades'>) =>
+		setFilterTradeIds((prev) =>
+			prev.includes(value)
+				? prev.filter((id) => id !== value)
+				: [...prev, value]
+		);
+	const toggleStatus = (value: OrderStatus) =>
+		setFilterStatuses((prev) =>
+			prev.includes(value)
+				? prev.filter((status) => status !== value)
+				: [...prev, value]
+		);
+	const toggleKey = (key: string) =>
+		setCollapsedKeys((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) {
+				next.delete(key);
+			} else {
+				next.add(key);
+			}
+			return next;
+		});
+	const expandAll = () => setCollapsedKeys(new Set());
+	const collapseAll = () =>
+		setCollapsedKeys(new Set(groups.map((group) => group.key)));
+
+	const emptyDescription =
+		orders.length === 0
+			? 'Purchase orders created in the web portal will appear here.'
+			: 'No orders match your filters.';
+
 	return (
 		<View className="flex-1">
-			<View className="pb-3">
-				<ChipBar
-					onSelect={setStatusFilter}
-					options={STATUS_FILTERS}
-					selected={statusFilter}
+			<View className="gap-2 px-4 pt-2 pb-3">
+				<View className="flex-row items-center gap-2">
+					<MultiSelect
+						className="flex-1"
+						onToggle={toggleTrade}
+						options={tradeOptions}
+						placeholder="All trades"
+						title="Filter by trade"
+						values={filterTradeIds}
+					/>
+					<MultiSelect
+						className="flex-1"
+						onToggle={toggleStatus}
+						options={STATUS_OPTIONS}
+						placeholder="All statuses"
+						title="Filter by status"
+						values={filterStatuses}
+					/>
+					<ToolbarIconButton
+						icon={ChevronsDown}
+						label="Expand all trades"
+						onPress={expandAll}
+					/>
+					<ToolbarIconButton
+						icon={ChevronsUp}
+						label="Collapse all trades"
+						onPress={collapseAll}
+					/>
+				</View>
+				<SearchBar
+					onChangeText={setSearch}
+					placeholder="Search by order ID (LHA-XXXXXX)"
+					value={search}
 				/>
 			</View>
 			<FlatList
 				contentContainerClassName="pb-6"
-				data={filtered}
-				keyExtractor={(item) => item._id}
+				data={groups}
+				keyExtractor={(item) => item.key}
 				ListEmptyComponent={
 					<EmptyState
-						description={
-							statusFilter === 'All'
-								? 'Purchase orders created in the web portal will appear here.'
-								: `No ${statusFilter.toLowerCase()} orders.`
-						}
+						description={emptyDescription}
 						icon={ShoppingCart}
 						title="No orders"
 					/>
 				}
-				renderItem={({ item }) => <OrderCard order={item} />}
+				renderItem={({ item }) => (
+					<OrderTradeAccordion
+						expanded={!collapsedKeys.has(item.key)}
+						group={item}
+						onToggle={() => toggleKey(item.key)}
+					/>
+				)}
 			/>
 		</View>
 	);
+}
+
+export default function OrdersScreen() {
+	const { projectId } = useLocalSearchParams<{ projectId: string }>();
+	return <OrdersBody projectId={projectId as Id<'projects'>} />;
 }

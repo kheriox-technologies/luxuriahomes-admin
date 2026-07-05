@@ -13,13 +13,13 @@ export function SearchBar({
 }) {
 	const colors = useThemeColors();
 	return (
-		<View className="min-h-[44px] flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
+		<View className="h-9 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
 			<Search color={colors.mutedForeground} size={18} strokeWidth={2} />
 			<TextInput
 				accessibilityLabel={placeholder}
 				autoCapitalize="none"
 				autoCorrect={false}
-				className="flex-1 py-2.5 font-sans text-base text-foreground"
+				className="flex-1 font-sans text-base text-foreground"
 				onChangeText={onChangeText}
 				placeholder={placeholder}
 				placeholderTextColor={colors.mutedForeground}
