@@ -12,7 +12,7 @@ export const ServiceProviderCard = memo(function ServiceProviderCard({
 	projectId,
 }: {
 	provider: ServiceProvider;
-	projectId: Id<'projects'>;
+	projectId?: Id<'projects'>;
 }) {
 	const colors = useThemeColors();
 	const router = useRouter();
@@ -24,7 +24,9 @@ export const ServiceProviderCard = memo(function ServiceProviderCard({
 			onPress={() =>
 				router.push({
 					pathname: '/(app)/service-providers/[serviceProviderId]',
-					params: { serviceProviderId: provider._id, projectId },
+					params: projectId
+						? { serviceProviderId: provider._id, projectId }
+						: { serviceProviderId: provider._id },
 				})
 			}
 		>

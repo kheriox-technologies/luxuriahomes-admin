@@ -18,7 +18,7 @@ export const ServiceProviderTradeAccordion = memo(
 		onToggle,
 	}: {
 		group: ServiceProviderGroup;
-		projectId: Id<'projects'>;
+		projectId?: Id<'projects'>;
 		expanded: boolean;
 		onToggle: () => void;
 	}) {

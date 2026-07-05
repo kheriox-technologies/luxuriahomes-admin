@@ -239,9 +239,11 @@ export default function ServiceProviderDetailsScreen() {
 						</View>
 					) : null}
 
-					<Button onPress={handleRemove} variant="destructive">
-						Remove from project
-					</Button>
+					{projectId ? (
+						<Button onPress={handleRemove} variant="destructive">
+							Remove from project
+						</Button>
+					) : null}
 				</ScrollView>
 			) : null}
 		</View>
