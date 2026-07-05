@@ -1,8 +1,12 @@
 import { Tabs } from 'expo-router';
-import { Building2, LayoutDashboard, SquareKanban } from 'lucide-react-native';
+import {
+	Building2,
+	CircleUserRound,
+	LayoutDashboard,
+	SquareKanban,
+} from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useAppDrawer } from '@/components/navigation/app-drawer';
-import { TabAvatarIcon } from '@/components/navigation/tab-avatar-icon';
 import { useThemeColors } from '@/components/theme';
 import { brand } from '@/lib/theme';
 
@@ -65,8 +69,8 @@ export default function TabsLayout() {
 				name="menu"
 				options={{
 					title: 'Menu',
-					tabBarIcon: ({ size, focused }) => (
-						<TabAvatarIcon focused={focused} size={size} />
+					tabBarIcon: ({ color, size }) => (
+						<CircleUserRound color={color} size={size} strokeWidth={1.75} />
 					),
 				}}
 			/>
