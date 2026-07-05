@@ -8,6 +8,8 @@ fi
 
 S3_BUCKET="s3://apse2-lha-${ENV}-config"
 
+aws s3 cp "$S3_BUCKET/mobile/env/.env.local" apps/mobile/.env.local
+aws s3 cp "$S3_BUCKET/mobile/env/.env.$ENV" "apps/mobile/.env.$ENV"
 aws s3 cp "$S3_BUCKET/portal/env/.env.local" apps/portal/.env.local
 aws s3 cp "$S3_BUCKET/portal/env/.env.$ENV" "apps/portal/.env.$ENV"
 aws s3 cp "$S3_BUCKET/web/env/.env.local" apps/web/.env.local

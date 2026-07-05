@@ -105,7 +105,7 @@ export default function SignInScreen() {
 
 	return (
 		<View
-			className="flex-1 bg-primary"
+			className="flex-1 bg-primary-foreground"
 			style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
 		>
 			<KeyboardAvoidingView
@@ -122,43 +122,38 @@ export default function SignInScreen() {
 						source={require('../../assets/splash-icon.png')}
 						style={{ width: 180, height: 90 }}
 					/>
-					<Text className="font-sans text-primary-foreground/70 text-sm">
-						Builder Portal
-					</Text>
 				</Animated.View>
 
 				<Animated.View
-					className="gap-4 rounded-2xl bg-white/5 p-5"
+					className="gap-4 rounded-2xl border border-ink/10 bg-white/60 p-5"
 					entering={FadeInDown.delay(120).duration(500)}
 				>
 					<View className="gap-1.5">
-						<Text className="font-sans-medium text-primary-foreground/80 text-sm">
-							Email
-						</Text>
+						<Text className="font-sans-medium text-ink/70 text-sm">Email</Text>
 						<TextInput
 							accessibilityLabel="Email"
 							autoCapitalize="none"
 							autoComplete="email"
-							className="min-h-[48px] rounded-lg border border-white/15 bg-white/10 px-4 font-sans text-base text-white"
+							className="min-h-[48px] rounded-lg border border-ink/15 bg-white px-4 font-sans text-base text-ink"
 							inputMode="email"
 							onChangeText={setEmail}
 							placeholder="you@example.com"
-							placeholderTextColor="rgba(255,255,255,0.4)"
+							placeholderTextColor="rgba(43,41,39,0.4)"
 							value={email}
 						/>
 					</View>
 					<View className="gap-1.5">
-						<Text className="font-sans-medium text-primary-foreground/80 text-sm">
+						<Text className="font-sans-medium text-ink/70 text-sm">
 							Password
 						</Text>
 						<TextInput
 							accessibilityLabel="Password"
 							autoComplete="current-password"
-							className="min-h-[48px] rounded-lg border border-white/15 bg-white/10 px-4 font-sans text-base text-white"
+							className="min-h-[48px] rounded-lg border border-ink/15 bg-white px-4 font-sans text-base text-ink"
 							onChangeText={setPassword}
 							onSubmitEditing={onEmailPress}
 							placeholder="••••••••"
-							placeholderTextColor="rgba(255,255,255,0.4)"
+							placeholderTextColor="rgba(43,41,39,0.4)"
 							secureTextEntry
 							value={password}
 						/>
@@ -167,32 +162,32 @@ export default function SignInScreen() {
 					{error ? (
 						<Text
 							accessibilityRole="alert"
-							className="font-sans text-red-300 text-sm"
+							className="font-sans text-destructive text-sm"
 						>
 							{error}
 						</Text>
 					) : null}
 
 					<Button
-						className="bg-linen active:opacity-90"
+						className="active:opacity-90"
 						disabled={!(email && password)}
 						loading={emailLoading}
 						onPress={onEmailPress}
 						variant="primary"
 					>
-						<Text className="font-sans-semibold text-base text-ink">
+						<Text className="font-sans-semibold text-base text-primary-foreground">
 							Sign in
 						</Text>
 					</Button>
 
 					<View className="flex-row items-center gap-3 py-1">
-						<View className="h-px flex-1 bg-white/15" />
-						<Text className="font-sans text-white/50 text-xs">or</Text>
-						<View className="h-px flex-1 bg-white/15" />
+						<View className="h-px flex-1 bg-ink/15" />
+						<Text className="font-sans text-ink/50 text-xs">or</Text>
+						<View className="h-px flex-1 bg-ink/15" />
 					</View>
 
 					<Button
-						className="border-white/20 bg-white"
+						className="border-ink/15 bg-white"
 						loading={googleLoading}
 						onPress={onGooglePress}
 						variant="secondary"
