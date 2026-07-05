@@ -16,7 +16,7 @@ import {
 	type ProjectOverview,
 	ProjectOverviewCard,
 } from '@/components/dashboard/project-overview-card';
-import { NotificationBell } from '@/components/notifications/notification-bell';
+import { HeaderActions } from '@/components/navigation/header-actions';
 import { ScreenHeader } from '@/components/screen-header';
 import {
 	ActionSheet,
@@ -140,7 +140,7 @@ export default function DashboardScreen() {
 	return (
 		<View className="flex-1 bg-background">
 			<ScreenHeader
-				rightSlot={<NotificationBell />}
+				rightSlot={<HeaderActions />}
 				subtitle={`Here's what's coming up, ${firstName}`}
 				title="Dashboard"
 			/>

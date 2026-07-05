@@ -2,6 +2,7 @@ import { Authenticated, AuthLoading, Unauthenticated } from 'convex/react';
 import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { AdminGuard } from '@/components/auth/admin-guard';
+import { AppDrawerProvider } from '@/components/navigation/app-drawer';
 import { brand } from '@/lib/theme';
 
 function LoadingScreen() {
@@ -23,7 +24,9 @@ export default function AppLayout() {
 			</Unauthenticated>
 			<Authenticated>
 				<AdminGuard>
-					<Stack screenOptions={{ headerShown: false }} />
+					<AppDrawerProvider>
+						<Stack screenOptions={{ headerShown: false }} />
+					</AppDrawerProvider>
 				</AdminGuard>
 			</Authenticated>
 		</>
