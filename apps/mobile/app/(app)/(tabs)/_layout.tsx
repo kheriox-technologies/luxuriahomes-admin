@@ -1,6 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Building2, LayoutDashboard, SquareKanban } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
+import { useAppDrawer } from '@/components/navigation/app-drawer';
+import { TabAvatarIcon } from '@/components/navigation/tab-avatar-icon';
 import { useThemeColors } from '@/components/theme';
 import { brand } from '@/lib/theme';
 
@@ -8,6 +10,7 @@ export default function TabsLayout() {
 	const colors = useThemeColors();
 	const { colorScheme } = useColorScheme();
 	const isDark = colorScheme === 'dark';
+	const { open } = useAppDrawer();
 
 	return (
 		<Tabs
@@ -49,6 +52,21 @@ export default function TabsLayout() {
 					title: 'Tasks',
 					tabBarIcon: ({ color, size }) => (
 						<SquareKanban color={color} size={size} strokeWidth={1.75} />
+					),
+				}}
+			/>
+			<Tabs.Screen
+				listeners={{
+					tabPress: (event) => {
+						event.preventDefault();
+						open();
+					},
+				}}
+				name="menu"
+				options={{
+					title: 'Menu',
+					tabBarIcon: ({ size, focused }) => (
+						<TabAvatarIcon focused={focused} size={size} />
 					),
 				}}
 			/>

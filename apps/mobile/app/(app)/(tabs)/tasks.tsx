@@ -9,7 +9,7 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { HeaderActions } from '@/components/navigation/header-actions';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ScreenHeader } from '@/components/screen-header';
 import { useThemeColors } from '@/components/theme';
 import {
@@ -110,7 +110,7 @@ export default function TasksScreen() {
 	return (
 		<View className="flex-1 bg-background">
 			<ScreenHeader
-				rightSlot={<HeaderActions />}
+				rightSlot={<NotificationBell />}
 				subtitle={tasks ? `${tasks.length} tasks` : undefined}
 				title="Tasks"
 			/>

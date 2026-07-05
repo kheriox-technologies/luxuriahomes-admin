@@ -3,7 +3,7 @@ import { useQuery } from 'convex/react';
 import { Building2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
-import { HeaderActions } from '@/components/navigation/header-actions';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { type Project, ProjectCard } from '@/components/projects/project-card';
 import { ScreenHeader } from '@/components/screen-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -32,7 +32,7 @@ export default function ProjectsScreen() {
 	return (
 		<View className="flex-1 bg-background">
 			<ScreenHeader
-				rightSlot={<HeaderActions />}
+				rightSlot={<NotificationBell />}
 				subtitle={projects ? `${projects.length} projects` : undefined}
 				title="Projects"
 			/>
