@@ -1,7 +1,8 @@
 import { useClerk, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
-import { LogOut } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { LogOut, Wallet } from 'lucide-react-native';
 import {
 	createContext,
 	type ReactNode,
@@ -57,6 +58,7 @@ export function AppDrawerProvider({ children }: { children: ReactNode }) {
 function AppDrawer({ onClose }: { onClose: () => void }) {
 	const insets = useSafeAreaInsets();
 	const colors = useThemeColors();
+	const router = useRouter();
 	const { user } = useUser();
 	const { signOut } = useClerk();
 
@@ -141,7 +143,22 @@ function AppDrawer({ onClose }: { onClose: () => void }) {
 
 				<View className="border-border border-b" />
 
-				<ScrollView className="flex-1" contentContainerClassName="p-4" />
+				<ScrollView className="flex-1" contentContainerClassName="p-4">
+					<Pressable
+						accessibilityLabel="Budgets"
+						accessibilityRole="button"
+						className="h-12 flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+						onPress={() => {
+							onClose();
+							router.push('/(app)/budgets');
+						}}
+					>
+						<Wallet color={colors.foreground} size={20} strokeWidth={2} />
+						<Text className="font-sans-medium text-base text-foreground">
+							Budgets
+						</Text>
+					</Pressable>
+				</ScrollView>
 
 				<View className="border-border border-t" />
 
