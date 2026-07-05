@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { ErrorScreen } from '@/components/ui/error-screen';
 import { getRoles, isAdmin, isClient } from '@/lib/roles';
 
-export function AdminGuard({ children }: { children: ReactNode }) {
+export function ClientGuard({ children }: { children: ReactNode }) {
 	const { user, isLoaded } = useUser();
 
 	if (!isLoaded) {
@@ -12,13 +12,12 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 	}
 
 	const roles = getRoles(user?.publicMetadata);
-	if (isAdmin(roles)) {
+	if (isClient(roles)) {
 		return <>{children}</>;
 	}
-	// Client-only users (e.g. following a deep link into an admin route) belong
-	// on the client surface rather than the error screen.
-	if (isClient(roles)) {
-		return <Redirect href="/(client)/projects" />;
+	// Admins win: a dual-role user reaching a client route is sent to the admin app.
+	if (isAdmin(roles)) {
+		return <Redirect href="/(app)/(tabs)/dashboard" />;
 	}
 	return <ErrorScreen code="arbitrary_octopus" />;
 }

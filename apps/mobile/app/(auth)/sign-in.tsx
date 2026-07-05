@@ -71,7 +71,7 @@ export default function SignInScreen() {
 				ssoSignUp?.createdSessionId;
 			if (sessionId && setActiveSso) {
 				await setActiveSso({ session: sessionId });
-				router.replace('/(app)/(tabs)/dashboard');
+				router.replace('/');
 			} else {
 				setError('Google sign-in did not complete. Please try again.');
 			}
@@ -92,7 +92,7 @@ export default function SignInScreen() {
 			const attempt = await signIn.create({ identifier: email, password });
 			if (attempt.status === 'complete') {
 				await setActive({ session: attempt.createdSessionId });
-				router.replace('/(app)/(tabs)/dashboard');
+				router.replace('/');
 			} else {
 				setError('Additional verification required. Use the web portal.');
 			}

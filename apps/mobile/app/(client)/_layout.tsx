@@ -1,6 +1,7 @@
 import { Authenticated, AuthLoading, Unauthenticated } from 'convex/react';
 import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
+import { ClientGuard } from '@/components/auth/client-guard';
 import { brand } from '@/lib/theme';
 
 function LoadingScreen() {
@@ -11,22 +12,20 @@ function LoadingScreen() {
 	);
 }
 
-// Gate on Convex auth (not Clerk `isSignedIn`) so we don't bounce to the index
-// role router during the brief window after login where Clerk is signed in but
-// Convex hasn't finished authenticating — that window otherwise ping-pongs
-// against the protected surfaces' `<Unauthenticated>` redirect.
-export default function AuthLayout() {
+export default function ClientLayout() {
 	return (
 		<>
 			<AuthLoading>
 				<LoadingScreen />
 			</AuthLoading>
-			<Authenticated>
-				<Redirect href="/" />
-			</Authenticated>
 			<Unauthenticated>
-				<Stack screenOptions={{ headerShown: false }} />
+				<Redirect href="/(auth)/sign-in" />
 			</Unauthenticated>
+			<Authenticated>
+				<ClientGuard>
+					<Stack screenOptions={{ headerShown: false }} />
+				</ClientGuard>
+			</Authenticated>
 		</>
 	);
 }
