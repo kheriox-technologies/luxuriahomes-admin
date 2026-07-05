@@ -13,7 +13,11 @@
     "prebuild": "expo prebuild",
     "ios": "expo run:ios",
     "android": "expo run:android",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "build:ios": "set -a; . ./.env.prod; set +a; eas build --local --profile production --platform ios --output ./build/luxuria-ios.ipa",
+    "build:android": "set -a; . ./.env.prod; set +a; eas build --local --profile production --platform android --output ./build/luxuria-android.aab",
+    "submit:ios": "eas submit --profile production --platform ios --path ./build/luxuria-ios.ipa",
+    "submit:android": "eas submit --profile production --platform android --path ./build/luxuria-android.aab"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",

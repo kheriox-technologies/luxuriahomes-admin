@@ -1,9 +1,13 @@
-import type { Doc } from '@workspace/backend/dataModel';
 import { File, Paths } from 'expo-file-system';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import { Alert } from 'react-native';
 
-type ProjectDocument = Doc<'projectDocuments'>;
+interface ShareableDocument {
+	kebabName: string;
+	mimeType?: string;
+	name: string;
+	s3Key: string;
+}
 type SignUrl = (args: { s3Key: string }) => Promise<string>;
 
 /**
@@ -13,7 +17,7 @@ type SignUrl = (args: { s3Key: string }) => Promise<string>;
  */
 export async function shareDocument(
 	signUrl: SignUrl,
-	document: ProjectDocument
+	document: ShareableDocument
 ): Promise<void> {
 	try {
 		if (!(await isAvailableAsync())) {

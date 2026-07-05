@@ -9,6 +9,9 @@ export type KanbanStatus = 'planned' | 'in_progress' | 'blocked' | 'done';
 // projectOrders statuses
 export type OrderStatus = 'Pending' | 'Ordered' | 'In Transit' | 'Delivered';
 
+// projectQuotations statuses
+export type QuotationStatus = 'Under Review' | 'Approved' | 'Rejected';
+
 const scheduleVariants: Record<ScheduleStatus, BadgeVariant> = {
 	Pending: 'default',
 	'In Progress': 'warning',
@@ -36,6 +39,12 @@ const orderVariants: Record<OrderStatus, BadgeVariant> = {
 	Delivered: 'success',
 };
 
+const quotationVariants: Record<QuotationStatus, BadgeVariant> = {
+	'Under Review': 'warning',
+	Approved: 'success',
+	Rejected: 'destructive',
+};
+
 export function ScheduleStatusPill({ status }: { status: ScheduleStatus }) {
 	return (
 		<Badge variant={scheduleVariants[status] ?? 'default'}>{status}</Badge>
@@ -53,6 +62,14 @@ export function KanbanStatusPill({ status }: { status: KanbanStatus }) {
 export function OrderStatusPill({ status }: { status: string }) {
 	return (
 		<Badge variant={orderVariants[status as OrderStatus] ?? 'default'}>
+			{status}
+		</Badge>
+	);
+}
+
+export function QuotationStatusPill({ status }: { status: string }) {
+	return (
+		<Badge variant={quotationVariants[status as QuotationStatus] ?? 'default'}>
 			{status}
 		</Badge>
 	);

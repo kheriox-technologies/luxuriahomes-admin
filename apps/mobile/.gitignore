@@ -9,6 +9,11 @@ web-build/
 .env.local
 .env*.local
 
+# Local EAS credentials & build output (see docs/mobile-eas-local-build.md)
+credentials.json
+credentials/
+build/
+
 # Metro
 .metro-health-check*
 

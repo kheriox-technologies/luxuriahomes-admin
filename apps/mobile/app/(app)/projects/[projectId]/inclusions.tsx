@@ -27,12 +27,13 @@ import { InclusionSectionHeader } from '@/components/inclusions/inclusion-sectio
 import {
 	CLASS_FILTERS,
 	type ClassFilter,
+	classVariants,
 	type GroupBy,
 	type InclusionSection,
 	type ProjectInclusion,
 } from '@/components/inclusions/types';
 import { useThemeColors } from '@/components/theme';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -41,12 +42,6 @@ import { Select, type SelectOption } from '@/components/ui/select';
 import { ListSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { OrderStatusPill } from '@/components/ui/status-pill';
 import { useSignedUrl } from '@/lib/use-signed-url';
-
-const classVariants: Record<string, BadgeVariant> = {
-	Standard: 'info',
-	Gold: 'yellow',
-	Platinum: 'purple',
-};
 
 const CLASS_OPTIONS: readonly SelectOption<ClassFilter>[] = CLASS_FILTERS.map(
 	(value) => ({ value, label: value === 'All' ? 'All classes' : value })
