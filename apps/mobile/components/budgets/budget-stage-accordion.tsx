@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/format';
 export interface BudgetTrade {
 	actual: number | null;
 	budgetPrice: number | null;
+	payment: number | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 }
@@ -21,6 +22,7 @@ export interface BudgetStageGroup {
 	budgetSubtotal: number;
 	key: string;
 	name: string;
+	paymentSubtotal: number;
 	trades: BudgetTrade[];
 }
 
@@ -41,14 +43,17 @@ function TradeRow({ trade }: { trade: BudgetTrade }) {
 			<Text className="flex-1 font-sans text-foreground text-sm">
 				{trade.tradeName}
 			</Text>
-			{trade.budgetPrice === null ? (
-				<Badge variant="outline">No budget</Badge>
-			) : (
-				<Badge variant="purple">{formatCurrency(trade.budgetPrice)}</Badge>
-			)}
-			<Badge variant={actualVariant(trade.actual, trade.budgetPrice)}>
-				{trade.actual === null ? '—' : formatCurrency(trade.actual)}
-			</Badge>
+			{trade.budgetPrice ? (
+				<Badge variant="purple">B {formatCurrency(trade.budgetPrice)}</Badge>
+			) : null}
+			{trade.payment ? (
+				<Badge variant="default">P {formatCurrency(trade.payment)}</Badge>
+			) : null}
+			{trade.actual ? (
+				<Badge variant={actualVariant(trade.actual, trade.budgetPrice)}>
+					A {formatCurrency(trade.actual)}
+				</Badge>
+			) : null}
 		</View>
 	);
 }
@@ -79,7 +84,10 @@ export const BudgetStageAccordion = memo(function BudgetStageAccordion({
 							{group.name}
 						</Text>
 						<Badge variant="purple">
-							{formatCurrency(group.budgetSubtotal)}
+							B {formatCurrency(group.budgetSubtotal)}
+						</Badge>
+						<Badge variant="default">
+							P {formatCurrency(group.paymentSubtotal)}
 						</Badge>
 						<Badge
 							variant={actualVariant(
@@ -87,7 +95,7 @@ export const BudgetStageAccordion = memo(function BudgetStageAccordion({
 								group.budgetSubtotal
 							)}
 						>
-							{formatCurrency(group.actualSubtotal)}
+							A {formatCurrency(group.actualSubtotal)}
 						</Badge>
 						<View className={cn('rotate-0', expanded && 'rotate-180')}>
 							<ChevronDown

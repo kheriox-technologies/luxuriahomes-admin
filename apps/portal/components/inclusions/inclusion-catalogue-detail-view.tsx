@@ -15,12 +15,6 @@ import {
 import { Frame, FramePanel } from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
-import {
 	Menu,
 	MenuItem,
 	MenuPopup,
@@ -28,6 +22,7 @@ import {
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
 import { Radio, RadioGroup } from '@workspace/ui/components/radio-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import {
 	Table,
 	TableBody,
@@ -38,13 +33,7 @@ import {
 } from '@workspace/ui/components/table';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import {
-	EllipsisVertical,
-	Pencil,
-	Plus,
-	SearchIcon,
-	Trash2,
-} from 'lucide-react';
+import { EllipsisVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -494,20 +483,12 @@ export default function InclusionCatalogueDetailView({
 				heading={inclusion.title}
 				headingActions={
 					<>
-						<InputGroup className="w-48 sm:w-64">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search variants"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search variants…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search variants"
+							onValueChange={setSearch}
+							placeholder="Search variants…"
+							value={search}
+						/>
 						<Group>
 							<EditInclusion
 								inclusionId={inclusionId}

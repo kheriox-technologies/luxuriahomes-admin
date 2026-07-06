@@ -26,17 +26,12 @@ import {
 	FrameTitle,
 } from '@workspace/ui/components/frame';
 import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
-import {
 	Menu,
 	MenuItem,
 	MenuPopup,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import {
 	Table,
 	TableBody,
@@ -53,7 +48,6 @@ import {
 	EllipsisVertical,
 	Info,
 	NotebookPen,
-	SearchIcon,
 	SquaresIntersect,
 	TriangleAlert,
 } from 'lucide-react';
@@ -654,20 +648,12 @@ export default function ProjectInclusionsTabContent({
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<div className="flex flex-row items-center gap-2">
-				<InputGroup className="min-w-0 flex-1">
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>
-							<SearchIcon aria-hidden />
-						</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label="Search inclusions"
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search by title, vendor, code, colour…"
-						type="search"
-						value={search}
-					/>
-				</InputGroup>
+				<SearchInput
+					aria-label="Search inclusions"
+					onValueChange={setSearch}
+					placeholder="Search by title, vendor, code, colour…"
+					value={search}
+				/>
 				<Button
 					aria-label="Download"
 					className="shrink-0"

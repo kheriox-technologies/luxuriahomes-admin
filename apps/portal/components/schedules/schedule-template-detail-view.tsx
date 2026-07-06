@@ -3,14 +3,8 @@
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { useQuery } from 'convex/react';
-import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddStage from './add-stage';
@@ -102,20 +96,12 @@ export default function ScheduleTemplateDetailView({
 				}
 				rightSlot={
 					<div className="flex items-center gap-2">
-						<InputGroup className="w-48">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search stages and tasks"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search stages and tasks"
+							onValueChange={setSearch}
+							placeholder="Search…"
+							value={search}
+						/>
 						<AddTemplateToProject
 							orderTasks={orderTasks ?? []}
 							scheduleTemplateId={scheduleTemplateId}

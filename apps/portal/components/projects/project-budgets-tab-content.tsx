@@ -19,16 +19,11 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import {
-	ChevronsDownIcon,
-	ChevronsUpIcon,
-	Pencil,
-	SearchIcon,
-	Wallet,
-} from 'lucide-react';
+import { ChevronsDownIcon, ChevronsUpIcon, Pencil, Wallet } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRef, useState } from 'react';
 import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
@@ -557,20 +552,12 @@ export default function ProjectBudgetsTabContent({
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<InputGroup className="w-full sm:max-w-md">
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>
-							<SearchIcon aria-hidden />
-						</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label="Search budgets"
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search by stage or trade…"
-						type="search"
-						value={search}
-					/>
-				</InputGroup>
+				<SearchInput
+					aria-label="Search budgets"
+					onValueChange={setSearch}
+					placeholder="Search by stage or trade…"
+					value={search}
+				/>
 				<div className="flex flex-wrap items-center gap-2">
 					{rows.length > 0 ? (
 						<>

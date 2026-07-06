@@ -1,13 +1,8 @@
 'use client';
 
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
-import { Building2, SearchIcon } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/client/page-heading';
 import ProjectsList from '@/components/client/projects/projects-list';
@@ -26,20 +21,12 @@ export default function ProjectsPageContent() {
 			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
 				<PageHeading className="mb-0" heading="Projects" icon={Building2} />
 				<div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
-					<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>
-								<SearchIcon aria-hidden />
-							</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-label="Search projects"
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by name, address, client…"
-							type="search"
-							value={search}
-						/>
-					</InputGroup>
+					<SearchInput
+						aria-label="Search projects"
+						onValueChange={setSearch}
+						placeholder="Search by name, address, client…"
+						value={search}
+					/>
 				</div>
 			</div>
 			<div className="flex min-h-0 flex-1 flex-col">

@@ -19,16 +19,11 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import {
-	ChevronsDownIcon,
-	ChevronsUpIcon,
-	Pencil,
-	SearchIcon,
-	Wallet,
-} from 'lucide-react';
+import { ChevronsDownIcon, ChevronsUpIcon, Pencil, Wallet } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import EditTrade from '@/components/trades/edit-trade';
@@ -426,20 +421,12 @@ export default function BudgetTemplateDetailView({
 				heading={template.title}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-64 sm:max-w-md">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search items"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by stage or trade…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search items"
+							onValueChange={setSearch}
+							placeholder="Search by stage or trade…"
+							value={search}
+						/>
 						<Group>
 							<Button
 								aria-label="Expand all"

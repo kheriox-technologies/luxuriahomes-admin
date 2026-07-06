@@ -23,6 +23,7 @@ const NO_ORDER = Number.MAX_SAFE_INTEGER;
 interface TradeBudgetRow {
 	budgetPrice: number | null;
 	orderCount: number;
+	paymentPrice: number | null;
 	quotationCount: number;
 	stageId: Id<'tradeStages'> | null;
 	totalOrderPrice: number;
@@ -83,7 +84,9 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 		// Only trades with a budget set or with actual activity are shown on mobile.
 		const visible = rows.filter(
 			(row) =>
-				row.budgetPrice !== null || row.quotationCount + row.orderCount > 0
+				row.budgetPrice !== null ||
+				row.quotationCount + row.orderCount > 0 ||
+				(row.paymentPrice ?? 0) !== 0
 		);
 
 		const searched = trimmedSearch
@@ -128,22 +131,34 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 			bucket: TradeBudgetRow[]
 		): BudgetStageGroup => {
 			let budgetSubtotal = 0;
+			let paymentSubtotal = 0;
 			let actualSubtotal = 0;
 			const trades = bucket.map((row) => {
-				const hasActivity = row.quotationCount + row.orderCount > 0;
+				const payment = row.paymentPrice ?? 0;
+				const hasActivity =
+					row.quotationCount + row.orderCount > 0 || payment !== 0;
 				const actual = hasActivity
-					? row.totalQuotationPrice + row.totalOrderPrice
+					? row.totalQuotationPrice + row.totalOrderPrice + payment
 					: null;
 				budgetSubtotal += row.budgetPrice ?? 0;
+				paymentSubtotal += payment;
 				actualSubtotal += actual ?? 0;
 				return {
 					tradeId: row.tradeId,
 					tradeName: row.tradeName,
 					budgetPrice: row.budgetPrice,
+					payment: row.paymentPrice,
 					actual,
 				};
 			});
-			return { key, name, trades, budgetSubtotal, actualSubtotal };
+			return {
+				key,
+				name,
+				trades,
+				budgetSubtotal,
+				paymentSubtotal,
+				actualSubtotal,
+			};
 		};
 
 		// Stage order follows tradeStages.list (already sorted by order); Ungrouped last.

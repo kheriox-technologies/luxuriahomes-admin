@@ -3,15 +3,10 @@
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Building2, SearchIcon } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddProjectForm from '@/components/projects/add-project';
@@ -81,20 +76,12 @@ export default function ProjectsPageContent() {
 				icon={Building2}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search projects"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by name, address, client…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search projects"
+							onValueChange={setSearch}
+							placeholder="Search by name, address, client…"
+							value={search}
+						/>
 						<AddProjectForm />
 					</>
 				}
