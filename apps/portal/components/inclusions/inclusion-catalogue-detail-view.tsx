@@ -13,6 +13,7 @@ import {
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Frame, FramePanel } from '@workspace/ui/components/frame';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -507,39 +508,42 @@ export default function InclusionCatalogueDetailView({
 								value={search}
 							/>
 						</InputGroup>
-						<EditInclusion
-							inclusionId={inclusionId}
-							initialCategoryId={inclusion.categoryId}
-							initialMeasurementUnit={inclusion.measurementUnit}
-							initialStandardLabourPrice={inclusion.standardLabourPrice}
-							initialStandardPrice={inclusion.standardPrice}
-							initialTitle={inclusion.title}
-							trigger={
-								<Button
-									aria-label="Edit inclusion"
-									size="icon"
-									type="button"
-									variant="outline"
-								>
-									<Pencil />
-								</Button>
-							}
-						/>
-						<DeleteInclusion
-							inclusionId={inclusionId}
-							inclusionTitle={inclusion.title}
-							redirectToCatalogueAfterDelete
-							trigger={
-								<Button
-									aria-label="Delete inclusion"
-									size="icon"
-									type="button"
-									variant="destructive-outline"
-								>
-									<Trash2 />
-								</Button>
-							}
-						/>
+						<Group>
+							<EditInclusion
+								inclusionId={inclusionId}
+								initialCategoryId={inclusion.categoryId}
+								initialMeasurementUnit={inclusion.measurementUnit}
+								initialStandardLabourPrice={inclusion.standardLabourPrice}
+								initialStandardPrice={inclusion.standardPrice}
+								initialTitle={inclusion.title}
+								trigger={
+									<Button
+										aria-label="Edit inclusion"
+										size="icon"
+										type="button"
+										variant="outline"
+									>
+										<Pencil />
+									</Button>
+								}
+							/>
+							<GroupSeparator />
+							<DeleteInclusion
+								inclusionId={inclusionId}
+								inclusionTitle={inclusion.title}
+								redirectToCatalogueAfterDelete
+								trigger={
+									<Button
+										aria-label="Delete inclusion"
+										size="icon"
+										type="button"
+										variant="destructive-outline"
+									>
+										<Trash2 />
+									</Button>
+								}
+							/>
+						</Group>
 					</>
 				}
 				metaSlot={

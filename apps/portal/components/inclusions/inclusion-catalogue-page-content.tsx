@@ -207,36 +207,39 @@ function CategoryInclusionsFrame({
 					<Badge className="shrink-0" size="lg" variant="secondary">
 						{inclusionCountBadgeLabel(count)}
 					</Badge>
-					<EditInclusionCategory
-						categoryId={categoryId}
-						initialAllowance={allowance}
-						initialCode={categoryCode}
-						initialLabourAllowance={labourAllowance}
-						initialName={categoryName}
-						trigger={
-							<Button
-								aria-label={`Edit ${categoryName}`}
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<Pencil />
-							</Button>
-						}
-					/>
-					<AddInclusion
-						initialCategoryId={categoryId}
-						trigger={
-							<Button
-								aria-label={`Add inclusion to ${categoryName}`}
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<Plus />
-							</Button>
-						}
-					/>
+					<Group>
+						<EditInclusionCategory
+							categoryId={categoryId}
+							initialAllowance={allowance}
+							initialCode={categoryCode}
+							initialLabourAllowance={labourAllowance}
+							initialName={categoryName}
+							trigger={
+								<Button
+									aria-label={`Edit ${categoryName}`}
+									size="icon"
+									type="button"
+									variant="outline"
+								>
+									<Pencil />
+								</Button>
+							}
+						/>
+						<GroupSeparator />
+						<AddInclusion
+							initialCategoryId={categoryId}
+							trigger={
+								<Button
+									aria-label={`Add inclusion to ${categoryName}`}
+									size="icon"
+									type="button"
+									variant="outline"
+								>
+									<Plus />
+								</Button>
+							}
+						/>
+					</Group>
 				</div>
 			</FrameHeader>
 			<Table className="w-full">

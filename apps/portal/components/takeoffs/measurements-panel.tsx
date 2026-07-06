@@ -41,6 +41,7 @@ import {
 	DialogPanel,
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -689,40 +690,45 @@ export default function MeasurementsPanel({
 					<RulerDimensionLine />
 					Measure
 				</Button>
-				<Button
-					aria-label="Expand all"
-					disabled={!anyMeasurements}
-					onClick={() => setOpenKeys(allKeys)}
-					size="icon-sm"
-					title="Expand all"
-					variant="outline"
-				>
-					<ChevronsDownIcon />
-				</Button>
-				<Button
-					aria-label="Collapse all"
-					disabled={!anyMeasurements}
-					onClick={() => setOpenKeys([])}
-					size="icon-sm"
-					title="Collapse all"
-					variant="outline"
-				>
-					<ChevronsUpIcon />
-				</Button>
-				<Button
-					aria-label={allHidden ? 'Show all on canvas' : 'Hide all on canvas'}
-					disabled={!anyMeasurements}
-					onClick={onToggleAllHidden}
-					size="icon-sm"
-					title={allHidden ? 'Show all on canvas' : 'Hide all on canvas'}
-					variant="outline"
-				>
-					{allHidden ? <Eye /> : <EyeOff />}
-				</Button>
-				<PanelOverflowMenu
-					onAddCategory={handleAddCategory}
-					onClearAll={onClearAll}
-				/>
+				<Group>
+					<Button
+						aria-label="Expand all"
+						disabled={!anyMeasurements}
+						onClick={() => setOpenKeys(allKeys)}
+						size="icon-sm"
+						title="Expand all"
+						variant="outline"
+					>
+						<ChevronsDownIcon />
+					</Button>
+					<GroupSeparator />
+					<Button
+						aria-label="Collapse all"
+						disabled={!anyMeasurements}
+						onClick={() => setOpenKeys([])}
+						size="icon-sm"
+						title="Collapse all"
+						variant="outline"
+					>
+						<ChevronsUpIcon />
+					</Button>
+					<GroupSeparator />
+					<Button
+						aria-label={allHidden ? 'Show all on canvas' : 'Hide all on canvas'}
+						disabled={!anyMeasurements}
+						onClick={onToggleAllHidden}
+						size="icon-sm"
+						title={allHidden ? 'Show all on canvas' : 'Hide all on canvas'}
+						variant="outline"
+					>
+						{allHidden ? <Eye /> : <EyeOff />}
+					</Button>
+					<GroupSeparator />
+					<PanelOverflowMenu
+						onAddCategory={handleAddCategory}
+						onClearAll={onClearAll}
+					/>
+				</Group>
 			</div>
 
 			{/* Search: filters measurement rows by name and auto-expands matches. */}
@@ -1329,7 +1335,7 @@ function CategoryAccordionItem({
 					onRename={(name) => onRenameCategory(category.id, name)}
 					value={category.name}
 				/>
-				<span className="contents" data-no-toggle>
+				<Group data-no-toggle>
 					<Button
 						aria-label={
 							categoryHidden
@@ -1348,6 +1354,7 @@ function CategoryAccordionItem({
 					>
 						{categoryHidden ? <Eye /> : <EyeOff />}
 					</Button>
+					<GroupSeparator />
 					<CategoryActionsMenu
 						hasPages={categoryPages.length > 0}
 						name={category.name}
@@ -1367,7 +1374,7 @@ function CategoryAccordionItem({
 								: undefined
 						}
 					/>
-				</span>
+				</Group>
 				<AccordionPrimitive.Trigger
 					className={cn(
 						'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
@@ -1514,7 +1521,7 @@ function GroupAccordionItem({
 						style={{ color: groupColor }}
 						value={group.name}
 					/>
-					<span className="contents" data-no-toggle>
+					<Group data-no-toggle>
 						<Button
 							aria-label={
 								allHidden ? 'Show group on canvas' : 'Hide group on canvas'
@@ -1528,6 +1535,7 @@ function GroupAccordionItem({
 						>
 							{allHidden ? <Eye /> : <EyeOff />}
 						</Button>
+						<GroupSeparator />
 						<GroupActionsMenu
 							adjustable={adjustableReps.length > 0}
 							adjustmentsShown={adjustmentsShown}
@@ -1560,7 +1568,7 @@ function GroupAccordionItem({
 								ctx.setAdjustForAll(adjustableReps, !adjustmentsShown)
 							}
 						/>
-					</span>
+					</Group>
 					<AccordionPrimitive.Trigger
 						className={cn(
 							'flex shrink-0 cursor-pointer items-center rounded outline-none transition-colors hover:bg-muted/40',
@@ -1860,28 +1868,31 @@ function MeasurementRow({
 					<Badge size="sm" title={pageTitle} variant="secondary">
 						{pageTitle}
 					</Badge>
-					<Button
-						aria-label={m.hidden ? 'Show on canvas' : 'Hide on canvas'}
-						onClick={() => onToggleHidden(m.id)}
-						size="icon-sm"
-						title={m.hidden ? 'Show on canvas' : 'Hide on canvas'}
-						variant="ghost"
-					>
-						{m.hidden ? <Eye /> : <EyeOff />}
-					</Button>
-					<RowActionsMenu
-						adjustable={adjustable}
-						adjustmentsShown={adjustmentsShown}
-						deleteDescription="This permanently removes the measurement. This can't be undone."
-						deleteLabel="Delete measurement"
-						description={m.description}
-						label={m.label}
-						onDelete={() => onDelete(m.id)}
-						onSetDescription={(description) =>
-							onSetDescription(m.id, description)
-						}
-						onToggleAdjustments={onToggleAdjustments}
-					/>
+					<Group>
+						<Button
+							aria-label={m.hidden ? 'Show on canvas' : 'Hide on canvas'}
+							onClick={() => onToggleHidden(m.id)}
+							size="icon-sm"
+							title={m.hidden ? 'Show on canvas' : 'Hide on canvas'}
+							variant="ghost"
+						>
+							{m.hidden ? <Eye /> : <EyeOff />}
+						</Button>
+						<GroupSeparator />
+						<RowActionsMenu
+							adjustable={adjustable}
+							adjustmentsShown={adjustmentsShown}
+							deleteDescription="This permanently removes the measurement. This can't be undone."
+							deleteLabel="Delete measurement"
+							description={m.description}
+							label={m.label}
+							onDelete={() => onDelete(m.id)}
+							onSetDescription={(description) =>
+								onSetDescription(m.id, description)
+							}
+							onToggleAdjustments={onToggleAdjustments}
+						/>
+					</Group>
 				</div>
 				<div className="flex items-start justify-between gap-2">
 					{net ? (

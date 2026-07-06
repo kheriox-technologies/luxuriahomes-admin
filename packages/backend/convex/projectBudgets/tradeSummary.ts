@@ -72,6 +72,7 @@ export const tradeSummary = query({
 			return {
 				tradeId: trade._id,
 				tradeName: trade.name,
+				tradeDescription: trade.description ?? null,
 				stageId: trade.stageId ?? null,
 				tradeOrder: trade.order ?? null,
 				projectBudgetId: projectBudget?._id ?? null,

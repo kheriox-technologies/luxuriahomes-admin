@@ -11,6 +11,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
@@ -37,6 +38,7 @@ import {
 	parseMoneyString,
 } from '@/components/budgets/budget-form-shared';
 import { usePriceEditing } from '@/components/budgets/use-price-editing';
+import EditTrade from '@/components/trades/edit-trade';
 import {
 	type StageGroup,
 	StageGroupedList,
@@ -53,6 +55,7 @@ interface TradeBudgetRow {
 	stageId: Id<'tradeStages'> | null;
 	totalOrderPrice: number;
 	totalQuotationPrice: number;
+	tradeDescription: string | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 	tradeOrder: number | null;
@@ -387,14 +390,28 @@ export default function ProjectBudgetsTabContent({
 			<ActualCell row={row} />
 			<QuotationsCountCell row={row} />
 			<OrdersCountCell row={row} />
-			<div className="flex justify-end">
+			<Group className="justify-end">
+				<EditTrade
+					initialDescription={row.tradeDescription ?? undefined}
+					initialName={row.tradeName}
+					initialStageId={row.stageId ?? undefined}
+					tradeId={row.tradeId}
+					trigger={
+						<Button aria-label="Edit trade" size="icon" variant="outline">
+							<Pencil />
+						</Button>
+					}
+				/>
 				{row.projectBudgetId ? (
-					<DeleteProjectBudget
-						projectBudgetId={row.projectBudgetId}
-						tradeName={row.tradeName}
-					/>
+					<>
+						<GroupSeparator />
+						<DeleteProjectBudget
+							projectBudgetId={row.projectBudgetId}
+							tradeName={row.tradeName}
+						/>
+					</>
 				) : null}
-			</div>
+			</Group>
 		</div>
 	);
 
@@ -446,24 +463,27 @@ export default function ProjectBudgetsTabContent({
 					/>
 				</InputGroup>
 				<div className="flex items-center gap-2">
-					<Button
-						aria-label="Expand all"
-						onClick={() => listRef.current?.expandAll()}
-						size="icon"
-						type="button"
-						variant="outline"
-					>
-						<ChevronsDownIcon />
-					</Button>
-					<Button
-						aria-label="Collapse all"
-						onClick={() => listRef.current?.collapseAll()}
-						size="icon"
-						type="button"
-						variant="outline"
-					>
-						<ChevronsUpIcon />
-					</Button>
+					<Group>
+						<Button
+							aria-label="Expand all"
+							onClick={() => listRef.current?.expandAll()}
+							size="icon"
+							type="button"
+							variant="outline"
+						>
+							<ChevronsDownIcon />
+						</Button>
+						<GroupSeparator />
+						<Button
+							aria-label="Collapse all"
+							onClick={() => listRef.current?.collapseAll()}
+							size="icon"
+							type="button"
+							variant="outline"
+						>
+							<ChevronsUpIcon />
+						</Button>
+					</Group>
 					{rows.length > 0 &&
 						(isEditing ? (
 							<Button

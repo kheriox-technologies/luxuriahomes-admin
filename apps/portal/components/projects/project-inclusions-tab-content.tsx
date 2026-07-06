@@ -53,6 +53,7 @@ import {
 	FramePanel,
 	FrameTitle,
 } from '@workspace/ui/components/frame';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
@@ -868,31 +869,34 @@ function EditInclusionQuantitiesDialog({
 													? `${entry.quantity}${entry.unit ? ` ${entry.unit}` : ''}`
 													: (entry.unit ?? '')}
 											</span>
-											<Button
-												aria-label={`Edit ${entry.name}`}
-												onClick={() => handleEditLocation(i)}
-												size="icon-sm"
-												type="button"
-												variant="outline"
-											>
-												<Pencil className="size-4" />
-											</Button>
-											<Button
-												aria-label={`Remove ${entry.name}`}
-												onClick={() => {
-													if (editingIndex === i) {
-														setEditingIndex(null);
-													}
-													setLocalLocations((prev) =>
-														prev.filter((_, idx) => idx !== i)
-													);
-												}}
-												size="icon-sm"
-												type="button"
-												variant="destructive-outline"
-											>
-												<Trash2 className="size-4" />
-											</Button>
+											<Group>
+												<Button
+													aria-label={`Edit ${entry.name}`}
+													onClick={() => handleEditLocation(i)}
+													size="icon-sm"
+													type="button"
+													variant="outline"
+												>
+													<Pencil className="size-4" />
+												</Button>
+												<GroupSeparator />
+												<Button
+													aria-label={`Remove ${entry.name}`}
+													onClick={() => {
+														if (editingIndex === i) {
+															setEditingIndex(null);
+														}
+														setLocalLocations((prev) =>
+															prev.filter((_, idx) => idx !== i)
+														);
+													}}
+													size="icon-sm"
+													type="button"
+													variant="destructive-outline"
+												>
+													<Trash2 className="size-4" />
+												</Button>
+											</Group>
 										</div>
 									</CardPanel>
 								</Card>

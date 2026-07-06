@@ -11,6 +11,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import {
 	InputGroup,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import EditTrade from '@/components/trades/edit-trade';
 import {
 	type StageGroup,
 	StageGroupedList,
@@ -47,6 +49,7 @@ import { usePriceEditing } from './use-price-editing';
 
 type TemplateItem = Doc<'budgetTemplateItems'> & {
 	tradeName: string | null;
+	tradeDescription: string | null;
 	stageId: Id<'tradeStages'> | null;
 	tradeOrder: number | null;
 };
@@ -359,10 +362,24 @@ export default function BudgetTemplateDetailView({
 						</span>
 					)}
 				</div>
-				<DeleteBudgetTemplateItem
-					budgetTemplateItemId={item._id}
-					itemName={tradeName}
-				/>
+				<Group className="shrink-0">
+					<EditTrade
+						initialDescription={item.tradeDescription ?? undefined}
+						initialName={item.tradeName ?? ''}
+						initialStageId={item.stageId ?? undefined}
+						tradeId={item.tradeId}
+						trigger={
+							<Button aria-label="Edit trade" size="icon" variant="outline">
+								<Pencil />
+							</Button>
+						}
+					/>
+					<GroupSeparator />
+					<DeleteBudgetTemplateItem
+						budgetTemplateItemId={item._id}
+						itemName={tradeName}
+					/>
+				</Group>
 			</>
 		);
 	};
@@ -413,24 +430,27 @@ export default function BudgetTemplateDetailView({
 								value={search}
 							/>
 						</InputGroup>
-						<Button
-							aria-label="Expand all"
-							onClick={() => listRef.current?.expandAll()}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<ChevronsDownIcon />
-						</Button>
-						<Button
-							aria-label="Collapse all"
-							onClick={() => listRef.current?.collapseAll()}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<ChevronsUpIcon />
-						</Button>
+						<Group>
+							<Button
+								aria-label="Expand all"
+								onClick={() => listRef.current?.expandAll()}
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<ChevronsDownIcon />
+							</Button>
+							<GroupSeparator />
+							<Button
+								aria-label="Collapse all"
+								onClick={() => listRef.current?.collapseAll()}
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<ChevronsUpIcon />
+							</Button>
+						</Group>
 						{isEditing ? (
 							<Button
 								loading={isSaving}
@@ -482,7 +502,7 @@ export default function BudgetTemplateDetailView({
 					</EmptyHeader>
 				</Empty>
 			) : (
-				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+				<div className="flex min-h-0 flex-1 flex-col">
 					<StageGroupedList<TemplateItem>
 						emptyGroupLabel="No items in this stage."
 						getItemId={(item) => item.tradeId}
