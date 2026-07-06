@@ -50,6 +50,7 @@ import DeleteProjectBudget from './delete-project-budget';
 interface TradeBudgetRow {
 	budgetPrice: number | null;
 	orderCount: number;
+	paymentPrice: number | null;
 	projectBudgetId: Id<'projectBudgets'> | null;
 	quotationCount: number;
 	stageId: Id<'tradeStages'> | null;
@@ -62,8 +63,10 @@ interface TradeBudgetRow {
 }
 
 // Shared grid so the header row and the data rows line up column-for-column.
+// The actions track is a fixed width (not `auto`) so the header — whose actions
+// cell is empty — keeps the same column boundaries as the data rows.
 const ROW_GRID =
-	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_auto] items-center gap-3';
+	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
 
 const FILTER_PARAMS = [
 	'orderId',
@@ -89,20 +92,38 @@ function BudgetValue({ price }: { price: number | null }) {
 	return <span className="tabular-nums">{formatBudgetPrice(price)}</span>;
 }
 
-function ActualCell({ row }: { row: TradeBudgetRow }) {
-	if (row.quotationCount === 0 && row.orderCount === 0) {
+// `budget` and `payment` are the live (draft-aware) values so the Actual amount
+// and its over/under color react while the row is being edited.
+function ActualCell({
+	row,
+	budget,
+	payment,
+}: {
+	row: TradeBudgetRow;
+	budget: number | null;
+	payment: number;
+}) {
+	if (row.quotationCount === 0 && row.orderCount === 0 && payment === 0) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
-	const actual = row.totalQuotationPrice + row.totalOrderPrice;
+	const actual = row.totalQuotationPrice + row.totalOrderPrice + payment;
 	return (
-		<span
-			className={cn(
-				'font-medium tabular-nums',
-				actualColorClass(actual, row.budgetPrice)
-			)}
-		>
-			{formatBudgetPrice(actual)}
-		</span>
+		<div className="flex flex-col items-start gap-1">
+			<span
+				className={cn(
+					'font-medium tabular-nums',
+					actualColorClass(actual, budget)
+				)}
+			>
+				{formatBudgetPrice(actual)}
+			</span>
+			{row.quotationCount > 0 || row.orderCount > 0 ? (
+				<div className="flex flex-wrap items-center gap-1">
+					<QuotationsCountCell row={row} />
+					<OrdersCountCell row={row} />
+				</div>
+			) : null}
+		</div>
 	);
 }
 
@@ -111,7 +132,7 @@ function QuotationsCountCell({ row }: { row: TradeBudgetRow }) {
 	const searchParams = useSearchParams();
 
 	if (row.quotationCount === 0) {
-		return <span className="text-muted-foreground text-sm">—</span>;
+		return null;
 	}
 
 	const handleClick = () => {
@@ -140,7 +161,7 @@ function OrdersCountCell({ row }: { row: TradeBudgetRow }) {
 	const searchParams = useSearchParams();
 
 	if (row.orderCount === 0) {
-		return <span className="text-muted-foreground text-sm">—</span>;
+		return null;
 	}
 
 	const handleClick = () => {
@@ -175,12 +196,15 @@ export default function ProjectBudgetsTabContent({
 	const {
 		isEditing,
 		drafts,
+		paymentDrafts,
 		nameDrafts,
 		begin,
 		setDraft,
+		setPaymentDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
+		getPaymentChanges,
 		getNameChanges,
 	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
@@ -259,19 +283,36 @@ export default function ProjectBudgetsTabContent({
 		.filter((row) => row.budgetPrice !== null)
 		.map((row) => row.tradeId);
 
-	// Live totals: reflect draft prices while editing so the header updates before
-	// "Done"; blank/invalid drafts fall back to the saved price.
-	const totalBudget = (rows ?? []).reduce((sum, row) => {
+	// Live values reflect draft prices while editing so totals update before
+	// "Done"; blank/invalid drafts fall back to the saved value.
+	const liveBudget = (row: TradeBudgetRow) => {
 		if (isEditing) {
 			const raw = (drafts[row.tradeId] ?? '').trim();
 			if (raw.length > 0 && isValidMoneyString(raw)) {
-				return sum + parseMoneyString(raw);
+				return parseMoneyString(raw);
 			}
 		}
-		return sum + (row.budgetPrice ?? 0);
-	}, 0);
+		return row.budgetPrice ?? 0;
+	};
+	const livePayment = (row: TradeBudgetRow) => {
+		if (isEditing) {
+			const raw = (paymentDrafts[row.tradeId] ?? '').trim();
+			if (raw.length > 0 && isValidMoneyString(raw)) {
+				return parseMoneyString(raw);
+			}
+		}
+		return row.paymentPrice ?? 0;
+	};
+	// Actual includes payments (quotations + orders + payments).
+	const liveActual = (row: TradeBudgetRow) =>
+		row.totalQuotationPrice + row.totalOrderPrice + livePayment(row);
+
+	const totalBudget = (rows ?? []).reduce(
+		(sum, row) => sum + liveBudget(row),
+		0
+	);
 	const totalActual = (rows ?? []).reduce(
-		(sum, row) => sum + row.totalQuotationPrice + row.totalOrderPrice,
+		(sum, row) => sum + liveActual(row),
 		0
 	);
 
@@ -305,6 +346,7 @@ export default function ProjectBudgetsTabContent({
 			(rows ?? []).map((row) => ({
 				tradeId: row.tradeId,
 				price: row.budgetPrice,
+				payments: row.paymentPrice,
 				name: row.tradeName,
 			}))
 		);
@@ -312,23 +354,32 @@ export default function ProjectBudgetsTabContent({
 
 	const handleDone = async () => {
 		const changes = getChanges();
+		const paymentChanges = getPaymentChanges();
 		const nameChanges = getNameChanges();
-		if (changes.length === 0 && nameChanges.length === 0) {
+		// Merge price + payment changes by trade so each trade is upserted once.
+		const itemsByTrade = new Map<
+			Id<'trades'>,
+			{ tradeId: Id<'trades'>; price?: number; payments?: number }
+		>();
+		for (const change of changes) {
+			const tradeId = change.tradeId as Id<'trades'>;
+			itemsByTrade.set(tradeId, { tradeId, price: change.price });
+		}
+		for (const change of paymentChanges) {
+			const tradeId = change.tradeId as Id<'trades'>;
+			const existing = itemsByTrade.get(tradeId) ?? { tradeId };
+			existing.payments = change.payments;
+			itemsByTrade.set(tradeId, existing);
+		}
+		const items = Array.from(itemsByTrade.values());
+		if (items.length === 0 && nameChanges.length === 0) {
 			cancel();
 			return;
 		}
 		setIsSaving(true);
 		try {
 			await Promise.all([
-				changes.length > 0
-					? setPrices({
-							projectId,
-							items: changes.map((change) => ({
-								tradeId: change.tradeId as Id<'trades'>,
-								price: change.price,
-							})),
-						})
-					: Promise.resolve(),
+				items.length > 0 ? setPrices({ projectId, items }) : Promise.resolve(),
 				...nameChanges.map((change) =>
 					updateTrade({
 						tradeId: change.tradeId as Id<'trades'>,
@@ -387,9 +438,32 @@ export default function ProjectBudgetsTabContent({
 			) : (
 				<BudgetValue price={row.budgetPrice} />
 			)}
-			<ActualCell row={row} />
-			<QuotationsCountCell row={row} />
-			<OrdersCountCell row={row} />
+			{isEditing ? (
+				<InputGroup>
+					<InputGroupAddon align="inline-start">
+						<InputGroupText>$</InputGroupText>
+					</InputGroupAddon>
+					<InputGroupInput
+						aria-label={`Payments for ${row.tradeName}`}
+						inputMode="decimal"
+						nativeInput
+						onChange={(e) => setPaymentDraft(row.tradeId, e.target.value)}
+						placeholder="0.00"
+						type="text"
+						value={paymentDrafts[row.tradeId] ?? ''}
+					/>
+					<InputGroupAddon align="inline-end">
+						<InputGroupText>AUD</InputGroupText>
+					</InputGroupAddon>
+				</InputGroup>
+			) : (
+				<BudgetValue price={row.paymentPrice} />
+			)}
+			<ActualCell
+				budget={liveBudget(row)}
+				payment={livePayment(row)}
+				row={row}
+			/>
 			<Group className="justify-end">
 				<EditTrade
 					initialDescription={row.tradeDescription ?? undefined}
@@ -415,26 +489,61 @@ export default function ProjectBudgetsTabContent({
 		</div>
 	);
 
-	const renderStageBadges = (group: StageGroup<TradeBudgetRow>) => {
-		const subtotal = group.items.reduce((sum, row) => {
-			if (isEditing) {
-				const raw = (drafts[row.tradeId] ?? '').trim();
-				if (raw.length > 0 && isValidMoneyString(raw)) {
-					return sum + parseMoneyString(raw);
-				}
-			}
-			return sum + (row.budgetPrice ?? 0);
-		}, 0);
+	// Count badge sits with the stage name (Trade column).
+	const renderStageBadges = (group: StageGroup<TradeBudgetRow>) => (
+		<Badge size="lg" variant="secondary">
+			{group.items.length}
+		</Badge>
+	);
+
+	// Per-stage subtotals, one cell per column so they align under Budget /
+	// Payments / Actual. Empty stages still emit the cells to keep the grid tracks.
+	const renderStageColumns = (group: StageGroup<TradeBudgetRow>) => {
+		if (group.items.length === 0) {
+			return (
+				<>
+					<span />
+					<span />
+					<span />
+				</>
+			);
+		}
+		const budgetSubtotal = group.items.reduce(
+			(sum, row) => sum + liveBudget(row),
+			0
+		);
+		const paymentSubtotal = group.items.reduce(
+			(sum, row) => sum + livePayment(row),
+			0
+		);
+		const actualSubtotal = group.items.reduce(
+			(sum, row) => sum + liveActual(row),
+			0
+		);
 		return (
 			<>
-				<Badge size="lg" variant="secondary">
-					{group.items.length}
-				</Badge>
-				{group.items.length > 0 ? (
+				<span className="flex items-center">
 					<Badge size="lg" variant="purple">
-						{formatBudgetPrice(subtotal)}
+						B {formatBudgetPrice(budgetSubtotal)}
 					</Badge>
-				) : null}
+				</span>
+				<span className="flex items-center">
+					<Badge size="lg" variant="secondary">
+						P {formatBudgetPrice(paymentSubtotal)}
+					</Badge>
+				</span>
+				<span className="flex items-center">
+					<Badge
+						size="lg"
+						variant={
+							actualSubtotal <= budgetSubtotal
+								? 'success-outline'
+								: 'destructive-outline'
+						}
+					>
+						A {formatBudgetPrice(actualSubtotal)}
+					</Badge>
+				</span>
 			</>
 		);
 	};
@@ -462,7 +571,24 @@ export default function ProjectBudgetsTabContent({
 						value={search}
 					/>
 				</InputGroup>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
+					{rows.length > 0 ? (
+						<>
+							<Badge size="lg" variant="purple">
+								B {formatBudgetPrice(totalBudget)}
+							</Badge>
+							<Badge
+								size="lg"
+								variant={
+									totalActual <= totalBudget
+										? 'success-outline'
+										: 'destructive-outline'
+								}
+							>
+								A {formatBudgetPrice(totalActual)}
+							</Badge>
+						</>
+					) : null}
 					<Group>
 						<Button
 							aria-label="Expand all"
@@ -526,35 +652,6 @@ export default function ProjectBudgetsTabContent({
 				</Empty>
 			) : (
 				<div className="flex min-h-0 flex-1 flex-col gap-2">
-					{/* Column header — a leading spacer matches each row's drag grip. */}
-					<div className="flex items-center gap-2 px-3 text-muted-foreground text-xs">
-						<span aria-hidden className="w-4 shrink-0" />
-						<div className={cn(ROW_GRID, 'flex-1')}>
-							<span>Trade</span>
-							<span className="flex items-center gap-2">
-								Budget
-								<Badge size="lg" variant="purple">
-									{formatBudgetPrice(totalBudget)}
-								</Badge>
-							</span>
-							<span className="flex items-center gap-2">
-								Actual
-								<Badge
-									size="lg"
-									variant={
-										totalActual <= totalBudget
-											? 'success-outline'
-											: 'destructive-outline'
-									}
-								>
-									{formatBudgetPrice(totalActual)}
-								</Badge>
-							</span>
-							<span>Quotations</span>
-							<span>Orders</span>
-							<span />
-						</div>
-					</div>
 					<StageGroupedList<TradeBudgetRow>
 						emptyGroupLabel="No trades in this stage."
 						getItemId={(row) => row.tradeId}
@@ -585,7 +682,9 @@ export default function ProjectBudgetsTabContent({
 						ref={listRef}
 						renderRowContent={renderRowContent}
 						renderStageBadges={renderStageBadges}
+						renderStageColumns={renderStageColumns}
 						search={search}
+						stageColumnsClassName={ROW_GRID}
 						stages={stages}
 					/>
 				</div>

@@ -9,7 +9,8 @@ export const setPrices = mutation({
 		items: v.array(
 			v.object({
 				tradeId: v.id('trades'),
-				price: v.number(),
+				price: v.optional(v.number()),
+				payments: v.optional(v.number()),
 			})
 		),
 	},
@@ -24,9 +25,18 @@ export const setPrices = mutation({
 			});
 		}
 
-		// Upsert each trade price, overwriting an existing budget for that trade.
+		// Upsert budget/payments per trade, overwriting only the provided fields.
 		for (const item of args.items) {
-			const price = parseItemPrice(item.price);
+			const fields: { price?: number; payments?: number } = {};
+			if (item.price !== undefined) {
+				fields.price = parseItemPrice(item.price);
+			}
+			if (item.payments !== undefined) {
+				fields.payments = parseItemPrice(item.payments);
+			}
+			if (fields.price === undefined && fields.payments === undefined) {
+				continue;
+			}
 			const existing = await ctx.db
 				.query('projectBudgets')
 				.withIndex('by_project_and_trade', (q) =>
@@ -34,12 +44,12 @@ export const setPrices = mutation({
 				)
 				.first();
 			if (existing) {
-				await ctx.db.patch(existing._id, { price });
+				await ctx.db.patch(existing._id, fields);
 			} else {
 				await ctx.db.insert('projectBudgets', {
 					projectId: args.projectId,
 					tradeId: item.tradeId,
-					price,
+					...fields,
 				});
 			}
 		}

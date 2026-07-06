@@ -34,6 +34,7 @@ import {
 	AccordionPrimitive,
 } from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
+import { cn } from '@workspace/ui/lib/utils';
 import { ChevronDownIcon, GripVertical } from 'lucide-react';
 import {
 	type ReactNode,
@@ -74,7 +75,13 @@ interface StageGroupedListProps<Item> {
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageActions?: (group: StageGroup<Item>) => ReactNode;
 	renderStageBadges?: (group: StageGroup<Item>) => ReactNode;
+	// When set, the stage header lays its name + `renderStageColumns` cells out on
+	// this grid (the same grid className the rows use) so per-stage column badges
+	// line up with the row amount columns. The 13px inset matches the extra
+	// padding/border nesting the rows sit inside vs. the stage header.
+	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
 	search?: string;
+	stageColumnsClassName?: string;
 	stages: Doc<'tradeStages'>[] | undefined;
 }
 
@@ -254,6 +261,8 @@ function StageSection<Item>({
 	renderRowContent,
 	renderStageBadges,
 	renderStageActions,
+	renderStageColumns,
+	stageColumnsClassName,
 	emptyGroupLabel,
 }: {
 	group: StageGroup<Item>;
@@ -263,6 +272,8 @@ function StageSection<Item>({
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageBadges: (group: StageGroup<Item>) => ReactNode;
 	renderStageActions?: (group: StageGroup<Item>) => ReactNode;
+	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
+	stageColumnsClassName?: string;
 	emptyGroupLabel: string;
 }) {
 	const {
@@ -296,12 +307,27 @@ function StageSection<Item>({
 					) : (
 						<span aria-hidden className="w-4 shrink-0" />
 					)}
-					<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
-						<span className="font-medium">{group.name}</span>
-						{renderStageBadges(group)}
-					</AccordionPrimitive.Trigger>
-					{renderStageActions?.(group)}
-					<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+					{stageColumnsClassName ? (
+						<div className={cn(stageColumnsClassName, 'flex-1 px-[13px]')}>
+							<AccordionPrimitive.Trigger className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="truncate font-medium">{group.name}</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							{renderStageColumns?.(group)}
+							<div className="flex justify-end">
+								<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+							</div>
+						</div>
+					) : (
+						<>
+							<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="font-medium">{group.name}</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							{renderStageActions?.(group)}
+							<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+						</>
+					)}
 				</AccordionPrimitive.Header>
 				<AccordionPanel className="px-3">
 					<ItemList
@@ -325,6 +351,8 @@ function UngroupedSection<Item>({
 	getItemName,
 	renderRowContent,
 	renderStageBadges,
+	renderStageColumns,
+	stageColumnsClassName,
 	emptyGroupLabel,
 }: {
 	group: StageGroup<Item>;
@@ -333,6 +361,8 @@ function UngroupedSection<Item>({
 	getItemName: (item: Item) => string;
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageBadges: (group: StageGroup<Item>) => ReactNode;
+	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
+	stageColumnsClassName?: string;
 	emptyGroupLabel: string;
 }) {
 	return (
@@ -341,13 +371,30 @@ function UngroupedSection<Item>({
 				<AccordionPrimitive.Header className="flex items-center gap-2 px-3">
 					{/* Spacer aligns the header with the draggable stage sections above. */}
 					<span aria-hidden className="w-4 shrink-0" />
-					<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
-						<span className="font-medium text-muted-foreground">
-							{group.name}
-						</span>
-						{renderStageBadges(group)}
-					</AccordionPrimitive.Trigger>
-					<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+					{stageColumnsClassName ? (
+						<div className={cn(stageColumnsClassName, 'flex-1 px-[13px]')}>
+							<AccordionPrimitive.Trigger className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="truncate font-medium text-muted-foreground">
+									{group.name}
+								</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							{renderStageColumns?.(group)}
+							<div className="flex justify-end">
+								<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+							</div>
+						</div>
+					) : (
+						<>
+							<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="font-medium text-muted-foreground">
+									{group.name}
+								</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+						</>
+					)}
 				</AccordionPrimitive.Header>
 				<AccordionPanel className="px-3">
 					<ItemList
@@ -375,6 +422,8 @@ export function StageGroupedList<Item>({
 	renderRowContent,
 	renderStageBadges,
 	renderStageActions,
+	renderStageColumns,
+	stageColumnsClassName,
 	onPersistItems,
 	onReorderStages,
 	search = '',
@@ -828,6 +877,8 @@ export function StageGroupedList<Item>({
 									renderRowContent={renderRowContent}
 									renderStageActions={renderStageActions}
 									renderStageBadges={stageBadges}
+									renderStageColumns={renderStageColumns}
+									stageColumnsClassName={stageColumnsClassName}
 								/>
 							))}
 					</SortableContext>
@@ -843,6 +894,8 @@ export function StageGroupedList<Item>({
 								key={group.key}
 								renderRowContent={renderRowContent}
 								renderStageBadges={stageBadges}
+								renderStageColumns={renderStageColumns}
+								stageColumnsClassName={stageColumnsClassName}
 							/>
 						))}
 				</Accordion>

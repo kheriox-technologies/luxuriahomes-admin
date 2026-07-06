@@ -20,6 +20,7 @@ import {
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
+import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
 import {
 	ChevronsDownIcon,
@@ -55,6 +56,11 @@ type TemplateItem = Doc<'budgetTemplateItems'> & {
 };
 
 const MAX_ORDER = Number.MAX_SAFE_INTEGER;
+
+// Shared grid so rows and the stage-header subtotal line up column-for-column.
+// Templates only have a Budget column (no Payments/Actual).
+const ROW_GRID =
+	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
 
 /**
  * A template holds only a subset of trades, so the new order of the shown items
@@ -314,55 +320,58 @@ export default function BudgetTemplateDetailView({
 				}, 0)
 			: template.totalPrice;
 
+	const liveBudget = (item: TemplateItem) => {
+		if (isEditing) {
+			const raw = (drafts[item.tradeId] ?? '').trim();
+			if (raw.length > 0 && isValidMoneyString(raw)) {
+				return parseMoneyString(raw);
+			}
+		}
+		return item.price ?? 0;
+	};
+
 	const renderRowContent = (item: TemplateItem) => {
 		const tradeName = item.tradeName ?? 'Unknown trade';
 		return (
-			<>
-				<div className="min-w-0 flex-1">
-					{isEditing ? (
-						<Input
-							aria-label={`Trade name for ${tradeName}`}
-							className="max-w-64"
+			<div className={cn(ROW_GRID, 'flex-1')}>
+				{isEditing ? (
+					<Input
+						aria-label={`Trade name for ${tradeName}`}
+						nativeInput
+						onChange={(e) => setNameDraft(item.tradeId, e.target.value)}
+						placeholder="Trade name"
+						type="text"
+						value={nameDrafts[item.tradeId] ?? ''}
+					/>
+				) : (
+					<span className="font-medium text-sm">
+						{item.tradeName ?? (
+							<span className="text-muted-foreground">Unknown trade</span>
+						)}
+					</span>
+				)}
+				{isEditing ? (
+					<InputGroup>
+						<InputGroupAddon align="inline-start">
+							<InputGroupText>$</InputGroupText>
+						</InputGroupAddon>
+						<InputGroupInput
+							aria-label={`Price for ${tradeName}`}
+							inputMode="decimal"
 							nativeInput
-							onChange={(e) => setNameDraft(item.tradeId, e.target.value)}
-							placeholder="Trade name"
+							onChange={(e) => setDraft(item.tradeId, e.target.value)}
+							placeholder="0.00"
 							type="text"
-							value={nameDrafts[item.tradeId] ?? ''}
+							value={drafts[item.tradeId] ?? ''}
 						/>
-					) : (
-						<span className="font-medium text-sm">
-							{item.tradeName ?? (
-								<span className="text-muted-foreground">Unknown trade</span>
-							)}
-						</span>
-					)}
-				</div>
-				<div className="shrink-0">
-					{isEditing ? (
-						<InputGroup className="w-44">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>$</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label={`Price for ${tradeName}`}
-								inputMode="decimal"
-								nativeInput
-								onChange={(e) => setDraft(item.tradeId, e.target.value)}
-								placeholder="0.00"
-								type="text"
-								value={drafts[item.tradeId] ?? ''}
-							/>
-							<InputGroupAddon align="inline-end">
-								<InputGroupText>AUD</InputGroupText>
-							</InputGroupAddon>
-						</InputGroup>
-					) : (
-						<span className="tabular-nums">
-							{formatBudgetPrice(item.price)}
-						</span>
-					)}
-				</div>
-				<Group className="shrink-0">
+						<InputGroupAddon align="inline-end">
+							<InputGroupText>AUD</InputGroupText>
+						</InputGroupAddon>
+					</InputGroup>
+				) : (
+					<span className="tabular-nums">{formatBudgetPrice(item.price)}</span>
+				)}
+				<Group className="justify-end">
 					<EditTrade
 						initialDescription={item.tradeDescription ?? undefined}
 						initialName={item.tradeName ?? ''}
@@ -380,31 +389,32 @@ export default function BudgetTemplateDetailView({
 						itemName={tradeName}
 					/>
 				</Group>
-			</>
+			</div>
 		);
 	};
 
-	const renderStageBadges = (group: StageGroup<TemplateItem>) => {
-		const subtotal = group.items.reduce((sum, item) => {
-			if (isEditing) {
-				const raw = (drafts[item.tradeId] ?? '').trim();
-				if (raw.length > 0 && isValidMoneyString(raw)) {
-					return sum + parseMoneyString(raw);
-				}
-			}
-			return sum + (item.price ?? 0);
-		}, 0);
+	// Count badge sits with the stage name (Trade column).
+	const renderStageBadges = (group: StageGroup<TemplateItem>) => (
+		<Badge size="lg" variant="secondary">
+			{group.items.length}
+		</Badge>
+	);
+
+	// Budget subtotal cell, aligned under the Budget column.
+	const renderStageColumns = (group: StageGroup<TemplateItem>) => {
+		if (group.items.length === 0) {
+			return <span />;
+		}
+		const subtotal = group.items.reduce(
+			(sum, item) => sum + liveBudget(item),
+			0
+		);
 		return (
-			<>
-				<Badge size="lg" variant="secondary">
-					{group.items.length}
+			<span className="flex items-center">
+				<Badge size="lg" variant="purple">
+					B {formatBudgetPrice(subtotal)}
 				</Badge>
-				{group.items.length > 0 ? (
-					<Badge size="lg" variant="purple">
-						{formatBudgetPrice(subtotal)}
-					</Badge>
-				) : null}
-			</>
+			</span>
 		);
 	};
 
@@ -533,7 +543,9 @@ export default function BudgetTemplateDetailView({
 						ref={listRef}
 						renderRowContent={renderRowContent}
 						renderStageBadges={renderStageBadges}
+						renderStageColumns={renderStageColumns}
 						search={search}
+						stageColumnsClassName={ROW_GRID}
 						stages={stages}
 					/>
 				</div>
