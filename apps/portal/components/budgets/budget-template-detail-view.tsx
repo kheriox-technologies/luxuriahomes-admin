@@ -26,6 +26,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon, Pencil, Wallet } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import AddTradeStage from '@/components/trades/add-trade-stage';
 import EditTrade from '@/components/trades/edit-trade';
 import {
 	type StageGroup,
@@ -466,6 +467,7 @@ export default function BudgetTemplateDetailView({
 								Edit
 							</Button>
 						)}
+						<AddTradeStage />
 						<AddBudgetItemDialog
 							excludedTradeIds={usedTradeIds}
 							onSubmit={async (args) => {
@@ -493,7 +495,7 @@ export default function BudgetTemplateDetailView({
 						</EmptyMedia>
 						<EmptyTitle>No items yet</EmptyTitle>
 						<EmptyDescription>
-							Use “Add Item” to add trades and set budget prices for this
+							Use “Add Trade” to add trades and set budget prices for this
 							template.
 						</EmptyDescription>
 					</EmptyHeader>

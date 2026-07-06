@@ -34,7 +34,7 @@ export interface AddBudgetItemArgs {
 export default function AddBudgetItemDialog({
 	excludedTradeIds,
 	onSubmit,
-	triggerLabel = 'Add Item',
+	triggerLabel = 'Add Trade',
 }: {
 	excludedTradeIds: Id<'trades'>[];
 	onSubmit: (args: AddBudgetItemArgs) => Promise<void>;
