@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 interface SidebarItemBase {
 	icon: LucideIcon;
@@ -193,6 +194,73 @@ function hasPathMatch(pathname: string, allowedPath: string): boolean {
 	return pathname === allowedPath || pathname.startsWith(`${allowedPath}/`);
 }
 
+interface SidebarSubItem {
+	path: string;
+	title: string;
+	url: string;
+}
+
+/**
+ * A collapsible sidebar group with sub-items. Uses a *controlled* open state:
+ * `defaultOpen` on an uncontrolled Base UI Collapsible warns (and can visibly
+ * flicker) when its value changes after mount — which happens during drag
+ * re-renders when `useUser()`/permission data transiently resolves to empty.
+ * Controlling the state and only auto-opening (never force-closing) on a
+ * transient flip avoids the warning while preserving manual toggles.
+ */
+function SidebarNavGroup({
+	item,
+	visibleSubItems,
+	isOpen,
+	isSubItemActive,
+}: {
+	item: SidebarItemWithSub;
+	visibleSubItems: SidebarSubItem[];
+	isOpen: boolean;
+	isSubItemActive: (
+		subUrl: string,
+		siblings: Array<{ url: string }>
+	) => boolean;
+}) {
+	const [open, setOpen] = useState(isOpen);
+
+	useEffect(() => {
+		if (isOpen) {
+			setOpen(true);
+		}
+	}, [isOpen]);
+
+	return (
+		<Collapsible onOpenChange={setOpen} open={open}>
+			<SidebarMenuItem>
+				<CollapsibleTrigger nativeButton={false} render={<div />}>
+					<SidebarMenuButton isActive={isOpen} tooltip={item.title}>
+						<item.icon />
+						<span>{item.title}</span>
+						<ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/menu-item:rotate-180" />
+					</SidebarMenuButton>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<SidebarMenuSub>
+						{visibleSubItems.map((subItem) => (
+							<SidebarMenuSubItem key={subItem.title}>
+								<SidebarMenuSubButton
+									isActive={isSubItemActive(subItem.url, visibleSubItems)}
+									render={
+										<Link href={subItem.url as LinkProps<string>['href']} />
+									}
+								>
+									<span>{subItem.title}</span>
+								</SidebarMenuSubButton>
+							</SidebarMenuSubItem>
+						))}
+					</SidebarMenuSub>
+				</CollapsibleContent>
+			</SidebarMenuItem>
+		</Collapsible>
+	);
+}
+
 const AppSidebar = () => {
 	const pathname = usePathname();
 	const permissionsByRole = useQuery(api.permissions.list.list, {}) ?? {};
@@ -292,46 +360,13 @@ const AppSidebar = () => {
 									const isOpen = hasActiveSubItem(visibleSubItems);
 
 									return (
-										<Collapsible defaultOpen={isOpen} key={item.title}>
-											<SidebarMenuItem>
-												<CollapsibleTrigger
-													nativeButton={false}
-													render={<div />}
-												>
-													<SidebarMenuButton
-														isActive={isOpen}
-														tooltip={item.title}
-													>
-														<item.icon />
-														<span>{item.title}</span>
-														<ChevronDown className="ml-auto transition-transform duration-200 group-data-[state=open]/menu-item:rotate-180" />
-													</SidebarMenuButton>
-												</CollapsibleTrigger>
-												<CollapsibleContent>
-													<SidebarMenuSub>
-														{visibleSubItems.map((subItem) => (
-															<SidebarMenuSubItem key={subItem.title}>
-																<SidebarMenuSubButton
-																	isActive={isSubItemActive(
-																		subItem.url,
-																		visibleSubItems
-																	)}
-																	render={
-																		<Link
-																			href={
-																				subItem.url as LinkProps<string>['href']
-																			}
-																		/>
-																	}
-																>
-																	<span>{subItem.title}</span>
-																</SidebarMenuSubButton>
-															</SidebarMenuSubItem>
-														))}
-													</SidebarMenuSub>
-												</CollapsibleContent>
-											</SidebarMenuItem>
-										</Collapsible>
+										<SidebarNavGroup
+											isOpen={isOpen}
+											isSubItemActive={isSubItemActive}
+											item={item}
+											key={item.title}
+											visibleSubItems={visibleSubItems}
+										/>
 									);
 								}
 
