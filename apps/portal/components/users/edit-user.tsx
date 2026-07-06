@@ -17,6 +17,7 @@ import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction } from 'convex/react';
+import { Check, X } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import type { UserRow } from './types';
@@ -193,9 +194,14 @@ export default function EditUser({
 					</DialogPanel>
 				</form>
 				<DialogFooter>
-					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
-					</DialogClose>
+					<DialogClose
+						render={
+							<Button type="button" variant="outline">
+								<X aria-hidden />
+								Cancel
+							</Button>
+						}
+					/>
 					<Button
 						disabled={
 							!(
@@ -207,7 +213,9 @@ export default function EditUser({
 						form={FORM_ID}
 						loading={form.state.isSubmitting}
 						type="submit"
+						variant="outline"
 					>
+						<Check aria-hidden />
 						Save
 					</Button>
 				</DialogFooter>

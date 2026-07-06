@@ -63,6 +63,7 @@ import {
 	FileSpreadsheet,
 	FileText,
 	Folder,
+	FolderInput,
 	FolderOpen,
 	FolderPlus,
 	Mail,
@@ -306,8 +307,9 @@ function CreateFolderDialog({
 							onSubmit().catch(() => undefined);
 						}}
 						type="button"
+						variant="outline"
 					>
-						Create folder
+						<FolderPlus aria-hidden /> Create folder
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -551,7 +553,9 @@ function UploadFilesDialog({
 							uploadAll().catch(() => undefined);
 						}}
 						type="button"
+						variant="outline"
 					>
+						<Upload aria-hidden />
 						{`Upload${pendingCount > 0 ? ` ${pendingCount} file${pendingCount === 1 ? '' : 's'}` : ''}`}
 					</Button>
 				</DialogFooter>
@@ -628,8 +632,9 @@ function RenameDialog({
 						loading={loading}
 						onClick={() => onSubmit().catch(() => undefined)}
 						type="button"
+						variant="outline"
 					>
-						Rename
+						<Pencil aria-hidden /> Rename
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -706,8 +711,9 @@ function AddToTakeoffsDialog({
 						loading={loading}
 						onClick={() => onSubmit().catch(() => undefined)}
 						type="button"
+						variant="outline"
 					>
-						Add to take-offs
+						<FolderInput aria-hidden /> Add to take-offs
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -835,8 +841,9 @@ function MoveDialog({
 						loading={loading}
 						onClick={() => onSubmit().catch(() => undefined)}
 						type="button"
+						variant="outline"
 					>
-						Move here
+						<FolderInput aria-hidden /> Move here
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -893,9 +900,9 @@ function DeleteFileDialog({
 						loading={loading}
 						onClick={() => onDelete().catch(() => undefined)}
 						type="button"
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete
+						<Trash2 aria-hidden /> Delete
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -950,9 +957,9 @@ function DeleteFolderDialog({
 						loading={loading}
 						onClick={() => onDelete().catch(() => undefined)}
 						type="button"
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete folder
+						<Trash2 aria-hidden /> Delete folder
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -1678,7 +1685,12 @@ export function ProjectFileManagerTabContent({
 						<FolderPlus />
 						New folder
 					</Button>
-					<Button onClick={() => setUploadOpen(true)} size="sm" type="button">
+					<Button
+						onClick={() => setUploadOpen(true)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
 						<Upload />
 						Upload
 					</Button>
@@ -1697,7 +1709,12 @@ export function ProjectFileManagerTabContent({
 						>
 							Clear
 						</Button>
-						<Button onClick={openEmailWithSelected} size="sm" type="button">
+						<Button
+							onClick={openEmailWithSelected}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
 							<Mail />
 							Email
 						</Button>

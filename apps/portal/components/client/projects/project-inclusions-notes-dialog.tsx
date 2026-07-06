@@ -14,7 +14,7 @@ import {
 } from '@workspace/ui/components/dialog';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { ImagePlus, Trash2 } from 'lucide-react';
+import { ImagePlus, Plus, Trash2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
 	NoteImageUploader,
@@ -150,8 +150,9 @@ export default function ProjectInclusionNotesDialog({
 								disabled={saving || imagesUploading || noteText.trim() === ''}
 								onClick={() => onAdd().catch(() => undefined)}
 								type="button"
+								variant="outline"
 							>
-								Add note
+								<Plus aria-hidden /> Add note
 							</Button>
 						</div>
 					</div>
@@ -201,7 +202,7 @@ export default function ProjectInclusionNotesDialog({
 					<DialogClose
 						render={
 							<Button type="button" variant="outline">
-								Close
+								<X aria-hidden /> Close
 							</Button>
 						}
 					/>

@@ -17,7 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction } from 'convex/react';
-import { CheckIcon, CopyIcon, PlusIcon } from 'lucide-react';
+import { Check, CheckIcon, CopyIcon, Plus, PlusIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { useRoleOptions } from './use-role-options';
@@ -106,7 +106,7 @@ export default function AddUser({ onCreated }: { onCreated: () => void }) {
 		>
 			<DialogTrigger
 				render={
-					<Button>
+					<Button variant="outline">
 						<PlusIcon />
 						Add User
 					</Button>
@@ -263,14 +263,20 @@ export default function AddUser({ onCreated }: { onCreated: () => void }) {
 
 				<DialogFooter>
 					{created ? (
-						<Button onClick={resetAndClose} type="button">
+						<Button onClick={resetAndClose} type="button" variant="outline">
+							<Check aria-hidden />
 							Done
 						</Button>
 					) : (
 						<>
-							<DialogClose render={<Button type="button" variant="outline" />}>
-								Cancel
-							</DialogClose>
+							<DialogClose
+								render={
+									<Button type="button" variant="outline">
+										<X aria-hidden />
+										Cancel
+									</Button>
+								}
+							/>
 							<Button
 								disabled={
 									!(
@@ -282,7 +288,9 @@ export default function AddUser({ onCreated }: { onCreated: () => void }) {
 								form={FORM_ID}
 								loading={form.state.isSubmitting}
 								type="submit"
+								variant="outline"
 							>
+								<Plus aria-hidden />
 								Create User
 							</Button>
 						</>

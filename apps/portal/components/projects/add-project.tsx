@@ -23,6 +23,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check, Plus } from 'lucide-react';
 import { useState } from 'react';
 import {
 	ClientAddressTitleRow,
@@ -189,7 +190,13 @@ export default function AddProjectForm() {
 			}}
 			open={open}
 		>
-			<SheetTrigger render={<Button variant="default">Add project</Button>} />
+			<SheetTrigger
+				render={
+					<Button variant="outline">
+						<Plus aria-hidden /> Add project
+					</Button>
+				}
+			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
@@ -543,6 +550,7 @@ export default function AddProjectForm() {
 										type="button"
 										variant="outline"
 									>
+										<Plus aria-hidden />
 										{editingIndex === null ? 'Add Client' : 'Save Client'}
 									</Button>
 								</div>
@@ -577,9 +585,9 @@ export default function AddProjectForm() {
 						}
 						form={FORM_ID}
 						type="submit"
-						variant="default"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</SheetFooter>
 			</SheetContent>

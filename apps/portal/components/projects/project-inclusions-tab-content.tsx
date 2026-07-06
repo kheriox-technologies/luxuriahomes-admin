@@ -302,9 +302,9 @@ function DeleteProjectInclusionDialog({
 							});
 						}}
 						type="button"
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete inclusion
+						<Trash2 aria-hidden /> Delete inclusion
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -564,8 +564,9 @@ function ProjectInclusionNotesDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Save note
+						<Check aria-hidden /> Save note
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -922,8 +923,9 @@ function EditInclusionQuantitiesDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -1038,8 +1040,9 @@ function AdjustVariationDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -1666,8 +1669,9 @@ function ProjectInclusionsTableInFrame({
 											});
 									}}
 									type="button"
+									variant="outline"
 								>
-									Confirm
+									<Check aria-hidden /> Confirm
 								</Button>
 							</AlertDialogFooter>
 						</AlertDialogContent>
@@ -1829,14 +1833,15 @@ function NewOrderBuilderCard({
 						type="button"
 						variant="outline"
 					>
-						Cancel
+						<X aria-hidden /> Cancel
 					</Button>
 					<Button
 						loading={isCreating}
 						onClick={() => setTradeDialogOpen(true)}
 						type="button"
+						variant="outline"
 					>
-						Create Order
+						<Plus aria-hidden /> Create Order
 					</Button>
 				</div>
 			</FrameHeader>

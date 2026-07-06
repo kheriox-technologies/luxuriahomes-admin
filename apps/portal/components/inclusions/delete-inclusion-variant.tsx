@@ -15,6 +15,7 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Trash2 } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -86,8 +87,9 @@ export default function DeleteInclusionVariant({
 								/* Error handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
+						<Trash2 aria-hidden />
 						Delete variant
 					</Button>
 				</AlertDialogFooter>

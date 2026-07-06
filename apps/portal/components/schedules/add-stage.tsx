@@ -90,7 +90,7 @@ export default function AddStage({
 		>
 			<DialogTrigger
 				render={
-					<Button>
+					<Button variant="outline">
 						<Plus />
 						Add Stage
 					</Button>
@@ -221,8 +221,9 @@ export default function AddStage({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Add Stage
+						<Plus aria-hidden /> Add Stage
 					</Button>
 				</DialogFooter>
 			</DialogContent>

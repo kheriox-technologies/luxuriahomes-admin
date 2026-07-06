@@ -23,7 +23,7 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { ImagePlus, Info, Trash2 } from 'lucide-react';
+import { Check, ImagePlus, Info, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import {
@@ -264,8 +264,9 @@ export default function QuotationNotesDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Save note
+						<Check aria-hidden /> Save note
 					</Button>
 				</DialogFooter>
 			</DialogContent>

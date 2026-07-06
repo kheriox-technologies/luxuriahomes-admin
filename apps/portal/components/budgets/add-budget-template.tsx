@@ -17,6 +17,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -80,7 +81,16 @@ export default function AddBudgetTemplate({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Template</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Template
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Budget Template</DialogTitle>
@@ -126,7 +136,9 @@ export default function AddBudgetTemplate({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add Template
 					</Button>
 				</DialogFooter>

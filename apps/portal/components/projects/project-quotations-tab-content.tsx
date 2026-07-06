@@ -57,6 +57,7 @@ import {
 	EllipsisVertical,
 	ExternalLink,
 	Pencil,
+	Plus,
 	StickyNote,
 	Trash2,
 	X,
@@ -667,8 +668,8 @@ export default function ProjectQuotationsTabContent({
 						open={addOpen}
 						projectId={projectId}
 						trigger={
-							<Button onClick={() => setAddOpen(true)} variant="default">
-								Add Quotation
+							<Button onClick={() => setAddOpen(true)} variant="outline">
+								<Plus aria-hidden /> Add Quotation
 							</Button>
 						}
 					/>

@@ -30,7 +30,7 @@ import {
 } from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { FolderInput } from 'lucide-react';
+import { FolderInput, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -250,8 +250,9 @@ export default function AddMaterialToProject({
 							});
 						}}
 						type="button"
-						variant="default"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add to Project
 					</Button>
 				</DialogFooter>

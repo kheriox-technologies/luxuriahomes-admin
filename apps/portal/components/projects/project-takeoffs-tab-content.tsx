@@ -293,9 +293,9 @@ export default function ProjectTakeoffsTabContent({
 													/* Error is handled in onDeleteTakeoff */
 												});
 											}}
-											variant="destructive"
+											variant="destructive-outline"
 										>
-											Delete Take Off
+											<Trash2 aria-hidden /> Delete Take Off
 										</Button>
 									</AlertDialogFooter>
 								</AlertDialogContent>

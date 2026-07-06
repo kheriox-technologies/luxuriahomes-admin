@@ -560,7 +560,12 @@ export default function InclusionCatalogueDetailView({
 				rightSlot={
 					<AddInclusionVariant
 						inclusionId={inclusionId}
-						trigger={<Button variant="default">Add Variant</Button>}
+						trigger={
+							<Button variant="outline">
+								<Plus aria-hidden />
+								Add Variant
+							</Button>
+						}
 					/>
 				}
 			/>

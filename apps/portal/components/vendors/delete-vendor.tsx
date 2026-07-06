@@ -15,6 +15,7 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Trash2, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -65,9 +66,13 @@ export default function DeleteVendor({
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
-					<AlertDialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
-					</AlertDialogClose>
+					<AlertDialogClose
+						render={
+							<Button type="button" variant="outline">
+								<X aria-hidden /> Cancel
+							</Button>
+						}
+					/>
 					<Button
 						loading={isDeleting}
 						onClick={() => {
@@ -75,9 +80,9 @@ export default function DeleteVendor({
 								/* Error handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete vendor
+						<Trash2 aria-hidden /> Delete vendor
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

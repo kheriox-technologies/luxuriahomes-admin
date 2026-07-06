@@ -16,6 +16,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useAction, useMutation } from 'convex/react';
 import {
+	Check,
 	CheckCircle2,
 	FileVideo,
 	ImageIcon,
@@ -245,7 +246,7 @@ export default function WebsiteProjectMediaUploadDialog({
 							type="button"
 							variant="outline"
 						>
-							Choose files
+							<Upload aria-hidden /> Choose files
 						</Button>
 						<p className="text-muted-foreground text-xs">
 							or drag and drop images and videos here
@@ -303,7 +304,7 @@ export default function WebsiteProjectMediaUploadDialog({
 						type="button"
 						variant="outline"
 					>
-						Done
+						<Check aria-hidden /> Done
 					</Button>
 				</DialogFooter>
 			</DialogContent>

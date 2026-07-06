@@ -43,6 +43,7 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import {
+	Check,
 	CheckCircle2,
 	Download,
 	EllipsisVertical,
@@ -322,7 +323,7 @@ function CategorySection({
 					type="button"
 					variant="outline"
 				>
-					{allApproved ? 'Unapprove all' : 'Approve all'}
+					<Check aria-hidden /> {allApproved ? 'Unapprove all' : 'Approve all'}
 				</Button>
 			</FrameHeader>
 			<FramePanel className="p-0">

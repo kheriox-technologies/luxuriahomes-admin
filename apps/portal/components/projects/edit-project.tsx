@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Check, Pencil, Plus, X } from 'lucide-react';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import {
 	ClientAddressTitleRow,
@@ -307,7 +308,13 @@ export default function EditProjectForm({
 		>
 			{isControlled ? null : (
 				<SheetTrigger
-					render={trigger ?? <Button variant="outline">Edit project</Button>}
+					render={
+						trigger ?? (
+							<Button variant="outline">
+								<Pencil aria-hidden /> Edit project
+							</Button>
+						)
+					}
 				/>
 			)}
 			<SheetContent
@@ -648,7 +655,7 @@ export default function EditProjectForm({
 										type="button"
 										variant="outline"
 									>
-										Add client
+										<Plus aria-hidden /> Add client
 									</Button>
 								) : null}
 							</FrameHeader>
@@ -679,13 +686,14 @@ export default function EditProjectForm({
 												type="button"
 												variant="ghost"
 											>
-												Cancel
+												<X aria-hidden /> Cancel
 											</Button>
 											<Button
 												onClick={handleAddOrSaveClient}
 												type="button"
 												variant="outline"
 											>
+												<Plus aria-hidden />
 												{clientFormMode.kind === 'new'
 													? 'Add Client'
 													: 'Save Client'}
@@ -723,9 +731,9 @@ export default function EditProjectForm({
 						}
 						form={FORM_ID}
 						type="submit"
-						variant="default"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</SheetFooter>
 			</SheetContent>

@@ -46,7 +46,7 @@ import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { LayoutTemplate, Pencil, Trash2 } from 'lucide-react';
+import { Check, LayoutTemplate, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import RichTextEditor from '@/components/rich-text-editor';
@@ -221,7 +221,7 @@ function TemplateDialog({
 				</div>
 				<DialogFooter className="shrink-0 border-t px-6 py-4">
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
 					<Button
 						loading={submitting}
@@ -231,8 +231,9 @@ function TemplateDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						{template ? 'Save changes' : 'Add template'}
+						<Check aria-hidden /> {template ? 'Save changes' : 'Add template'}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -285,15 +286,15 @@ function DeleteTemplate({ template }: { template: EmailTemplate }) {
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</AlertDialogClose>
 					<Button
 						loading={loading}
 						onClick={() => onDelete().catch(() => undefined)}
 						type="button"
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete
+						<Trash2 aria-hidden /> Delete
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -390,7 +391,15 @@ export default function EmailTemplatesContent() {
 			<PageHeading
 				heading="Email Templates"
 				icon={LayoutTemplate}
-				rightSlot={<TemplateDialog trigger={<Button>Add Template</Button>} />}
+				rightSlot={
+					<TemplateDialog
+						trigger={
+							<Button variant="outline">
+								<Plus aria-hidden /> Add Template
+							</Button>
+						}
+					/>
+				}
 			/>
 			{content}
 		</div>

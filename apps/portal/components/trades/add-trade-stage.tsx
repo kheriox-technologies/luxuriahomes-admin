@@ -28,6 +28,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -101,7 +102,13 @@ export default function AddTradeStage({
 			open={open}
 		>
 			<DialogTrigger
-				render={trigger ?? <Button variant="outline">Add Stage</Button>}
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden /> Add Stage
+						</Button>
+					)
+				}
 			/>
 			<DialogContent>
 				<DialogHeader>
@@ -199,8 +206,9 @@ export default function AddTradeStage({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Add Stage
+						<Plus aria-hidden /> Add Stage
 					</Button>
 				</DialogFooter>
 			</DialogContent>

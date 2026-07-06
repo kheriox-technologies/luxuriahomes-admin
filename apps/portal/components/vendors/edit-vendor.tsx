@@ -19,6 +19,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check, X } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -187,9 +188,13 @@ export default function EditVendor({
 					</DialogPanel>
 				</form>
 				<DialogFooter>
-					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
-					</DialogClose>
+					<DialogClose
+						render={
+							<Button type="button" variant="outline">
+								<X aria-hidden /> Cancel
+							</Button>
+						}
+					/>
 					<Button
 						disabled={
 							!(
@@ -200,8 +205,9 @@ export default function EditVendor({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -18,6 +18,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import UnitCombobox from '@/components/inclusions/unit-combobox';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
@@ -93,7 +94,16 @@ export default function AddMaterial({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Material</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Material
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Material</DialogTitle>
@@ -349,7 +359,9 @@ export default function AddMaterial({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add Material
 					</Button>
 				</DialogFooter>

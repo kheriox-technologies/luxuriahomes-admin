@@ -25,7 +25,7 @@ import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useQuery } from 'convex/react';
-import { Paperclip, X } from 'lucide-react';
+import { Paperclip, Plus, Send, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import RecipientsField from '@/components/email/recipients-field';
 import RichTextEditor from '@/components/rich-text-editor';
@@ -325,7 +325,7 @@ export default function ComposeEmailDialog({
 								type="button"
 								variant="outline"
 							>
-								Add Cc
+								<Plus aria-hidden /> Add Cc
 							</Button>
 						)}
 						{showBcc ? null : (
@@ -335,7 +335,7 @@ export default function ComposeEmailDialog({
 								type="button"
 								variant="outline"
 							>
-								Add Bcc
+								<Plus aria-hidden /> Add Bcc
 							</Button>
 						)}
 					</div>
@@ -469,7 +469,7 @@ export default function ComposeEmailDialog({
 
 				<DialogFooter className="shrink-0 border-t px-6 py-4">
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
 					<Button
 						loading={submitting}
@@ -479,8 +479,9 @@ export default function ComposeEmailDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Send email
+						<Send aria-hidden /> Send email
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -25,7 +25,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { Check, PlusCircle, Trash2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
@@ -572,8 +572,9 @@ export default function EditOrder({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Save Changes
+						<Check aria-hidden /> Save Changes
 					</Button>
 				</SheetFooter>
 			</SheetContent>

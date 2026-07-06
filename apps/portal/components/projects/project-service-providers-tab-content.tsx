@@ -29,7 +29,7 @@ import {
 } from '@workspace/ui/components/menu';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { EllipsisVertical, Handshake, Trash2 } from 'lucide-react';
+import { EllipsisVertical, Handshake, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AddExistingServiceProviderToProject from '@/components/service-providers/add-existing-service-provider-to-project';
 import AddServiceProvider from '@/components/service-providers/add-service-provider';
@@ -99,9 +99,9 @@ function RemoveFromProjectCell({
 									/* Error handled in handleRemove */
 								});
 							}}
-							variant="destructive"
+							variant="destructive-outline"
 						>
-							Remove
+							<Trash2 aria-hidden /> Remove
 						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -269,11 +269,19 @@ export default function ProjectServiceProvidersTabContent({
 		<div className="flex justify-end gap-2">
 			<AddExistingServiceProviderToProject
 				projectId={projectId}
-				trigger={<Button variant="outline">Add Existing</Button>}
+				trigger={
+					<Button variant="outline">
+						<Plus aria-hidden /> Add Existing
+					</Button>
+				}
 			/>
 			<AddServiceProvider
 				projectId={projectId}
-				trigger={<Button variant="outline">New Service Provider</Button>}
+				trigger={
+					<Button variant="outline">
+						<Plus aria-hidden /> New Service Provider
+					</Button>
+				}
 			/>
 		</div>
 	);

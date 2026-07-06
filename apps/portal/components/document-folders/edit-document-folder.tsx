@@ -18,6 +18,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -144,7 +145,9 @@ export default function EditDocumentFolder({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
+						<Check aria-hidden />
 						Save
 					</Button>
 				</DialogFooter>

@@ -15,6 +15,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Check, Pencil, X } from 'lucide-react';
 import { type ReactElement, useCallback, useEffect, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { WebsiteProjectFormFields } from './website-project-fields';
@@ -117,7 +118,13 @@ export default function EditWebsiteProjectForm({
 		>
 			{isControlled ? null : (
 				<SheetTrigger
-					render={trigger ?? <Button variant="outline">Edit project</Button>}
+					render={
+						trigger ?? (
+							<Button variant="outline">
+								<Pencil aria-hidden /> Edit project
+							</Button>
+						)
+					}
 				/>
 			)}
 			<SheetContent
@@ -143,7 +150,7 @@ export default function EditWebsiteProjectForm({
 				</form>
 				<SheetFooter>
 					<SheetClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</SheetClose>
 					<Button
 						disabled={
@@ -155,9 +162,9 @@ export default function EditWebsiteProjectForm({
 						}
 						form={FORM_ID}
 						type="submit"
-						variant="default"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</SheetFooter>
 			</SheetContent>

@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Check } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import InclusionCategoryCombobox from '@/components/inclusions/inclusion-category-combobox';
 import { defaultInclusionCategoryCodeFromName } from '@/components/inclusions/inclusion-category-form-shared';
@@ -346,7 +347,9 @@ export default function EditInclusion({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
+						<Check aria-hidden />
 						Save
 					</Button>
 				</DialogFooter>

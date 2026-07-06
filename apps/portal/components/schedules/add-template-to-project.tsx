@@ -36,7 +36,13 @@ import {
 } from '@workspace/ui/components/popover';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { CalendarIcon, FolderOpen, TriangleAlert, XIcon } from 'lucide-react';
+import {
+	CalendarIcon,
+	Check,
+	FolderOpen,
+	TriangleAlert,
+	XIcon,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -332,7 +338,13 @@ export default function AddTemplateToProject({
 					</DialogClose>
 					<form.Subscribe selector={(s) => s.isSubmitting}>
 						{(isSubmitting) => (
-							<Button disabled={isSubmitting} form={FORM_ID} type="submit">
+							<Button
+								disabled={isSubmitting}
+								form={FORM_ID}
+								type="submit"
+								variant="outline"
+							>
+								<Check aria-hidden />{' '}
 								{isSubmitting ? 'Applying…' : 'Apply Template'}
 							</Button>
 						)}

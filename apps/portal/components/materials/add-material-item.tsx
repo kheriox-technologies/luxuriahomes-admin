@@ -102,7 +102,7 @@ export default function AddMaterialItem({
 			<DialogTrigger
 				render={
 					trigger ?? (
-						<Button>
+						<Button variant="outline">
 							<Plus />
 							Add Item
 						</Button>
@@ -260,7 +260,9 @@ export default function AddMaterialItem({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add Item
 					</Button>
 				</DialogFooter>

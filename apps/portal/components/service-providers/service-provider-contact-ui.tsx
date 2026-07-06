@@ -94,9 +94,9 @@ export function ServiceProviderContactCard({
 										setConfirmOpen(false);
 									}}
 									type="button"
-									variant="destructive"
+									variant="destructive-outline"
 								>
-									Delete contact
+									<Trash2 aria-hidden /> Delete contact
 								</Button>
 							</AlertDialogFooter>
 						</AlertDialogContent>

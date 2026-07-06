@@ -18,7 +18,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { PlusIcon } from 'lucide-react';
+import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
@@ -132,7 +132,16 @@ export default function AddMaterialColor({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Material Color</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Material Color
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Material Color</DialogTitle>
@@ -227,7 +236,13 @@ export default function AddMaterialColor({
 						Cancel
 					</DialogClose>
 					{multi.isMultiAdd ? (
-						<Button disabled={isSaving} onClick={saveMultiple} type="button">
+						<Button
+							disabled={isSaving}
+							onClick={saveMultiple}
+							type="button"
+							variant="outline"
+						>
+							<Plus aria-hidden />
 							{`Add ${multi.items.length} Material Colors`}
 						</Button>
 					) : (
@@ -241,7 +256,9 @@ export default function AddMaterialColor({
 							}
 							form={FORM_ID}
 							type="submit"
+							variant="outline"
 						>
+							<Plus aria-hidden />
 							Add Material Color
 						</Button>
 					)}

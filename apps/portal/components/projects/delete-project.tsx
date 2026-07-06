@@ -15,6 +15,7 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -79,7 +80,9 @@ export default function DeleteProject({
 				<AlertDialogTrigger
 					render={
 						trigger ?? (
-							<Button variant="destructive-outline">Delete project</Button>
+							<Button variant="destructive-outline">
+								<Trash2 aria-hidden /> Delete project
+							</Button>
 						)
 					}
 				/>
@@ -102,9 +105,9 @@ export default function DeleteProject({
 								/* Error is handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete project
+						<Trash2 aria-hidden /> Delete project
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

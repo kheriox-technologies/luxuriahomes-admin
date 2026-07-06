@@ -22,7 +22,7 @@ import {
 } from '@workspace/ui/components/toggle-group';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { Bell, ExternalLink } from 'lucide-react';
+import { Bell, ExternalLink, MailOpen } from 'lucide-react';
 import { useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -116,7 +116,7 @@ function buildColumns(
 							type="button"
 							variant="outline"
 						>
-							Mark as read
+							<MailOpen aria-hidden /> Mark as read
 						</Button>
 					</div>
 				),
@@ -228,7 +228,7 @@ export default function NotificationsPageContent() {
 				rightSlot={
 					hasUnread ? (
 						<Button onClick={onMarkAllRead} type="button" variant="outline">
-							Mark all as read
+							<MailOpen aria-hidden /> Mark all as read
 						</Button>
 					) : null
 				}

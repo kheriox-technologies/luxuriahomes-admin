@@ -14,6 +14,7 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from '@workspace/ui/components/toggle-group';
+import { ArrowLeftRight } from 'lucide-react';
 import { useState } from 'react';
 import { type AppMode, useAppModeStore } from '@/stores/app-mode-store';
 
@@ -97,8 +98,12 @@ export default function AppModeToggle() {
 						>
 							Cancel
 						</AlertDialogClose>
-						<Button onClick={onConfirmBuilderMode} type="button">
-							Switch to Builder
+						<Button
+							onClick={onConfirmBuilderMode}
+							type="button"
+							variant="outline"
+						>
+							<ArrowLeftRight aria-hidden /> Switch to Builder
 						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>

@@ -19,6 +19,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@workspace/ui/components/select';
+import { Check, X } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import { PAPER_SIZE_OPTIONS } from '@/lib/takeoffs/geometry';
 import type {
@@ -180,10 +181,15 @@ export default function ScaleDialog({
 				</DialogPanel>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
-					<Button disabled={!valid} onClick={confirm} type="button">
-						Set scale
+					<Button
+						disabled={!valid}
+						onClick={confirm}
+						type="button"
+						variant="outline"
+					>
+						<Check aria-hidden /> Set scale
 					</Button>
 				</DialogFooter>
 			</DialogContent>

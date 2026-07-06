@@ -23,7 +23,13 @@ import { SearchInput } from '@workspace/ui/components/search-input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { ChevronsDownIcon, ChevronsUpIcon, Pencil, Wallet } from 'lucide-react';
+import {
+	Check,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	Pencil,
+	Wallet,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRef, useState } from 'react';
 import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
@@ -33,6 +39,7 @@ import {
 	parseMoneyString,
 } from '@/components/budgets/budget-form-shared';
 import { usePriceEditing } from '@/components/budgets/use-price-editing';
+import AddTradeStage from '@/components/trades/add-trade-stage';
 import EditTrade from '@/components/trades/edit-trade';
 import {
 	type StageGroup,
@@ -607,8 +614,9 @@ export default function ProjectBudgetsTabContent({
 									});
 								}}
 								type="button"
+								variant="outline"
 							>
-								Done
+								<Check aria-hidden /> Done
 							</Button>
 						) : (
 							<Button onClick={handleEdit} type="button" variant="outline">
@@ -616,6 +624,7 @@ export default function ProjectBudgetsTabContent({
 								Edit
 							</Button>
 						))}
+					<AddTradeStage />
 					<AddBudgetItemDialog
 						excludedTradeIds={budgetedTradeIds}
 						onSubmit={async (args) => {
@@ -633,7 +642,7 @@ export default function ProjectBudgetsTabContent({
 						</EmptyMedia>
 						<EmptyTitle>No trades yet</EmptyTitle>
 						<EmptyDescription>
-							Use “Add Item” to add a budget for a trade.
+							Use “Add Trade” to add a budget for a trade.
 						</EmptyDescription>
 					</EmptyHeader>
 				</Empty>

@@ -26,7 +26,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { Plus, PlusCircle, Trash2 } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
 import VendorCombobox from '@/components/inclusions/vendor-combobox';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
@@ -118,7 +118,15 @@ export default function AddOrder({
 			}}
 			open={open}
 		>
-			<SheetTrigger render={trigger ?? <Button>Add Order</Button>} />
+			<SheetTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden /> Add Order
+						</Button>
+					)
+				}
+			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
@@ -539,8 +547,9 @@ export default function AddOrder({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Add Order
+						<Plus aria-hidden /> Add Order
 					</Button>
 				</SheetFooter>
 			</SheetContent>

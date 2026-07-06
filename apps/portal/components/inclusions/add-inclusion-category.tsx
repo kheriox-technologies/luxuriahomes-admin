@@ -17,6 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
 	defaultInclusionCategoryCodeFromName,
@@ -79,7 +80,14 @@ export default function AddInclusionCategory() {
 			}}
 			open={open}
 		>
-			<DialogTrigger render={<Button>Add Category</Button>} />
+			<DialogTrigger
+				render={
+					<Button variant="outline">
+						<Plus aria-hidden />
+						Add Category
+					</Button>
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Category</DialogTitle>
@@ -176,7 +184,9 @@ export default function AddInclusionCategory() {
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add Category
 					</Button>
 				</DialogFooter>
