@@ -13,15 +13,10 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { ExternalLink, Pencil, SearchIcon, Store, Trash2 } from 'lucide-react';
+import { ExternalLink, Pencil, Store, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddVendor from './add-vendor';
@@ -182,20 +177,12 @@ export default function VendorsPageContent() {
 				icon={Store}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search vendors"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by name, description, or link…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search vendors"
+							onValueChange={setSearch}
+							placeholder="Search by name, description, or link…"
+							value={search}
+						/>
 						<AddVendor />
 					</>
 				}

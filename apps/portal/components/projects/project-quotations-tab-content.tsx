@@ -29,18 +29,13 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
-import {
 	Menu,
 	MenuItem,
 	MenuPopup,
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import {
 	Table,
 	TableBody,
@@ -62,7 +57,6 @@ import {
 	EllipsisVertical,
 	ExternalLink,
 	Pencil,
-	SearchIcon,
 	StickyNote,
 	Trash2,
 	X,
@@ -582,20 +576,12 @@ export default function ProjectQuotationsTabContent({
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-2 lg:flex-row lg:items-start">
-				<InputGroup className="w-full lg:w-64 lg:shrink-0">
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>
-							<SearchIcon aria-hidden />
-						</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label="Search quotations"
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search by title, trade, or provider…"
-						type="search"
-						value={search}
-					/>
-				</InputGroup>
+				<SearchInput
+					aria-label="Search quotations"
+					onValueChange={setSearch}
+					placeholder="Search by title, trade, or provider…"
+					value={search}
+				/>
 
 				<div className="flex flex-1 flex-col gap-2 sm:flex-row">
 					<div className="min-w-0 flex-1">

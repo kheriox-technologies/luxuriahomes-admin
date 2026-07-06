@@ -68,6 +68,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import {
 	Table,
 	TableBody,
@@ -2355,20 +2356,12 @@ export default function ProjectInclusionsTabContent({
 
 	const toolbar = (
 		<div className="flex min-w-0 flex-row items-center gap-2">
-			<InputGroup className="min-w-0 flex-1">
-				<InputGroupAddon align="inline-start">
-					<InputGroupText>
-						<SearchIcon aria-hidden />
-					</InputGroupText>
-				</InputGroupAddon>
-				<InputGroupInput
-					aria-label="Search inclusions by product variant"
-					onChange={(e) => setSearch(e.target.value)}
-					placeholder="Search product variants (vendor, models, code…)"
-					type="search"
-					value={search}
-				/>
-			</InputGroup>
+			<SearchInput
+				aria-label="Search inclusions by product variant"
+				onValueChange={setSearch}
+				placeholder="Search product variants (vendor, models, code…)"
+				value={search}
+			/>
 			<ToggleGroup
 				aria-label="Group inclusions by"
 				className="shrink-0"

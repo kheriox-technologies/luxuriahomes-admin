@@ -13,15 +13,10 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Pencil, Ruler, SearchIcon, Trash2 } from 'lucide-react';
+import { Pencil, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddTakeoffCategory from './add-takeoff-category';
@@ -155,20 +150,12 @@ export default function TakeoffCategoriesPageContent() {
 				icon={Ruler}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search take offs categories"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by name…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search take offs categories"
+							onValueChange={setSearch}
+							placeholder="Search by name…"
+							value={search}
+						/>
 						<AddTakeoffCategory />
 					</>
 				}

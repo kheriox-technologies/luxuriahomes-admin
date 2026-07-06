@@ -1,15 +1,10 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { ListTodo, SearchIcon } from 'lucide-react';
+import { ListTodo } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddTask from '@/components/tasks/add-task';
@@ -43,20 +38,12 @@ export default function TasksPageContent() {
 		<div className={cn('flex h-full min-h-0 w-full flex-col gap-4')}>
 			<PageHeading heading="Tasks" icon={ListTodo} rightSlot={<AddTask />} />
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-start">
-				<InputGroup className="w-full sm:w-[30%] sm:shrink-0">
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>
-							<SearchIcon aria-hidden />
-						</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label="Search tasks"
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search by title, project, assignee…"
-						type="search"
-						value={search}
-					/>
-				</InputGroup>
+				<SearchInput
+					aria-label="Search tasks"
+					onValueChange={setSearch}
+					placeholder="Search by title, project, assignee…"
+					value={search}
+				/>
 				<div className="w-full sm:flex-1">
 					<TaskMultiSelectFilter
 						id="task-filter-project"

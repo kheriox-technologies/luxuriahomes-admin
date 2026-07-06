@@ -9,15 +9,10 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useAction } from 'convex/react';
-import { SearchIcon, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddUser from './add-user';
@@ -113,20 +108,12 @@ export default function UsersPageContent() {
 				icon={Users}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search users"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by name, email, or phone…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search users"
+							onValueChange={setSearch}
+							placeholder="Search by name, email, or phone…"
+							value={search}
+						/>
 						<AddUser onCreated={reload} />
 					</>
 				}

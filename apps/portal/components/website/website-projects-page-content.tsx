@@ -1,15 +1,10 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Globe, SearchIcon } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddWebsiteProjectForm from './add-website-project';
@@ -49,20 +44,12 @@ export default function WebsiteProjectsPageContent() {
 				icon={Globe}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search website projects"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by name…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search website projects"
+							onValueChange={setSearch}
+							placeholder="Search by name…"
+							value={search}
+						/>
 						<AddWebsiteProjectForm />
 					</>
 				}

@@ -64,6 +64,7 @@ import {
 	PopoverTrigger,
 } from '@workspace/ui/components/popover';
 import { ScrollArea } from '@workspace/ui/components/scroll-area';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { cn } from '@workspace/ui/lib/utils';
 import {
@@ -88,7 +89,6 @@ import {
 	Ruler,
 	RulerDimensionLine,
 	Save,
-	SearchIcon,
 	SlidersHorizontal,
 	Square,
 	Table,
@@ -733,20 +733,12 @@ export default function MeasurementsPanel({
 
 			{/* Search: filters measurement rows by name and auto-expands matches. */}
 			<div className="border-b p-2">
-				<InputGroup>
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>
-							<SearchIcon aria-hidden />
-						</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label="Search measurements"
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search measurements…"
-						type="search"
-						value={search}
-					/>
-				</InputGroup>
+				<SearchInput
+					aria-label="Search measurements"
+					onValueChange={setSearch}
+					placeholder="Search measurements…"
+					value={search}
+				/>
 			</div>
 
 			{/* Selected-group banner: shows the active drawing group + a Save button,

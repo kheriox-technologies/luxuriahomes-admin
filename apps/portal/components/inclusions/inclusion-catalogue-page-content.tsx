@@ -13,12 +13,7 @@ import {
 } from '@workspace/ui/components/empty';
 import { Frame, FrameHeader, FrameTitle } from '@workspace/ui/components/frame';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import {
 	Table,
 	TableBody,
@@ -30,13 +25,7 @@ import {
 } from '@workspace/ui/components/table';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import {
-	Pencil,
-	Plus,
-	SearchIcon,
-	SquaresIntersect,
-	Trash2,
-} from 'lucide-react';
+import { Pencil, Plus, SquaresIntersect, Trash2 } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -448,20 +437,12 @@ export default function InclusionCataloguePageContent() {
 				icon={SquaresIntersect}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search inclusions"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by title or category…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search inclusions"
+							onValueChange={setSearch}
+							placeholder="Search by title or category…"
+							value={search}
+						/>
 						<AddInclusion />
 					</>
 				}

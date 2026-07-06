@@ -12,16 +12,11 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { Inbox, SearchIcon } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -129,20 +124,12 @@ export default function LeadsPageContent() {
 				heading="Leads"
 				icon={Inbox}
 				rightSlot={
-					<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>
-								<SearchIcon aria-hidden />
-							</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-label="Search leads"
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search by name, email, phone, or message…"
-							type="search"
-							value={search}
-						/>
-					</InputGroup>
+					<SearchInput
+						aria-label="Search leads"
+						onValueChange={setSearch}
+						placeholder="Search by name, email, phone, or message…"
+						value={search}
+					/>
 				}
 			/>
 			{content}

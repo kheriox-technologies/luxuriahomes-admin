@@ -15,25 +15,19 @@ import {
 } from '@workspace/ui/components/empty';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
-import {
 	Menu,
 	MenuItem,
 	MenuPopup,
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { useQuery } from 'convex/react';
 import {
 	EllipsisVertical,
 	ExternalLink,
 	Package,
 	Pencil,
-	SearchIcon,
 	Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -250,20 +244,12 @@ export default function MaterialDetailView({
 				heading={material.name}
 				headingActions={
 					<>
-						<InputGroup className="w-full sm:min-w-60 sm:max-w-xs">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search items"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search items…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search items"
+							onValueChange={setSearch}
+							placeholder="Search items…"
+							value={search}
+						/>
 						<Group>
 							<EditMaterial
 								material={material}

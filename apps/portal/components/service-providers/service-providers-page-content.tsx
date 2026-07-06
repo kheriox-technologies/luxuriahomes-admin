@@ -13,25 +13,19 @@ import {
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
 import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	InputGroupText,
-} from '@workspace/ui/components/input-group';
-import {
 	Menu,
 	MenuItem,
 	MenuPopup,
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import {
 	EllipsisVertical,
 	Handshake,
 	Pencil,
-	SearchIcon,
 	Trash2,
 	UserPlus,
 } from 'lucide-react';
@@ -310,20 +304,12 @@ export default function ServiceProvidersPageContent() {
 				icon={Handshake}
 				rightSlot={
 					<>
-						<InputGroup className="w-full sm:min-w-80 sm:max-w-2xl">
-							<InputGroupAddon align="inline-start">
-								<InputGroupText>
-									<SearchIcon aria-hidden />
-								</InputGroupText>
-							</InputGroupAddon>
-							<InputGroupInput
-								aria-label="Search service providers"
-								onChange={(e) => setSearch(e.target.value)}
-								placeholder="Search by company, trade, name, email, phone…"
-								type="search"
-								value={search}
-							/>
-						</InputGroup>
+						<SearchInput
+							aria-label="Search service providers"
+							onValueChange={setSearch}
+							placeholder="Search by company, trade, name, email, phone…"
+							value={search}
+						/>
 						<AddServiceProvider />
 					</>
 				}
