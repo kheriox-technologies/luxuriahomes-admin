@@ -361,16 +361,19 @@ function UploadFilesDialog({
 
 	const onDragOver = (e: DragEvent<HTMLButtonElement>) => {
 		e.preventDefault();
+		e.stopPropagation();
 		setIsDragging(true);
 	};
 
 	const onDragLeave = (e: DragEvent<HTMLButtonElement>) => {
 		e.preventDefault();
+		e.stopPropagation();
 		setIsDragging(false);
 	};
 
 	const onDrop = (e: DragEvent<HTMLButtonElement>) => {
 		e.preventDefault();
+		e.stopPropagation();
 		setIsDragging(false);
 		addFiles(e.dataTransfer.files);
 	};
@@ -1418,7 +1421,7 @@ export function ProjectFileManagerTabContent({
 		Array.from(e.dataTransfer.types).includes('Files');
 
 	const onDragEnter = (e: DragEvent<HTMLDivElement>) => {
-		if (!hasFiles(e)) {
+		if (uploadOpen || !hasFiles(e)) {
 			return;
 		}
 		e.preventDefault();
@@ -1427,14 +1430,14 @@ export function ProjectFileManagerTabContent({
 	};
 
 	const onDragOver = (e: DragEvent<HTMLDivElement>) => {
-		if (!hasFiles(e)) {
+		if (uploadOpen || !hasFiles(e)) {
 			return;
 		}
 		e.preventDefault();
 	};
 
 	const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
-		if (!hasFiles(e)) {
+		if (uploadOpen || !hasFiles(e)) {
 			return;
 		}
 		e.preventDefault();
@@ -1445,7 +1448,7 @@ export function ProjectFileManagerTabContent({
 	};
 
 	const onDrop = (e: DragEvent<HTMLDivElement>) => {
-		if (!hasFiles(e)) {
+		if (uploadOpen || !hasFiles(e)) {
 			return;
 		}
 		e.preventDefault();
