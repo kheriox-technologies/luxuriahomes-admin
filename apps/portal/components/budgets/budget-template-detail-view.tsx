@@ -23,7 +23,13 @@ import { SearchInput } from '@workspace/ui/components/search-input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
-import { ChevronsDownIcon, ChevronsUpIcon, Pencil, Wallet } from 'lucide-react';
+import {
+	Check,
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	Pencil,
+	Wallet,
+} from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddTradeStage from '@/components/trades/add-trade-stage';
@@ -458,8 +464,9 @@ export default function BudgetTemplateDetailView({
 									});
 								}}
 								type="button"
+								variant="outline"
 							>
-								Done
+								<Check aria-hidden /> Done
 							</Button>
 						) : (
 							<Button onClick={handleEdit} type="button" variant="outline">

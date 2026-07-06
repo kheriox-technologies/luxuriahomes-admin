@@ -25,6 +25,7 @@ import {
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -154,8 +155,10 @@ export default function AddServiceProviderToProject({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Add to project{selectedProjectIds.length > 1 ? 's' : ''}
+						<Plus aria-hidden /> Add to project
+						{selectedProjectIds.length > 1 ? 's' : ''}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

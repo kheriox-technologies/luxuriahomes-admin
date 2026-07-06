@@ -33,7 +33,7 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { ImagePlus, Info, Trash2 } from 'lucide-react';
+import { Check, ImagePlus, Info, Trash2 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
 	NoteImageUploader,
@@ -215,8 +215,9 @@ function TaskNotesSection({ taskId }: { taskId: Id<'tasks'> }) {
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						Save note
+						<Check aria-hidden /> Save note
 					</Button>
 				</div>
 				{notesBody}
@@ -454,9 +455,9 @@ export default function EditTask({
 							}
 							form={FORM_ID}
 							type="submit"
-							variant="default"
+							variant="outline"
 						>
-							Save
+							<Check aria-hidden /> Save
 						</Button>
 					</div>
 				</SheetFooter>

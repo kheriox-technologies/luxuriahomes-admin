@@ -50,6 +50,7 @@ import {
 	ChevronsDownIcon,
 	ChevronsUpIcon,
 	ExternalLink,
+	Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -2063,7 +2064,8 @@ export default function ProjectGanttPanel({
 																					type="button"
 																					variant="destructive-outline"
 																				>
-																					Delete order task
+																					<Trash2 aria-hidden /> Delete order
+																					task
 																				</Button>
 																			</div>
 																		</PopoverPopup>
@@ -2214,9 +2216,9 @@ export default function ProjectGanttPanel({
 									/* handled above */
 								});
 							}}
-							variant="destructive"
+							variant="destructive-outline"
 						>
-							Remove dependency
+							<Trash2 aria-hidden /> Remove dependency
 						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>

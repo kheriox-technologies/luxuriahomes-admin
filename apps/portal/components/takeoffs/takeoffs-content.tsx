@@ -17,6 +17,7 @@ import { Switch } from '@workspace/ui/components/switch';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
 import {
+	Check,
 	Circle,
 	Hand,
 	Hash,
@@ -24,6 +25,7 @@ import {
 	Ruler,
 	Square,
 	Type,
+	X,
 } from 'lucide-react';
 import {
 	type ReactElement,
@@ -2305,14 +2307,15 @@ function CalibrationDialog({
 				</DialogPanel>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
 					<Button
 						disabled={!value || Number(value) <= 0}
 						onClick={onConfirm}
 						type="button"
+						variant="outline"
 					>
-						Set scale
+						<Check aria-hidden /> Set scale
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -68,6 +68,7 @@ import { SearchInput } from '@workspace/ui/components/search-input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { cn } from '@workspace/ui/lib/utils';
 import {
+	Check,
 	ChevronDownIcon,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
@@ -93,6 +94,7 @@ import {
 	Square,
 	Table,
 	Trash2,
+	X,
 } from 'lucide-react';
 import {
 	type Dispatch,
@@ -1000,7 +1002,11 @@ function ConfirmDialog({
 					</AlertDialogClose>
 					<AlertDialogClose
 						render={
-							<Button onClick={onConfirm} type="button" variant="destructive" />
+							<Button
+								onClick={onConfirm}
+								type="button"
+								variant="destructive-outline"
+							/>
 						}
 					>
 						{confirmLabel}
@@ -1743,10 +1749,10 @@ function LegendOptionsDialog({
 				</DialogPanel>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
-					<Button onClick={confirm} type="button">
-						Add Legend
+					<Button onClick={confirm} type="button" variant="outline">
+						<Plus aria-hidden /> Add Legend
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -2338,7 +2344,11 @@ function DeleteConfirm({
 					</AlertDialogClose>
 					<AlertDialogClose
 						render={
-							<Button onClick={onConfirm} type="button" variant="destructive" />
+							<Button
+								onClick={onConfirm}
+								type="button"
+								variant="destructive-outline"
+							/>
 						}
 					>
 						{label}
@@ -2433,7 +2443,7 @@ function RowActionsMenu({
 								<Button
 									onClick={onDelete}
 									type="button"
-									variant="destructive"
+									variant="destructive-outline"
 								/>
 							}
 						>
@@ -2490,10 +2500,10 @@ function DescriptionDialog({
 				</DialogPanel>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
-					<Button onClick={save} type="button">
-						Save
+					<Button onClick={save} type="button" variant="outline">
+						<Check aria-hidden /> Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

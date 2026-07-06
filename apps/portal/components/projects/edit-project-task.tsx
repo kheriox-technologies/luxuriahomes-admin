@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui/components/select';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check } from 'lucide-react';
 import { useEffect } from 'react';
 import DependencyTypeCards from '@/components/schedules/dependency-type-cards';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -284,7 +285,13 @@ export default function EditProjectTask({
 					</DialogClose>
 					<form.Subscribe selector={(s) => s.isSubmitting}>
 						{(isSubmitting) => (
-							<Button disabled={isSubmitting} form={FORM_ID} type="submit">
+							<Button
+								disabled={isSubmitting}
+								form={FORM_ID}
+								type="submit"
+								variant="outline"
+							>
+								<Check aria-hidden />
 								{isSubmitting ? 'Saving…' : 'Save Changes'}
 							</Button>
 						)}

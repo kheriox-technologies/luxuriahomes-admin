@@ -38,7 +38,7 @@ import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Pencil, PenLine, Trash2 } from 'lucide-react';
+import { Check, Pencil, PenLine, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import RichTextEditor from '@/components/rich-text-editor';
@@ -152,7 +152,7 @@ function SignatureDialog({
 				</div>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</DialogClose>
 					<Button
 						loading={submitting}
@@ -162,8 +162,9 @@ function SignatureDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
-						{signature ? 'Save changes' : 'Add signature'}
+						<Check aria-hidden /> {signature ? 'Save changes' : 'Add signature'}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -216,15 +217,15 @@ function DeleteSignature({ signature }: { signature: EmailSignature }) {
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</AlertDialogClose>
 					<Button
 						loading={loading}
 						onClick={() => onDelete().catch(() => undefined)}
 						type="button"
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete
+						<Trash2 aria-hidden /> Delete
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -312,7 +313,15 @@ export default function EmailSignaturesContent() {
 			<PageHeading
 				heading="Email Signatures"
 				icon={PenLine}
-				rightSlot={<SignatureDialog trigger={<Button>Add Signature</Button>} />}
+				rightSlot={
+					<SignatureDialog
+						trigger={
+							<Button variant="outline">
+								<Plus aria-hidden /> Add Signature
+							</Button>
+						}
+					/>
+				}
 			/>
 			{content}
 		</div>

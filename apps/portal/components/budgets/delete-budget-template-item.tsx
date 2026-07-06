@@ -82,8 +82,9 @@ export default function DeleteBudgetTemplateItem({
 								/* Error handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
+						<Trash2 aria-hidden />
 						Remove item
 					</Button>
 				</AlertDialogFooter>

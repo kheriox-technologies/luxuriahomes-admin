@@ -18,6 +18,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -79,7 +80,15 @@ export default function AddScheduleTemplate({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Schedule</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden /> Add Schedule
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Schedule Template</DialogTitle>
@@ -160,8 +169,9 @@ export default function AddScheduleTemplate({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Add Schedule
+						<Plus aria-hidden /> Add Schedule
 					</Button>
 				</DialogFooter>
 			</DialogContent>

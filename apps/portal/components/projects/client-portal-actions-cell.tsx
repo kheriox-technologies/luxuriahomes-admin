@@ -20,7 +20,12 @@ import {
 } from '@workspace/ui/components/menu';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction } from 'convex/react';
-import { EllipsisVertical, ShieldMinus, ShieldPlus } from 'lucide-react';
+import {
+	EllipsisVertical,
+	ShieldMinus,
+	ShieldPlus,
+	Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useClientPortalPending } from '@/components/projects/client-portal-pending-context';
 import { projectClientDisplayName } from '@/components/projects/project-form-shared';
@@ -152,9 +157,9 @@ export default function ClientPortalActionsCell({
 									/* handled above */
 								});
 							}}
-							variant="destructive"
+							variant="destructive-outline"
 						>
-							Remove access
+							<Trash2 aria-hidden /> Remove access
 						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>

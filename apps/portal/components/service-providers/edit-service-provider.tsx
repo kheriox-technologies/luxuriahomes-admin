@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check, Plus } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -503,6 +504,11 @@ export default function EditServiceProvider({
 										type="button"
 										variant="outline"
 									>
+										{editingIndex === null ? (
+											<Plus aria-hidden />
+										) : (
+											<Check aria-hidden />
+										)}{' '}
 										{editingIndex === null ? 'Add Contact' : 'Save Contact'}
 									</Button>
 								</div>
@@ -536,9 +542,9 @@ export default function EditServiceProvider({
 						}
 						form={FORM_ID}
 						type="submit"
-						variant="default"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</SheetFooter>
 			</SheetContent>

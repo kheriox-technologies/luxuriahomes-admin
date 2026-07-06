@@ -221,7 +221,14 @@ export default function AddInclusionVariant({
 			open={open}
 		>
 			<SheetTrigger
-				render={trigger ?? <Button variant="default">Add variant</Button>}
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add variant
+						</Button>
+					)
+				}
 			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
@@ -740,8 +747,9 @@ export default function AddInclusionVariant({
 								form={FORM_ID}
 								loading={isSubmitting}
 								type="submit"
-								variant="default"
+								variant="outline"
 							>
+								<Plus aria-hidden />
 								Add variant
 							</Button>
 						)}

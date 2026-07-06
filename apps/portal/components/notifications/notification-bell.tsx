@@ -7,7 +7,7 @@ import { Button } from '@workspace/ui/components/button';
 import { Menu, MenuPopup, MenuTrigger } from '@workspace/ui/components/menu';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Bell } from 'lucide-react';
+import { Bell, MailOpen } from 'lucide-react';
 import Link from 'next/link';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { formatNotificationTime } from './format-notification-time';
@@ -93,7 +93,7 @@ export default function NotificationBell() {
 							type="button"
 							variant="ghost"
 						>
-							Mark all as read
+							<MailOpen aria-hidden /> Mark all as read
 						</Button>
 					) : null}
 				</div>

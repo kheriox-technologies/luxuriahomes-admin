@@ -8,11 +8,13 @@ import { Input } from '@workspace/ui/components/input';
 import { cn } from '@workspace/ui/lib/utils';
 import {
 	Bold,
+	Check,
 	Italic,
 	Link as LinkIcon,
 	List,
 	ListOrdered,
 	Underline as UnderlineIcon,
+	X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -203,8 +205,8 @@ export default function RichTextEditor({
 						placeholder="https://example.com"
 						value={linkUrl}
 					/>
-					<Button onClick={applyLink} size="sm" type="button">
-						Apply
+					<Button onClick={applyLink} size="sm" type="button" variant="outline">
+						<Check aria-hidden /> Apply
 					</Button>
 					<Button
 						onClick={() => {
@@ -215,7 +217,7 @@ export default function RichTextEditor({
 						type="button"
 						variant="outline"
 					>
-						Cancel
+						<X aria-hidden /> Cancel
 					</Button>
 				</div>
 			) : null}

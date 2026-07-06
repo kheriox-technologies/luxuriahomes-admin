@@ -17,6 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { useEffect } from 'react';
 import DependencyTypeCards from '@/components/schedules/dependency-type-cards';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -205,7 +206,13 @@ export default function AddProjectStage({
 					</DialogClose>
 					<form.Subscribe selector={(s) => s.isSubmitting}>
 						{(isSubmitting) => (
-							<Button disabled={isSubmitting} form={FORM_ID} type="submit">
+							<Button
+								disabled={isSubmitting}
+								form={FORM_ID}
+								type="submit"
+								variant="outline"
+							>
+								<Plus aria-hidden />
 								{isSubmitting ? 'Adding…' : 'Add Stage'}
 							</Button>
 						)}

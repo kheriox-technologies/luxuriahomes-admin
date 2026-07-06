@@ -39,6 +39,7 @@ import {
 import { SingleFileUpload } from '@workspace/ui/components/single-file-upload';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { Check, Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -179,7 +180,13 @@ export default function AddQuotation({
 			open={open}
 		>
 			<SheetTrigger
-				render={trigger ?? <Button variant="default">Add Quotation</Button>}
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden /> Add Quotation
+						</Button>
+					)
+				}
 			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
@@ -435,9 +442,9 @@ export default function AddQuotation({
 								form={FORM_ID}
 								loading={isSubmitting}
 								type="submit"
-								variant="default"
+								variant="outline"
 							>
-								Save
+								<Check aria-hidden /> Save
 							</Button>
 						)}
 					</form.Subscribe>

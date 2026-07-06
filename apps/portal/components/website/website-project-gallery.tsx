@@ -37,6 +37,7 @@ import {
 	Star,
 	StarOff,
 	Trash2,
+	X,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
@@ -103,7 +104,7 @@ function DeleteMediaButton({
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</AlertDialogClose>
 					<Button
 						loading={isDeleting}
@@ -112,9 +113,9 @@ function DeleteMediaButton({
 								/* Error is handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete
+						<Trash2 aria-hidden /> Delete
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

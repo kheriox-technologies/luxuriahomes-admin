@@ -23,6 +23,7 @@ import {
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Check } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -147,8 +148,8 @@ export default function AddToTaskDialog({
 					<DialogClose render={<Button type="button" variant="outline" />}>
 						Cancel
 					</DialogClose>
-					<Button onClick={handleSave} type="button">
-						Save
+					<Button onClick={handleSave} type="button" variant="outline">
+						<Check aria-hidden /> Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

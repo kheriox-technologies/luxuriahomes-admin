@@ -18,7 +18,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { PlusIcon } from 'lucide-react';
+import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
@@ -132,7 +132,16 @@ export default function AddLocation({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Location</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Location
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Location</DialogTitle>
@@ -227,7 +236,13 @@ export default function AddLocation({
 						Cancel
 					</DialogClose>
 					{multi.isMultiAdd ? (
-						<Button disabled={isSaving} onClick={saveMultiple} type="button">
+						<Button
+							disabled={isSaving}
+							onClick={saveMultiple}
+							type="button"
+							variant="outline"
+						>
+							<Plus aria-hidden />
 							{`Add ${multi.items.length} Locations`}
 						</Button>
 					) : (
@@ -241,7 +256,9 @@ export default function AddLocation({
 							}
 							form={FORM_ID}
 							type="submit"
+							variant="outline"
 						>
+							<Plus aria-hidden />
 							Add Location
 						</Button>
 					)}

@@ -38,6 +38,7 @@ import {
 import { SingleFileUpload } from '@workspace/ui/components/single-file-upload';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { Check } from 'lucide-react';
 import { useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -422,9 +423,9 @@ export default function EditQuotation({
 								form={FORM_ID}
 								loading={isSubmitting}
 								type="submit"
-								variant="default"
+								variant="outline"
 							>
-								Save
+								<Check aria-hidden /> Save
 							</Button>
 						)}
 					</form.Subscribe>

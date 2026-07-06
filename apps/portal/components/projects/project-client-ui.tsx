@@ -100,9 +100,9 @@ export function ProjectClientCard({
 										setConfirmOpen(false);
 									}}
 									type="button"
-									variant="destructive"
+									variant="destructive-outline"
 								>
-									Delete client
+									<Trash2 aria-hidden /> Delete client
 								</Button>
 							</AlertDialogFooter>
 						</AlertDialogContent>

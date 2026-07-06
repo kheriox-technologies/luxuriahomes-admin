@@ -15,6 +15,7 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Trash2, X } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { type ReactElement, useState } from 'react';
@@ -80,7 +81,9 @@ export default function DeleteWebsiteProject({
 				<AlertDialogTrigger
 					render={
 						trigger ?? (
-							<Button variant="destructive-outline">Delete project</Button>
+							<Button variant="destructive-outline">
+								<Trash2 aria-hidden /> Delete project
+							</Button>
 						)
 					}
 				/>
@@ -94,7 +97,7 @@ export default function DeleteWebsiteProject({
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</AlertDialogClose>
 					<Button
 						loading={isDeleting}
@@ -103,9 +106,9 @@ export default function DeleteWebsiteProject({
 								/* Error is handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete project
+						<Trash2 aria-hidden /> Delete project
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

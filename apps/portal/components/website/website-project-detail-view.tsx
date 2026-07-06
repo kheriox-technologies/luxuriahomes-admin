@@ -52,7 +52,7 @@ export default function WebsiteProjectDetailView({
 					<div className="flex items-center gap-2">
 						<WebsiteProjectMediaUploadDialog
 							trigger={
-								<Button type="button" variant="default">
+								<Button type="button" variant="outline">
 									<ImagePlus />
 									Upload Images / Videos
 								</Button>

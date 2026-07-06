@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
+import { Plus } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 
@@ -72,8 +73,9 @@ export default function SelectTradeDialog({
 							}
 						}}
 						type="button"
+						variant="outline"
 					>
-						Create Order
+						<Plus aria-hidden /> Create Order
 					</Button>
 				</DialogFooter>
 			</DialogContent>

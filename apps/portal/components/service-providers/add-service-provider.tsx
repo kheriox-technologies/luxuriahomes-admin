@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check, Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -184,7 +185,11 @@ export default function AddServiceProvider({
 		>
 			<SheetTrigger
 				render={
-					trigger ?? <Button variant="default">Add Service Provider</Button>
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden /> Add Service Provider
+						</Button>
+					)
 				}
 			/>
 			<SheetContent
@@ -448,6 +453,11 @@ export default function AddServiceProvider({
 										type="button"
 										variant="outline"
 									>
+										{editingIndex === null ? (
+											<Plus aria-hidden />
+										) : (
+											<Check aria-hidden />
+										)}{' '}
 										{editingIndex === null ? 'Add Contact' : 'Save Contact'}
 									</Button>
 								</div>
@@ -481,9 +491,9 @@ export default function AddServiceProvider({
 						}
 						form={FORM_ID}
 						type="submit"
-						variant="default"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</SheetFooter>
 			</SheetContent>

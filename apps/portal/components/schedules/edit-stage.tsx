@@ -17,6 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check } from 'lucide-react';
 import { useEffect } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import DependencyTypeCards from './dependency-type-cards';
@@ -224,8 +225,9 @@ export default function EditStage({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

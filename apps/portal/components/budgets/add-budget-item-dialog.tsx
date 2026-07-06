@@ -20,7 +20,7 @@ import {
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
-import { Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -144,7 +144,9 @@ export default function AddBudgetItemDialog({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
+						<Check aria-hidden />
 						{triggerLabel}
 					</Button>
 				</DialogFooter>

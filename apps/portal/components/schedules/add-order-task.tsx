@@ -17,6 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyOrderTaskFormValues,
@@ -205,8 +206,9 @@ export default function AddOrderTask({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
-						Add Order Task
+						<Plus aria-hidden /> Add Order Task
 					</Button>
 				</DialogFooter>
 			</DialogContent>

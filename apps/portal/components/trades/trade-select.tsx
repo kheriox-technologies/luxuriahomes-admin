@@ -21,7 +21,7 @@ import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -262,7 +262,7 @@ export default function TradeSelect(props: TradeSelectProps) {
 							type="button"
 							variant="outline"
 						>
-							Cancel
+							<X aria-hidden /> Cancel
 						</Button>
 						<Button
 							loading={isCreating}
@@ -273,8 +273,9 @@ export default function TradeSelect(props: TradeSelectProps) {
 							}}
 							size="sm"
 							type="button"
+							variant="outline"
 						>
-							Create trade
+							<Plus aria-hidden /> Create trade
 						</Button>
 					</div>
 				</div>

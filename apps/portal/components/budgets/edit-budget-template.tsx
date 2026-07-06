@@ -17,6 +17,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -133,7 +134,9 @@ export default function EditBudgetTemplate({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
+						<Check aria-hidden />
 						Save
 					</Button>
 				</DialogFooter>

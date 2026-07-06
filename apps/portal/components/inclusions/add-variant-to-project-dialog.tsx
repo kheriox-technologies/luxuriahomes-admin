@@ -360,8 +360,9 @@ export default function AddVariantToProjectDialog({
 							});
 						}}
 						type="button"
-						variant="default"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add To Project
 					</Button>
 				</DialogFooter>

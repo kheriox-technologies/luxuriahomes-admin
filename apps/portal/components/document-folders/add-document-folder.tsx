@@ -17,7 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { PlusIcon } from 'lucide-react';
+import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
@@ -130,7 +130,16 @@ export default function AddDocumentFolder({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Document Folder</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Document Folder
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Document Folder</DialogTitle>
@@ -202,7 +211,13 @@ export default function AddDocumentFolder({
 						Cancel
 					</DialogClose>
 					{multi.isMultiAdd ? (
-						<Button disabled={isSaving} onClick={saveMultiple} type="button">
+						<Button
+							disabled={isSaving}
+							onClick={saveMultiple}
+							type="button"
+							variant="outline"
+						>
+							<Plus aria-hidden />
 							{`Add ${multi.items.length} Document Folders`}
 						</Button>
 					) : (
@@ -216,7 +231,9 @@ export default function AddDocumentFolder({
 							}
 							form={FORM_ID}
 							type="submit"
+							variant="outline"
 						>
+							<Plus aria-hidden />
 							Add Document Folder
 						</Button>
 					)}

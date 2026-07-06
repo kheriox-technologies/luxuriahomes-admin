@@ -2,7 +2,7 @@
 import { useAuth, useClerk } from '@clerk/nextjs';
 import { Button } from '@workspace/ui/components/button';
 import { Card, CardContent, CardFooter } from '@workspace/ui/components/card';
-import { AlertTriangle, CircleX, LoaderIcon } from 'lucide-react';
+import { AlertTriangle, CircleX, Home, LoaderIcon, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
@@ -55,14 +55,16 @@ const ErrorPage = () => {
 				<CardFooter>
 					<div className="flex w-full justify-center gap-2">
 						<Link href="/">
-							<Button>Go Home</Button>
+							<Button variant="outline">
+								<Home aria-hidden /> Go Home
+							</Button>
 						</Link>
 						{isSignedIn && (
 							<Button
 								onClick={() => signOut({ redirectUrl: '/' })}
 								variant="outline"
 							>
-								Log out
+								<LogOut aria-hidden /> Log out
 							</Button>
 						)}
 					</div>

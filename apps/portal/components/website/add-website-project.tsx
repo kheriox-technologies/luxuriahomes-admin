@@ -14,6 +14,7 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Check, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { WebsiteProjectFormFields } from './website-project-fields';
@@ -59,7 +60,13 @@ export default function AddWebsiteProjectForm() {
 			}}
 			open={open}
 		>
-			<SheetTrigger render={<Button variant="default">Add Project</Button>} />
+			<SheetTrigger
+				render={
+					<Button variant="outline">
+						<Plus aria-hidden /> Add Project
+					</Button>
+				}
+			/>
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"
@@ -83,7 +90,7 @@ export default function AddWebsiteProjectForm() {
 				</form>
 				<SheetFooter>
 					<SheetClose render={<Button type="button" variant="outline" />}>
-						Cancel
+						<X aria-hidden /> Cancel
 					</SheetClose>
 					<Button
 						disabled={
@@ -95,9 +102,9 @@ export default function AddWebsiteProjectForm() {
 						}
 						form={FORM_ID}
 						type="submit"
-						variant="default"
+						variant="outline"
 					>
-						Save
+						<Check aria-hidden /> Save
 					</Button>
 				</SheetFooter>
 			</SheetContent>

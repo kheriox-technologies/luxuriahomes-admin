@@ -24,6 +24,7 @@ import {
 } from '@workspace/ui/components/input-group';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
+import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import InclusionCategoryCombobox from '@/components/inclusions/inclusion-category-combobox';
 import { defaultInclusionCategoryCodeFromName } from '@/components/inclusions/inclusion-category-form-shared';
@@ -124,7 +125,16 @@ export default function AddInclusion({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Inclusion</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Inclusion
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Inclusion</DialogTitle>
@@ -315,7 +325,9 @@ export default function AddInclusion({
 						}
 						form={FORM_ID}
 						type="submit"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add Inclusion
 					</Button>
 				</DialogFooter>

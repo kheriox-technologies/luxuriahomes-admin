@@ -82,9 +82,9 @@ export default function DeleteProjectBudget({
 								/* Error handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Remove budget
+						<Trash2 aria-hidden /> Remove budget
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

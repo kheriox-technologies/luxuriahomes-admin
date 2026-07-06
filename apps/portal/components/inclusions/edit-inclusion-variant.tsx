@@ -41,7 +41,7 @@ import { SingleImageUpload } from '@workspace/ui/components/single-image-upload'
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
 import {
@@ -772,8 +772,9 @@ export default function EditInclusionVariant({
 								form={formId}
 								loading={isSubmitting}
 								type="submit"
-								variant="default"
+								variant="outline"
 							>
+								<Check aria-hidden />
 								Save changes
 							</Button>
 						)}

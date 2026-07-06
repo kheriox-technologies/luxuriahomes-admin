@@ -17,7 +17,7 @@ import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { PlusIcon } from 'lucide-react';
+import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
@@ -131,7 +131,14 @@ export default function AddTakeoffCategory({
 			open={open}
 		>
 			<DialogTrigger
-				render={trigger ?? <Button>Add Take Offs Category</Button>}
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden />
+							Add Take Offs Category
+						</Button>
+					)
+				}
 			/>
 			<DialogContent>
 				<DialogHeader>
@@ -204,7 +211,13 @@ export default function AddTakeoffCategory({
 						Cancel
 					</DialogClose>
 					{multi.isMultiAdd ? (
-						<Button disabled={isSaving} onClick={saveMultiple} type="button">
+						<Button
+							disabled={isSaving}
+							onClick={saveMultiple}
+							type="button"
+							variant="outline"
+						>
+							<Plus aria-hidden />
 							{`Add ${multi.items.length} Take Offs Categories`}
 						</Button>
 					) : (
@@ -218,7 +231,9 @@ export default function AddTakeoffCategory({
 							}
 							form={FORM_ID}
 							type="submit"
+							variant="outline"
 						>
+							<Plus aria-hidden />
 							Add Take Offs Category
 						</Button>
 					)}

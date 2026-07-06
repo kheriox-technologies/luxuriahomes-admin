@@ -20,7 +20,7 @@ import {
 } from '@workspace/ui/components/field';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Plus } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import TaskProjectCombobox from '@/components/tasks/task-project-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -122,7 +122,9 @@ export default function AddBudgetTemplateToProject({
 							});
 						}}
 						type="button"
+						variant="outline"
 					>
+						<Plus aria-hidden />
 						Add to Project
 					</Button>
 				</DialogFooter>

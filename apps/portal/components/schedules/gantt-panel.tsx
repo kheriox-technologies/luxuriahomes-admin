@@ -42,7 +42,7 @@ import {
 import { Switch } from '@workspace/ui/components/switch';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { ChevronsDownIcon, ChevronsUpIcon } from 'lucide-react';
+import { ChevronsDownIcon, ChevronsUpIcon, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import AddOrderTask from './add-order-task';
@@ -1801,9 +1801,9 @@ export default function GanttPanel({
 									/* handled in onDeleteDependency */
 								});
 							}}
-							variant="destructive"
+							variant="destructive-outline"
 						>
-							Remove dependency
+							<Trash2 aria-hidden /> Remove dependency
 						</Button>
 					</AlertDialogFooter>
 				</AlertDialogContent>

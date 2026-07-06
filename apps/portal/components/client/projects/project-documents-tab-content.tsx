@@ -257,7 +257,7 @@ function UploadDialog({
 					<DialogClose
 						render={
 							<Button disabled={uploading} type="button" variant="outline">
-								Cancel
+								<X aria-hidden /> Cancel
 							</Button>
 						}
 					/>
@@ -265,8 +265,9 @@ function UploadDialog({
 						disabled={uploading || pending.length === 0}
 						onClick={() => onUpload().catch(() => undefined)}
 						type="button"
+						variant="outline"
 					>
-						Upload
+						<Upload aria-hidden /> Upload
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -288,7 +289,11 @@ export default function ProjectDocumentsTabContent({
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<div className="flex items-center justify-between gap-3">
 				<h2 className="font-medium text-lg">Documents</h2>
-				<Button onClick={() => setUploadOpen(true)} type="button">
+				<Button
+					onClick={() => setUploadOpen(true)}
+					type="button"
+					variant="outline"
+				>
 					<Upload />
 					Upload
 				</Button>

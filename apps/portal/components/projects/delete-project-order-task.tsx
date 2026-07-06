@@ -14,6 +14,7 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
+import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -69,9 +70,9 @@ export default function DeleteProjectOrderTask({
 								/* Error handled in onDelete */
 							});
 						}}
-						variant="destructive"
+						variant="destructive-outline"
 					>
-						Delete order task
+						<Trash2 aria-hidden /> Delete order task
 					</Button>
 				</AlertDialogFooter>
 			</AlertDialogContent>

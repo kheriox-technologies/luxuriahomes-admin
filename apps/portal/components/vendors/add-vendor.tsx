@@ -18,7 +18,7 @@ import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { PlusIcon } from 'lucide-react';
+import { Plus, PlusIcon, X } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
@@ -133,7 +133,15 @@ export default function AddVendor({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger ?? <Button>Add Vendor</Button>} />
+			<DialogTrigger
+				render={
+					trigger ?? (
+						<Button variant="outline">
+							<Plus aria-hidden /> Add Vendor
+						</Button>
+					)
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Vendor</DialogTitle>
@@ -247,12 +255,21 @@ export default function AddVendor({
 					</DialogPanel>
 				</form>
 				<DialogFooter>
-					<DialogClose render={<Button type="button" variant="outline" />}>
-						Cancel
-					</DialogClose>
+					<DialogClose
+						render={
+							<Button type="button" variant="outline">
+								<X aria-hidden /> Cancel
+							</Button>
+						}
+					/>
 					{multi.isMultiAdd ? (
-						<Button disabled={isSaving} onClick={saveMultiple} type="button">
-							{`Add ${multi.items.length} Vendors`}
+						<Button
+							disabled={isSaving}
+							onClick={saveMultiple}
+							type="button"
+							variant="outline"
+						>
+							<Plus aria-hidden /> {`Add ${multi.items.length} Vendors`}
 						</Button>
 					) : (
 						<Button
@@ -265,8 +282,9 @@ export default function AddVendor({
 							}
 							form={FORM_ID}
 							type="submit"
+							variant="outline"
 						>
-							Add Vendor
+							<Plus aria-hidden /> Add Vendor
 						</Button>
 					)}
 				</DialogFooter>
