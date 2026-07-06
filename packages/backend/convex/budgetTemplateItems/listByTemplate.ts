@@ -20,6 +20,7 @@ export const listByTemplate = query({
 			Id<'trades'>,
 			{
 				name: string | null;
+				description: string | null;
 				stageId: Id<'tradeStages'> | null;
 				order: number | null;
 			}
@@ -29,6 +30,7 @@ export const listByTemplate = query({
 				const trade = await ctx.db.get(item.tradeId);
 				tradeById.set(item.tradeId, {
 					name: trade?.name ?? null,
+					description: trade?.description ?? null,
 					stageId: trade?.stageId ?? null,
 					order: trade?.order ?? null,
 				});
@@ -40,6 +42,7 @@ export const listByTemplate = query({
 			return {
 				...item,
 				tradeName: trade?.name ?? null,
+				tradeDescription: trade?.description ?? null,
 				stageId: trade?.stageId ?? null,
 				tradeOrder: trade?.order ?? null,
 			};

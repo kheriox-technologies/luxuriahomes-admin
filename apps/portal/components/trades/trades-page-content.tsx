@@ -141,24 +141,27 @@ export default function TradesPageContent() {
 								value={search}
 							/>
 						</InputGroup>
-						<Button
-							aria-label="Expand all"
-							onClick={() => listRef.current?.expandAll()}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<ChevronsDownIcon />
-						</Button>
-						<Button
-							aria-label="Collapse all"
-							onClick={() => listRef.current?.collapseAll()}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<ChevronsUpIcon />
-						</Button>
+						<Group>
+							<Button
+								aria-label="Expand all"
+								onClick={() => listRef.current?.expandAll()}
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<ChevronsDownIcon />
+							</Button>
+							<GroupSeparator />
+							<Button
+								aria-label="Collapse all"
+								onClick={() => listRef.current?.collapseAll()}
+								size="icon"
+								type="button"
+								variant="outline"
+							>
+								<ChevronsUpIcon />
+							</Button>
+						</Group>
 						<AddTradeStage />
 						<AddTrade />
 					</>
@@ -257,7 +260,7 @@ export default function TradesPageContent() {
 					)}
 					renderStageActions={(group) =>
 						group.stageId ? (
-							<>
+							<Group>
 								<EditTradeStage
 									initialName={group.name}
 									stageId={group.stageId}
@@ -272,6 +275,7 @@ export default function TradesPageContent() {
 										</Button>
 									}
 								/>
+								<GroupSeparator />
 								<DeleteTradeStage
 									stageId={group.stageId}
 									stageName={group.name}
@@ -286,7 +290,7 @@ export default function TradesPageContent() {
 										</Button>
 									}
 								/>
-							</>
+							</Group>
 						) : null
 					}
 					renderStageBadges={(group) => (

@@ -389,7 +389,10 @@ export default defineSchema({
 	projectBudgets: defineTable({
 		projectId: v.id('projects'),
 		tradeId: v.id('trades'),
-		price: v.number(),
+		// Optional so a trade can have payments recorded without a set budget.
+		price: v.optional(v.number()),
+		// Ad-hoc payments for this trade, not tied to a quotation or order.
+		payments: v.optional(v.number()),
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_trade', ['projectId', 'tradeId']),

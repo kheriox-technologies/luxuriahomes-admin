@@ -2,6 +2,7 @@
 
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { cn } from '@workspace/ui/lib/utils';
 import { Maximize, Minus, Plus } from 'lucide-react';
@@ -884,7 +885,7 @@ export default function PdfStage({
 				{Math.round((scale / fitScale) * 100)}%
 			</div>
 
-			<div className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md border bg-background/90 p-1 shadow-sm">
+			<Group className="absolute right-2 bottom-2 rounded-md border bg-background/90 p-1 shadow-sm">
 				<Button
 					aria-label="Zoom out"
 					onClick={() => transformRef.current?.zoomOut(0.2)}
@@ -893,6 +894,7 @@ export default function PdfStage({
 				>
 					<Minus />
 				</Button>
+				<GroupSeparator />
 				<Button
 					aria-label="Fit to window"
 					onClick={() => fitToWindow()}
@@ -901,6 +903,7 @@ export default function PdfStage({
 				>
 					<Maximize />
 				</Button>
+				<GroupSeparator />
 				<Button
 					aria-label="Zoom in"
 					onClick={() => transformRef.current?.zoomIn(0.2)}
@@ -909,7 +912,7 @@ export default function PdfStage({
 				>
 					<Plus />
 				</Button>
-			</div>
+			</Group>
 		</div>
 	);
 }

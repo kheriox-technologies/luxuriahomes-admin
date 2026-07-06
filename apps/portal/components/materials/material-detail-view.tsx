@@ -13,6 +13,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -263,34 +264,37 @@ export default function MaterialDetailView({
 								value={search}
 							/>
 						</InputGroup>
-						<EditMaterial
-							material={material}
-							trigger={
-								<Button
-									aria-label="Edit material"
-									size="icon"
-									type="button"
-									variant="outline"
-								>
-									<Pencil />
-								</Button>
-							}
-						/>
-						<DeleteMaterial
-							materialId={material._id}
-							materialName={material.name}
-							redirectAfterDelete
-							trigger={
-								<Button
-									aria-label="Delete material"
-									size="icon"
-									type="button"
-									variant="destructive-outline"
-								>
-									<Trash2 />
-								</Button>
-							}
-						/>
+						<Group>
+							<EditMaterial
+								material={material}
+								trigger={
+									<Button
+										aria-label="Edit material"
+										size="icon"
+										type="button"
+										variant="outline"
+									>
+										<Pencil />
+									</Button>
+								}
+							/>
+							<GroupSeparator />
+							<DeleteMaterial
+								materialId={material._id}
+								materialName={material.name}
+								redirectAfterDelete
+								trigger={
+									<Button
+										aria-label="Delete material"
+										size="icon"
+										type="button"
+										variant="destructive-outline"
+									>
+										<Trash2 />
+									</Button>
+								}
+							/>
+						</Group>
 					</>
 				}
 				metaSlot={

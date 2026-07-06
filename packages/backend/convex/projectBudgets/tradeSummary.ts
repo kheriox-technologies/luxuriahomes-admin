@@ -72,10 +72,12 @@ export const tradeSummary = query({
 			return {
 				tradeId: trade._id,
 				tradeName: trade.name,
+				tradeDescription: trade.description ?? null,
 				stageId: trade.stageId ?? null,
 				tradeOrder: trade.order ?? null,
 				projectBudgetId: projectBudget?._id ?? null,
 				budgetPrice: projectBudget?.price ?? null,
+				paymentPrice: projectBudget?.payments ?? null,
 				totalQuotationPrice: quotation.total,
 				quotationCount: quotation.count,
 				totalOrderPrice: order.total,

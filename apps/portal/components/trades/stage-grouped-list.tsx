@@ -34,6 +34,7 @@ import {
 	AccordionPrimitive,
 } from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
+import { cn } from '@workspace/ui/lib/utils';
 import { ChevronDownIcon, GripVertical } from 'lucide-react';
 import {
 	type ReactNode,
@@ -74,11 +75,25 @@ interface StageGroupedListProps<Item> {
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageActions?: (group: StageGroup<Item>) => ReactNode;
 	renderStageBadges?: (group: StageGroup<Item>) => ReactNode;
+	// When set, the stage header lays its name + `renderStageColumns` cells out on
+	// this grid (the same grid className the rows use) so per-stage column badges
+	// line up with the row amount columns. The 13px inset matches the extra
+	// padding/border nesting the rows sit inside vs. the stage header.
+	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
 	search?: string;
+	stageColumnsClassName?: string;
 	stages: Doc<'tradeStages'>[] | undefined;
 }
 
 const CONTAINER_PREFIX = 'container:';
+
+// Stable module-level reference. Passing a fresh object to DndContext's
+// `measuring` prop every render makes dnd-kit re-run its measuring effects on
+// each render; with `MeasuringStrategy.Always` those effects setState the
+// measured rects, which re-renders and loops ("Maximum update depth exceeded").
+const MEASURING_CONFIG = {
+	droppable: { strategy: MeasuringStrategy.Always },
+};
 
 function orderValue(order: number | undefined): number {
 	return order ?? Number.MAX_SAFE_INTEGER;
@@ -185,12 +200,19 @@ function ItemList<Item>({
 		data: { type: 'container', groupKey: group.key },
 	});
 
+	// getItemId is an inline closure whose identity changes every render; read it
+	// through a ref so the SortableContext `items` array stays referentially stable
+	// while the group's items are unchanged (a fresh array would churn dnd-kit).
+	const getItemIdRef = useRef(getItemId);
+	getItemIdRef.current = getItemId;
+	const itemIds = useMemo(
+		() => group.items.map((item) => getItemIdRef.current(item)),
+		[group.items]
+	);
+
 	return (
 		<div ref={setNodeRef}>
-			<SortableContext
-				items={group.items.map((item) => getItemId(item))}
-				strategy={verticalListSortingStrategy}
-			>
+			<SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
 				{group.items.length === 0 ? (
 					<div className="rounded-md border border-dashed px-3 py-4 text-center text-muted-foreground text-xs">
 						{emptyGroupLabel}
@@ -239,6 +261,8 @@ function StageSection<Item>({
 	renderRowContent,
 	renderStageBadges,
 	renderStageActions,
+	renderStageColumns,
+	stageColumnsClassName,
 	emptyGroupLabel,
 }: {
 	group: StageGroup<Item>;
@@ -248,6 +272,8 @@ function StageSection<Item>({
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageBadges: (group: StageGroup<Item>) => ReactNode;
 	renderStageActions?: (group: StageGroup<Item>) => ReactNode;
+	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
+	stageColumnsClassName?: string;
 	emptyGroupLabel: string;
 }) {
 	const {
@@ -281,12 +307,27 @@ function StageSection<Item>({
 					) : (
 						<span aria-hidden className="w-4 shrink-0" />
 					)}
-					<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
-						<span className="font-medium">{group.name}</span>
-						{renderStageBadges(group)}
-					</AccordionPrimitive.Trigger>
-					{renderStageActions?.(group)}
-					<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+					{stageColumnsClassName ? (
+						<div className={cn(stageColumnsClassName, 'flex-1 px-[13px]')}>
+							<AccordionPrimitive.Trigger className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="truncate font-medium">{group.name}</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							{renderStageColumns?.(group)}
+							<div className="flex justify-end">
+								<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+							</div>
+						</div>
+					) : (
+						<>
+							<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="font-medium">{group.name}</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							{renderStageActions?.(group)}
+							<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+						</>
+					)}
 				</AccordionPrimitive.Header>
 				<AccordionPanel className="px-3">
 					<ItemList
@@ -310,6 +351,8 @@ function UngroupedSection<Item>({
 	getItemName,
 	renderRowContent,
 	renderStageBadges,
+	renderStageColumns,
+	stageColumnsClassName,
 	emptyGroupLabel,
 }: {
 	group: StageGroup<Item>;
@@ -318,6 +361,8 @@ function UngroupedSection<Item>({
 	getItemName: (item: Item) => string;
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageBadges: (group: StageGroup<Item>) => ReactNode;
+	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
+	stageColumnsClassName?: string;
 	emptyGroupLabel: string;
 }) {
 	return (
@@ -326,13 +371,30 @@ function UngroupedSection<Item>({
 				<AccordionPrimitive.Header className="flex items-center gap-2 px-3">
 					{/* Spacer aligns the header with the draggable stage sections above. */}
 					<span aria-hidden className="w-4 shrink-0" />
-					<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
-						<span className="font-medium text-muted-foreground">
-							{group.name}
-						</span>
-						{renderStageBadges(group)}
-					</AccordionPrimitive.Trigger>
-					<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+					{stageColumnsClassName ? (
+						<div className={cn(stageColumnsClassName, 'flex-1 px-[13px]')}>
+							<AccordionPrimitive.Trigger className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="truncate font-medium text-muted-foreground">
+									{group.name}
+								</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							{renderStageColumns?.(group)}
+							<div className="flex justify-end">
+								<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+							</div>
+						</div>
+					) : (
+						<>
+							<AccordionPrimitive.Trigger className="flex flex-1 cursor-pointer items-center gap-2 rounded-md py-4 text-left font-medium text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
+								<span className="font-medium text-muted-foreground">
+									{group.name}
+								</span>
+								{renderStageBadges(group)}
+							</AccordionPrimitive.Trigger>
+							<AccordionChevronTrigger label={`Toggle ${group.name}`} />
+						</>
+					)}
 				</AccordionPrimitive.Header>
 				<AccordionPanel className="px-3">
 					<ItemList
@@ -360,6 +422,8 @@ export function StageGroupedList<Item>({
 	renderRowContent,
 	renderStageBadges,
 	renderStageActions,
+	renderStageColumns,
+	stageColumnsClassName,
 	onPersistItems,
 	onReorderStages,
 	search = '',
@@ -393,6 +457,13 @@ export function StageGroupedList<Item>({
 	const [activeType, setActiveType] = useState<'stage' | 'trade' | null>(null);
 	const dragSourceKeyRef = useRef<string | null>(null);
 	const initializedRef = useRef(false);
+	// The component's own scroll container. Autoscroll is restricted to this
+	// element (see `autoScroll` below) so dnd-kit never scrolls an ancestor
+	// scroller during a drag.
+	const scrollerRef = useRef<HTMLDivElement>(null);
+	// Signature of the last cross-group move applied in onDragOver; guards against
+	// re-processing an identical hover and looping at a container boundary.
+	const lastDragOverRef = useRef<string | null>(null);
 
 	const serverGroups = useMemo(() => {
 		if (!(stages && items)) {
@@ -511,6 +582,19 @@ export function StageGroupedList<Item>({
 		})
 	);
 
+	// Only allow autoscroll on our own scroller. dnd-kit v6 attempts the
+	// outermost scrollable ancestor first, so on height-constrained hosts it would
+	// scroll the page/app-layout region — moving every droppable under a stationary
+	// pointer, which flip-flops `over` and re-runs onDragOver's setState until React
+	// throws "Maximum update depth exceeded". Restricting to `scrollerRef` keeps
+	// autoscroll working on the list without touching ancestor scrollers.
+	const autoScroll = useMemo(
+		() => ({
+			canScroll: (element: Element) => element === scrollerRef.current,
+		}),
+		[]
+	);
+
 	const groupKeyOfItem = (source: StageGroup<Item>[], id: string) => {
 		for (const group of source) {
 			if (group.items.some((item) => getItemId(item) === id)) {
@@ -577,6 +661,7 @@ export function StageGroupedList<Item>({
 		setActiveType(type === 'stage' ? 'stage' : 'trade');
 		dragSourceKeyRef.current =
 			type === 'trade' ? groupKeyOfItem(groups, id) : null;
+		lastDragOverRef.current = null;
 	};
 
 	const onDragOver = (event: DragOverEvent) => {
@@ -590,6 +675,13 @@ export function StageGroupedList<Item>({
 		if (!(sourceKey && targetKey) || sourceKey === targetKey) {
 			return;
 		}
+		// Skip if this exact hover was already applied — stops boundary flip-flop
+		// from re-triggering setGroups in a loop.
+		const signature = `${activeItemId}:${targetKey}:${String(over.id)}`;
+		if (lastDragOverRef.current === signature) {
+			return;
+		}
+		lastDragOverRef.current = signature;
 		setGroups((prev) => {
 			const source = prev.find((g) => g.key === sourceKey);
 			const target = prev.find((g) => g.key === targetKey);
@@ -752,10 +844,11 @@ export function StageGroupedList<Item>({
 	}
 
 	return (
-		<div className="min-h-0 flex-1 overflow-y-auto">
+		<div className="min-h-0 flex-1 overflow-y-auto" ref={scrollerRef}>
 			<DndContext
+				autoScroll={autoScroll}
 				collisionDetection={collisionDetection}
-				measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+				measuring={MEASURING_CONFIG}
 				onDragEnd={onDragEnd}
 				onDragOver={onDragOver}
 				onDragStart={onDragStart}
@@ -784,6 +877,8 @@ export function StageGroupedList<Item>({
 									renderRowContent={renderRowContent}
 									renderStageActions={renderStageActions}
 									renderStageBadges={stageBadges}
+									renderStageColumns={renderStageColumns}
+									stageColumnsClassName={stageColumnsClassName}
 								/>
 							))}
 					</SortableContext>
@@ -799,6 +894,8 @@ export function StageGroupedList<Item>({
 								key={group.key}
 								renderRowContent={renderRowContent}
 								renderStageBadges={stageBadges}
+								renderStageColumns={renderStageColumns}
+								stageColumnsClassName={stageColumnsClassName}
 							/>
 						))}
 				</Accordion>
