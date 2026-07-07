@@ -57,3 +57,4 @@ temp
 *.pem
 
 .playwright-mcp
+credentials.json
