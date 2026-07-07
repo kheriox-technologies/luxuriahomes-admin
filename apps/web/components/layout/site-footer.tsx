@@ -107,7 +107,16 @@ export function SiteFooter() {
 			<div className="border-white/10 border-t">
 				<div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-6 py-6 text-white/50 text-xs sm:flex-row">
 					<p>© {currentYear} Luxuria Homes Australia. All Rights Reserved.</p>
-					<p>Designing dreams, building lifestyles.</p>
+					<div className="flex items-center gap-4">
+						<Link
+							className="transition-colors hover:text-brand-surface"
+							href="/privacy"
+						>
+							Privacy Policy
+						</Link>
+						<span className="text-white/30">·</span>
+						<span>Designing dreams, building lifestyles.</span>
+					</div>
 				</div>
 			</div>
 		</footer>
