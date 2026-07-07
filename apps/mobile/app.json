@@ -1,24 +1,27 @@
 {
   "expo": {
     "name": "Luxuria Homes",
-    "slug": "luxuria-homes-admin",
+    "slug": "luxuria-homes",
     "version": "1.0.0",
     "scheme": "luxuriahomes",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "ios": {
-      "bundleIdentifier": "au.com.luxuriahomes.admin",
+      "bundleIdentifier": "au.com.luxuriahomes",
       "buildNumber": "1",
       "supportsTablet": true
     },
     "android": {
-      "package": "au.com.luxuriahomes.admin",
+      "package": "au.com.luxuriahomes",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5EBE0"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -43,6 +46,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "051bab2a-c45c-47c7-987e-aea73cceb9c8"
+      }
+    },
+    "owner": "pdomala-kheriox"
   }
 }

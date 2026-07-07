@@ -18,9 +18,9 @@ no EAS-hosted credentials) and submit it to both the **App Store** and **Google 
 | Field | Value |
 |---|---|
 | App name | `Luxuria Homes` |
-| Slug | `luxuria-homes-admin` |
-| iOS `bundleIdentifier` | `au.com.luxuriahomes.admin` |
-| Android `package` | `au.com.luxuriahomes.admin` |
+| Slug | `luxuria-homes` |
+| iOS `bundleIdentifier` | `au.com.luxuriahomes` |
+| Android `package` | `au.com.luxuriahomes` |
 
 Use these exact IDs when you register the app in App Store Connect and Google Play Console.
 
@@ -134,7 +134,7 @@ Answer the prompts and remember the passwords → put them in `credentials.json`
 ### 3b. iOS certificate + provisioning profile
 
 You need an **Apple Distribution certificate** (`.p12`) and an **App Store provisioning profile**
-for `au.com.luxuriahomes.admin`. Two ways:
+for `au.com.luxuriahomes`. Two ways:
 
 - **Easiest** — let EAS generate them once, then export to local files:
   ```bash
@@ -145,7 +145,7 @@ for `au.com.luxuriahomes.admin`. Two ways:
 
 - **Fully manual** (Apple Developer portal → Certificates, Identifiers & Profiles):
   1. Create/download an **Apple Distribution** certificate; export it from Keychain as `.p12`.
-  2. Register the App ID `au.com.luxuriahomes.admin` if not already.
+  2. Register the App ID `au.com.luxuriahomes` if not already.
   3. Create an **App Store** provisioning profile bound to that App ID + certificate; download the `.mobileprovision`.
 
 Drop both files into `apps/mobile/credentials/` matching the paths in `credentials.json`.
@@ -193,7 +193,7 @@ eas build --local --profile production --platform android \
 ```
 
 First iOS build is slow (CocoaPods + native compile). If it fails on signing, re-check the
-`.p12`/profile paths and that the profile targets `au.com.luxuriahomes.admin`.
+`.p12`/profile paths and that the profile targets `au.com.luxuriahomes`.
 
 ---
 
@@ -206,8 +206,8 @@ With `appVersionSource: "local"`, edit `app.json` before building:
 - Add `expo.android.versionCode` (integer, e.g. `2`) — must increase for every Play upload.
 
 ```jsonc
-"ios":     { "bundleIdentifier": "au.com.luxuriahomes.admin", "buildNumber": "2", "supportsTablet": true },
-"android": { "package": "au.com.luxuriahomes.admin", "versionCode": 2, "adaptiveIcon": { ... } }
+"ios":     { "bundleIdentifier": "au.com.luxuriahomes", "buildNumber": "2", "supportsTablet": true },
+"android": { "package": "au.com.luxuriahomes", "versionCode": 2, "adaptiveIcon": { ... } }
 ```
 
 ---
@@ -217,17 +217,23 @@ With `appVersionSource: "local"`, edit `app.json` before building:
 ### 7a. App Store Connect (iOS)
 
 1. https://appstoreconnect.apple.com → **My Apps → +** → New App.
-2. Platform iOS, bundle ID `au.com.luxuriahomes.admin`, pick a name + primary language.
+2. Platform iOS, bundle ID `au.com.luxuriahomes`, pick a name + primary language.
 3. Copy the app's **Apple ID** (numeric) into `eas.json` → `submit.production.ios.ascAppId`.
 4. Find your **Team ID** (Apple Developer → Membership) → `submit.production.ios.appleTeamId`.
 5. For automated submit, create an **App Store Connect API key** (Users and Access → Integrations → App Store Connect API, Admin/App Manager role). Download the `.p8` **once**; note the Key ID + Issuer ID.
 
 ### 7b. Google Play Console (Android)
 
-1. https://play.google.com/console → **Create app**, package `au.com.luxuriahomes.admin`.
-2. Keep **Play App Signing** enabled (default) — your `luxuria-upload.keystore` becomes the *upload* key; Google holds the final signing key. This is why the keystore backup matters but is recoverable.
-3. Create a **service account** for API uploads: Play Console → Setup → API access → link/create a Google Cloud service account, grant it release permissions, and download its **JSON key**. Save it to `apps/mobile/credentials/play-service-account.json` (path already referenced in `eas.json`).
-4. **Manual first upload:** Google requires the very first `.aab` to be uploaded by hand in the Console (create an Internal testing release) before `eas submit` will work. Do this once, then automate.
+> The Play Console UI moved a lot of this. Play App Signing is now automatic (no toggle at
+> app-creation time), and the old *Setup → API access* service-account flow has been replaced
+> by a Google Cloud Console + *Users and permissions* two-step. Steps below reflect the current UI.
+
+1. https://play.google.com/console → **Create app**. You don't type the package here — `au.com.luxuriahomes` is registered implicitly from your first `.aab` upload.
+2. **Play App Signing — nothing to enable.** It's mandatory and automatic for all new apps. The signing key is configured when you create your **first release** (step 4): keep the default **"Use a Google-generated key"** so your `luxuria-upload.keystore` becomes the *upload* key and Google holds the final signing key. This is why the keystore backup matters but is recoverable. To view/manage it later: **Protected with Play → Play Store distribution → Play app signing** (this page replaced the old "App integrity" page).
+3. **Service account for API uploads (two steps now):**
+   1. In **Google Cloud Console** (the Cloud project linked to your Play account) → **IAM & Admin → Service Accounts → Create service account**. Then open it → **Keys → Add key → Create new key → JSON**. Save the downloaded file to `apps/mobile/credentials/play-service-account.json` (path already referenced in `eas.json`). If no Cloud project is linked yet, link one first from the account-level **Setup → API access** page.
+   2. In **Play Console**, at the **account level** (the all-apps view, *not* inside the app) → **Users and permissions → Invite new users**. Enter the service account's email address and grant it release permissions (e.g. *Releases → Release to testing tracks*; add production management if you'll promote via API).
+4. **Manual first upload:** Google requires the very first `.aab` to be uploaded by hand in the Console (create an Internal testing release) before `eas submit` will work. This first release is also where the Play App Signing key from step 2 gets locked in. Do this once, then automate.
 
 ---
 
