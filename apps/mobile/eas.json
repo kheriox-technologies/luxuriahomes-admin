@@ -19,8 +19,8 @@
     "production": {
       "ios": {
         "appleId": "prasad.domala@kheriox.tech",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ascAppId": "6788592456",
+        "appleTeamId": "L22SNF82T2"
       },
       "android": {
         "serviceAccountKeyPath": "./credentials/play-service-account.json",
