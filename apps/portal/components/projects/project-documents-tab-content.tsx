@@ -35,6 +35,10 @@ export default function ProjectDocumentsTabContent({
 	const setClientPortalVisibility = useMutation(
 		api.projectDocuments.setClientPortalVisibility.setClientPortalVisibility
 	);
+	const setFolderClientPortalVisibility = useMutation(
+		api.projectDocuments.setFolderClientPortalVisibility
+			.setFolderClientPortalVisibility
+	);
 	const addToTakeoffs = useAction(api.takeoffs.addToTakeoffs.addToTakeoffs);
 
 	return (
@@ -97,6 +101,12 @@ export default function ProjectDocumentsTabContent({
 					visible,
 				});
 			}}
+			onSetFolderClientPortalVisibility={async (folderId, visible) =>
+				await setFolderClientPortalVisibility({
+					folderId: folderId as Id<'projectDocumentFolders'>,
+					visible,
+				})
+			}
 			projectId={projectId}
 			rootLabel="Documents"
 		/>

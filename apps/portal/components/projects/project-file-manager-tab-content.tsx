@@ -162,6 +162,11 @@ export interface ProjectFileManagerTabContentProps {
 		fileId: string,
 		visible: boolean
 	) => Promise<void>;
+	// When provided, folders gain "Add all / Remove all from client portal".
+	onSetFolderClientPortalVisibility?: (
+		folderId: string,
+		visible: boolean
+	) => Promise<number>;
 	projectId?: Id<'projects'>;
 	rootLabel?: string;
 }
@@ -1265,10 +1270,12 @@ function FolderRowActions({
 	folder,
 	onRenameFolder,
 	onDeleteFolder,
+	onSetFolderClientPortalVisibility,
 }: {
 	folder: FolderItem;
 	onRenameFolder: ProjectFileManagerTabContentProps['onRenameFolder'];
 	onDeleteFolder: ProjectFileManagerTabContentProps['onDeleteFolder'];
+	onSetFolderClientPortalVisibility?: ProjectFileManagerTabContentProps['onSetFolderClientPortalVisibility'];
 }) {
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
@@ -1284,6 +1291,27 @@ function FolderRowActions({
 				type: 'error',
 			});
 			throw error;
+		}
+	};
+
+	const onFolderPortal = async (visible: boolean) => {
+		try {
+			const count = await onSetFolderClientPortalVisibility?.(
+				folder._id,
+				visible
+			);
+			toastManager.add({
+				title: visible
+					? `Added ${count} document${count === 1 ? '' : 's'} to client portal`
+					: `Removed ${count} document${count === 1 ? '' : 's'} from client portal`,
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not update client portal visibility',
+				description: getConvexErrorMessage(error, 'Please try again.'),
+				type: 'error',
+			});
 		}
 	};
 
@@ -1307,6 +1335,22 @@ function FolderRowActions({
 						<Pencil />
 						Rename
 					</MenuItem>
+					{onSetFolderClientPortalVisibility ? (
+						<>
+							<MenuItem
+								onClick={() => onFolderPortal(true).catch(() => undefined)}
+							>
+								<MonitorSmartphone />
+								Add all to client portal
+							</MenuItem>
+							<MenuItem
+								onClick={() => onFolderPortal(false).catch(() => undefined)}
+							>
+								<MonitorX />
+								Remove all from client portal
+							</MenuItem>
+						</>
+					) : null}
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
@@ -1410,6 +1454,7 @@ export function ProjectFileManagerTabContent({
 	onEnsureFolder,
 	onAddToTakeoffs,
 	onSetClientPortalVisibility,
+	onSetFolderClientPortalVisibility,
 	projectId,
 	rootLabel = 'Files',
 	emptyTitle = 'No files yet',
@@ -1712,6 +1757,9 @@ export function ProjectFileManagerTabContent({
 											folder={folder}
 											onDeleteFolder={onDeleteFolder}
 											onRenameFolder={onRenameFolder}
+											onSetFolderClientPortalVisibility={
+												onSetFolderClientPortalVisibility
+											}
 										/>
 									</div>
 								</TableCell>

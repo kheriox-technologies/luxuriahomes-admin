@@ -189,6 +189,7 @@ import type * as projectDocuments_remove from "../projectDocuments/remove.js";
 import type * as projectDocuments_rename from "../projectDocuments/rename.js";
 import type * as projectDocuments_renameFolder from "../projectDocuments/renameFolder.js";
 import type * as projectDocuments_setClientPortalVisibility from "../projectDocuments/setClientPortalVisibility.js";
+import type * as projectDocuments_setFolderClientPortalVisibility from "../projectDocuments/setFolderClientPortalVisibility.js";
 import type * as projectDocuments_shared from "../projectDocuments/shared.js";
 import type * as projectInclusions_add from "../projectInclusions/add.js";
 import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
@@ -574,6 +575,7 @@ declare const fullApi: ApiFromModules<{
   "projectDocuments/rename": typeof projectDocuments_rename;
   "projectDocuments/renameFolder": typeof projectDocuments_renameFolder;
   "projectDocuments/setClientPortalVisibility": typeof projectDocuments_setClientPortalVisibility;
+  "projectDocuments/setFolderClientPortalVisibility": typeof projectDocuments_setFolderClientPortalVisibility;
   "projectDocuments/shared": typeof projectDocuments_shared;
   "projectInclusions/add": typeof projectInclusions_add;
   "projectInclusions/appendNote": typeof projectInclusions_appendNote;
