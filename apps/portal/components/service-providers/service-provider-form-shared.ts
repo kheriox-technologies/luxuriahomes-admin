@@ -56,6 +56,13 @@ export const emptyServiceProviderFormValues: ServiceProviderFormValues = {
 	address: '',
 };
 
+export function serviceProviderLabel(p: {
+	company: string;
+	name?: string;
+}): string {
+	return p.name ? `${p.company} (${p.name})` : p.company;
+}
+
 export function formatFieldErrors(
 	errors: readonly unknown[] | undefined
 ): string {
