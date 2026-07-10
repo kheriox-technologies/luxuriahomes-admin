@@ -6,7 +6,6 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Combobox,
-	ComboboxEmpty,
 	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
@@ -37,9 +36,10 @@ import {
 } from '@workspace/ui/components/sheet';
 import { SingleFileUpload } from '@workspace/ui/components/single-file-upload';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation } from 'convex/react';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
+import ServiceProviderSelect from '@/components/service-providers/service-provider-select';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -82,14 +82,6 @@ export default function EditQuotation({
 	const [selectedTradeId, setSelectedTradeId] = useState<string>(
 		initialTradeId as string
 	);
-
-	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
-
-	const filteredServiceProviders = selectedTradeId
-		? (serviceProviders ?? []).filter((sp) =>
-				sp.tradeIds.includes(selectedTradeId as Id<'trades'>)
-			)
-		: (serviceProviders ?? []);
 
 	const updateQuotation = useMutation(api.projectQuotations.update.update);
 	const generateUploadUrl = useAction(
@@ -260,48 +252,48 @@ export default function EditQuotation({
 									{(field) => {
 										const invalid =
 											field.state.meta.isTouched && !field.state.meta.isValid;
-										const items = filteredServiceProviders.map((sp) => sp._id);
-										const labelById = new Map(
-											filteredServiceProviders.map((sp) => [sp._id, sp.company])
-										);
 										return (
 											<Field data-invalid={invalid}>
 												<FieldLabel htmlFor={field.name}>
 													Service Provider
 												</FieldLabel>
-												<Combobox<Id<'serviceProviders'>>
-													items={items}
-													itemToStringLabel={(item) =>
-														labelById.get(item) ?? ''
+												<ServiceProviderSelect
+													allowCreate
+													emptyMessage={
+														selectedTradeId
+															? 'No service providers for this trade.'
+															: 'Select a trade to filter providers.'
 													}
+													filterTradeId={selectedTradeId as Id<'trades'> | ''}
+													id={field.name}
+													invalid={invalid}
+													onBlur={field.handleBlur}
+													onProviderTradesChange={(tradeIds) => {
+														if (tradeIds.length === 0) {
+															return;
+														}
+														const current = form.state.values.tradeId as
+															| Id<'trades'>
+															| '';
+														if (current && tradeIds.includes(current)) {
+															return;
+														}
+														const [first] = tradeIds;
+														form.setFieldValue('tradeId', first);
+														setSelectedTradeId(first);
+													}}
 													onValueChange={(next) =>
 														field.handleChange(next ?? '')
 													}
-													value={
-														field.state.value
-															? (field.state.value as Id<'serviceProviders'>)
-															: null
+													placeholder={
+														selectedTradeId
+															? 'Select a service provider'
+															: 'Select a trade first'
 													}
-												>
-													<ComboboxInput
-														aria-invalid={invalid}
-														id={field.name}
-														onBlur={field.handleBlur}
-														placeholder="Select a service provider"
-													/>
-													<ComboboxPopup>
-														<ComboboxEmpty>
-															No service providers for this trade.
-														</ComboboxEmpty>
-														<ComboboxList>
-															{(item: Id<'serviceProviders'>) => (
-																<ComboboxItem key={item} value={item}>
-																	{labelById.get(item) ?? item}
-																</ComboboxItem>
-															)}
-														</ComboboxList>
-													</ComboboxPopup>
-												</Combobox>
+													value={
+														(field.state.value as Id<'serviceProviders'>) || ''
+													}
+												/>
 												{invalid ? (
 													<FieldError>
 														{formatFieldErrors(field.state.meta.errors)}

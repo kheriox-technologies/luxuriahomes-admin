@@ -15,6 +15,9 @@ export default function CompanyDocumentsContent() {
 	const createFolder = useMutation(
 		api.companyDocuments.createFolder.createFolder
 	);
+	const ensureFolder = useMutation(
+		api.companyDocuments.ensureFolder.ensureFolder
+	);
 	const renameDocument = useAction(api.companyDocuments.rename.rename);
 	const moveDocument = useAction(api.companyDocuments.move.move);
 	const removeDocument = useAction(api.companyDocuments.remove.remove);
@@ -43,6 +46,9 @@ export default function CompanyDocumentsContent() {
 						folderId: folderId as Id<'companyDocumentFolders'>,
 					});
 				}}
+				onEnsureFolder={async ({ parentPath, segments }) =>
+					ensureFolder({ parentPath, segments })
+				}
 				onGenerateUploadUrl={async (args) => generateUploadUrl(args)}
 				onMoveFile={async (fileId, targetFolderPath) => {
 					await moveDocument({

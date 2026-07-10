@@ -20,6 +20,9 @@ export default function ProjectDocumentsTabContent({
 	const createFolder = useMutation(
 		api.projectDocuments.createFolder.createFolder
 	);
+	const ensureFolder = useMutation(
+		api.projectDocuments.ensureFolder.ensureFolder
+	);
 	const renameDocument = useAction(api.projectDocuments.rename.rename);
 	const moveDocument = useAction(api.projectDocuments.move.move);
 	const removeDocument = useAction(api.projectDocuments.remove.remove);
@@ -31,6 +34,10 @@ export default function ProjectDocumentsTabContent({
 	);
 	const setClientPortalVisibility = useMutation(
 		api.projectDocuments.setClientPortalVisibility.setClientPortalVisibility
+	);
+	const setFolderClientPortalVisibility = useMutation(
+		api.projectDocuments.setFolderClientPortalVisibility
+			.setFolderClientPortalVisibility
 	);
 	const addToTakeoffs = useAction(api.takeoffs.addToTakeoffs.addToTakeoffs);
 
@@ -59,6 +66,9 @@ export default function ProjectDocumentsTabContent({
 					folderId: folderId as Id<'projectDocumentFolders'>,
 				});
 			}}
+			onEnsureFolder={async ({ parentPath, segments }) =>
+				ensureFolder({ projectId, parentPath, segments })
+			}
 			onGenerateUploadUrl={async (args) =>
 				generateUploadUrl({ ...args, projectId })
 			}
@@ -91,6 +101,12 @@ export default function ProjectDocumentsTabContent({
 					visible,
 				});
 			}}
+			onSetFolderClientPortalVisibility={async (folderId, visible) =>
+				await setFolderClientPortalVisibility({
+					folderId: folderId as Id<'projectDocumentFolders'>,
+					visible,
+				})
+			}
 			projectId={projectId}
 			rootLabel="Documents"
 		/>

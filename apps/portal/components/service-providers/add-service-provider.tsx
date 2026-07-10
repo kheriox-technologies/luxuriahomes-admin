@@ -25,7 +25,7 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { Check, Plus } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -49,11 +49,18 @@ export default function AddServiceProvider({
 	open: openProp,
 	onOpenChange: onOpenChangeProp,
 	trigger,
+	onCreated,
+	initialTradeIds,
 }: {
 	projectId?: Id<'projects'>;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	trigger?: ReactElement;
+	onCreated?: (result: {
+		id: Id<'serviceProviders'>;
+		tradeIds: Id<'trades'>[];
+	}) => void;
+	initialTradeIds?: Id<'trades'>[];
 }) {
 	const [openInternal, setOpenInternal] = useState(false);
 	const isControlled = openProp !== undefined;
@@ -66,7 +73,16 @@ export default function AddServiceProvider({
 		}
 	};
 
-	const [selectedTradeIds, setSelectedTradeIds] = useState<Id<'trades'>[]>([]);
+	const [selectedTradeIds, setSelectedTradeIds] = useState<Id<'trades'>[]>(
+		initialTradeIds ?? []
+	);
+	// Re-seed the trade selection each time the sheet opens so a trade chosen in
+	// the parent form (after this component mounted) is reflected here.
+	useEffect(() => {
+		if (open) {
+			setSelectedTradeIds(initialTradeIds ?? []);
+		}
+	}, [open, initialTradeIds]);
 	const [contacts, setContacts] = useState<ContactDraftValues[]>([]);
 	const [draft, setDraft] = useState<ContactDraftValues>(emptyContactDraft);
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -104,6 +120,7 @@ export default function AddServiceProvider({
 				if (projectId) {
 					await addToProject({ projectId, serviceProviderId: newId });
 				}
+				onCreated?.({ id: newId, tradeIds: selectedTradeIds });
 				toastManager.add({
 					title: projectId
 						? 'Service provider added and linked to project'
@@ -127,7 +144,7 @@ export default function AddServiceProvider({
 
 	const resetAll = () => {
 		form.reset();
-		setSelectedTradeIds([]);
+		setSelectedTradeIds(initialTradeIds ?? []);
 		setContacts([]);
 		setDraft(emptyContactDraft);
 		setEditingIndex(null);
@@ -183,15 +200,17 @@ export default function AddServiceProvider({
 			}}
 			open={open}
 		>
-			<SheetTrigger
-				render={
-					trigger ?? (
-						<Button variant="outline">
-							<Plus aria-hidden /> Add Service Provider
-						</Button>
-					)
-				}
-			/>
+			{trigger || !isControlled ? (
+				<SheetTrigger
+					render={
+						trigger ?? (
+							<Button variant="outline">
+								<Plus aria-hidden /> Add Service Provider
+							</Button>
+						)
+					}
+				/>
+			) : null}
 			<SheetContent
 				className="flex max-h-full min-w-0 flex-col p-0"
 				side="right"

@@ -4,16 +4,6 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import {
-	Combobox,
-	ComboboxChip,
-	ComboboxChips,
-	ComboboxChipsInput,
-	ComboboxEmpty,
-	ComboboxItem,
-	ComboboxList,
-	ComboboxPopup,
-} from '@workspace/ui/components/combobox';
-import {
 	Dialog,
 	DialogClose,
 	DialogContent,
@@ -29,6 +19,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import ServiceProviderSelect from './service-provider-select';
 
 export default function AddExistingServiceProviderToProject({
 	projectId,
@@ -52,29 +43,15 @@ export default function AddExistingServiceProviderToProject({
 		}
 	};
 
-	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+	const [selectedIds, setSelectedIds] = useState<Id<'serviceProviders'>[]>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
-	const allProviders = useQuery(api.serviceProviders.list.list, {});
 	const linked = useQuery(api.projectServiceProviders.listByProject.list, {
 		projectId,
 	});
 	const addToProject = useMutation(api.projectServiceProviders.add.add);
 
-	const getLabel = (id: string) => {
-		const p = (allProviders ?? []).find((pr) => pr._id === id);
-		if (!p) {
-			return id;
-		}
-		if (p.name) {
-			return `${p.company} (${p.name})`;
-		}
-		return p.company;
-	};
-
-	const linkedIds = new Set(linked?.map((p) => p._id) ?? []);
-	const available = (allProviders ?? []).filter((p) => !linkedIds.has(p._id));
-	const availableIds = available.map((p) => p._id);
+	const linkedIds = linked?.map((p) => p._id) ?? [];
 
 	const handleSubmit = async () => {
 		if (selectedIds.length === 0) {
@@ -86,7 +63,7 @@ export default function AddExistingServiceProviderToProject({
 				selectedIds.map((serviceProviderId) =>
 					addToProject({
 						projectId,
-						serviceProviderId: serviceProviderId as Id<'serviceProviders'>,
+						serviceProviderId,
 					})
 				)
 			);
@@ -131,39 +108,13 @@ export default function AddExistingServiceProviderToProject({
 				<DialogPanel className="flex flex-col gap-4">
 					<Field>
 						<FieldLabel>Select service providers</FieldLabel>
-						<Combobox
-							items={availableIds}
-							itemToStringLabel={(val) => {
-								const p = (allProviders ?? []).find((pr) => pr._id === val);
-								if (!p) {
-									return String(val ?? '');
-								}
-								if (p.name) {
-									return `${p.company} ${p.name}`;
-								}
-								return p.company;
-							}}
+						<ServiceProviderSelect
+							allowCreate
+							excludeServiceProviderIds={linkedIds}
 							multiple
-							onValueChange={(val) => setSelectedIds(val as string[])}
+							onValueChange={setSelectedIds}
 							value={selectedIds}
-						>
-							<ComboboxChips>
-								{selectedIds.map((id) => (
-									<ComboboxChip key={id}>{getLabel(id)}</ComboboxChip>
-								))}
-								<ComboboxChipsInput placeholder="Search service providers…" />
-							</ComboboxChips>
-							<ComboboxPopup>
-								<ComboboxEmpty>No service providers found.</ComboboxEmpty>
-								<ComboboxList>
-									{(id: Id<'serviceProviders'>) => (
-										<ComboboxItem key={id} value={id}>
-											{getLabel(id)}
-										</ComboboxItem>
-									)}
-								</ComboboxList>
-							</ComboboxPopup>
-						</Combobox>
+						/>
 					</Field>
 				</DialogPanel>
 				<DialogFooter>

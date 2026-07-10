@@ -54,6 +54,7 @@ import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js
 import type * as companyDocuments_create from "../companyDocuments/create.js";
 import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
 import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
+import type * as companyDocuments_ensureFolder from "../companyDocuments/ensureFolder.js";
 import type * as companyDocuments_generateUploadUrl from "../companyDocuments/generateUploadUrl.js";
 import type * as companyDocuments_listContents from "../companyDocuments/listContents.js";
 import type * as companyDocuments_move from "../companyDocuments/move.js";
@@ -66,6 +67,7 @@ import type * as dashboard_scheduleOverview from "../dashboard/scheduleOverview.
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_addMany from "../documentFolders/addMany.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
+import type * as documentFolders_lib_seedFolders from "../documentFolders/lib/seedFolders.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
 import type * as documentFolders_remove from "../documentFolders/remove.js";
 import type * as documentFolders_search from "../documentFolders/search.js";
@@ -179,6 +181,7 @@ import type * as projectBudgets_updatePrice from "../projectBudgets/updatePrice.
 import type * as projectDocuments_create from "../projectDocuments/create.js";
 import type * as projectDocuments_createFolder from "../projectDocuments/createFolder.js";
 import type * as projectDocuments_deleteFolder from "../projectDocuments/deleteFolder.js";
+import type * as projectDocuments_ensureFolder from "../projectDocuments/ensureFolder.js";
 import type * as projectDocuments_generateUploadUrl from "../projectDocuments/generateUploadUrl.js";
 import type * as projectDocuments_listContents from "../projectDocuments/listContents.js";
 import type * as projectDocuments_move from "../projectDocuments/move.js";
@@ -186,6 +189,7 @@ import type * as projectDocuments_remove from "../projectDocuments/remove.js";
 import type * as projectDocuments_rename from "../projectDocuments/rename.js";
 import type * as projectDocuments_renameFolder from "../projectDocuments/renameFolder.js";
 import type * as projectDocuments_setClientPortalVisibility from "../projectDocuments/setClientPortalVisibility.js";
+import type * as projectDocuments_setFolderClientPortalVisibility from "../projectDocuments/setFolderClientPortalVisibility.js";
 import type * as projectDocuments_shared from "../projectDocuments/shared.js";
 import type * as projectInclusions_add from "../projectInclusions/add.js";
 import type * as projectInclusions_appendNote from "../projectInclusions/appendNote.js";
@@ -436,6 +440,7 @@ declare const fullApi: ApiFromModules<{
   "companyDocuments/create": typeof companyDocuments_create;
   "companyDocuments/createFolder": typeof companyDocuments_createFolder;
   "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;
+  "companyDocuments/ensureFolder": typeof companyDocuments_ensureFolder;
   "companyDocuments/generateUploadUrl": typeof companyDocuments_generateUploadUrl;
   "companyDocuments/listContents": typeof companyDocuments_listContents;
   "companyDocuments/move": typeof companyDocuments_move;
@@ -448,6 +453,7 @@ declare const fullApi: ApiFromModules<{
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/addMany": typeof documentFolders_addMany;
   "documentFolders/get": typeof documentFolders_get;
+  "documentFolders/lib/seedFolders": typeof documentFolders_lib_seedFolders;
   "documentFolders/list": typeof documentFolders_list;
   "documentFolders/remove": typeof documentFolders_remove;
   "documentFolders/search": typeof documentFolders_search;
@@ -561,6 +567,7 @@ declare const fullApi: ApiFromModules<{
   "projectDocuments/create": typeof projectDocuments_create;
   "projectDocuments/createFolder": typeof projectDocuments_createFolder;
   "projectDocuments/deleteFolder": typeof projectDocuments_deleteFolder;
+  "projectDocuments/ensureFolder": typeof projectDocuments_ensureFolder;
   "projectDocuments/generateUploadUrl": typeof projectDocuments_generateUploadUrl;
   "projectDocuments/listContents": typeof projectDocuments_listContents;
   "projectDocuments/move": typeof projectDocuments_move;
@@ -568,6 +575,7 @@ declare const fullApi: ApiFromModules<{
   "projectDocuments/rename": typeof projectDocuments_rename;
   "projectDocuments/renameFolder": typeof projectDocuments_renameFolder;
   "projectDocuments/setClientPortalVisibility": typeof projectDocuments_setClientPortalVisibility;
+  "projectDocuments/setFolderClientPortalVisibility": typeof projectDocuments_setFolderClientPortalVisibility;
   "projectDocuments/shared": typeof projectDocuments_shared;
   "projectInclusions/add": typeof projectInclusions_add;
   "projectInclusions/appendNote": typeof projectInclusions_appendNote;
