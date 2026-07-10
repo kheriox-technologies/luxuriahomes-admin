@@ -54,6 +54,7 @@ import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js
 import type * as companyDocuments_create from "../companyDocuments/create.js";
 import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
 import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
+import type * as companyDocuments_ensureFolder from "../companyDocuments/ensureFolder.js";
 import type * as companyDocuments_generateUploadUrl from "../companyDocuments/generateUploadUrl.js";
 import type * as companyDocuments_listContents from "../companyDocuments/listContents.js";
 import type * as companyDocuments_move from "../companyDocuments/move.js";
@@ -180,6 +181,7 @@ import type * as projectBudgets_updatePrice from "../projectBudgets/updatePrice.
 import type * as projectDocuments_create from "../projectDocuments/create.js";
 import type * as projectDocuments_createFolder from "../projectDocuments/createFolder.js";
 import type * as projectDocuments_deleteFolder from "../projectDocuments/deleteFolder.js";
+import type * as projectDocuments_ensureFolder from "../projectDocuments/ensureFolder.js";
 import type * as projectDocuments_generateUploadUrl from "../projectDocuments/generateUploadUrl.js";
 import type * as projectDocuments_listContents from "../projectDocuments/listContents.js";
 import type * as projectDocuments_move from "../projectDocuments/move.js";
@@ -437,6 +439,7 @@ declare const fullApi: ApiFromModules<{
   "companyDocuments/create": typeof companyDocuments_create;
   "companyDocuments/createFolder": typeof companyDocuments_createFolder;
   "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;
+  "companyDocuments/ensureFolder": typeof companyDocuments_ensureFolder;
   "companyDocuments/generateUploadUrl": typeof companyDocuments_generateUploadUrl;
   "companyDocuments/listContents": typeof companyDocuments_listContents;
   "companyDocuments/move": typeof companyDocuments_move;
@@ -563,6 +566,7 @@ declare const fullApi: ApiFromModules<{
   "projectDocuments/create": typeof projectDocuments_create;
   "projectDocuments/createFolder": typeof projectDocuments_createFolder;
   "projectDocuments/deleteFolder": typeof projectDocuments_deleteFolder;
+  "projectDocuments/ensureFolder": typeof projectDocuments_ensureFolder;
   "projectDocuments/generateUploadUrl": typeof projectDocuments_generateUploadUrl;
   "projectDocuments/listContents": typeof projectDocuments_listContents;
   "projectDocuments/move": typeof projectDocuments_move;

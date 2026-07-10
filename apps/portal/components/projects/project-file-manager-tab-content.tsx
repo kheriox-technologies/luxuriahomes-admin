@@ -86,6 +86,11 @@ import {
 } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
 import ComposeEmailDialog from '@/components/email/compose-email-dialog';
+import {
+	entriesFromInput,
+	readDataTransferEntries,
+	type UploadEntry,
+} from '@/lib/client/upload-entries';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import type { ComposeAttachment } from '@/lib/email';
 
@@ -139,6 +144,12 @@ export interface ProjectFileManagerTabContentProps {
 	onCreateFile: (args: FileManagerCreateArgs) => Promise<void>;
 	onCreateFolder: (args: { name: string; parentPath: string }) => Promise<void>;
 	onDeleteFolder: (folderId: string) => Promise<void>;
+	// Idempotently creates a nested folder path under `parentPath`, returning the
+	// resulting kebab-slugged folderPath. Used by folder uploads.
+	onEnsureFolder: (args: {
+		parentPath: string;
+		segments: string[];
+	}) => Promise<string>;
 	onGenerateUploadUrl: (
 		args: FileManagerUploadArgs
 	) => Promise<{ uploadUrl: string; s3Key: string; kebabName: string }>;
@@ -220,6 +231,43 @@ function getOpenUrl(mimeType: string | undefined, signedUrl: string): string {
 		return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(signedUrl)}`;
 	}
 	return signedUrl;
+}
+
+// Given upload entries that may carry a source folder structure, idempotently
+// creates every referenced folder under `currentPath` and returns a map from
+// each entry's raw `relativeDir` to its resolved (kebab-slugged) folderPath.
+// Loose files (empty relativeDir) map to `currentPath` and need no folder.
+async function ensureFolderPaths(
+	entries: UploadEntry[],
+	currentPath: string,
+	onEnsureFolder: ProjectFileManagerTabContentProps['onEnsureFolder']
+): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	const uniqueDirs = Array.from(
+		new Set(entries.map((e) => e.relativeDir).filter(Boolean))
+	);
+	await Promise.all(
+		uniqueDirs.map(async (relativeDir) => {
+			const folderPath = await onEnsureFolder({
+				parentPath: currentPath,
+				segments: relativeDir.split('/'),
+			});
+			map.set(relativeDir, folderPath);
+		})
+	);
+	return map;
+}
+
+// Resolves the destination folderPath for an entry using the ensured-folder map.
+function resolveFolderPath(
+	entry: UploadEntry,
+	currentPath: string,
+	folderMap: Map<string, string>
+): string {
+	if (!entry.relativeDir) {
+		return currentPath;
+	}
+	return folderMap.get(entry.relativeDir) ?? currentPath;
 }
 
 // ---------- Create Folder Dialog ----------
@@ -322,6 +370,7 @@ function CreateFolderDialog({
 interface PendingUpload {
 	error?: string;
 	file: File;
+	relativeDir: string;
 	status: 'pending' | 'uploading' | 'done' | 'error';
 }
 
@@ -331,35 +380,45 @@ function UploadFilesDialog({
 	currentPath,
 	onGenerateUploadUrl,
 	onCreateFile,
+	onEnsureFolder,
 }: {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
 	currentPath: string;
 	onGenerateUploadUrl: ProjectFileManagerTabContentProps['onGenerateUploadUrl'];
 	onCreateFile: ProjectFileManagerTabContentProps['onCreateFile'];
+	onEnsureFolder: ProjectFileManagerTabContentProps['onEnsureFolder'];
 }) {
 	const [pending, setPending] = useState<PendingUpload[]>([]);
 	const [uploading, setUploading] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const folderInputRef = useRef<HTMLInputElement>(null);
 
-	const addFiles = useCallback((files: FileList | null) => {
-		if (!files) {
+	const addEntries = useCallback((entries: UploadEntry[]) => {
+		if (entries.length === 0) {
 			return;
 		}
-		const newEntries: PendingUpload[] = Array.from(files).map((file) => ({
-			file,
+		const newEntries: PendingUpload[] = entries.map((entry) => ({
+			file: entry.file,
+			relativeDir: entry.relativeDir,
 			status: 'pending',
 		}));
 		setPending((prev) => [...prev, ...newEntries]);
 	}, []);
 
 	const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-		addFiles(e.target.files);
+		addEntries(entriesFromInput(e.target.files));
+		e.target.value = '';
+	};
+
+	const onFolderInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+		addEntries(entriesFromInput(e.target.files));
 		e.target.value = '';
 	};
 
 	const onDropZoneClick = () => inputRef.current?.click();
+	const onSelectFolderClick = () => folderInputRef.current?.click();
 
 	const onDragOver = (e: DragEvent<HTMLButtonElement>) => {
 		e.preventDefault();
@@ -377,7 +436,9 @@ function UploadFilesDialog({
 		e.preventDefault();
 		e.stopPropagation();
 		setIsDragging(false);
-		addFiles(e.dataTransfer.files);
+		readDataTransferEntries(e.dataTransfer)
+			.then(addEntries)
+			.catch(() => undefined);
 	};
 
 	const removeFile = (index: number) => {
@@ -387,6 +448,21 @@ function UploadFilesDialog({
 	const uploadAll = async () => {
 		setUploading(true);
 		let hasError = false;
+
+		let folderMap: Map<string, string>;
+		try {
+			folderMap = await ensureFolderPaths(pending, currentPath, onEnsureFolder);
+		} catch (error) {
+			const msg =
+				error instanceof Error ? error.message : 'Could not create folders';
+			setPending((prev) =>
+				prev.map((e) =>
+					e.status === 'done' ? e : { ...e, status: 'error', error: msg }
+				)
+			);
+			setUploading(false);
+			return;
+		}
 
 		for (let i = 0; i < pending.length; i++) {
 			const entry = pending[i];
@@ -398,9 +474,11 @@ function UploadFilesDialog({
 				prev.map((e, idx) => (idx === i ? { ...e, status: 'uploading' } : e))
 			);
 
+			const folderPath = resolveFolderPath(entry, currentPath, folderMap);
+
 			try {
 				const { uploadUrl, s3Key, kebabName } = await onGenerateUploadUrl({
-					folderPath: currentPath,
+					folderPath,
 					fileName: entry.file.name,
 					contentType: entry.file.type || 'application/octet-stream',
 				});
@@ -417,7 +495,7 @@ function UploadFilesDialog({
 					name: entry.file.name,
 					kebabName,
 					s3Key,
-					folderPath: currentPath,
+					folderPath,
 					size: entry.file.size,
 					mimeType: entry.file.type || undefined,
 				});
@@ -482,8 +560,23 @@ function UploadFilesDialog({
 						tabIndex={-1}
 						type="file"
 					/>
+					<input
+						aria-hidden
+						className="sr-only"
+						id="file-manager-upload-folder-input"
+						multiple
+						onChange={onFolderInputChange}
+						ref={folderInputRef}
+						tabIndex={-1}
+						type="file"
+						// Non-standard attributes enabling folder selection (not in React types).
+						{...({
+							directory: '',
+							webkitdirectory: '',
+						} as Record<string, string>)}
+					/>
 					<button
-						aria-label="File upload area — click or drag and drop files here"
+						aria-label="File upload area — click or drag and drop files and folders here"
 						className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-input border-dashed bg-muted/32 px-4 py-8 text-center transition-colors ${isDragging ? 'border-primary bg-primary/8' : ''}`}
 						onClick={onDropZoneClick}
 						onDragLeave={onDragLeave}
@@ -496,12 +589,26 @@ function UploadFilesDialog({
 						</span>
 						<p className="font-medium text-sm">
 							<span className="text-primary">Click to upload</span>
-							<span className="text-muted-foreground"> or drag and drop</span>
+							<span className="text-muted-foreground">
+								{' '}
+								or drag and drop files or folders
+							</span>
 						</p>
 						<p className="text-muted-foreground text-xs">
-							File names will be normalized to kebab-case
+							File and folder names will be normalized to kebab-case
 						</p>
 					</button>
+					<div className="mt-2 flex items-center justify-center">
+						<Button
+							onClick={onSelectFolderClick}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<FolderPlus aria-hidden />
+							Select folder
+						</Button>
+					</div>
 
 					{pending.length > 0 && (
 						<ul className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pe-1">
@@ -513,7 +620,9 @@ function UploadFilesDialog({
 									{getFileIcon(entry.file.type)}
 									<div className="min-w-0 flex-1">
 										<p className="truncate font-medium text-sm">
-											{entry.file.name}
+											{entry.relativeDir
+												? `${entry.relativeDir}/${entry.file.name}`
+												: entry.file.name}
 										</p>
 										<p className="text-muted-foreground text-xs">
 											{formatFileSize(entry.file.size)}
@@ -1298,6 +1407,7 @@ export function ProjectFileManagerTabContent({
 	onRemoveFile,
 	onRenameFolder,
 	onDeleteFolder,
+	onEnsureFolder,
 	onAddToTakeoffs,
 	onSetClientPortalVisibility,
 	projectId,
@@ -1361,10 +1471,10 @@ export function ProjectFileManagerTabContent({
 		}
 	};
 
-	// Upload a single file to the current folder, surfacing progress via a toast
+	// Upload a single file to the given folder, surfacing progress via a toast
 	// that transitions from loading to success/error.
 	const uploadOne = useCallback(
-		async (file: File) => {
+		async (file: File, folderPath: string) => {
 			const contentType = file.type || 'application/octet-stream';
 			const toastId = toastManager.add({
 				title: `Uploading ${file.name}`,
@@ -1372,7 +1482,7 @@ export function ProjectFileManagerTabContent({
 			});
 			try {
 				const { uploadUrl, s3Key, kebabName } = await onGenerateUploadUrl({
-					folderPath: currentPath,
+					folderPath,
 					fileName: file.name,
 					contentType,
 				});
@@ -1390,7 +1500,7 @@ export function ProjectFileManagerTabContent({
 					name: file.name,
 					kebabName,
 					s3Key,
-					folderPath: currentPath,
+					folderPath,
 					size: file.size,
 					mimeType: file.type || undefined,
 				});
@@ -1407,21 +1517,41 @@ export function ProjectFileManagerTabContent({
 				});
 			}
 		},
-		[currentPath, onCreateFile, onGenerateUploadUrl]
+		[onCreateFile, onGenerateUploadUrl]
 	);
 
-	// Upload dropped files concurrently so one slow file doesn't block the rest.
-	const uploadFiles = useCallback(
-		(files: FileList | File[]) => {
-			const list = Array.from(files);
-			if (list.length === 0) {
+	// Upload dropped entries: recreate any folder structure first, then upload
+	// files concurrently so one slow file doesn't block the rest.
+	const uploadEntries = useCallback(
+		async (entries: UploadEntry[]) => {
+			if (entries.length === 0) {
 				return;
 			}
-			Promise.allSettled(list.map((file) => uploadOne(file))).catch(
-				() => undefined
+			let folderMap: Map<string, string>;
+			try {
+				folderMap = await ensureFolderPaths(
+					entries,
+					currentPath,
+					onEnsureFolder
+				);
+			} catch (error) {
+				toastManager.add({
+					title: 'Could not create folders',
+					description: getConvexErrorMessage(error, 'Please try again.'),
+					type: 'error',
+				});
+				return;
+			}
+			await Promise.allSettled(
+				entries.map((entry) =>
+					uploadOne(
+						entry.file,
+						resolveFolderPath(entry, currentPath, folderMap)
+					)
+				)
 			);
 		},
-		[uploadOne]
+		[currentPath, onEnsureFolder, uploadOne]
 	);
 
 	const hasFiles = (e: DragEvent<HTMLDivElement>) =>
@@ -1461,7 +1591,9 @@ export function ProjectFileManagerTabContent({
 		e.preventDefault();
 		dragDepth.current = 0;
 		setIsDragging(false);
-		uploadFiles(e.dataTransfer.files);
+		readDataTransferEntries(e.dataTransfer)
+			.then(uploadEntries)
+			.catch(() => undefined);
 	};
 
 	// biome-ignore lint/suspicious/noExplicitAny: args shape varies by namespace
@@ -1741,6 +1873,7 @@ export function ProjectFileManagerTabContent({
 			<UploadFilesDialog
 				currentPath={currentPath}
 				onCreateFile={onCreateFile}
+				onEnsureFolder={onEnsureFolder}
 				onGenerateUploadUrl={onGenerateUploadUrl}
 				onOpenChange={setUploadOpen}
 				open={uploadOpen}
