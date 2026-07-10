@@ -25,6 +25,7 @@ import {
 	Ruler,
 	Square,
 	Type,
+	Wand2,
 	X,
 } from 'lucide-react';
 import {
@@ -118,7 +119,18 @@ const DRAWING_TOOLS = new Set<ToolId>([
 	'rectangle',
 	'circle',
 	'polygon',
+	'auto',
 	'count',
+]);
+
+// Tools that produce area-like shapes (and so combine with Deduct mode). The
+// auto tool commits polygons, so it belongs here despite not being a
+// MeasurementType itself.
+const AREA_CAPABLE_TOOLS = new Set<ToolId>([
+	'rectangle',
+	'circle',
+	'polygon',
+	'auto',
 ]);
 
 const EMPTY_IDS: ReadonlySet<string> = new Set();
@@ -174,6 +186,7 @@ const TOOLS: ToolDef[] = [
 	{ id: 'rectangle', label: 'Rectangle', icon: Square, needsCalibration: true },
 	{ id: 'circle', label: 'Circle', icon: Circle, needsCalibration: true },
 	{ id: 'polygon', label: 'Polygon', icon: Pentagon, needsCalibration: true },
+	{ id: 'auto', label: 'Auto', icon: Wand2, needsCalibration: true },
 	{ id: 'count', label: 'Count', icon: Hash },
 	{ id: 'text', label: 'Text', icon: Type },
 ];
@@ -183,7 +196,7 @@ function getSubtractTitle(isCalibrated: boolean, canDeduct: boolean): string {
 		return 'Calibrate this page first';
 	}
 	if (!canDeduct) {
-		return 'Pick an area tool (rectangle, circle, or polygon) to draw a deduction';
+		return 'Pick an area tool (rectangle, circle, polygon, or auto) to draw a deduction';
 	}
 	return 'Draw inside an existing area shape to deduct it from that shape';
 }
@@ -290,6 +303,9 @@ export default function TakeoffsContent({
 	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
 	// them synchronously to auto-name area shapes.
 	const pageTextRef = useRef<Map<number, TextBox[]>>(new Map());
+	// The current page's text boxes as state, for the auto-detect tool's text
+	// masking (a ref can't retrigger its segmentation when the text layer loads).
+	const [pageTextBoxes, setPageTextBoxes] = useState<TextBox[]>([]);
 	// PDF-wide default measurement method (scale or calibration), plus optional
 	// per-page overrides. Defaults to a 1:100 A3 drawing scale so tools work
 	// immediately.
@@ -746,9 +762,9 @@ export default function TakeoffsContent({
 	const selectTool = useCallback(
 		(next: ToolId) => {
 			setTool(next);
-			// Deduct works with area tools; keep it on when switching between them
-			// (rectangle/circle/polygon) but end it for any non-area tool.
-			if (!AREA_TYPE_SET.has(next as MeasurementType)) {
+			// Deduct works with area-capable tools; keep it on when switching between
+			// them (rectangle/circle/polygon/auto) but end it for any non-area tool.
+			if (!AREA_CAPABLE_TOOLS.has(next)) {
 				setSubtractMode(false);
 			}
 			resetDraft();
@@ -910,15 +926,19 @@ export default function TakeoffsContent({
 
 	// Prefetch the current page's text layer so commit() can auto-name shapes
 	// without awaiting. Naming silently falls back to defaults until it resolves.
+	// Mirrored into state for the auto-detect tool, which masks text out of its
+	// segmentation (cleared first so a stale page's boxes are never applied).
 	useEffect(() => {
 		if (!ready) {
 			return;
 		}
 		let cancelled = false;
+		setPageTextBoxes([]);
 		(async () => {
 			const boxes = await extractText(page);
 			if (!cancelled) {
 				pageTextRef.current.set(page, boxes);
+				setPageTextBoxes(boxes);
 			}
 		})();
 		return () => {
@@ -1108,6 +1128,17 @@ export default function TakeoffsContent({
 			});
 		},
 		[page, metersPerPixel, subtractMode, selectedGroupId, groups, pushUndo]
+	);
+
+	// Commit an auto-detected region outline as a normal polygon measurement —
+	// undo, deduct clipping, auto-naming, and persistence all ride commit().
+	const handleAutoDetect = useCallback(
+		(points: Point[]) => {
+			if (points.length >= 3) {
+				commit('polygon', points);
+			}
+		},
+		[commit]
 	);
 
 	const finishDraft = useCallback(() => {
@@ -1949,10 +1980,10 @@ export default function TakeoffsContent({
 		(tool === 'linear' && draft.length >= 2) ||
 		(tool === 'polygon' && draft.length >= 3);
 
-	// Deduct is available while an area tool is active (so you can draw a deduction
-	// inside an existing shape). The switch stays enabled while its mode is on so
-	// you can turn it off again.
-	const isAreaTool = AREA_TYPE_SET.has(tool as MeasurementType);
+	// Deduct is available while an area-capable tool is active (so you can draw a
+	// deduction inside an existing shape). The switch stays enabled while its mode
+	// is on so you can turn it off again.
+	const isAreaTool = AREA_CAPABLE_TOOLS.has(tool);
 	const subtractDisabled = !(isCalibrated && (subtractMode || isAreaTool));
 	// Drawing tools are disabled until a group is selected (every measurement is
 	// filed into a group). Subtract editing of an existing shape is exempt.
@@ -2091,6 +2122,7 @@ export default function TakeoffsContent({
 						metersPerPixel={metersPerPixel}
 						newTextId={newTextId}
 						numPages={numPages}
+						onAutoDetect={handleAutoDetect}
 						onClearSelection={clearSelection}
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
@@ -2110,7 +2142,9 @@ export default function TakeoffsContent({
 						selectedId={selectedId}
 						selectedMarkerIndex={selectedMarkerIndex}
 						showMeasurements={showMeasurements}
+						subtractMode={subtractMode}
 						textAnnotations={texts.filter((t) => t.page === page)}
+						textRects={pageTextBoxes}
 						tool={effectiveTool}
 						transientPan={spacePanActive}
 					/>

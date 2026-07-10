@@ -13,6 +13,7 @@ export type ToolId =
 	| 'rectangle'
 	| 'circle'
 	| 'polygon'
+	| 'auto'
 	| 'count'
 	| 'text';
 

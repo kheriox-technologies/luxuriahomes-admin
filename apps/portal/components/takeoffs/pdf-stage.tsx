@@ -3,6 +3,7 @@
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import { Slider } from '@workspace/ui/components/slider';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { cn } from '@workspace/ui/lib/utils';
 import { Maximize, Minus, Plus } from 'lucide-react';
@@ -10,6 +11,7 @@ import {
 	type ReactElement,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from 'react';
@@ -38,6 +40,11 @@ import {
 	shapeTopCenter,
 } from '@/lib/takeoffs/geometry';
 import {
+	DEFAULT_GAP_CLOSE_MM,
+	MAX_GAP_CLOSE_MM,
+	type MaskRect,
+} from '@/lib/takeoffs/region-detect';
+import {
 	AREA_TYPE_SET,
 	type DragKind,
 	type Legend,
@@ -50,6 +57,7 @@ import {
 import LegendOverlay from './legend-overlay';
 import TextOverlay from './text-overlay';
 import type { RenderedSize } from './use-pdf-document';
+import { useRegionDetection } from './use-region-detection';
 
 const TOOL_COLORS: Record<string, string> = {
 	calibrate: '#f59e0b',
@@ -57,8 +65,16 @@ const TOOL_COLORS: Record<string, string> = {
 	rectangle: '#059669',
 	circle: '#059669',
 	polygon: '#059669',
+	auto: '#059669',
 	count: '#7c3aed',
 };
+
+// Auto-detect tool visuals: the hover highlight matches the area-tool colour
+// (red in Deduct mode).
+const AUTO_HIGHLIGHT_COLOR = '#059669';
+const AUTO_SUBTRACT_COLOR = '#dc2626';
+// Gap-closing slider granularity (mm).
+const GAP_SLIDER_STEP_MM = 50;
 
 // Handle visual radius and grab tolerance in *screen* pixels (divided by the
 // zoom scale to stay constant on screen).
@@ -92,6 +108,8 @@ interface PdfStageProps {
 	metersPerPixel: number | null;
 	newTextId: string | null;
 	numPages: number;
+	/** Commit an auto-detected region outline as a polygon measurement. */
+	onAutoDetect: (points: Point[]) => void;
 	onClearSelection: () => void;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
@@ -122,7 +140,12 @@ interface PdfStageProps {
 	selectedMarkerIndex: number | null;
 	// Burn each shape's actual measured value into a badge at its top edge.
 	showMeasurements: boolean;
+	/** Deduct mode — tints the auto-detect hover highlight red. */
+	subtractMode: boolean;
 	textAnnotations: TextAnnotation[];
+	/** Current page's PDF text boxes (base px), masked out of the auto-detect
+	 * segmentation so text never forms region boundaries. */
+	textRects: MaskRect[];
 	tool: ToolId;
 	// True while the pan is a transient hold-space pan rather than the real Pan
 	// tool. Panning behaves identically, but selection side-effects are skipped so
@@ -353,6 +376,7 @@ export default function PdfStage({
 	selectedId,
 	selectedMarkerIndex,
 	showMeasurements,
+	onAutoDetect,
 	onStageClick,
 	onStageDoubleClick,
 	onCursorMove,
@@ -361,6 +385,8 @@ export default function PdfStage({
 	onLegendRemove,
 	onPointerUp,
 	onClearSelection,
+	subtractMode,
+	textRects,
 	textAnnotations,
 	newTextId,
 	onTextChange,
@@ -383,6 +409,41 @@ export default function PdfStage({
 	// shapes from a container listener and flip the overlay to capture events (and
 	// disable panning) only while the pointer is over something selectable.
 	const [hoverSelectable, setHoverSelectable] = useState(false);
+
+	// --- Auto-detect (magic wand) tool state ---
+	// Bumped after every page render; the segmentation's sole raster-invalidation key.
+	const [renderNonce, setRenderNonce] = useState(0);
+	// Sealable doorway width in real mm: committed value (drives segmentation)
+	// and the live slider value shown while dragging.
+	const [gapCloseMm, setGapCloseMm] = useState(DEFAULT_GAP_CLOSE_MM);
+	const [gapDisplayMm, setGapDisplayMm] = useState(DEFAULT_GAP_CLOSE_MM);
+	// Outline of the region under the cursor (stable ref per region → cheap sets).
+	const [autoHover, setAutoHover] = useState<Point[] | null>(null);
+
+	// Closing RADIUS in base px: gaps narrower than 2×radius seal, so the mm
+	// value (a doorway width) converts to half its pixel size. The auto tool is
+	// calibration-gated, so metersPerPixel is set whenever it's usable.
+	const gapClosePx = useMemo(() => {
+		if (!metersPerPixel) {
+			return 0;
+		}
+		return Math.ceil(gapCloseMm / 1000 / metersPerPixel / 2);
+	}, [gapCloseMm, metersPerPixel]);
+
+	const { hoverRegion, status: regionStatus } = useRegionDetection({
+		active: tool === 'auto',
+		canvasRef,
+		gapClosePx,
+		renderNonce,
+		size,
+		textRects,
+	});
+
+	// Clear the hover highlight when the tool or raster changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: renderNonce is an intentional trigger — a page re-render invalidates the hovered outline.
+	useEffect(() => {
+		setAutoHover(null);
+	}, [tool, renderNonce]);
 
 	// Scale the page so it fully fits the viewport, and centre it.
 	const fitToWindow = useCallback(
@@ -463,6 +524,8 @@ export default function PdfStage({
 			if (active && rendered) {
 				setSize(rendered);
 				setRendering(false);
+				// The canvas raster just changed — invalidate the auto-detect segmentation.
+				setRenderNonce((nonce) => nonce + 1);
 			}
 		})();
 		return () => {
@@ -521,6 +584,8 @@ export default function PdfStage({
 		onDragStart,
 		onPointerUp,
 		onClearSelection,
+		hoverRegion,
+		onAutoDetect,
 	});
 	useEffect(() => {
 		handlersRef.current = {
@@ -537,6 +602,8 @@ export default function PdfStage({
 			onDragStart,
 			onPointerUp,
 			onClearSelection,
+			hoverRegion,
+			onAutoDetect,
 		};
 	});
 	// True between a mousedown that began a drag and the trailing synthetic
@@ -554,6 +621,10 @@ export default function PdfStage({
 			const h = handlersRef.current;
 			const point = h.toBase(event);
 			if (!point) {
+				return;
+			}
+			if (h.tool === 'auto') {
+				// No drag interactions — the region commit rides the click.
 				return;
 			}
 			let drag: DragKind | null = null;
@@ -582,6 +653,9 @@ export default function PdfStage({
 			// Pan-mode hover-selection until a refresh).
 			draggingRef.current = false;
 			const point = h.toBase(event);
+			if (h.tool === 'auto') {
+				return;
+			}
 			if (point) {
 				h.onPointerUp(point);
 			}
@@ -596,6 +670,16 @@ export default function PdfStage({
 				return;
 			}
 			const point = h.toBase(event);
+			if (h.tool === 'auto') {
+				// Commit the highlighted region as a polygon measurement.
+				if (point) {
+					const ring = h.hoverRegion(point);
+					if (ring) {
+						h.onAutoDetect(ring);
+					}
+				}
+				return;
+			}
 			if (point) {
 				h.onStageClick(point, event.shiftKey, h.scale);
 			}
@@ -609,6 +693,13 @@ export default function PdfStage({
 				return;
 			}
 			const point = h.toBase(event);
+			if (h.tool === 'auto') {
+				// Highlight the region under the cursor (a stable ring reference per
+				// region keeps the state update a no-op re-render while hovering
+				// within one region). Skips onCursorMove — no draft to track.
+				setAutoHover(point ? h.hoverRegion(point) : null);
+				return;
+			}
 			h.onCursorMove(point, event.shiftKey, h.scale);
 			// Under the Pan tool, reflect what's under the pointer (resize edges, grab
 			// handles, move bodies) by driving the cursor imperatively.
@@ -621,6 +712,7 @@ export default function PdfStage({
 		const handleLeave = () => {
 			const h = handlersRef.current;
 			h.onCursorMove(null);
+			setAutoHover(null);
 			// Only Pan drives the cursor imperatively, so only it needs resetting on
 			// leave. Clobbering it for drawing tools would override the React inline
 			// `crosshair` and never restore it (the style value is unchanged across
@@ -822,6 +914,17 @@ export default function PdfStage({
 									tool={tool}
 									vertexRadius={vertexRadius}
 								/>
+								{tool === 'auto' && autoHover && (
+									<AutoRegionHighlight
+										fontSize={fontSize}
+										metersPerPixel={metersPerPixel}
+										points={autoHover}
+										stroke={
+											subtractMode ? AUTO_SUBTRACT_COLOR : AUTO_HIGHLIGHT_COLOR
+										}
+										strokeWidth={strokeWidth}
+									/>
+								)}
 							</svg>
 						)}
 						{size &&
@@ -866,6 +969,40 @@ export default function PdfStage({
 					<span className="min-w-0 truncate">{currentPageName}</span>
 				</Badge>
 			</div>
+
+			{tool === 'auto' && (
+				<div
+					className="absolute top-2 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-md border bg-background/90 px-3 py-1.5 shadow-sm"
+					title="Wall openings (doorways) narrower than this are treated as closed, so rooms detect as whole floor areas."
+				>
+					<span className="whitespace-nowrap text-muted-foreground text-xs">
+						Close gaps up to
+					</span>
+					<Slider
+						aria-label="Sealable doorway width (mm)"
+						className="w-32"
+						max={MAX_GAP_CLOSE_MM}
+						min={0}
+						onValueChange={(value) =>
+							setGapDisplayMm(Array.isArray(value) ? value[0] : value)
+						}
+						onValueCommitted={(value) =>
+							setGapCloseMm(Array.isArray(value) ? value[0] : value)
+						}
+						step={GAP_SLIDER_STEP_MM}
+						value={gapDisplayMm}
+					/>
+					<span className="w-16 text-right text-xs tabular-nums">
+						{gapDisplayMm} mm
+					</span>
+					{regionStatus === 'segmenting' && (
+						<span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+							<Spinner className="size-3.5" />
+							Detecting…
+						</span>
+					)}
+				</div>
+			)}
 
 			{selectedName ? (
 				<div className="pointer-events-none absolute top-2 right-2 max-w-[16rem]">
@@ -1002,6 +1139,44 @@ function MeasurementBadge({
 					{line}
 				</text>
 			))}
+		</g>
+	);
+}
+
+// Translucent preview of the enclosed region under the auto-detect cursor,
+// with a live area badge at its centroid; clicking commits it as a polygon.
+function AutoRegionHighlight({
+	points,
+	stroke,
+	strokeWidth,
+	fontSize,
+	metersPerPixel,
+}: {
+	points: Point[];
+	stroke: string;
+	strokeWidth: number;
+	fontSize: number;
+	metersPerPixel: number | null;
+}) {
+	const anchor = centroid(points);
+	return (
+		<g style={{ pointerEvents: 'none' }}>
+			<polygon
+				fill={stroke}
+				fillOpacity={0.18}
+				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+				stroke={stroke}
+				strokeDasharray={`${strokeWidth * 3} ${strokeWidth * 2}`}
+				strokeWidth={strokeWidth}
+			/>
+			{metersPerPixel ? (
+				<MeasurementBadge
+					anchor={anchor}
+					color={stroke}
+					fontSize={fontSize}
+					lines={[formatSqm(polygonArea(points) * metersPerPixel ** 2)]}
+				/>
+			) : null}
 		</g>
 	);
 }
