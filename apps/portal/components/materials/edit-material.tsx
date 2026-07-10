@@ -21,7 +21,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { Check } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
 import UnitCombobox from '@/components/inclusions/unit-combobox';
-import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import VendorSelect from '@/components/inclusions/vendor-select';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -53,9 +53,7 @@ export default function EditMaterial({
 		onOpenChange?.(next);
 	};
 	const units = useQuery(api.units.list.list, {});
-	const vendors = useQuery(api.vendors.list.list, {});
 	const updateMaterial = useMutation(api.materials.update.update);
-	const addVendor = useMutation(api.vendors.add.add);
 
 	const form = useForm({
 		defaultValues: emptyMaterialFormValues,
@@ -65,11 +63,6 @@ export default function EditMaterial({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = materialFormSchema.parse(value);
-				const newVendorTrimmed = parsed.newVendorName?.trim();
-				const resolvedVendor = newVendorTrimmed || parsed.vendor.trim();
-				if (newVendorTrimmed) {
-					await addVendor({ name: newVendorTrimmed });
-				}
 				await updateMaterial({
 					materialId: material._id,
 					name: parsed.name,
@@ -77,7 +70,7 @@ export default function EditMaterial({
 					tradeId: parsed.tradeId as never,
 					unit: parsed.unit as never,
 					price: Number(parsed.price),
-					vendor: resolvedVendor,
+					vendor: parsed.vendor.trim(),
 					sku: parsed.sku?.trim() || undefined,
 					link: parsed.link?.trim() || undefined,
 				});
@@ -106,7 +99,6 @@ export default function EditMaterial({
 					unit: material.unit,
 					price: String(material.price),
 					vendor: material.vendor,
-					newVendorName: '',
 					sku: material.sku ?? '',
 					link: material.link ?? '',
 				},
@@ -277,18 +269,13 @@ export default function EditMaterial({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-										<VendorCombobox
+										<VendorSelect
+											allowCreate
 											id={field.name}
 											invalid={invalid}
 											onBlur={field.handleBlur}
-											onChange={(next) => {
-												field.handleChange(next);
-												if (next) {
-													form.setFieldValue('newVendorName', '');
-												}
-											}}
+											onValueChange={(next) => field.handleChange(next)}
 											value={field.state.value}
-											vendors={vendors}
 										/>
 										{invalid ? (
 											<FieldError>
@@ -298,29 +285,6 @@ export default function EditMaterial({
 									</Field>
 								);
 							}}
-						</form.Field>
-						<form.Field name="newVendorName">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Or add new vendor
-									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => {
-											field.handleChange(e.target.value);
-											if (e.target.value.trim()) {
-												form.setFieldValue('vendor', '');
-											}
-										}}
-										placeholder="New vendor name"
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
 						</form.Field>
 						<form.Field name="sku">
 							{(field) => (

@@ -8,27 +8,16 @@ const priceField = z
 		'Price must be a positive number'
 	);
 
-export const materialFormSchema = z
-	.object({
-		name: z.string().trim().min(1, 'Name is required'),
-		description: z.string().optional(),
-		tradeId: z.string().min(1, 'Trade is required'),
-		unit: z.string().min(1, 'Unit is required'),
-		price: priceField,
-		vendor: z.string(),
-		newVendorName: z.string().optional(),
-		sku: z.string().optional(),
-		link: z.string().optional(),
-	})
-	.superRefine((data, ctx) => {
-		if (!(data.vendor.trim() || data.newVendorName?.trim())) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: 'Vendor is required',
-				path: ['vendor'],
-			});
-		}
-	});
+export const materialFormSchema = z.object({
+	name: z.string().trim().min(1, 'Name is required'),
+	description: z.string().optional(),
+	tradeId: z.string().min(1, 'Trade is required'),
+	unit: z.string().min(1, 'Unit is required'),
+	price: priceField,
+	vendor: z.string().trim().min(1, 'Vendor is required'),
+	sku: z.string().optional(),
+	link: z.string().optional(),
+});
 
 export type MaterialFormValues = z.infer<typeof materialFormSchema>;
 
@@ -39,38 +28,26 @@ export const emptyMaterialFormValues: MaterialFormValues = {
 	unit: '',
 	price: '',
 	vendor: '',
-	newVendorName: '',
 	sku: '',
 	link: '',
 };
 
-export const materialItemDraftSchema = z
-	.object({
-		name: z.string().trim().min(1, 'Item name is required'),
-		description: z.string().optional(),
-		vendor: z.string(),
-		newVendorName: z.string().optional(),
-		unit: z.string().min(1, 'Unit is required'),
-		price: priceField,
-		quantity: z
-			.string()
-			.min(1, 'Quantity is required')
-			.refine(
-				(v) => !Number.isNaN(Number(v)) && Number(v) > 0,
-				'Quantity must be a positive number'
-			),
-		sku: z.string().optional(),
-		link: z.string().optional(),
-	})
-	.superRefine((data, ctx) => {
-		if (!(data.vendor.trim() || data.newVendorName?.trim())) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: 'Vendor is required',
-				path: ['vendor'],
-			});
-		}
-	});
+export const materialItemDraftSchema = z.object({
+	name: z.string().trim().min(1, 'Item name is required'),
+	description: z.string().optional(),
+	vendor: z.string().trim().min(1, 'Vendor is required'),
+	unit: z.string().min(1, 'Unit is required'),
+	price: priceField,
+	quantity: z
+		.string()
+		.min(1, 'Quantity is required')
+		.refine(
+			(v) => !Number.isNaN(Number(v)) && Number(v) > 0,
+			'Quantity must be a positive number'
+		),
+	sku: z.string().optional(),
+	link: z.string().optional(),
+});
 
 export type MaterialItemDraftValues = z.infer<typeof materialItemDraftSchema>;
 
@@ -78,7 +55,6 @@ export const emptyMaterialItemDraft: MaterialItemDraftValues = {
 	name: '',
 	description: '',
 	vendor: '',
-	newVendorName: '',
 	unit: '',
 	price: '',
 	quantity: '',

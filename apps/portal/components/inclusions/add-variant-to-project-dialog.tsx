@@ -35,7 +35,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
-import LocationCombobox from './location-combobox';
+import LocationSelect from './location-select';
 
 type Project = Doc<'projects'>;
 
@@ -279,13 +279,12 @@ export default function AddVariantToProjectDialog({
 						)}
 						<div className="flex w-full items-center gap-2">
 							<div className="min-w-0 flex-1">
-								<LocationCombobox
+								<LocationSelect
+									allowCreate
 									disabled={!hasUnit}
 									id="add-to-project-location"
-									locations={locations}
-									onBlur={() => undefined}
-									onChange={setSelectedLocationId}
-									value={selectedLocationId}
+									onValueChange={setSelectedLocationId}
+									value={selectedLocationId as Id<'locations'> | ''}
 								/>
 							</div>
 							<InputGroup className="w-32 shrink-0">

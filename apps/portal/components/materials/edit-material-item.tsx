@@ -19,7 +19,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import UnitCombobox from '@/components/inclusions/unit-combobox';
-import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import VendorSelect from '@/components/inclusions/vendor-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	type MaterialItemDraftValues,
@@ -39,7 +39,6 @@ export default function EditMaterialItem({
 		name: '',
 		description: '',
 		vendor: '',
-		newVendorName: '',
 		unit: '',
 		price: '',
 		quantity: '',
@@ -47,10 +46,8 @@ export default function EditMaterialItem({
 		link: '',
 	});
 
-	const vendors = useQuery(api.vendors.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const updateItem = useMutation(api.materialItems.update.update);
-	const addVendor = useMutation(api.vendors.add.add);
 
 	useEffect(() => {
 		if (open) {
@@ -58,7 +55,6 @@ export default function EditMaterialItem({
 				name: item.name,
 				description: item.description ?? '',
 				vendor: item.vendor,
-				newVendorName: '',
 				unit: item.unit,
 				price: item.price.toString(),
 				quantity: item.quantity?.toString() ?? '',
@@ -80,16 +76,11 @@ export default function EditMaterialItem({
 		}
 		try {
 			const { data } = parsed;
-			const newVendorTrimmed = data.newVendorName?.trim();
-			const resolvedVendor = newVendorTrimmed || data.vendor.trim();
-			if (newVendorTrimmed) {
-				await addVendor({ name: newVendorTrimmed });
-			}
 			await updateItem({
 				itemId: item._id,
 				name: data.name,
 				description: data.description?.trim() || undefined,
-				vendor: resolvedVendor,
+				vendor: data.vendor.trim(),
 				unit: data.unit as never,
 				price: Number(data.price),
 				quantity: Number(data.quantity),
@@ -148,36 +139,13 @@ export default function EditMaterialItem({
 					</Field>
 					<Field>
 						<FieldLabel htmlFor="edit-item-vendor">Vendor</FieldLabel>
-						<VendorCombobox
+						<VendorSelect
+							allowCreate
 							id="edit-item-vendor"
-							onBlur={() => undefined}
-							onChange={(next) => {
-								setDraft((p) => ({
-									...p,
-									vendor: next,
-									newVendorName: next ? '' : p.newVendorName,
-								}));
-							}}
+							onValueChange={(next) =>
+								setDraft((p) => ({ ...p, vendor: next }))
+							}
 							value={draft.vendor}
-							vendors={vendors}
-						/>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor="edit-item-new-vendor">
-							Or add new vendor
-						</FieldLabel>
-						<Input
-							id="edit-item-new-vendor"
-							nativeInput
-							onChange={(e) => {
-								setDraft((p) => ({
-									...p,
-									newVendorName: e.target.value,
-									vendor: e.target.value.trim() ? '' : p.vendor,
-								}));
-							}}
-							placeholder="New vendor name"
-							value={draft.newVendorName ?? ''}
 						/>
 					</Field>
 					<Field>

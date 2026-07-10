@@ -10,24 +10,13 @@ const optionalMoneyStringSchema = z
 		'Enter a valid amount (up to 2 decimals)'
 	);
 
-export const inclusionFormSchema = z
-	.object({
-		title: z.string().trim().min(1, 'Title is required'),
-		categoryId: z.string(),
-		newCategoryName: z.string().optional(),
-		standardPrice: optionalMoneyStringSchema,
-		standardLabourPrice: optionalMoneyStringSchema,
-		measurementUnit: z.string().optional(),
-	})
-	.superRefine((data, ctx) => {
-		if (!(data.newCategoryName?.trim() || data.categoryId)) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: 'Category is required',
-				path: ['categoryId'],
-			});
-		}
-	});
+export const inclusionFormSchema = z.object({
+	title: z.string().trim().min(1, 'Title is required'),
+	categoryId: z.string().min(1, 'Category is required'),
+	standardPrice: optionalMoneyStringSchema,
+	standardLabourPrice: optionalMoneyStringSchema,
+	measurementUnit: z.string().optional(),
+});
 
 export type InclusionFormValues = z.infer<typeof inclusionFormSchema>;
 
@@ -45,32 +34,20 @@ const moneyStringSchema = z
 	.min(1, 'Amount is required')
 	.regex(MONEY_PATTERN, 'Enter a valid amount (up to 2 decimals)');
 
-export const addInclusionVariantFormSchema = z
-	.object({
-		class: z.enum(inclusionVariantClasses),
-		vendor: z.string(),
-		newVendorName: z.string().optional(),
-		models: z
-			.array(z.string().trim().min(1, 'Model cannot be empty'))
-			.min(1, 'Add at least one model'),
-		color: z.string().optional(),
-		newColorName: z.string().optional(),
-		costPrice: moneyStringSchema,
-		salePrice: moneyStringSchema,
-		labourPrice: optionalMoneyStringSchema,
-		details: z.string().optional(),
-		link: z.string().optional(),
-		image: z.string().optional(),
-	})
-	.superRefine((data, ctx) => {
-		if (!(data.vendor.trim() || data.newVendorName?.trim())) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: 'Vendor is required',
-				path: ['vendor'],
-			});
-		}
-	});
+export const addInclusionVariantFormSchema = z.object({
+	class: z.enum(inclusionVariantClasses),
+	vendor: z.string().trim().min(1, 'Vendor is required'),
+	models: z
+		.array(z.string().trim().min(1, 'Model cannot be empty'))
+		.min(1, 'Add at least one model'),
+	color: z.string().optional(),
+	costPrice: moneyStringSchema,
+	salePrice: moneyStringSchema,
+	labourPrice: optionalMoneyStringSchema,
+	details: z.string().optional(),
+	link: z.string().optional(),
+	image: z.string().optional(),
+});
 
 export type AddInclusionVariantFormValues = z.infer<
 	typeof addInclusionVariantFormSchema
@@ -79,14 +56,12 @@ export type AddInclusionVariantFormValues = z.infer<
 export const emptyInclusionFormValues: {
 	title: string;
 	categoryId: string;
-	newCategoryName: string;
 	standardPrice: string;
 	standardLabourPrice: string;
 	measurementUnit: string;
 } = {
 	title: '',
 	categoryId: '',
-	newCategoryName: '',
 	standardPrice: '',
 	standardLabourPrice: '',
 	measurementUnit: '',
@@ -96,10 +71,8 @@ export const emptyAddInclusionVariantFormValues: AddInclusionVariantFormValues =
 	{
 		class: 'Standard',
 		vendor: '',
-		newVendorName: '',
 		models: [],
 		color: '',
-		newColorName: '',
 		costPrice: '',
 		salePrice: '',
 		labourPrice: '',

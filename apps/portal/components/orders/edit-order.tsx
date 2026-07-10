@@ -27,7 +27,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Check, PlusCircle, Trash2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
-import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import VendorSelect from '@/components/inclusions/vendor-select';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -51,8 +51,6 @@ export default function EditOrder({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const updateOrder = useMutation(api.projectOrders.update.update);
-	const addVendor = useMutation(api.vendors.add.add);
-	const vendors = useQuery(api.vendors.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const unitItems = useMemo(() => (units ?? []).map((u) => u.abbr), [units]);
 	const unitLabelByAbbr = useMemo(() => {
@@ -66,7 +64,6 @@ export default function EditOrder({
 	const form = useForm({
 		defaultValues: {
 			vendor: order.vendor,
-			newVendorName: '',
 			tradeId: order.tradeId as string,
 			orderBy: order.orderBy ? new Date(order.orderBy) : undefined,
 			items: order.items.map((item) => ({
@@ -86,14 +83,9 @@ export default function EditOrder({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = orderFormSchema.parse(value);
-				const newVendorTrimmed = parsed.newVendorName?.trim();
-				const resolvedVendor = newVendorTrimmed || parsed.vendor.trim();
-				if (newVendorTrimmed) {
-					await addVendor({ name: newVendorTrimmed });
-				}
 				await updateOrder({
 					orderId: order._id as Id<'projectOrders'>,
-					vendor: resolvedVendor,
+					vendor: parsed.vendor.trim(),
 					tradeId: parsed.tradeId as Id<'trades'>,
 					orderBy: parsed.orderBy?.getTime(),
 					items: parsed.items.map((item) => ({
@@ -126,7 +118,6 @@ export default function EditOrder({
 		if (open) {
 			form.reset({
 				vendor: order.vendor,
-				newVendorName: '',
 				tradeId: order.tradeId as string,
 				orderBy: order.orderBy ? new Date(order.orderBy) : undefined,
 				items: order.items.map((item) => ({
@@ -178,18 +169,13 @@ export default function EditOrder({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-										<VendorCombobox
+										<VendorSelect
+											allowCreate
 											id={field.name}
 											invalid={invalid}
 											onBlur={field.handleBlur}
-											onChange={(next) => {
-												field.handleChange(next);
-												if (next) {
-													form.setFieldValue('newVendorName', '');
-												}
-											}}
+											onValueChange={(next) => field.handleChange(next)}
 											value={field.state.value}
-											vendors={vendors}
 										/>
 										{invalid ? (
 											<FieldError>
@@ -199,29 +185,6 @@ export default function EditOrder({
 									</Field>
 								);
 							}}
-						</form.Field>
-						<form.Field name="newVendorName">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Or add new vendor
-									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => {
-											field.handleChange(e.target.value);
-											if (e.target.value.trim()) {
-												form.setFieldValue('vendor', '');
-											}
-										}}
-										placeholder="New vendor name"
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
 						</form.Field>
 						<form.Field name="tradeId">
 							{(field) => {

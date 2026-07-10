@@ -33,24 +33,13 @@ export const orderItemSchema = z.object({
 
 export type OrderItemFormValues = z.infer<typeof orderItemSchema>;
 
-export const orderFormSchema = z
-	.object({
-		vendor: z.string(),
-		newVendorName: z.string().optional(),
-		tradeId: z.string().min(1, 'Trade is required'),
-		orderBy: z.date().optional(),
-		items: z.array(orderItemSchema).min(1, 'At least one item is required'),
-		status: z.enum(['Pending', 'Ordered', 'In Transit', 'Delivered']),
-	})
-	.superRefine((data, ctx) => {
-		if (!(data.vendor.trim() || data.newVendorName?.trim())) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: 'Vendor is required',
-				path: ['vendor'],
-			});
-		}
-	});
+export const orderFormSchema = z.object({
+	vendor: z.string().trim().min(1, 'Vendor is required'),
+	tradeId: z.string().min(1, 'Trade is required'),
+	orderBy: z.date().optional(),
+	items: z.array(orderItemSchema).min(1, 'At least one item is required'),
+	status: z.enum(['Pending', 'Ordered', 'In Transit', 'Delivered']),
+});
 
 export type OrderFormValues = z.infer<typeof orderFormSchema>;
 
@@ -66,7 +55,6 @@ export const emptyOrderItem = {
 
 export const emptyOrderFormValues: OrderFormValues = {
 	vendor: '',
-	newVendorName: '',
 	tradeId: '',
 	orderBy: undefined,
 	items: [{ ...emptyOrderItem }],

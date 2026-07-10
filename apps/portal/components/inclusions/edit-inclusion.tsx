@@ -26,8 +26,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Check } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
-import InclusionCategoryCombobox from '@/components/inclusions/inclusion-category-combobox';
-import { defaultInclusionCategoryCodeFromName } from '@/components/inclusions/inclusion-category-form-shared';
+import InclusionCategorySelect from '@/components/inclusions/inclusion-category-select';
 import {
 	emptyInclusionFormValues,
 	inclusionFormFieldError,
@@ -57,10 +56,8 @@ export default function EditInclusion({
 	trigger: ReactElement;
 }) {
 	const [open, setOpen] = useState(false);
-	const categories = useQuery(api.inclusionCategories.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const updateInclusion = useMutation(api.inclusions.update.update);
-	const addCategory = useMutation(api.inclusionCategories.add.add);
 
 	const form = useForm({
 		defaultValues: emptyInclusionFormValues,
@@ -70,15 +67,8 @@ export default function EditInclusion({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = inclusionFormSchema.parse(value);
-				let resolvedCategoryId: Id<'inclusionCategories'>;
-
-				const newName = parsed.newCategoryName?.trim();
-				if (newName) {
-					const code = defaultInclusionCategoryCodeFromName(newName);
-					resolvedCategoryId = await addCategory({ name: newName, code });
-				} else {
-					resolvedCategoryId = parsed.categoryId as Id<'inclusionCategories'>;
-				}
+				const resolvedCategoryId =
+					parsed.categoryId as Id<'inclusionCategories'>;
 
 				const standardPriceStr = parsed.standardPrice?.trim();
 				const standardPrice = standardPriceStr
@@ -123,7 +113,6 @@ export default function EditInclusion({
 				{
 					categoryId: initialCategoryId,
 					title: initialTitle,
-					newCategoryName: '',
 					standardPrice:
 						initialStandardPrice !== undefined
 							? String(initialStandardPrice)
@@ -205,14 +194,16 @@ export default function EditInclusion({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Category</FieldLabel>
-										<InclusionCategoryCombobox
-											categories={categories}
+										<InclusionCategorySelect
+											allowCreate
 											id={field.name}
 											invalid={invalid}
 											onBlur={field.handleBlur}
-											onChange={(next) => field.handleChange(next)}
+											onValueChange={(next) => field.handleChange(next)}
 											placeholder="Select a category"
-											value={field.state.value}
+											value={
+												field.state.value as Id<'inclusionCategories'> | ''
+											}
 										/>
 										{invalid ? (
 											<FieldError>
@@ -222,24 +213,6 @@ export default function EditInclusion({
 									</Field>
 								);
 							}}
-						</form.Field>
-						<form.Field name="newCategoryName">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Or create new category
-									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="New category name"
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
 						</form.Field>
 						<div className="grid grid-cols-2 gap-4">
 							<form.Field name="standardPrice">
