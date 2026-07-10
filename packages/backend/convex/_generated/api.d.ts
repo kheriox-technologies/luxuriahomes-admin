@@ -66,6 +66,7 @@ import type * as dashboard_scheduleOverview from "../dashboard/scheduleOverview.
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_addMany from "../documentFolders/addMany.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
+import type * as documentFolders_lib_seedFolders from "../documentFolders/lib/seedFolders.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
 import type * as documentFolders_remove from "../documentFolders/remove.js";
 import type * as documentFolders_search from "../documentFolders/search.js";
@@ -448,6 +449,7 @@ declare const fullApi: ApiFromModules<{
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/addMany": typeof documentFolders_addMany;
   "documentFolders/get": typeof documentFolders_get;
+  "documentFolders/lib/seedFolders": typeof documentFolders_lib_seedFolders;
   "documentFolders/list": typeof documentFolders_list;
   "documentFolders/remove": typeof documentFolders_remove;
   "documentFolders/search": typeof documentFolders_search;

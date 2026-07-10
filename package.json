@@ -10,7 +10,7 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "turbo dev --filter=!mobile",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:mobile": "turbo -F mobile dev",

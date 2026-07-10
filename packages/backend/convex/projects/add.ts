@@ -1,5 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
+import { seedProjectDocumentFolders } from '../documentFolders/lib/seedFolders';
 import { buildProjectSearchText } from '../lib/buildSearchText';
 import { requireAdmin } from '../lib/checkIdentity';
 import {
@@ -40,7 +41,7 @@ export const add = mutation({
 			status: args.status,
 			clients: args.clients,
 		});
-		return await ctx.db.insert('projects', {
+		const projectId = await ctx.db.insert('projects', {
 			name: args.name,
 			address: args.address,
 			status: args.status,
@@ -51,5 +52,7 @@ export const add = mutation({
 			received: args.received,
 			searchText,
 		});
+		await seedProjectDocumentFolders(ctx, projectId);
+		return projectId;
 	},
 });

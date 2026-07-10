@@ -1,7 +1,5 @@
 import { internalMutation } from '../_generated/server';
-import { toKebabCase } from '../lib/toKebabCase';
-
-const fileExtensionPattern = /\.[^.]*$/;
+import { seedProjectDocumentFolders } from './lib/seedFolders';
 
 export const populate = internalMutation({
 	args: {},
@@ -16,37 +14,10 @@ export const populate = internalMutation({
 			};
 		}
 
-		let inserted = 0;
-		let skipped = 0;
-
 		for (const project of projects) {
-			for (const folder of folders) {
-				const slug =
-					toKebabCase(folder.name).replace(fileExtensionPattern, '') ||
-					'folder';
-
-				const existing = await ctx.db
-					.query('projectDocumentFolders')
-					.withIndex('by_project_and_path', (q) =>
-						q.eq('projectId', project._id).eq('path', slug)
-					)
-					.first();
-
-				if (existing) {
-					skipped++;
-					continue;
-				}
-
-				await ctx.db.insert('projectDocumentFolders', {
-					projectId: project._id,
-					name: folder.name,
-					path: slug,
-					parentPath: '',
-				});
-				inserted++;
-			}
+			await seedProjectDocumentFolders(ctx, project._id);
 		}
 
-		return { inserted, skipped };
+		return { populated: projects.length };
 	},
 });
