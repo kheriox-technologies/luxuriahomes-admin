@@ -230,10 +230,21 @@ export type DragKind =
 	  }
 	| { additive: boolean; mode: 'marquee'; start: Point }
 	| {
+			/**
+			 * Rectangle ids whose partial corner selection must be converted to a
+			 * polygon before the first move applies (a distorted rectangle has no
+			 * two-point representation). Cleared once the conversion runs.
+			 */
+			convert?: string[];
 			mode: 'nodes-move';
 			/** The node selection being moved (snapshotted at drag start). */
 			nodes: NodeSelection;
-			/** Original points per affected measurement, keyed by id. */
+			/**
+			 * Original points per affected measurement, keyed by id. Rectangles
+			 * store either their two stored points (all four corners selected —
+			 * pure translation) or their four derived corners (partial selection,
+			 * post-conversion polygon points).
+			 */
 			orig: ReadonlyMap<string, Point[]>;
 			start: Point;
 	  };

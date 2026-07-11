@@ -48,6 +48,7 @@ import {
 	measure,
 	randomShapeColor,
 	rectArea,
+	rectCorners,
 	resolveMpp,
 	type SnapGuide,
 	scaleToMpp,
@@ -139,22 +140,32 @@ const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 const EMPTY_NODE_SELECTION: NodeSelection = new Map();
 
-// Types whose vertices participate in the node-select tool. Rectangle and
-// circle points are structural ([anchor, opposite] / [center, edge]) so their
-// nodes can't be individually added or deleted; they stay Pan-tool-only.
+// Types whose vertices participate in the node-select tool. Rectangles join
+// via their four derived corners — any node add/delete (or distorting move)
+// converts them to a polygon. Circle points are structural ([center, edge])
+// and stay Pan-tool-only.
 const NODE_EDITABLE_TYPES = new Set<MeasurementType>([
 	'linear',
+	'rectangle',
 	'polygon',
 	'count',
 ]);
 
 // Minimum points per node-editable type; deleting nodes below the minimum
 // removes the whole measurement (standard vector-editor behaviour).
+// Rectangles are converted to polygons before the check, so they use the
+// polygon minimum.
 const MIN_POINTS: Partial<Record<MeasurementType, number>> = {
 	count: 1,
 	linear: 2,
 	polygon: 3,
 };
+
+// A shape's grabbable node positions for the node-select tool: rectangles
+// expose their four derived corners, everything else its stored points.
+function nodePoints(m: Measurement): Point[] {
+	return m.type === 'rectangle' ? rectCorners(m.points) : m.points;
+}
 
 // All ids "related" to an anchor measurement: the whole family it belongs to —
 // the parent shape, its group members, and all of its deductions. Used to
@@ -1018,6 +1029,8 @@ export default function TakeoffsContent({
 
 	// Insert a new vertex into a shape's outline (click on a segment in
 	// node-select mode) and select it so the caller can drag it immediately.
+	// Rectangles gain the vertex on their derived corner ring and become
+	// polygons (a rectangle with an extra vertex has no two-point form).
 	const insertNode = useCallback(
 		(id: string, index: number, point: Point) => {
 			pushUndo();
@@ -1026,19 +1039,48 @@ export default function TakeoffsContent({
 					if (m.id !== id) {
 						return m;
 					}
+					const source = nodePoints(m);
 					const points = [
-						...m.points.slice(0, index),
+						...source.slice(0, index),
 						point,
-						...m.points.slice(index),
+						...source.slice(index),
 					];
+					const type = m.type === 'rectangle' ? 'polygon' : m.type;
 					return {
 						...m,
+						type,
 						points,
-						...(metersPerPixel ? measure(m.type, points, metersPerPixel) : {}),
+						...(metersPerPixel ? measure(type, points, metersPerPixel) : {}),
 					};
 				})
 			);
 			setNodeSelection(new Map([[id, new Set([index])]]));
+		},
+		[metersPerPixel, pushUndo]
+	);
+
+	// Convert rectangles to polygons over their four derived corners, so a
+	// distorting node move is well-defined. One undo snapshot covers the batch.
+	const convertRectsToPolygons = useCallback(
+		(ids: readonly string[]) => {
+			pushUndo();
+			const idSet = new Set(ids);
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					if (!(idSet.has(m.id) && m.type === 'rectangle')) {
+						return m;
+					}
+					const corners = rectCorners(m.points);
+					return {
+						...m,
+						type: 'polygon',
+						points: corners,
+						...(metersPerPixel
+							? measure('polygon', corners, metersPerPixel)
+							: {}),
+					};
+				})
+			);
 		},
 		[metersPerPixel, pushUndo]
 	);
@@ -1066,8 +1108,9 @@ export default function TakeoffsContent({
 					if (m.page !== page || m.hidden || !NODE_EDITABLE_TYPES.has(m.type)) {
 						continue;
 					}
-					for (let i = 0; i < m.points.length; i++) {
-						const p = m.points[i];
+					const source = nodePoints(m);
+					for (let i = 0; i < source.length; i++) {
+						const p = source[i];
 						if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY) {
 							const set = next.get(m.id) ?? new Set<number>();
 							set.add(i);
@@ -1541,6 +1584,13 @@ export default function TakeoffsContent({
 				} else if (drag.mode === 'marquee') {
 					writeMarquee({ start: drag.start, end: point });
 				} else if (drag.mode === 'nodes-move') {
+					// A partially selected rectangle can't survive a free corner move;
+					// convert those to polygons once, on the first actual movement (a
+					// plain click-select never mutates the shape).
+					if (drag.convert?.length) {
+						convertRectsToPolygons(drag.convert);
+						drag.convert = undefined;
+					}
 					// Translate every selected node by the pointer delta. Multi-node
 					// moves skip alignment snapping (like markers).
 					const dx = point.x - drag.start.x;
@@ -1603,6 +1653,7 @@ export default function TakeoffsContent({
 			writeMarquee,
 			updateMeasurementPoints,
 			updateManyMeasurementPoints,
+			convertRectsToPolygons,
 			computeSnap,
 			measurements,
 		]
@@ -1702,6 +1753,7 @@ export default function TakeoffsContent({
 
 	// Delete every selected node (node-select tool). A shape falling below its
 	// minimum point count is removed entirely, along with its deductions.
+	// Rectangles lose corners from their derived ring and become polygons.
 	const deleteSelectedNodes = useCallback(() => {
 		if (nodeSelection.size === 0) {
 			return;
@@ -1712,23 +1764,33 @@ export default function TakeoffsContent({
 			const next: Measurement[] = [];
 			for (const m of prev) {
 				const selected = nodeSelection.get(m.id);
-				const min = MIN_POINTS[m.type];
-				if (!selected || selected.size === 0 || min === undefined) {
+				if (
+					!selected ||
+					selected.size === 0 ||
+					!NODE_EDITABLE_TYPES.has(m.type)
+				) {
 					next.push(m);
 					continue;
 				}
-				const points = m.points.filter((_, i) => !selected.has(i));
+				const type = m.type === 'rectangle' ? 'polygon' : m.type;
+				const min = MIN_POINTS[type];
+				if (min === undefined) {
+					next.push(m);
+					continue;
+				}
+				const points = nodePoints(m).filter((_, i) => !selected.has(i));
 				if (points.length < min) {
 					removedIds.add(m.id);
 					continue;
 				}
-				if (m.type === 'count') {
+				if (type === 'count') {
 					next.push({ ...m, points, count: points.length });
 				} else {
 					next.push({
 						...m,
+						type,
 						points,
-						...(metersPerPixel ? measure(m.type, points, metersPerPixel) : {}),
+						...(metersPerPixel ? measure(type, points, metersPerPixel) : {}),
 					});
 				}
 			}

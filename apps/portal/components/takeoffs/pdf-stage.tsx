@@ -83,6 +83,10 @@ const GAP_SLIDER_STEP_MM = 50;
 const HANDLE_PX = 5;
 const HANDLE_HIT_PX = 10;
 
+// A rectangle's derived corner count; a node selection covering all four
+// corners is a pure translation and keeps the shape a rectangle.
+const RECT_CORNER_COUNT = 4;
+
 // Mouse-wheel zoom tuning. The built-in react-zoom-pan-pinch wheel zoom multiplies
 // the step by the raw deltaY and applies it additively, which jumps wildly between
 // devices. Instead we do our own cursor-centred, multiplicative zoom: each event
@@ -286,13 +290,21 @@ function hitTest(
 	return null;
 }
 
-// Types whose vertices participate in the node-select tool. Rectangle and
-// circle points are structural, so their nodes stay Pan-tool-only.
+// Types whose vertices participate in the node-select tool. Rectangles join
+// via their four derived corners (edits convert them to polygons in the
+// parent). Circle points are structural, so their nodes stay Pan-tool-only.
 const NODE_EDITABLE = new Set<Measurement['type']>([
 	'linear',
+	'rectangle',
 	'polygon',
 	'count',
 ]);
+
+// A shape's grabbable node positions for the node-select tool: rectangles
+// expose their four derived corners, everything else its stored points.
+function nodePoints(m: Measurement): Point[] {
+	return m.type === 'rectangle' ? rectCorners(m.points) : m.points;
+}
 
 /**
  * Topmost node (vertex/marker) of a node-editable shape within the handle
@@ -310,8 +322,9 @@ function nodeHitTest(
 		if (!NODE_EDITABLE.has(m.type)) {
 			continue;
 		}
-		for (let k = 0; k < m.points.length; k++) {
-			if (distanceSq(point, m.points[k]) <= tolSq) {
+		const pts = nodePoints(m);
+		for (let k = 0; k < pts.length; k++) {
+			if (distanceSq(point, pts[k]) <= tolSq) {
 				return { id: m.id, index: k };
 			}
 		}
@@ -320,10 +333,11 @@ function nodeHitTest(
 }
 
 /**
- * Topmost polygon/linear segment under the pointer, for inserting a new node
- * in node-select mode. Returns the insertion index (after the segment's first
- * vertex) and the pointer's projection onto the segment. Polygons include
- * their closing segment (insertion at the end of the ring).
+ * Topmost polygon/rectangle/linear segment under the pointer, for inserting a
+ * new node in node-select mode. Returns the insertion index (after the
+ * segment's first vertex) and the pointer's projection onto the segment.
+ * Polygons and rectangle corner rings include their closing segment
+ * (insertion at the end of the ring).
  */
 function segmentHitTest(
 	point: Point,
@@ -333,11 +347,13 @@ function segmentHitTest(
 	const tolSq = (HANDLE_HIT_PX / scale) ** 2;
 	for (let i = measurements.length - 1; i >= 0; i--) {
 		const m = measurements[i];
-		if (!(m.type === 'linear' || m.type === 'polygon')) {
+		if (
+			!(m.type === 'linear' || m.type === 'polygon' || m.type === 'rectangle')
+		) {
 			continue;
 		}
-		const pts = m.points;
-		const segmentCount = m.type === 'polygon' ? pts.length : pts.length - 1;
+		const pts = nodePoints(m);
+		const segmentCount = m.type === 'linear' ? pts.length - 1 : pts.length;
 		for (let k = 0; k < segmentCount; k++) {
 			const a = pts[k];
 			const b = pts[(k + 1) % pts.length];
@@ -381,13 +397,30 @@ function nodeSelectDown(
 			? h.nodeSelection
 			: new Map([[nodeHit.id, new Set([nodeHit.index])]]);
 		const orig = new Map<string, Point[]>();
-		for (const id of nodes.keys()) {
+		const convert: string[] = [];
+		for (const [id, indices] of nodes) {
 			const m = h.measurements.find((item) => item.id === id);
-			if (m) {
+			if (!m) {
+				continue;
+			}
+			// A fully selected rectangle translates via its two stored points
+			// (indices 0/1 are within any full corner selection). A partial one
+			// must become a polygon before its corners can move freely — deferred
+			// to the first actual movement so a plain click never mutates.
+			if (m.type === 'rectangle' && indices.size < RECT_CORNER_COUNT) {
+				convert.push(id);
+				orig.set(id, rectCorners(m.points));
+			} else {
 				orig.set(id, m.points);
 			}
 		}
-		return { mode: 'nodes-move', nodes, orig, start: point };
+		return {
+			mode: 'nodes-move',
+			nodes,
+			orig,
+			start: point,
+			...(convert.length > 0 ? { convert } : {}),
+		};
 	}
 	const segmentHit = segmentHitTest(point, h.measurements, h.scale);
 	if (segmentHit) {
@@ -395,11 +428,13 @@ function nodeSelectDown(
 		if (shape) {
 			h.onNodeInsert(segmentHit.id, segmentHit.index, segmentHit.point);
 			// Drag the just-inserted vertex immediately; `orig` mirrors the
-			// insertion the parent applied, so live moves rebuild the same points.
+			// insertion the parent applied (rectangles gain the vertex on their
+			// corner ring), so live moves rebuild the same points.
+			const source = nodePoints(shape);
 			const inserted = [
-				...shape.points.slice(0, segmentHit.index),
+				...source.slice(0, segmentHit.index),
 				segmentHit.point,
-				...shape.points.slice(segmentHit.index),
+				...source.slice(segmentHit.index),
 			];
 			return {
 				mode: 'nodes-move',
@@ -1679,8 +1714,8 @@ function CommittedShape({
 					/>
 				))}
 			{nodeEditing &&
-				type === 'polygon' &&
-				points.map((p, index) => (
+				(type === 'polygon' || type === 'rectangle') &&
+				handlePoints.map((p, index) => (
 					<NodeHandle
 						color={color}
 						key={`${p.x}-${p.y}`}
