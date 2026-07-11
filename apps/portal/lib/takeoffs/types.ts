@@ -8,6 +8,7 @@ export interface Point {
 
 export type ToolId =
 	| 'pan'
+	| 'node-select'
 	| 'calibrate'
 	| 'linear'
 	| 'rectangle'
@@ -16,6 +17,9 @@ export type ToolId =
 	| 'auto'
 	| 'count'
 	| 'text';
+
+/** Selected node indices per measurement id (node-select tool). */
+export type NodeSelection = ReadonlyMap<string, ReadonlySet<number>>;
 
 export type MeasurementType =
 	| 'linear'
@@ -222,6 +226,15 @@ export type DragKind =
 			indices: number[];
 			mode: 'edge';
 			orig: Point[];
+			start: Point;
+	  }
+	| { additive: boolean; mode: 'marquee'; start: Point }
+	| {
+			mode: 'nodes-move';
+			/** The node selection being moved (snapshotted at drag start). */
+			nodes: NodeSelection;
+			/** Original points per affected measurement, keyed by id. */
+			orig: ReadonlyMap<string, Point[]>;
 			start: Point;
 	  };
 

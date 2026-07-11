@@ -23,6 +23,7 @@ import {
 import {
 	circleArea,
 	circleRadius,
+	closestPointOnSegment,
 	distanceSq,
 	distanceToSegmentSq,
 	formatLinear,
@@ -49,6 +50,7 @@ import {
 	type DragKind,
 	type Legend,
 	type Measurement,
+	type NodeSelection,
 	type Point,
 	type TakeoffGroup,
 	type TextAnnotation,
@@ -104,9 +106,13 @@ interface PdfStageProps {
 	highlightIds: ReadonlySet<string>;
 	/** Legends on the current page (one per group). */
 	legends: Legend[];
+	/** Live marquee rectangle in node-select mode (base px), else null. */
+	marquee: { end: Point; start: Point } | null;
 	measurements: Measurement[];
 	metersPerPixel: number | null;
 	newTextId: string | null;
+	/** Selected node indices per measurement (node-select tool). */
+	nodeSelection: NodeSelection;
 	numPages: number;
 	/** Commit an auto-detected region outline as a polygon measurement. */
 	onAutoDetect: (points: Point[]) => void;
@@ -118,6 +124,11 @@ interface PdfStageProps {
 		next: { width: number; x: number; y: number }
 	) => void;
 	onLegendRemove: (id: string) => void;
+	/** Insert a new vertex into a shape's outline (click on a segment in
+	 * node-select mode). */
+	onNodeInsert: (id: string, index: number, point: Point) => void;
+	/** Shift-click toggle of one node in/out of the node selection. */
+	onNodeToggle: (id: string, index: number) => void;
 	onPointerUp: (point: Point) => void;
 	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
@@ -275,6 +286,132 @@ function hitTest(
 	return null;
 }
 
+// Types whose vertices participate in the node-select tool. Rectangle and
+// circle points are structural, so their nodes stay Pan-tool-only.
+const NODE_EDITABLE = new Set<Measurement['type']>([
+	'linear',
+	'polygon',
+	'count',
+]);
+
+/**
+ * Topmost node (vertex/marker) of a node-editable shape within the handle
+ * tolerance, for the node-select tool. Separate from hitTest, which encodes
+ * Pan-tool semantics (selected-shape handles, edges, bodies).
+ */
+function nodeHitTest(
+	point: Point,
+	measurements: Measurement[],
+	scale: number
+): { id: string; index: number } | null {
+	const tolSq = (HANDLE_HIT_PX / scale) ** 2;
+	for (let i = measurements.length - 1; i >= 0; i--) {
+		const m = measurements[i];
+		if (!NODE_EDITABLE.has(m.type)) {
+			continue;
+		}
+		for (let k = 0; k < m.points.length; k++) {
+			if (distanceSq(point, m.points[k]) <= tolSq) {
+				return { id: m.id, index: k };
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Topmost polygon/linear segment under the pointer, for inserting a new node
+ * in node-select mode. Returns the insertion index (after the segment's first
+ * vertex) and the pointer's projection onto the segment. Polygons include
+ * their closing segment (insertion at the end of the ring).
+ */
+function segmentHitTest(
+	point: Point,
+	measurements: Measurement[],
+	scale: number
+): { id: string; index: number; point: Point } | null {
+	const tolSq = (HANDLE_HIT_PX / scale) ** 2;
+	for (let i = measurements.length - 1; i >= 0; i--) {
+		const m = measurements[i];
+		if (!(m.type === 'linear' || m.type === 'polygon')) {
+			continue;
+		}
+		const pts = m.points;
+		const segmentCount = m.type === 'polygon' ? pts.length : pts.length - 1;
+		for (let k = 0; k < segmentCount; k++) {
+			const a = pts[k];
+			const b = pts[(k + 1) % pts.length];
+			if (distanceToSegmentSq(point, a, b) <= tolSq) {
+				return {
+					id: m.id,
+					index: k + 1,
+					point: closestPointOnSegment(point, a, b),
+				};
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Resolve a node-select pointer-down into a drag intent: grab a node (moving
+ * the whole current selection when the node is already part of it), insert a
+ * new node on a polygon/linear segment and drag it, or start a marquee.
+ * Returns null after a shift-toggle (selection changed, no drag).
+ */
+function nodeSelectDown(
+	event: MouseEvent,
+	point: Point,
+	h: {
+		measurements: Measurement[];
+		nodeSelection: NodeSelection;
+		onNodeInsert: (id: string, index: number, point: Point) => void;
+		onNodeToggle: (id: string, index: number) => void;
+		scale: number;
+	}
+): DragKind | null {
+	const nodeHit = nodeHitTest(point, h.measurements, h.scale);
+	if (nodeHit) {
+		if (event.shiftKey) {
+			h.onNodeToggle(nodeHit.id, nodeHit.index);
+			return null;
+		}
+		const alreadySelected = h.nodeSelection.get(nodeHit.id)?.has(nodeHit.index);
+		const nodes: NodeSelection = alreadySelected
+			? h.nodeSelection
+			: new Map([[nodeHit.id, new Set([nodeHit.index])]]);
+		const orig = new Map<string, Point[]>();
+		for (const id of nodes.keys()) {
+			const m = h.measurements.find((item) => item.id === id);
+			if (m) {
+				orig.set(id, m.points);
+			}
+		}
+		return { mode: 'nodes-move', nodes, orig, start: point };
+	}
+	const segmentHit = segmentHitTest(point, h.measurements, h.scale);
+	if (segmentHit) {
+		const shape = h.measurements.find((item) => item.id === segmentHit.id);
+		if (shape) {
+			h.onNodeInsert(segmentHit.id, segmentHit.index, segmentHit.point);
+			// Drag the just-inserted vertex immediately; `orig` mirrors the
+			// insertion the parent applied, so live moves rebuild the same points.
+			const inserted = [
+				...shape.points.slice(0, segmentHit.index),
+				segmentHit.point,
+				...shape.points.slice(segmentHit.index),
+			];
+			return {
+				mode: 'nodes-move',
+				nodes: new Map([[segmentHit.id, new Set([segmentHit.index])]]),
+				orig: new Map([[segmentHit.id, inserted]]),
+				start: point,
+			};
+		}
+	}
+	return { additive: event.shiftKey, mode: 'marquee', start: point };
+}
+
 /** Whether `point` is within `tolSq` of any segment of a polyline. */
 function isOnPolyline(point: Point, pts: Point[], tolSq: number): boolean {
 	for (let i = 1; i < pts.length; i++) {
@@ -373,6 +510,10 @@ export default function PdfStage({
 	highlightIds,
 	legends,
 	groups,
+	marquee,
+	nodeSelection,
+	onNodeInsert,
+	onNodeToggle,
 	selectedId,
 	selectedMarkerIndex,
 	showMeasurements,
@@ -577,11 +718,14 @@ export default function PdfStage({
 		scale,
 		measurements,
 		selectedId,
+		nodeSelection,
 		toBase,
 		onStageClick,
 		onStageDoubleClick,
 		onCursorMove,
 		onDragStart,
+		onNodeInsert,
+		onNodeToggle,
 		onPointerUp,
 		onClearSelection,
 		hoverRegion,
@@ -595,11 +739,14 @@ export default function PdfStage({
 			scale,
 			measurements,
 			selectedId,
+			nodeSelection,
 			toBase,
 			onStageClick,
 			onStageDoubleClick,
 			onCursorMove,
 			onDragStart,
+			onNodeInsert,
+			onNodeToggle,
 			onPointerUp,
 			onClearSelection,
 			hoverRegion,
@@ -632,6 +779,13 @@ export default function PdfStage({
 				drag = { mode: 'draw-rect', start: point };
 			} else if (h.tool === 'circle') {
 				drag = { mode: 'draw-circle', start: point };
+			} else if (h.tool === 'node-select') {
+				drag = nodeSelectDown(event, point, h);
+				if (!drag) {
+					// Shift-toggle handled inside; swallow the trailing synthetic click.
+					draggingRef.current = true;
+					return;
+				}
 			} else if (h.tool === 'pan') {
 				drag = hitTest(point, h.measurements, h.selectedId, h.scale);
 			}
@@ -708,16 +862,28 @@ export default function PdfStage({
 					? selectCursor(point, h.measurements, h.selectedId, h.scale)
 					: 'default';
 			}
+			// Node-select drives its cursor the same way: move over a grabbable
+			// node, copy over an insertable segment, crosshair (marquee-ready)
+			// elsewhere.
+			if (h.tool === 'node-select' && svgRef.current) {
+				let nodeCursor = 'crosshair';
+				if (point && nodeHitTest(point, h.measurements, h.scale)) {
+					nodeCursor = 'move';
+				} else if (point && segmentHitTest(point, h.measurements, h.scale)) {
+					nodeCursor = 'copy';
+				}
+				svgRef.current.style.cursor = nodeCursor;
+			}
 		};
 		const handleLeave = () => {
 			const h = handlersRef.current;
 			h.onCursorMove(null);
 			setAutoHover(null);
-			// Only Pan drives the cursor imperatively, so only it needs resetting on
-			// leave. Clobbering it for drawing tools would override the React inline
-			// `crosshair` and never restore it (the style value is unchanged across
-			// drawing-tool switches, so React skips the DOM update).
-			if (svgRef.current && h.tool === 'pan') {
+			// Only Pan and node-select drive the cursor imperatively, so only they
+			// need resetting on leave. Clobbering it for drawing tools would override
+			// the React inline `crosshair` and never restore it (the style value is
+			// unchanged across drawing-tool switches, so React skips the DOM update).
+			if (svgRef.current && (h.tool === 'pan' || h.tool === 'node-select')) {
 				svgRef.current.style.cursor = 'default';
 			}
 		};
@@ -862,10 +1028,10 @@ export default function PdfStage({
 										isInteractive || (hoverSelectable && !transientPan)
 											? 'auto'
 											: 'none',
-									// Pan mode drives the cursor imperatively (see handleMove);
-									// leaving it unset here keeps React from resetting it per render
-									// and lets the imperative select cursor win when over a shape.
-									...(tool === 'pan'
+									// Pan and node-select drive the cursor imperatively (see
+									// handleMove); leaving it unset here keeps React from resetting
+									// it per render and lets the imperative cursor win.
+									...(tool === 'pan' || tool === 'node-select'
 										? {}
 										: { cursor: isDrawingTool ? 'crosshair' : 'default' }),
 								}}
@@ -883,10 +1049,12 @@ export default function PdfStage({
 										highlighted={highlightIds.has(m.id)}
 										key={m.id}
 										measurement={m}
+										nodeEditing={tool === 'node-select'}
 										selected={m.id === selectedId}
 										selectedMarkerIndex={
 											m.id === selectedId ? selectedMarkerIndex : null
 										}
+										selectedNodes={nodeSelection.get(m.id) ?? null}
 										strokeWidth={strokeWidth}
 										valueLines={showMeasurements ? shapeBadgeLines(m) : null}
 										vertexRadius={vertexRadius}
@@ -904,6 +1072,19 @@ export default function PdfStage({
 										y2={g.axis === 'y' ? g.value : size.height}
 									/>
 								))}
+								{marquee && (
+									<rect
+										fill="#2563eb14"
+										height={Math.abs(marquee.end.y - marquee.start.y)}
+										pointerEvents="none"
+										stroke="#2563eb"
+										strokeDasharray={`${4 / scale} ${4 / scale}`}
+										strokeWidth={1.5 / scale}
+										width={Math.abs(marquee.end.x - marquee.start.x)}
+										x={Math.min(marquee.start.x, marquee.end.x)}
+										y={Math.min(marquee.start.y, marquee.end.y)}
+									/>
+								)}
 								<DraftShape
 									cursor={cursor}
 									fontSize={fontSize}
@@ -1077,6 +1258,33 @@ function EditHandle({
 	);
 }
 
+// A vertex in node-select mode: hollow when merely grabbable, inverted (filled
+// in the shape colour) and slightly larger when part of the node selection.
+function NodeHandle({
+	pos,
+	radius,
+	strokeWidth,
+	color,
+	nodeSelected,
+}: {
+	pos: Point;
+	radius: number;
+	strokeWidth: number;
+	color: string;
+	nodeSelected: boolean;
+}) {
+	return (
+		<circle
+			cx={pos.x}
+			cy={pos.y}
+			fill={nodeSelected ? color : '#fff'}
+			r={nodeSelected ? radius * 1.25 : radius}
+			stroke={nodeSelected ? '#fff' : color}
+			strokeWidth={strokeWidth}
+		/>
+	);
+}
+
 const DEDUCTION_COLOR = '#dc2626';
 // Soft glow drawn behind a shape whenever it's selected or belongs to the
 // selected group/parent (or the active Add/Subtract target), rendered in the
@@ -1189,6 +1397,8 @@ function CommittedShape({
 	fontSize,
 	selected,
 	selectedMarkerIndex,
+	selectedNodes,
+	nodeEditing,
 	highlighted,
 	groupColor,
 	valueLines,
@@ -1200,6 +1410,11 @@ function CommittedShape({
 	fontSize: number;
 	selected: boolean;
 	selectedMarkerIndex: number | null;
+	/** Node indices selected via the node-select tool (else null). */
+	selectedNodes: ReadonlySet<number> | null;
+	/** True while the node-select tool is active — every node-editable vertex
+	 * renders as a grabbable handle, not just the selected shape's. */
+	nodeEditing: boolean;
 	highlighted: boolean;
 	groupColor?: string;
 	valueLines: string[] | null;
@@ -1245,7 +1460,9 @@ function CommittedShape({
 						vertexRadius * 1.8,
 						fontSize * 0.55 + label.length * fontSize * 0.32
 					);
-					const markerSelected = selected && index === selectedMarkerIndex;
+					const markerSelected =
+						(selected && index === selectedMarkerIndex) ||
+						(nodeEditing && Boolean(selectedNodes?.has(index)));
 					return (
 						<g key={`${p.x}-${p.y}`}>
 							{glow && (
@@ -1324,15 +1541,26 @@ function CommittedShape({
 					stroke={color}
 					strokeWidth={strokeWidth}
 				/>
-				{points.map((p) => (
-					<circle
-						cx={p.x}
-						cy={p.y}
-						fill={color}
-						key={`${p.x}-${p.y}`}
-						r={vertexRadius}
-					/>
-				))}
+				{points.map((p, index) =>
+					nodeEditing ? (
+						<NodeHandle
+							color={color}
+							key={`${p.x}-${p.y}`}
+							nodeSelected={Boolean(selectedNodes?.has(index))}
+							pos={p}
+							radius={handleRadius}
+							strokeWidth={strokeWidth}
+						/>
+					) : (
+						<circle
+							cx={p.x}
+							cy={p.y}
+							fill={color}
+							key={`${p.x}-${p.y}`}
+							r={vertexRadius}
+						/>
+					)
+				)}
 				{badge}
 			</g>
 		);
@@ -1445,6 +1673,18 @@ function CommittedShape({
 					<EditHandle
 						color={color}
 						key={`${p.x}-${p.y}`}
+						pos={p}
+						radius={handleRadius}
+						strokeWidth={strokeWidth}
+					/>
+				))}
+			{nodeEditing &&
+				type === 'polygon' &&
+				points.map((p, index) => (
+					<NodeHandle
+						color={color}
+						key={`${p.x}-${p.y}`}
+						nodeSelected={Boolean(selectedNodes?.has(index))}
 						pos={p}
 						radius={handleRadius}
 						strokeWidth={strokeWidth}
