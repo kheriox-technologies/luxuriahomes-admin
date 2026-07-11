@@ -36,6 +36,19 @@ export function distanceToSegmentSq(p: Point, a: Point, b: Point): number {
 	return distanceSq(p, { x: a.x + t * dx, y: a.y + t * dy });
 }
 
+/** Closest point on the line segment a→b to `p` (node insertion on an edge). */
+export function closestPointOnSegment(p: Point, a: Point, b: Point): Point {
+	const dx = b.x - a.x;
+	const dy = b.y - a.y;
+	const lenSq = dx * dx + dy * dy;
+	if (lenSq === 0) {
+		return { x: a.x, y: a.y };
+	}
+	let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+	t = Math.max(0, Math.min(1, t));
+	return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
 /** Total length of a polyline through the given points (pixels). */
 export function polylineLength(points: Point[]): number {
 	let total = 0;

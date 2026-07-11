@@ -20,7 +20,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { Plus } from 'lucide-react';
 import { type ReactElement, useState } from 'react';
 import UnitCombobox from '@/components/inclusions/unit-combobox';
-import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import VendorSelect from '@/components/inclusions/vendor-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyMaterialItemDraft,
@@ -40,10 +40,8 @@ export default function AddMaterialItem({
 		emptyMaterialItemDraft
 	);
 
-	const vendors = useQuery(api.vendors.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const addItem = useMutation(api.materialItems.add.add);
-	const addVendor = useMutation(api.vendors.add.add);
 
 	const handleSubmit = async () => {
 		const parsed = materialItemDraftSchema.safeParse(draft);
@@ -57,16 +55,11 @@ export default function AddMaterialItem({
 		}
 		try {
 			const { data } = parsed;
-			const newVendorTrimmed = data.newVendorName?.trim();
-			const resolvedVendor = newVendorTrimmed || data.vendor.trim();
-			if (newVendorTrimmed) {
-				await addVendor({ name: newVendorTrimmed });
-			}
 			await addItem({
 				materialId,
 				name: data.name,
 				description: data.description?.trim() || undefined,
-				vendor: resolvedVendor,
+				vendor: data.vendor.trim(),
 				unit: data.unit as never,
 				price: Number(data.price),
 				quantity: Number(data.quantity),
@@ -144,36 +137,13 @@ export default function AddMaterialItem({
 					</Field>
 					<Field>
 						<FieldLabel htmlFor="add-item-vendor">Vendor</FieldLabel>
-						<VendorCombobox
+						<VendorSelect
+							allowCreate
 							id="add-item-vendor"
-							onBlur={() => undefined}
-							onChange={(next) => {
-								setDraft((p) => ({
-									...p,
-									vendor: next,
-									newVendorName: next ? '' : p.newVendorName,
-								}));
-							}}
+							onValueChange={(next) =>
+								setDraft((p) => ({ ...p, vendor: next }))
+							}
 							value={draft.vendor}
-							vendors={vendors}
-						/>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor="add-item-new-vendor">
-							Or add new vendor
-						</FieldLabel>
-						<Input
-							id="add-item-new-vendor"
-							nativeInput
-							onChange={(e) => {
-								setDraft((p) => ({
-									...p,
-									newVendorName: e.target.value,
-									vendor: e.target.value.trim() ? '' : p.vendor,
-								}));
-							}}
-							placeholder="New vendor name"
-							value={draft.newVendorName ?? ''}
 						/>
 					</Field>
 					<Field>

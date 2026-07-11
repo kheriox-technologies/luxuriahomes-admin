@@ -3,6 +3,7 @@
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import { Slider } from '@workspace/ui/components/slider';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { cn } from '@workspace/ui/lib/utils';
 import { Maximize, Minus, Plus } from 'lucide-react';
@@ -10,6 +11,7 @@ import {
 	type ReactElement,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from 'react';
@@ -21,6 +23,7 @@ import {
 import {
 	circleArea,
 	circleRadius,
+	closestPointOnSegment,
 	distanceSq,
 	distanceToSegmentSq,
 	formatLinear,
@@ -38,10 +41,16 @@ import {
 	shapeTopCenter,
 } from '@/lib/takeoffs/geometry';
 import {
+	DEFAULT_GAP_CLOSE_MM,
+	MAX_GAP_CLOSE_MM,
+	type MaskRect,
+} from '@/lib/takeoffs/region-detect';
+import {
 	AREA_TYPE_SET,
 	type DragKind,
 	type Legend,
 	type Measurement,
+	type NodeSelection,
 	type Point,
 	type TakeoffGroup,
 	type TextAnnotation,
@@ -50,6 +59,7 @@ import {
 import LegendOverlay from './legend-overlay';
 import TextOverlay from './text-overlay';
 import type { RenderedSize } from './use-pdf-document';
+import { useRegionDetection } from './use-region-detection';
 
 const TOOL_COLORS: Record<string, string> = {
 	calibrate: '#f59e0b',
@@ -57,13 +67,36 @@ const TOOL_COLORS: Record<string, string> = {
 	rectangle: '#059669',
 	circle: '#059669',
 	polygon: '#059669',
+	auto: '#059669',
 	count: '#7c3aed',
 };
+
+// Auto-detect tool visuals: the hover highlight matches the area-tool colour
+// (red in Deduct mode).
+const AUTO_HIGHLIGHT_COLOR = '#059669';
+const AUTO_SUBTRACT_COLOR = '#dc2626';
+
+// Magic-wand cursor for the auto tool, matching the Wand2 toolbar icon (lucide
+// wand-sparkles). Two-tone — a white halo under dark strokes — so it stays
+// visible over white paper and dark linework alike. The explicit width/height
+// are required for Firefox to accept an SVG cursor image.
+const WAND_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><defs><g id="w"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></g></defs><use href="#w" stroke="#fff" stroke-width="4"/><use href="#w" stroke="#1e293b" stroke-width="2"/></svg>`;
+
+// Hotspot (21, 3) = the wand's tip (the top-right end cap of the diagonal
+// body); `crosshair` is the required fallback where SVG cursors are
+// unsupported (e.g. some Safari versions).
+const WAND_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(WAND_CURSOR_SVG)}") 21 3, crosshair`;
+// Gap-closing slider granularity (mm).
+const GAP_SLIDER_STEP_MM = 50;
 
 // Handle visual radius and grab tolerance in *screen* pixels (divided by the
 // zoom scale to stay constant on screen).
 const HANDLE_PX = 5;
 const HANDLE_HIT_PX = 10;
+
+// A rectangle's derived corner count; a node selection covering all four
+// corners is a pure translation and keeps the shape a rectangle.
+const RECT_CORNER_COUNT = 4;
 
 // Mouse-wheel zoom tuning. The built-in react-zoom-pan-pinch wheel zoom multiplies
 // the step by the raw deltaY and applies it additively, which jumps wildly between
@@ -88,10 +121,16 @@ interface PdfStageProps {
 	highlightIds: ReadonlySet<string>;
 	/** Legends on the current page (one per group). */
 	legends: Legend[];
+	/** Live marquee rectangle in node-select mode (base px), else null. */
+	marquee: { end: Point; start: Point } | null;
 	measurements: Measurement[];
 	metersPerPixel: number | null;
 	newTextId: string | null;
+	/** Selected node indices per measurement (node-select tool). */
+	nodeSelection: NodeSelection;
 	numPages: number;
+	/** Commit an auto-detected region outline as a polygon measurement. */
+	onAutoDetect: (points: Point[]) => void;
 	onClearSelection: () => void;
 	onCursorMove: (point: Point | null, snap?: boolean, scale?: number) => void;
 	onDragStart: (drag: DragKind) => void;
@@ -100,6 +139,11 @@ interface PdfStageProps {
 		next: { width: number; x: number; y: number }
 	) => void;
 	onLegendRemove: (id: string) => void;
+	/** Insert a new vertex into a shape's outline (click on a segment in
+	 * node-select mode). */
+	onNodeInsert: (id: string, index: number, point: Point) => void;
+	/** Shift-click toggle of one node in/out of the node selection. */
+	onNodeToggle: (id: string, index: number) => void;
 	onPointerUp: (point: Point) => void;
 	onStageClick: (point: Point, snap?: boolean, scale?: number) => void;
 	onStageDoubleClick: () => void;
@@ -122,7 +166,12 @@ interface PdfStageProps {
 	selectedMarkerIndex: number | null;
 	// Burn each shape's actual measured value into a badge at its top edge.
 	showMeasurements: boolean;
+	/** Deduct mode — tints the auto-detect hover highlight red. */
+	subtractMode: boolean;
 	textAnnotations: TextAnnotation[];
+	/** Current page's PDF text boxes (base px), masked out of the auto-detect
+	 * segmentation so text never forms region boundaries. */
+	textRects: MaskRect[];
 	tool: ToolId;
 	// True while the pan is a transient hold-space pan rather than the real Pan
 	// tool. Panning behaves identically, but selection side-effects are skipped so
@@ -252,6 +301,163 @@ function hitTest(
 	return null;
 }
 
+// Types whose vertices participate in the node-select tool. Rectangles join
+// via their four derived corners (edits convert them to polygons in the
+// parent). Circle points are structural, so their nodes stay Pan-tool-only.
+const NODE_EDITABLE = new Set<Measurement['type']>([
+	'linear',
+	'rectangle',
+	'polygon',
+	'count',
+]);
+
+// A shape's grabbable node positions for the node-select tool: rectangles
+// expose their four derived corners, everything else its stored points.
+function nodePoints(m: Measurement): Point[] {
+	return m.type === 'rectangle' ? rectCorners(m.points) : m.points;
+}
+
+/**
+ * Topmost node (vertex/marker) of a node-editable shape within the handle
+ * tolerance, for the node-select tool. Separate from hitTest, which encodes
+ * Pan-tool semantics (selected-shape handles, edges, bodies).
+ */
+function nodeHitTest(
+	point: Point,
+	measurements: Measurement[],
+	scale: number
+): { id: string; index: number } | null {
+	const tolSq = (HANDLE_HIT_PX / scale) ** 2;
+	for (let i = measurements.length - 1; i >= 0; i--) {
+		const m = measurements[i];
+		if (!NODE_EDITABLE.has(m.type)) {
+			continue;
+		}
+		const pts = nodePoints(m);
+		for (let k = 0; k < pts.length; k++) {
+			if (distanceSq(point, pts[k]) <= tolSq) {
+				return { id: m.id, index: k };
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Topmost polygon/rectangle/linear segment under the pointer, for inserting a
+ * new node in node-select mode. Returns the insertion index (after the
+ * segment's first vertex) and the pointer's projection onto the segment.
+ * Polygons and rectangle corner rings include their closing segment
+ * (insertion at the end of the ring).
+ */
+function segmentHitTest(
+	point: Point,
+	measurements: Measurement[],
+	scale: number
+): { id: string; index: number; point: Point } | null {
+	const tolSq = (HANDLE_HIT_PX / scale) ** 2;
+	for (let i = measurements.length - 1; i >= 0; i--) {
+		const m = measurements[i];
+		if (
+			!(m.type === 'linear' || m.type === 'polygon' || m.type === 'rectangle')
+		) {
+			continue;
+		}
+		const pts = nodePoints(m);
+		const segmentCount = m.type === 'linear' ? pts.length - 1 : pts.length;
+		for (let k = 0; k < segmentCount; k++) {
+			const a = pts[k];
+			const b = pts[(k + 1) % pts.length];
+			if (distanceToSegmentSq(point, a, b) <= tolSq) {
+				return {
+					id: m.id,
+					index: k + 1,
+					point: closestPointOnSegment(point, a, b),
+				};
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Resolve a node-select pointer-down into a drag intent: grab a node (moving
+ * the whole current selection when the node is already part of it), insert a
+ * new node on a polygon/linear segment and drag it, or start a marquee.
+ * Returns null after a shift-toggle (selection changed, no drag).
+ */
+function nodeSelectDown(
+	event: MouseEvent,
+	point: Point,
+	h: {
+		measurements: Measurement[];
+		nodeSelection: NodeSelection;
+		onNodeInsert: (id: string, index: number, point: Point) => void;
+		onNodeToggle: (id: string, index: number) => void;
+		scale: number;
+	}
+): DragKind | null {
+	const nodeHit = nodeHitTest(point, h.measurements, h.scale);
+	if (nodeHit) {
+		if (event.shiftKey) {
+			h.onNodeToggle(nodeHit.id, nodeHit.index);
+			return null;
+		}
+		const alreadySelected = h.nodeSelection.get(nodeHit.id)?.has(nodeHit.index);
+		const nodes: NodeSelection = alreadySelected
+			? h.nodeSelection
+			: new Map([[nodeHit.id, new Set([nodeHit.index])]]);
+		const orig = new Map<string, Point[]>();
+		const convert: string[] = [];
+		for (const [id, indices] of nodes) {
+			const m = h.measurements.find((item) => item.id === id);
+			if (!m) {
+				continue;
+			}
+			// A fully selected rectangle translates via its two stored points
+			// (indices 0/1 are within any full corner selection). A partial one
+			// must become a polygon before its corners can move freely — deferred
+			// to the first actual movement so a plain click never mutates.
+			if (m.type === 'rectangle' && indices.size < RECT_CORNER_COUNT) {
+				convert.push(id);
+				orig.set(id, rectCorners(m.points));
+			} else {
+				orig.set(id, m.points);
+			}
+		}
+		return {
+			mode: 'nodes-move',
+			nodes,
+			orig,
+			start: point,
+			...(convert.length > 0 ? { convert } : {}),
+		};
+	}
+	const segmentHit = segmentHitTest(point, h.measurements, h.scale);
+	if (segmentHit) {
+		const shape = h.measurements.find((item) => item.id === segmentHit.id);
+		if (shape) {
+			h.onNodeInsert(segmentHit.id, segmentHit.index, segmentHit.point);
+			// Drag the just-inserted vertex immediately; `orig` mirrors the
+			// insertion the parent applied (rectangles gain the vertex on their
+			// corner ring), so live moves rebuild the same points.
+			const source = nodePoints(shape);
+			const inserted = [
+				...source.slice(0, segmentHit.index),
+				segmentHit.point,
+				...source.slice(segmentHit.index),
+			];
+			return {
+				mode: 'nodes-move',
+				nodes: new Map([[segmentHit.id, new Set([segmentHit.index])]]),
+				orig: new Map([[segmentHit.id, inserted]]),
+				start: point,
+			};
+		}
+	}
+	return { additive: event.shiftKey, mode: 'marquee', start: point };
+}
+
 /** Whether `point` is within `tolSq` of any segment of a polyline. */
 function isOnPolyline(point: Point, pts: Point[], tolSq: number): boolean {
 	for (let i = 1; i < pts.length; i++) {
@@ -350,9 +556,14 @@ export default function PdfStage({
 	highlightIds,
 	legends,
 	groups,
+	marquee,
+	nodeSelection,
+	onNodeInsert,
+	onNodeToggle,
 	selectedId,
 	selectedMarkerIndex,
 	showMeasurements,
+	onAutoDetect,
 	onStageClick,
 	onStageDoubleClick,
 	onCursorMove,
@@ -361,6 +572,8 @@ export default function PdfStage({
 	onLegendRemove,
 	onPointerUp,
 	onClearSelection,
+	subtractMode,
+	textRects,
 	textAnnotations,
 	newTextId,
 	onTextChange,
@@ -383,6 +596,41 @@ export default function PdfStage({
 	// shapes from a container listener and flip the overlay to capture events (and
 	// disable panning) only while the pointer is over something selectable.
 	const [hoverSelectable, setHoverSelectable] = useState(false);
+
+	// --- Auto-detect (magic wand) tool state ---
+	// Bumped after every page render; the segmentation's sole raster-invalidation key.
+	const [renderNonce, setRenderNonce] = useState(0);
+	// Sealable doorway width in real mm: committed value (drives segmentation)
+	// and the live slider value shown while dragging.
+	const [gapCloseMm, setGapCloseMm] = useState(DEFAULT_GAP_CLOSE_MM);
+	const [gapDisplayMm, setGapDisplayMm] = useState(DEFAULT_GAP_CLOSE_MM);
+	// Outline of the region under the cursor (stable ref per region → cheap sets).
+	const [autoHover, setAutoHover] = useState<Point[] | null>(null);
+
+	// Closing RADIUS in base px: gaps narrower than 2×radius seal, so the mm
+	// value (a doorway width) converts to half its pixel size. The auto tool is
+	// calibration-gated, so metersPerPixel is set whenever it's usable.
+	const gapClosePx = useMemo(() => {
+		if (!metersPerPixel) {
+			return 0;
+		}
+		return Math.ceil(gapCloseMm / 1000 / metersPerPixel / 2);
+	}, [gapCloseMm, metersPerPixel]);
+
+	const { hoverRegion, status: regionStatus } = useRegionDetection({
+		active: tool === 'auto',
+		canvasRef,
+		gapClosePx,
+		renderNonce,
+		size,
+		textRects,
+	});
+
+	// Clear the hover highlight when the tool or raster changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: renderNonce is an intentional trigger — a page re-render invalidates the hovered outline.
+	useEffect(() => {
+		setAutoHover(null);
+	}, [tool, renderNonce]);
 
 	// Scale the page so it fully fits the viewport, and centre it.
 	const fitToWindow = useCallback(
@@ -463,6 +711,8 @@ export default function PdfStage({
 			if (active && rendered) {
 				setSize(rendered);
 				setRendering(false);
+				// The canvas raster just changed — invalidate the auto-detect segmentation.
+				setRenderNonce((nonce) => nonce + 1);
 			}
 		})();
 		return () => {
@@ -485,6 +735,13 @@ export default function PdfStage({
 	// committed shapes directly (see hover detection below).
 	const isInteractive = tool !== 'pan';
 	const isDrawingTool = isInteractive;
+	// Auto shows the magic-wand cursor; every other drawing tool a crosshair.
+	let overlayCursor = 'default';
+	if (tool === 'auto') {
+		overlayCursor = WAND_CURSOR;
+	} else if (isDrawingTool) {
+		overlayCursor = 'crosshair';
+	}
 	const stroke = TOOL_COLORS[tool] ?? '#2563eb';
 	// Stable colour per Add group so all its members read as one combined shape.
 	const groupColors = groupColorMap(measurements);
@@ -514,13 +771,18 @@ export default function PdfStage({
 		scale,
 		measurements,
 		selectedId,
+		nodeSelection,
 		toBase,
 		onStageClick,
 		onStageDoubleClick,
 		onCursorMove,
 		onDragStart,
+		onNodeInsert,
+		onNodeToggle,
 		onPointerUp,
 		onClearSelection,
+		hoverRegion,
+		onAutoDetect,
 	});
 	useEffect(() => {
 		handlersRef.current = {
@@ -530,13 +792,18 @@ export default function PdfStage({
 			scale,
 			measurements,
 			selectedId,
+			nodeSelection,
 			toBase,
 			onStageClick,
 			onStageDoubleClick,
 			onCursorMove,
 			onDragStart,
+			onNodeInsert,
+			onNodeToggle,
 			onPointerUp,
 			onClearSelection,
+			hoverRegion,
+			onAutoDetect,
 		};
 	});
 	// True between a mousedown that began a drag and the trailing synthetic
@@ -556,11 +823,22 @@ export default function PdfStage({
 			if (!point) {
 				return;
 			}
+			if (h.tool === 'auto') {
+				// No drag interactions — the region commit rides the click.
+				return;
+			}
 			let drag: DragKind | null = null;
 			if (h.tool === 'rectangle') {
 				drag = { mode: 'draw-rect', start: point };
 			} else if (h.tool === 'circle') {
 				drag = { mode: 'draw-circle', start: point };
+			} else if (h.tool === 'node-select') {
+				drag = nodeSelectDown(event, point, h);
+				if (!drag) {
+					// Shift-toggle handled inside; swallow the trailing synthetic click.
+					draggingRef.current = true;
+					return;
+				}
 			} else if (h.tool === 'pan') {
 				drag = hitTest(point, h.measurements, h.selectedId, h.scale);
 			}
@@ -582,6 +860,9 @@ export default function PdfStage({
 			// Pan-mode hover-selection until a refresh).
 			draggingRef.current = false;
 			const point = h.toBase(event);
+			if (h.tool === 'auto') {
+				return;
+			}
 			if (point) {
 				h.onPointerUp(point);
 			}
@@ -596,6 +877,16 @@ export default function PdfStage({
 				return;
 			}
 			const point = h.toBase(event);
+			if (h.tool === 'auto') {
+				// Commit the highlighted region as a polygon measurement.
+				if (point) {
+					const ring = h.hoverRegion(point);
+					if (ring) {
+						h.onAutoDetect(ring);
+					}
+				}
+				return;
+			}
 			if (point) {
 				h.onStageClick(point, event.shiftKey, h.scale);
 			}
@@ -609,6 +900,13 @@ export default function PdfStage({
 				return;
 			}
 			const point = h.toBase(event);
+			if (h.tool === 'auto') {
+				// Highlight the region under the cursor (a stable ring reference per
+				// region keeps the state update a no-op re-render while hovering
+				// within one region). Skips onCursorMove — no draft to track.
+				setAutoHover(point ? h.hoverRegion(point) : null);
+				return;
+			}
 			h.onCursorMove(point, event.shiftKey, h.scale);
 			// Under the Pan tool, reflect what's under the pointer (resize edges, grab
 			// handles, move bodies) by driving the cursor imperatively.
@@ -617,15 +915,28 @@ export default function PdfStage({
 					? selectCursor(point, h.measurements, h.selectedId, h.scale)
 					: 'default';
 			}
+			// Node-select drives its cursor the same way: move over a grabbable
+			// node, copy over an insertable segment, crosshair (marquee-ready)
+			// elsewhere.
+			if (h.tool === 'node-select' && svgRef.current) {
+				let nodeCursor = 'crosshair';
+				if (point && nodeHitTest(point, h.measurements, h.scale)) {
+					nodeCursor = 'move';
+				} else if (point && segmentHitTest(point, h.measurements, h.scale)) {
+					nodeCursor = 'copy';
+				}
+				svgRef.current.style.cursor = nodeCursor;
+			}
 		};
 		const handleLeave = () => {
 			const h = handlersRef.current;
 			h.onCursorMove(null);
-			// Only Pan drives the cursor imperatively, so only it needs resetting on
-			// leave. Clobbering it for drawing tools would override the React inline
-			// `crosshair` and never restore it (the style value is unchanged across
-			// drawing-tool switches, so React skips the DOM update).
-			if (svgRef.current && h.tool === 'pan') {
+			setAutoHover(null);
+			// Only Pan and node-select drive the cursor imperatively, so only they
+			// need resetting on leave. Clobbering it for drawing tools would override
+			// the React inline `crosshair` and never restore it (the style value is
+			// unchanged across drawing-tool switches, so React skips the DOM update).
+			if (svgRef.current && (h.tool === 'pan' || h.tool === 'node-select')) {
 				svgRef.current.style.cursor = 'default';
 			}
 		};
@@ -770,12 +1081,12 @@ export default function PdfStage({
 										isInteractive || (hoverSelectable && !transientPan)
 											? 'auto'
 											: 'none',
-									// Pan mode drives the cursor imperatively (see handleMove);
-									// leaving it unset here keeps React from resetting it per render
-									// and lets the imperative select cursor win when over a shape.
-									...(tool === 'pan'
+									// Pan and node-select drive the cursor imperatively (see
+									// handleMove); leaving it unset here keeps React from resetting
+									// it per render and lets the imperative cursor win.
+									...(tool === 'pan' || tool === 'node-select'
 										? {}
-										: { cursor: isDrawingTool ? 'crosshair' : 'default' }),
+										: { cursor: overlayCursor }),
 								}}
 								viewBox={`0 0 ${size.width} ${size.height}`}
 								width={size.width}
@@ -791,10 +1102,12 @@ export default function PdfStage({
 										highlighted={highlightIds.has(m.id)}
 										key={m.id}
 										measurement={m}
+										nodeEditing={tool === 'node-select'}
 										selected={m.id === selectedId}
 										selectedMarkerIndex={
 											m.id === selectedId ? selectedMarkerIndex : null
 										}
+										selectedNodes={nodeSelection.get(m.id) ?? null}
 										strokeWidth={strokeWidth}
 										valueLines={showMeasurements ? shapeBadgeLines(m) : null}
 										vertexRadius={vertexRadius}
@@ -812,6 +1125,19 @@ export default function PdfStage({
 										y2={g.axis === 'y' ? g.value : size.height}
 									/>
 								))}
+								{marquee && (
+									<rect
+										fill="#2563eb14"
+										height={Math.abs(marquee.end.y - marquee.start.y)}
+										pointerEvents="none"
+										stroke="#2563eb"
+										strokeDasharray={`${4 / scale} ${4 / scale}`}
+										strokeWidth={1.5 / scale}
+										width={Math.abs(marquee.end.x - marquee.start.x)}
+										x={Math.min(marquee.start.x, marquee.end.x)}
+										y={Math.min(marquee.start.y, marquee.end.y)}
+									/>
+								)}
 								<DraftShape
 									cursor={cursor}
 									fontSize={fontSize}
@@ -822,6 +1148,17 @@ export default function PdfStage({
 									tool={tool}
 									vertexRadius={vertexRadius}
 								/>
+								{tool === 'auto' && autoHover && (
+									<AutoRegionHighlight
+										fontSize={fontSize}
+										metersPerPixel={metersPerPixel}
+										points={autoHover}
+										stroke={
+											subtractMode ? AUTO_SUBTRACT_COLOR : AUTO_HIGHLIGHT_COLOR
+										}
+										strokeWidth={strokeWidth}
+									/>
+								)}
 							</svg>
 						)}
 						{size &&
@@ -866,6 +1203,40 @@ export default function PdfStage({
 					<span className="min-w-0 truncate">{currentPageName}</span>
 				</Badge>
 			</div>
+
+			{tool === 'auto' && (
+				<div
+					className="absolute top-2 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-md border bg-background/90 px-3 py-1.5 shadow-sm"
+					title="Wall openings (doorways) narrower than this are treated as closed, so rooms detect as whole floor areas."
+				>
+					<span className="whitespace-nowrap text-muted-foreground text-xs">
+						Close gaps up to
+					</span>
+					<Slider
+						aria-label="Sealable doorway width (mm)"
+						className="w-32"
+						max={MAX_GAP_CLOSE_MM}
+						min={0}
+						onValueChange={(value) =>
+							setGapDisplayMm(Array.isArray(value) ? value[0] : value)
+						}
+						onValueCommitted={(value) =>
+							setGapCloseMm(Array.isArray(value) ? value[0] : value)
+						}
+						step={GAP_SLIDER_STEP_MM}
+						value={gapDisplayMm}
+					/>
+					<span className="w-16 text-right text-xs tabular-nums">
+						{gapDisplayMm} mm
+					</span>
+					{regionStatus === 'segmenting' && (
+						<span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+							<Spinner className="size-3.5" />
+							Detecting…
+						</span>
+					)}
+				</div>
+			)}
 
 			{selectedName ? (
 				<div className="pointer-events-none absolute top-2 right-2 max-w-[16rem]">
@@ -940,6 +1311,33 @@ function EditHandle({
 	);
 }
 
+// A vertex in node-select mode: hollow when merely grabbable, inverted (filled
+// in the shape colour) and slightly larger when part of the node selection.
+function NodeHandle({
+	pos,
+	radius,
+	strokeWidth,
+	color,
+	nodeSelected,
+}: {
+	pos: Point;
+	radius: number;
+	strokeWidth: number;
+	color: string;
+	nodeSelected: boolean;
+}) {
+	return (
+		<circle
+			cx={pos.x}
+			cy={pos.y}
+			fill={nodeSelected ? color : '#fff'}
+			r={nodeSelected ? radius * 1.25 : radius}
+			stroke={nodeSelected ? '#fff' : color}
+			strokeWidth={strokeWidth}
+		/>
+	);
+}
+
 const DEDUCTION_COLOR = '#dc2626';
 // Soft glow drawn behind a shape whenever it's selected or belongs to the
 // selected group/parent (or the active Add/Subtract target), rendered in the
@@ -1006,6 +1404,44 @@ function MeasurementBadge({
 	);
 }
 
+// Translucent preview of the enclosed region under the auto-detect cursor,
+// with a live area badge at its centroid; clicking commits it as a polygon.
+function AutoRegionHighlight({
+	points,
+	stroke,
+	strokeWidth,
+	fontSize,
+	metersPerPixel,
+}: {
+	points: Point[];
+	stroke: string;
+	strokeWidth: number;
+	fontSize: number;
+	metersPerPixel: number | null;
+}) {
+	const anchor = centroid(points);
+	return (
+		<g style={{ pointerEvents: 'none' }}>
+			<polygon
+				fill={stroke}
+				fillOpacity={0.18}
+				points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+				stroke={stroke}
+				strokeDasharray={`${strokeWidth * 3} ${strokeWidth * 2}`}
+				strokeWidth={strokeWidth}
+			/>
+			{metersPerPixel ? (
+				<MeasurementBadge
+					anchor={anchor}
+					color={stroke}
+					fontSize={fontSize}
+					lines={[formatSqm(polygonArea(points) * metersPerPixel ** 2)]}
+				/>
+			) : null}
+		</g>
+	);
+}
+
 function CommittedShape({
 	measurement,
 	strokeWidth,
@@ -1014,6 +1450,8 @@ function CommittedShape({
 	fontSize,
 	selected,
 	selectedMarkerIndex,
+	selectedNodes,
+	nodeEditing,
 	highlighted,
 	groupColor,
 	valueLines,
@@ -1025,6 +1463,11 @@ function CommittedShape({
 	fontSize: number;
 	selected: boolean;
 	selectedMarkerIndex: number | null;
+	/** Node indices selected via the node-select tool (else null). */
+	selectedNodes: ReadonlySet<number> | null;
+	/** True while the node-select tool is active — every node-editable vertex
+	 * renders as a grabbable handle, not just the selected shape's. */
+	nodeEditing: boolean;
 	highlighted: boolean;
 	groupColor?: string;
 	valueLines: string[] | null;
@@ -1070,7 +1513,9 @@ function CommittedShape({
 						vertexRadius * 1.8,
 						fontSize * 0.55 + label.length * fontSize * 0.32
 					);
-					const markerSelected = selected && index === selectedMarkerIndex;
+					const markerSelected =
+						(selected && index === selectedMarkerIndex) ||
+						(nodeEditing && Boolean(selectedNodes?.has(index)));
 					return (
 						<g key={`${p.x}-${p.y}`}>
 							{glow && (
@@ -1149,15 +1594,26 @@ function CommittedShape({
 					stroke={color}
 					strokeWidth={strokeWidth}
 				/>
-				{points.map((p) => (
-					<circle
-						cx={p.x}
-						cy={p.y}
-						fill={color}
-						key={`${p.x}-${p.y}`}
-						r={vertexRadius}
-					/>
-				))}
+				{points.map((p, index) =>
+					nodeEditing ? (
+						<NodeHandle
+							color={color}
+							key={`${p.x}-${p.y}`}
+							nodeSelected={Boolean(selectedNodes?.has(index))}
+							pos={p}
+							radius={handleRadius}
+							strokeWidth={strokeWidth}
+						/>
+					) : (
+						<circle
+							cx={p.x}
+							cy={p.y}
+							fill={color}
+							key={`${p.x}-${p.y}`}
+							r={vertexRadius}
+						/>
+					)
+				)}
 				{badge}
 			</g>
 		);
@@ -1270,6 +1726,18 @@ function CommittedShape({
 					<EditHandle
 						color={color}
 						key={`${p.x}-${p.y}`}
+						pos={p}
+						radius={handleRadius}
+						strokeWidth={strokeWidth}
+					/>
+				))}
+			{nodeEditing &&
+				(type === 'polygon' || type === 'rectangle') &&
+				handlePoints.map((p, index) => (
+					<NodeHandle
+						color={color}
+						key={`${p.x}-${p.y}`}
+						nodeSelected={Boolean(selectedNodes?.has(index))}
 						pos={p}
 						radius={handleRadius}
 						strokeWidth={strokeWidth}

@@ -28,7 +28,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import { Plus, PlusCircle, Trash2 } from 'lucide-react';
 import { type ReactElement, useMemo, useState } from 'react';
-import VendorCombobox from '@/components/inclusions/vendor-combobox';
+import VendorSelect from '@/components/inclusions/vendor-select';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -51,8 +51,6 @@ export default function AddOrder({
 }) {
 	const [open, setOpen] = useState(false);
 	const addOrder = useMutation(api.projectOrders.add.add);
-	const addVendor = useMutation(api.vendors.add.add);
-	const vendors = useQuery(api.vendors.list.list, {});
 	const units = useQuery(api.units.list.list, {});
 	const unitItems = useMemo(() => (units ?? []).map((u) => u.abbr), [units]);
 	const unitLabelByAbbr = useMemo(() => {
@@ -71,14 +69,9 @@ export default function AddOrder({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = orderFormSchema.parse(value);
-				const newVendorTrimmed = parsed.newVendorName?.trim();
-				const resolvedVendor = newVendorTrimmed || parsed.vendor.trim();
-				if (newVendorTrimmed) {
-					await addVendor({ name: newVendorTrimmed });
-				}
 				await addOrder({
 					projectId,
-					vendor: resolvedVendor,
+					vendor: parsed.vendor.trim(),
 					tradeId: parsed.tradeId as Id<'trades'>,
 					orderBy: parsed.orderBy?.getTime(),
 					items: parsed.items.map((item) => ({
@@ -152,18 +145,13 @@ export default function AddOrder({
 								return (
 									<Field data-invalid={invalid}>
 										<FieldLabel htmlFor={field.name}>Vendor</FieldLabel>
-										<VendorCombobox
+										<VendorSelect
+											allowCreate
 											id={field.name}
 											invalid={invalid}
 											onBlur={field.handleBlur}
-											onChange={(next) => {
-												field.handleChange(next);
-												if (next) {
-													form.setFieldValue('newVendorName', '');
-												}
-											}}
+											onValueChange={(next) => field.handleChange(next)}
 											value={field.state.value}
-											vendors={vendors}
 										/>
 										{invalid ? (
 											<FieldError>
@@ -173,29 +161,6 @@ export default function AddOrder({
 									</Field>
 								);
 							}}
-						</form.Field>
-						<form.Field name="newVendorName">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Or add new vendor
-									</FieldLabel>
-									<Input
-										id={field.name}
-										name={field.name}
-										nativeInput
-										onBlur={field.handleBlur}
-										onChange={(e) => {
-											field.handleChange(e.target.value);
-											if (e.target.value.trim()) {
-												form.setFieldValue('vendor', '');
-											}
-										}}
-										placeholder="New vendor name"
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
 						</form.Field>
 						<form.Field name="tradeId">
 							{(field) => {

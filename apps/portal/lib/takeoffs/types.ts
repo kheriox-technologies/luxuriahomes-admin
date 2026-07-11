@@ -8,13 +8,18 @@ export interface Point {
 
 export type ToolId =
 	| 'pan'
+	| 'node-select'
 	| 'calibrate'
 	| 'linear'
 	| 'rectangle'
 	| 'circle'
 	| 'polygon'
+	| 'auto'
 	| 'count'
 	| 'text';
+
+/** Selected node indices per measurement id (node-select tool). */
+export type NodeSelection = ReadonlyMap<string, ReadonlySet<number>>;
 
 export type MeasurementType =
 	| 'linear'
@@ -221,6 +226,26 @@ export type DragKind =
 			indices: number[];
 			mode: 'edge';
 			orig: Point[];
+			start: Point;
+	  }
+	| { additive: boolean; mode: 'marquee'; start: Point }
+	| {
+			/**
+			 * Rectangle ids whose partial corner selection must be converted to a
+			 * polygon before the first move applies (a distorted rectangle has no
+			 * two-point representation). Cleared once the conversion runs.
+			 */
+			convert?: string[];
+			mode: 'nodes-move';
+			/** The node selection being moved (snapshotted at drag start). */
+			nodes: NodeSelection;
+			/**
+			 * Original points per affected measurement, keyed by id. Rectangles
+			 * store either their two stored points (all four corners selected —
+			 * pure translation) or their four derived corners (partial selection,
+			 * post-conversion polygon points).
+			 */
+			orig: ReadonlyMap<string, Point[]>;
 			start: Point;
 	  };
 

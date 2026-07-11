@@ -24,7 +24,9 @@ import {
 	Pentagon,
 	Ruler,
 	Square,
+	SquareDashedMousePointer,
 	Type,
+	Wand2,
 	X,
 } from 'lucide-react';
 import {
@@ -46,6 +48,7 @@ import {
 	measure,
 	randomShapeColor,
 	rectArea,
+	rectCorners,
 	resolveMpp,
 	type SnapGuide,
 	scaleToMpp,
@@ -62,6 +65,7 @@ import type {
 	MeasurementMethod,
 	MeasurementType,
 	MethodScope,
+	NodeSelection,
 	PageGeometry,
 	Point,
 	ScaleSetting,
@@ -118,10 +122,50 @@ const DRAWING_TOOLS = new Set<ToolId>([
 	'rectangle',
 	'circle',
 	'polygon',
+	'auto',
 	'count',
 ]);
 
+// Tools that produce area-like shapes (and so combine with Deduct mode). The
+// auto tool commits polygons, so it belongs here despite not being a
+// MeasurementType itself.
+const AREA_CAPABLE_TOOLS = new Set<ToolId>([
+	'rectangle',
+	'circle',
+	'polygon',
+	'auto',
+]);
+
 const EMPTY_IDS: ReadonlySet<string> = new Set();
+
+const EMPTY_NODE_SELECTION: NodeSelection = new Map();
+
+// Types whose vertices participate in the node-select tool. Rectangles join
+// via their four derived corners — any node add/delete (or distorting move)
+// converts them to a polygon. Circle points are structural ([center, edge])
+// and stay Pan-tool-only.
+const NODE_EDITABLE_TYPES = new Set<MeasurementType>([
+	'linear',
+	'rectangle',
+	'polygon',
+	'count',
+]);
+
+// Minimum points per node-editable type; deleting nodes below the minimum
+// removes the whole measurement (standard vector-editor behaviour).
+// Rectangles are converted to polygons before the check, so they use the
+// polygon minimum.
+const MIN_POINTS: Partial<Record<MeasurementType, number>> = {
+	count: 1,
+	linear: 2,
+	polygon: 3,
+};
+
+// A shape's grabbable node positions for the node-select tool: rectangles
+// expose their four derived corners, everything else its stored points.
+function nodePoints(m: Measurement): Point[] {
+	return m.type === 'rectangle' ? rectCorners(m.points) : m.points;
+}
 
 // All ids "related" to an anchor measurement: the whole family it belongs to —
 // the parent shape, its group members, and all of its deductions. Used to
@@ -170,10 +214,17 @@ interface ToolDef {
 
 const TOOLS: ToolDef[] = [
 	{ id: 'pan', label: 'Pan', icon: Hand },
+	{
+		id: 'node-select',
+		label: 'Nodes',
+		icon: SquareDashedMousePointer,
+		needsCalibration: true,
+	},
 	{ id: 'linear', label: 'Linear', icon: Ruler, needsCalibration: true },
 	{ id: 'rectangle', label: 'Rectangle', icon: Square, needsCalibration: true },
 	{ id: 'circle', label: 'Circle', icon: Circle, needsCalibration: true },
 	{ id: 'polygon', label: 'Polygon', icon: Pentagon, needsCalibration: true },
+	{ id: 'auto', label: 'Auto', icon: Wand2, needsCalibration: true },
 	{ id: 'count', label: 'Count', icon: Hash },
 	{ id: 'text', label: 'Text', icon: Type },
 ];
@@ -183,7 +234,7 @@ function getSubtractTitle(isCalibrated: boolean, canDeduct: boolean): string {
 		return 'Calibrate this page first';
 	}
 	if (!canDeduct) {
-		return 'Pick an area tool (rectangle, circle, or polygon) to draw a deduction';
+		return 'Pick an area tool (rectangle, circle, polygon, or auto) to draw a deduction';
 	}
 	return 'Draw inside an existing area shape to deduct it from that shape';
 }
@@ -290,6 +341,9 @@ export default function TakeoffsContent({
 	// PDF text boxes per page (base-pixel space), prefetched so commit() can read
 	// them synchronously to auto-name area shapes.
 	const pageTextRef = useRef<Map<number, TextBox[]>>(new Map());
+	// The current page's text boxes as state, for the auto-detect tool's text
+	// masking (a ref can't retrigger its segmentation when the text layer loads).
+	const [pageTextBoxes, setPageTextBoxes] = useState<TextBox[]>([]);
 	// PDF-wide default measurement method (scale or calibration), plus optional
 	// per-page overrides. Defaults to a 1:100 A3 drawing scale so tools work
 	// immediately.
@@ -336,6 +390,24 @@ export default function TakeoffsContent({
 		setSelectedId(null);
 		setSelectedMarkerIndex(null);
 	}, []);
+	// Node-select tool: selected vertices per measurement (page-scoped,
+	// transient — never persisted).
+	const [nodeSelection, setNodeSelection] =
+		useState<NodeSelection>(EMPTY_NODE_SELECTION);
+	// Live marquee rectangle while dragging in node-select mode (base px). The
+	// ref mirrors the state so pointer-up can read it without a stale closure
+	// (same pattern as draftRef).
+	const [marquee, setMarquee] = useState<{ end: Point; start: Point } | null>(
+		null
+	);
+	const marqueeRef = useRef<{ end: Point; start: Point } | null>(null);
+	const writeMarquee = useCallback(
+		(next: { end: Point; start: Point } | null) => {
+			marqueeRef.current = next;
+			setMarquee(next);
+		},
+		[]
+	);
 	// Width (px) of the measurements panel, adjustable via the drag handle.
 	const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
 	// Legend boxes (base-pixel space), scoped to a group on a page. Multiple can
@@ -435,9 +507,11 @@ export default function TakeoffsContent({
 		setMeasurements(snap.measurements);
 		writeDraft(snap.draft);
 		activeCountIdRef.current = snap.activeCountId;
-		// The restored state may no longer contain the selected shape/marker.
+		// The restored state may no longer contain the selected shape/marker, and
+		// node indices go stale against the restored points.
 		setSelectedId(null);
 		setSelectedMarkerIndex(null);
+		setNodeSelection(EMPTY_NODE_SELECTION);
 	}, [writeDraft]);
 
 	// Reset the undo history whenever the active group changes: a group selected
@@ -746,15 +820,17 @@ export default function TakeoffsContent({
 	const selectTool = useCallback(
 		(next: ToolId) => {
 			setTool(next);
-			// Deduct works with area tools; keep it on when switching between them
-			// (rectangle/circle/polygon) but end it for any non-area tool.
-			if (!AREA_TYPE_SET.has(next as MeasurementType)) {
+			// Deduct works with area-capable tools; keep it on when switching between
+			// them (rectangle/circle/polygon/auto) but end it for any non-area tool.
+			if (!AREA_CAPABLE_TOOLS.has(next)) {
 				setSubtractMode(false);
 			}
 			resetDraft();
 			setSelectedId(null);
+			setNodeSelection(EMPTY_NODE_SELECTION);
+			writeMarquee(null);
 		},
-		[resetDraft]
+		[resetDraft, writeMarquee]
 	);
 
 	// Toggle Deduct mode. With an area tool active, every area drawn attaches as a
@@ -777,10 +853,13 @@ export default function TakeoffsContent({
 			setPage(() => Math.min(Math.max(next, 1), numPages || 1));
 			resetDraft();
 			setSelectedId(null);
+			// Node selection is page-scoped, so it can't survive a page switch.
+			setNodeSelection(EMPTY_NODE_SELECTION);
+			writeMarquee(null);
 			// The subtract target lives on the page being left, so end that session.
 			setSubtractMode(false);
 		},
-		[numPages, resetDraft]
+		[numPages, resetDraft, writeMarquee]
 	);
 
 	// --- Category → Group hierarchy handlers ---
@@ -908,17 +987,158 @@ export default function TakeoffsContent({
 		[metersPerPixel]
 	);
 
+	// Replace several shapes' points in one pass (multi-node move), recomputing
+	// each value live.
+	const updateManyMeasurementPoints = useCallback(
+		(entries: ReadonlyMap<string, Point[]>) => {
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					const points = entries.get(m.id);
+					if (!points) {
+						return m;
+					}
+					return {
+						...m,
+						points,
+						...(metersPerPixel ? measure(m.type, points, metersPerPixel) : {}),
+					};
+				})
+			);
+		},
+		[metersPerPixel]
+	);
+
+	// Shift-click in node-select mode: toggle one node in/out of the selection.
+	const toggleNode = useCallback((id: string, index: number) => {
+		setNodeSelection((prev) => {
+			const next = new Map(prev);
+			const set = new Set(next.get(id) ?? []);
+			if (set.has(index)) {
+				set.delete(index);
+			} else {
+				set.add(index);
+			}
+			if (set.size === 0) {
+				next.delete(id);
+			} else {
+				next.set(id, set);
+			}
+			return next;
+		});
+	}, []);
+
+	// Insert a new vertex into a shape's outline (click on a segment in
+	// node-select mode) and select it so the caller can drag it immediately.
+	// Rectangles gain the vertex on their derived corner ring and become
+	// polygons (a rectangle with an extra vertex has no two-point form).
+	const insertNode = useCallback(
+		(id: string, index: number, point: Point) => {
+			pushUndo();
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					if (m.id !== id) {
+						return m;
+					}
+					const source = nodePoints(m);
+					const points = [
+						...source.slice(0, index),
+						point,
+						...source.slice(index),
+					];
+					const type = m.type === 'rectangle' ? 'polygon' : m.type;
+					return {
+						...m,
+						type,
+						points,
+						...(metersPerPixel ? measure(type, points, metersPerPixel) : {}),
+					};
+				})
+			);
+			setNodeSelection(new Map([[id, new Set([index])]]));
+		},
+		[metersPerPixel, pushUndo]
+	);
+
+	// Convert rectangles to polygons over their four derived corners, so a
+	// distorting node move is well-defined. One undo snapshot covers the batch.
+	const convertRectsToPolygons = useCallback(
+		(ids: readonly string[]) => {
+			pushUndo();
+			const idSet = new Set(ids);
+			setMeasurements((prev) =>
+				prev.map((m) => {
+					if (!(idSet.has(m.id) && m.type === 'rectangle')) {
+						return m;
+					}
+					const corners = rectCorners(m.points);
+					return {
+						...m,
+						type: 'polygon',
+						points: corners,
+						...(metersPerPixel
+							? measure('polygon', corners, metersPerPixel)
+							: {}),
+					};
+				})
+			);
+		},
+		[metersPerPixel, pushUndo]
+	);
+
+	// Marquee finished: select every node-editable vertex inside the rectangle.
+	// A sub-threshold drag is treated as an empty-space click, which clears the
+	// selection unless Shift (additive) was held.
+	const commitMarquee = useCallback(
+		(drag: { additive: boolean; start: Point }, end: Point) => {
+			const minX = Math.min(drag.start.x, end.x);
+			const maxX = Math.max(drag.start.x, end.x);
+			const minY = Math.min(drag.start.y, end.y);
+			const maxY = Math.max(drag.start.y, end.y);
+			if (maxX - minX < MIN_DRAW_PX && maxY - minY < MIN_DRAW_PX) {
+				if (!drag.additive) {
+					setNodeSelection(EMPTY_NODE_SELECTION);
+				}
+				return;
+			}
+			setNodeSelection((prev) => {
+				const next = new Map<string, Set<number>>(
+					drag.additive ? [...prev].map(([id, set]) => [id, new Set(set)]) : []
+				);
+				for (const m of measurementsRef.current) {
+					if (m.page !== page || m.hidden || !NODE_EDITABLE_TYPES.has(m.type)) {
+						continue;
+					}
+					const source = nodePoints(m);
+					for (let i = 0; i < source.length; i++) {
+						const p = source[i];
+						if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY) {
+							const set = next.get(m.id) ?? new Set<number>();
+							set.add(i);
+							next.set(m.id, set);
+						}
+					}
+				}
+				return next;
+			});
+		},
+		[page]
+	);
+
 	// Prefetch the current page's text layer so commit() can auto-name shapes
 	// without awaiting. Naming silently falls back to defaults until it resolves.
+	// Mirrored into state for the auto-detect tool, which masks text out of its
+	// segmentation (cleared first so a stale page's boxes are never applied).
 	useEffect(() => {
 		if (!ready) {
 			return;
 		}
 		let cancelled = false;
+		setPageTextBoxes([]);
 		(async () => {
 			const boxes = await extractText(page);
 			if (!cancelled) {
 				pageTextRef.current.set(page, boxes);
+				setPageTextBoxes(boxes);
 			}
 		})();
 		return () => {
@@ -1110,6 +1330,17 @@ export default function TakeoffsContent({
 		[page, metersPerPixel, subtractMode, selectedGroupId, groups, pushUndo]
 	);
 
+	// Commit an auto-detected region outline as a normal polygon measurement —
+	// undo, deduct clipping, auto-naming, and persistence all ride commit().
+	const handleAutoDetect = useCallback(
+		(points: Point[]) => {
+			if (points.length >= 3) {
+				commit('polygon', points);
+			}
+		},
+		[commit]
+	);
+
 	const finishDraft = useCallback(() => {
 		const points = dedupeConsecutive(draftRef.current);
 		if (tool === 'linear' && points.length >= 2) {
@@ -1297,6 +1528,12 @@ export default function TakeoffsContent({
 			dragRef.current = drag;
 			if (drag.mode === 'draw-rect' || drag.mode === 'draw-circle') {
 				writeDraft([drag.start]);
+			} else if (drag.mode === 'marquee') {
+				writeMarquee({ start: drag.start, end: drag.start });
+			} else if (drag.mode === 'nodes-move') {
+				// A fresh node grab replaces the selection; grabbing an already
+				// selected node passes the existing selection through unchanged.
+				setNodeSelection(drag.nodes);
 			} else {
 				setSelectedId(drag.id);
 				// Also select the shape's group so the panel highlights it and shows
@@ -1311,7 +1548,7 @@ export default function TakeoffsContent({
 				setCanvasSelectNonce((n) => n + 1);
 			}
 		},
-		[writeDraft, resolveShapeGroupId]
+		[writeDraft, writeMarquee, resolveShapeGroupId]
 	);
 
 	// Pointer moved. Apply the active drag live, or update the draft cursor for
@@ -1344,6 +1581,34 @@ export default function TakeoffsContent({
 						drag.id,
 						drag.orig.map((p, i) => (i === drag.index ? point : p))
 					);
+				} else if (drag.mode === 'marquee') {
+					writeMarquee({ start: drag.start, end: point });
+				} else if (drag.mode === 'nodes-move') {
+					// A partially selected rectangle can't survive a free corner move;
+					// convert those to polygons once, on the first actual movement (a
+					// plain click-select never mutates the shape).
+					if (drag.convert?.length) {
+						convertRectsToPolygons(drag.convert);
+						drag.convert = undefined;
+					}
+					// Translate every selected node by the pointer delta. Multi-node
+					// moves skip alignment snapping (like markers).
+					const dx = point.x - drag.start.x;
+					const dy = point.y - drag.start.y;
+					const entries = new Map<string, Point[]>();
+					for (const [id, indices] of drag.nodes) {
+						const orig = drag.orig.get(id);
+						if (!orig) {
+							continue;
+						}
+						entries.set(
+							id,
+							orig.map((p, i) =>
+								indices.has(i) ? { x: p.x + dx, y: p.y + dy } : p
+							)
+						);
+					}
+					updateManyMeasurementPoints(entries);
 				} else {
 					// Dragging a single vertex handle. With Shift held, lock its motion
 					// to horizontal/vertical (relative to its original position) and
@@ -1382,7 +1647,16 @@ export default function TakeoffsContent({
 				}
 			}
 		},
-		[tool, writeDraft, updateMeasurementPoints, computeSnap, measurements]
+		[
+			tool,
+			writeDraft,
+			writeMarquee,
+			updateMeasurementPoints,
+			updateManyMeasurementPoints,
+			convertRectsToPolygons,
+			computeSnap,
+			measurements,
+		]
 	);
 
 	// Pointer released — commit a rectangle/circle draw; move/resize already
@@ -1393,8 +1667,13 @@ export default function TakeoffsContent({
 		setSnapGuides([]);
 		if (drag?.mode === 'draw-rect' || drag?.mode === 'draw-circle') {
 			finishDraft();
+		} else if (drag?.mode === 'marquee') {
+			// Read the end point from the ref (not the event) so a release outside
+			// the SVG still commits the rectangle drawn so far.
+			commitMarquee(drag, marqueeRef.current?.end ?? drag.start);
+			writeMarquee(null);
 		}
-	}, [finishDraft]);
+	}, [finishDraft, commitMarquee, writeMarquee]);
 
 	const confirmCalibration = useCallback(() => {
 		if (!calibLine) {
@@ -1472,6 +1751,63 @@ export default function TakeoffsContent({
 		}
 	}, []);
 
+	// Delete every selected node (node-select tool). A shape falling below its
+	// minimum point count is removed entirely, along with its deductions.
+	// Rectangles lose corners from their derived ring and become polygons.
+	const deleteSelectedNodes = useCallback(() => {
+		if (nodeSelection.size === 0) {
+			return;
+		}
+		pushUndo();
+		const removedIds = new Set<string>();
+		setMeasurements((prev) => {
+			const next: Measurement[] = [];
+			for (const m of prev) {
+				const selected = nodeSelection.get(m.id);
+				if (
+					!selected ||
+					selected.size === 0 ||
+					!NODE_EDITABLE_TYPES.has(m.type)
+				) {
+					next.push(m);
+					continue;
+				}
+				const type = m.type === 'rectangle' ? 'polygon' : m.type;
+				const min = MIN_POINTS[type];
+				if (min === undefined) {
+					next.push(m);
+					continue;
+				}
+				const points = nodePoints(m).filter((_, i) => !selected.has(i));
+				if (points.length < min) {
+					removedIds.add(m.id);
+					continue;
+				}
+				if (type === 'count') {
+					next.push({ ...m, points, count: points.length });
+				} else {
+					next.push({
+						...m,
+						type,
+						points,
+						...(metersPerPixel ? measure(type, points, metersPerPixel) : {}),
+					});
+				}
+			}
+			// Deleting a parent also removes its deductions.
+			return next.filter((m) => !(m.parentId && removedIds.has(m.parentId)));
+		});
+		if (
+			activeCountIdRef.current &&
+			nodeSelection.has(activeCountIdRef.current)
+		) {
+			activeCountIdRef.current = null;
+		}
+		setNodeSelection(EMPTY_NODE_SELECTION);
+		setSelectedId(null);
+		setSelectedMarkerIndex(null);
+	}, [nodeSelection, metersPerPixel, pushUndo]);
+
 	// Pages that currently hold at least one measurement (for the thumbnail "M"
 	// indicator).
 	const pagesWithMeasurements = useMemo(
@@ -1516,8 +1852,11 @@ export default function TakeoffsContent({
 			resetDraft();
 			setSelectedId(id);
 			setSelectedGroupId(resolveShapeGroupId(id));
+			// Leaves node-select mode (and possibly the page) without selectTool.
+			setNodeSelection(EMPTY_NODE_SELECTION);
+			writeMarquee(null);
 		},
-		[measurements, numPages, resetDraft, resolveShapeGroupId]
+		[measurements, numPages, resetDraft, resolveShapeGroupId, writeMarquee]
 	);
 
 	const renameMeasurement = useCallback((id: string, label: string) => {
@@ -1871,6 +2210,17 @@ export default function TakeoffsContent({
 			} else if (event.key === 'Escape') {
 				resetDraft();
 				clearSelection();
+				// Also drop the node selection and cancel an in-flight marquee.
+				setNodeSelection(EMPTY_NODE_SELECTION);
+				writeMarquee(null);
+				dragRef.current = null;
+			} else if (
+				(event.key === 'Delete' || event.key === 'Backspace') &&
+				tool === 'node-select' &&
+				nodeSelection.size > 0
+			) {
+				event.preventDefault();
+				deleteSelectedNodes();
 			} else if (
 				(event.key === 'Delete' || event.key === 'Backspace') &&
 				editingSelection
@@ -1892,12 +2242,15 @@ export default function TakeoffsContent({
 		finishDraft,
 		resetDraft,
 		writeDraft,
+		writeMarquee,
 		calibLine,
 		tool,
 		selectedId,
 		selectedMarkerIndex,
 		deleteMeasurement,
 		deleteMarker,
+		deleteSelectedNodes,
+		nodeSelection,
 		clearSelection,
 		undo,
 	]);
@@ -1949,10 +2302,10 @@ export default function TakeoffsContent({
 		(tool === 'linear' && draft.length >= 2) ||
 		(tool === 'polygon' && draft.length >= 3);
 
-	// Deduct is available while an area tool is active (so you can draw a deduction
-	// inside an existing shape). The switch stays enabled while its mode is on so
-	// you can turn it off again.
-	const isAreaTool = AREA_TYPE_SET.has(tool as MeasurementType);
+	// Deduct is available while an area-capable tool is active (so you can draw a
+	// deduction inside an existing shape). The switch stays enabled while its mode
+	// is on so you can turn it off again.
+	const isAreaTool = AREA_CAPABLE_TOOLS.has(tool);
 	const subtractDisabled = !(isCalibrated && (subtractMode || isAreaTool));
 	// Drawing tools are disabled until a group is selected (every measurement is
 	// filed into a group). Subtract editing of an existing shape is exempt.
@@ -2085,17 +2438,22 @@ export default function TakeoffsContent({
 						guides={snapGuides}
 						highlightIds={highlightIds}
 						legends={legends.filter((l) => l.page === page)}
+						marquee={marquee}
 						measurements={measurements.filter(
 							(m) => m.page === page && !m.hidden
 						)}
 						metersPerPixel={metersPerPixel}
 						newTextId={newTextId}
+						nodeSelection={nodeSelection}
 						numPages={numPages}
+						onAutoDetect={handleAutoDetect}
 						onClearSelection={clearSelection}
 						onCursorMove={handleCursorMove}
 						onDragStart={handleDragStart}
 						onLegendChange={updateLegend}
 						onLegendRemove={removeLegend}
+						onNodeInsert={insertNode}
+						onNodeToggle={toggleNode}
 						onPointerUp={handlePointerUp}
 						onStageClick={handleStageClick}
 						onStageDoubleClick={finishDraft}
@@ -2110,7 +2468,9 @@ export default function TakeoffsContent({
 						selectedId={selectedId}
 						selectedMarkerIndex={selectedMarkerIndex}
 						showMeasurements={showMeasurements}
+						subtractMode={subtractMode}
 						textAnnotations={texts.filter((t) => t.page === page)}
+						textRects={pageTextBoxes}
 						tool={effectiveTool}
 						transientPan={spacePanActive}
 					/>
