@@ -469,9 +469,10 @@ export default function MeasurementsPanel({
 	const rootGroups = groups.filter((g) => !g.categoryId && groupIsVisible(g));
 	const groupsByCategory = (categoryId: string) =>
 		groups.filter((g) => g.categoryId === categoryId && groupIsVisible(g));
-	// Categories with at least one visible group under the current query.
+	// While searching, only categories with a visible group; otherwise all
+	// categories, including empty ones (e.g. freshly added).
 	const visibleCategories = categories.filter(
-		(c) => groupsByCategory(c.id).length > 0
+		(c) => q === '' || groupsByCategory(c.id).length > 0
 	);
 
 	// Every accordion node key, for Expand all.
