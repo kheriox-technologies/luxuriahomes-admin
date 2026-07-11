@@ -8,9 +8,9 @@ import {
 	useState,
 } from 'react';
 import {
-	isUsableRegion,
+	findRegionAt,
 	type MaskRect,
-	type RegionMap,
+	type SegmentResult,
 	segmentImage,
 	simplifyRing,
 	traceRegionOutline,
@@ -47,9 +47,11 @@ interface UseRegionDetectionArgs {
  * Owns the auto-detect tool's page segmentation lifecycle: reads the rendered
  * page canvas, segments it in a Web Worker (synchronous main-thread fallback if
  * worker construction fails), and exposes an O(1) point → region-outline lookup
- * for hover/click. The label map lives in a ref (hover must not re-render) and
- * traced contours are cached per region id, returning a stable array reference
- * so repeated hovers over one region bail out of state updates.
+ * for hover/click. Lookup is coarse-first with a fine-map fallback (see
+ * findRegionAt) so thin-outlined closed shapes stay selectable. The label maps
+ * live in a ref (hover must not re-render) and traced contours are cached per
+ * (map, region id), returning a stable array reference so repeated hovers over
+ * one region bail out of state updates.
  */
 export function useRegionDetection({
 	active,
@@ -63,8 +65,12 @@ export function useRegionDetection({
 	status: RegionDetectionStatus;
 } {
 	const [status, setStatus] = useState<RegionDetectionStatus>('idle');
-	const mapRef = useRef<RegionMap | null>(null);
-	const contourCacheRef = useRef(new Map<number, Point[] | null>());
+	const mapRef = useRef<SegmentResult | null>(null);
+	// Coarse and fine region ids collide, so each map gets its own cache.
+	const contourCachesRef = useRef({
+		coarse: new Map<number, Point[] | null>(),
+		fine: new Map<number, Point[] | null>(),
+	});
 	const workerRef = useRef<Worker | null>(null);
 	const workerFailedRef = useRef(false);
 	const requestIdRef = useRef(0);
@@ -104,17 +110,19 @@ export function useRegionDetection({
 			return;
 		}
 		mapRef.current = null;
-		contourCacheRef.current.clear();
+		contourCachesRef.current.coarse.clear();
+		contourCachesRef.current.fine.clear();
 		computedForRef.current = inputsKey;
 		const requestId = ++requestIdRef.current;
 		setStatus('segmenting');
 
-		const acceptMap = (map: RegionMap) => {
+		const acceptResult = (result: SegmentResult) => {
 			if (requestId !== requestIdRef.current) {
 				return;
 			}
-			mapRef.current = map;
-			contourCacheRef.current.clear();
+			mapRef.current = result;
+			contourCachesRef.current.coarse.clear();
+			contourCachesRef.current.fine.clear();
 			setStatus('ready');
 		};
 
@@ -130,11 +138,32 @@ export function useRegionDetection({
 		const worker = workerRef.current;
 		if (worker) {
 			worker.onmessage = (event: MessageEvent<SegmentResponse>) => {
-				const { height, labels, regions, requestId: id, width } = event.data;
+				const {
+					coarseLabels,
+					coarseRegions,
+					fineLabels,
+					fineRegions,
+					height,
+					requestId: id,
+					width,
+				} = event.data;
 				if (id !== requestIdRef.current) {
 					return;
 				}
-				acceptMap({ height, labels: new Int32Array(labels), regions, width });
+				acceptResult({
+					coarse: {
+						height,
+						labels: new Int32Array(coarseLabels),
+						regions: coarseRegions,
+						width,
+					},
+					fine: {
+						height,
+						labels: new Int32Array(fineLabels),
+						regions: fineRegions,
+						width,
+					},
+				});
 			};
 			worker.onerror = () => {
 				if (requestId !== requestIdRef.current) {
@@ -154,7 +183,7 @@ export function useRegionDetection({
 			return;
 		}
 		// Degraded main-thread fallback (blocks for the segmentation duration).
-		acceptMap(
+		acceptResult(
 			segmentImage(imageData.data, size.width, size.height, {
 				gapClosePx,
 				textRects,
@@ -169,33 +198,29 @@ export function useRegionDetection({
 			return;
 		}
 		mapRef.current = null;
-		contourCacheRef.current.clear();
+		contourCachesRef.current.coarse.clear();
+		contourCachesRef.current.fine.clear();
 		setStatus('idle');
 	}, [renderNonce]);
 
 	const hoverRegion = useCallback((point: Point): Point[] | null => {
-		const map = mapRef.current;
-		if (!map) {
+		const result = mapRef.current;
+		if (!result) {
 			return null;
 		}
-		const x = Math.round(point.x);
-		const y = Math.round(point.y);
-		if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
+		const hit = findRegionAt(result, Math.round(point.x), Math.round(point.y));
+		if (!hit) {
 			return null;
 		}
-		const id = map.labels[y * map.width + x];
-		if (!isUsableRegion(map, id)) {
-			return null;
-		}
-		const cache = contourCacheRef.current;
-		const cached = cache.get(id);
+		const cache = contourCachesRef.current[hit.source];
+		const cached = cache.get(hit.id);
 		if (cached !== undefined) {
 			return cached;
 		}
-		const ring = simplifyRing(traceRegionOutline(map, id));
-		const result = ring.length >= 3 ? ring : null;
-		cache.set(id, result);
-		return result;
+		const ring = simplifyRing(traceRegionOutline(hit.map, hit.id));
+		const value = ring.length >= 3 ? ring : null;
+		cache.set(hit.id, value);
+		return value;
 	}, []);
 
 	return { hoverRegion, status };

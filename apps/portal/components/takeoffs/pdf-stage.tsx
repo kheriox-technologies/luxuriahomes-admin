@@ -75,6 +75,17 @@ const TOOL_COLORS: Record<string, string> = {
 // (red in Deduct mode).
 const AUTO_HIGHLIGHT_COLOR = '#059669';
 const AUTO_SUBTRACT_COLOR = '#dc2626';
+
+// Magic-wand cursor for the auto tool, matching the Wand2 toolbar icon (lucide
+// wand-sparkles). Two-tone — a white halo under dark strokes — so it stays
+// visible over white paper and dark linework alike. The explicit width/height
+// are required for Firefox to accept an SVG cursor image.
+const WAND_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><defs><g id="w"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></g></defs><use href="#w" stroke="#fff" stroke-width="4"/><use href="#w" stroke="#1e293b" stroke-width="2"/></svg>`;
+
+// Hotspot (21, 3) = the wand's tip (the top-right end cap of the diagonal
+// body); `crosshair` is the required fallback where SVG cursors are
+// unsupported (e.g. some Safari versions).
+const WAND_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(WAND_CURSOR_SVG)}") 21 3, crosshair`;
 // Gap-closing slider granularity (mm).
 const GAP_SLIDER_STEP_MM = 50;
 
@@ -724,6 +735,13 @@ export default function PdfStage({
 	// committed shapes directly (see hover detection below).
 	const isInteractive = tool !== 'pan';
 	const isDrawingTool = isInteractive;
+	// Auto shows the magic-wand cursor; every other drawing tool a crosshair.
+	let overlayCursor = 'default';
+	if (tool === 'auto') {
+		overlayCursor = WAND_CURSOR;
+	} else if (isDrawingTool) {
+		overlayCursor = 'crosshair';
+	}
 	const stroke = TOOL_COLORS[tool] ?? '#2563eb';
 	// Stable colour per Add group so all its members read as one combined shape.
 	const groupColors = groupColorMap(measurements);
@@ -1068,7 +1086,7 @@ export default function PdfStage({
 									// it per render and lets the imperative cursor win.
 									...(tool === 'pan' || tool === 'node-select'
 										? {}
-										: { cursor: isDrawingTool ? 'crosshair' : 'default' }),
+										: { cursor: overlayCursor }),
 								}}
 								viewBox={`0 0 ${size.width} ${size.height}`}
 								width={size.width}

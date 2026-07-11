@@ -3,11 +3,14 @@
 // fall back to the main thread, and stay unit-testable. Coordinates are BASE
 // canvas pixels — the same space as Measurement.points.
 //
-// Pipeline (segmentImage): binarize → maskRects (text) → removeThinLines
-// (erase door arcs / dashed / dimension linework so only thick walls bound
-// regions) → closeGaps (seal doorways below the user's gap threshold) →
-// labelRegions. Hovering then reduces to an O(1) label lookup; the hovered
-// region's outer contour is traced and simplified on demand
+// Pipeline (segmentImage): binarize → maskRects (text) → two label maps from
+// the one mask: a COARSE map (removeThinLines erases door arcs / dashed /
+// dimension linework so only thick walls bound regions, then closeGaps seals
+// doorways below the user's gap threshold) and a FINE map (same closing but
+// thin strokes kept, so shapes whose outlines the opening would erase remain
+// closed). Lookup (findRegionAt) is coarse-first — the fine map only rescues
+// points the coarse map rejects. Hovering then reduces to O(1) label lookups;
+// the hovered region's outer contour is traced and simplified on demand
 // (traceRegionOutline + simplifyRing).
 
 import { distanceToSegmentSq } from './geometry';
@@ -353,20 +356,39 @@ export function labelRegions(
 	return { height, labels, regions, width };
 }
 
-/** Full segmentation pipeline for one rendered page raster. Thin linework is
- * erased BEFORE gap closing — that ordering is what lets the closing radius be
- * doorway-sized without turning dashed reference lines into false walls. */
+export interface SegmentResult {
+	/** Thin lines removed before labeling — rooms bounded by walls only. */
+	coarse: RegionMap;
+	/** Thin strokes kept as boundaries — rescues thin-outlined closed shapes. */
+	fine: RegionMap;
+}
+
+/** Full segmentation pipeline for one rendered page raster. In the coarse map
+ * thin linework is erased BEFORE gap closing — that ordering is what lets the
+ * closing radius be doorway-sized without turning dashed reference lines into
+ * false walls. The fine map skips the erasure (same closing) so regions
+ * bounded only by thin strokes stay closed; it shares the binarize/maskRects
+ * pass (closeGaps/labelRegions never mutate their input mask). */
 export function segmentImage(
 	data: Uint8ClampedArray,
 	width: number,
 	height: number,
 	options: SegmentOptions
-): RegionMap {
+): SegmentResult {
 	const mask = binarize(data, width, height);
 	maskRects(mask, width, height, options.textRects);
 	const walls = removeThinLines(mask, width, height);
-	const closed = closeGaps(walls, width, height, options.gapClosePx);
-	return labelRegions(closed, width, height);
+	const coarse = labelRegions(
+		closeGaps(walls, width, height, options.gapClosePx),
+		width,
+		height
+	);
+	const fine = labelRegions(
+		closeGaps(mask, width, height, options.gapClosePx),
+		width,
+		height
+	);
+	return { coarse, fine };
 }
 
 /** Guardrails shared by hover and click: reject the page background (border-
@@ -383,6 +405,36 @@ export function isUsableRegion(map: RegionMap, id: number): boolean {
 		return false;
 	}
 	return region.areaPx <= map.width * map.height * MAX_REGION_AREA_FRACTION;
+}
+
+export interface RegionHit {
+	id: number;
+	map: RegionMap;
+	source: 'coarse' | 'fine';
+}
+
+/** Coarse-first region lookup: the coarse map preserves wall-bounded room
+ * detection; the fine map only rescues points the coarse map rejects (e.g.
+ * shapes whose thin outlines the opening step erased, leaking their interior
+ * into the border-touching page background). */
+export function findRegionAt(
+	result: SegmentResult,
+	x: number,
+	y: number
+): RegionHit | null {
+	const { coarse, fine } = result;
+	if (x < 0 || y < 0 || x >= coarse.width || y >= coarse.height) {
+		return null;
+	}
+	const coarseId = coarse.labels[y * coarse.width + x];
+	if (isUsableRegion(coarse, coarseId)) {
+		return { id: coarseId, map: coarse, source: 'coarse' };
+	}
+	const fineId = fine.labels[y * fine.width + x];
+	if (isUsableRegion(fine, fineId)) {
+		return { id: fineId, map: fine, source: 'fine' };
+	}
+	return null;
 }
 
 // Moore neighborhood in clockwise order (screen coords, y down), starting W.

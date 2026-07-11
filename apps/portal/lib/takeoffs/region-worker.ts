@@ -16,10 +16,13 @@ export interface SegmentRequest {
 }
 
 export interface SegmentResponse {
-	height: number;
 	/** Int32Array buffer, transferred back. */
-	labels: ArrayBuffer;
-	regions: RegionInfo[];
+	coarseLabels: ArrayBuffer;
+	coarseRegions: RegionInfo[];
+	/** Int32Array buffer, transferred back. */
+	fineLabels: ArrayBuffer;
+	fineRegions: RegionInfo[];
+	height: number;
 	requestId: number;
 	width: number;
 }
@@ -27,16 +30,22 @@ export interface SegmentResponse {
 self.onmessage = (event: MessageEvent<SegmentRequest>) => {
 	const { buffer, gapClosePx, height, requestId, textRects, width } =
 		event.data;
-	const map = segmentImage(new Uint8ClampedArray(buffer), width, height, {
-		gapClosePx,
-		textRects,
-	});
+	const { coarse, fine } = segmentImage(
+		new Uint8ClampedArray(buffer),
+		width,
+		height,
+		{ gapClosePx, textRects }
+	);
 	const response: SegmentResponse = {
-		height: map.height,
-		labels: map.labels.buffer as ArrayBuffer,
-		regions: map.regions,
+		coarseLabels: coarse.labels.buffer as ArrayBuffer,
+		coarseRegions: coarse.regions,
+		fineLabels: fine.labels.buffer as ArrayBuffer,
+		fineRegions: fine.regions,
+		height: coarse.height,
 		requestId,
-		width: map.width,
+		width: coarse.width,
 	};
-	self.postMessage(response, { transfer: [response.labels] });
+	self.postMessage(response, {
+		transfer: [response.coarseLabels, response.fineLabels],
+	});
 };
