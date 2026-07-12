@@ -159,8 +159,6 @@ export const projectCoreFormSchema = z.object({
 		.number()
 		.nonnegative('Quote price must be 0 or more')
 		.optional(),
-	expenses: z.number().nonnegative('Expenses must be 0 or more').optional(),
-	received: z.number().nonnegative('Received must be 0 or more').optional(),
 	xeroTrackingOptionId: z.string().optional(),
 });
 
@@ -195,8 +193,6 @@ export const emptyProjectCoreFormValues = {
 	},
 	startDate: undefined,
 	quotePrice: undefined,
-	expenses: undefined,
-	received: undefined,
 	xeroTrackingOptionId: undefined,
 } as unknown as ProjectCoreFormValues;
 
@@ -351,8 +347,6 @@ export function toConvexCreatePayload(
 		clients: clients.map(sanitizeProjectClient),
 		startDate: value.startDate ? value.startDate.getTime() : undefined,
 		quotePrice: value.quotePrice,
-		expenses: value.expenses,
-		received: value.received,
 		xeroTrackingOptionId: value.xeroTrackingOptionId,
 	};
 }
@@ -373,8 +367,6 @@ export function toConvexUpdatePayload(
 		clients: clients.map(sanitizeProjectClient),
 		startDate: value.startDate ? value.startDate.getTime() : null,
 		quotePrice: value.quotePrice ?? null,
-		expenses: value.expenses ?? null,
-		received: value.received ?? null,
 		xeroTrackingOptionId: value.xeroTrackingOptionId ?? null,
 	};
 }

@@ -62,8 +62,6 @@ function projectDocToEditDefaults(project: Doc<'projects'>) {
 		address: { ...project.address },
 		startDate: project.startDate ? new Date(project.startDate) : undefined,
 		quotePrice: project.quotePrice,
-		expenses: project.expenses,
-		received: project.received,
 		xeroTrackingOptionId: project.xeroTrackingOptionId,
 	};
 }
@@ -185,8 +183,6 @@ export default function EditProjectForm({
 			form.setFieldValue('address.postcode', defaults.address.postcode);
 			form.setFieldValue('startDate', defaults.startDate as never);
 			form.setFieldValue('quotePrice', defaults.quotePrice as never);
-			form.setFieldValue('expenses', defaults.expenses as never);
-			form.setFieldValue('received', defaults.received as never);
 			form.setFieldValue(
 				'xeroTrackingOptionId',
 				defaults.xeroTrackingOptionId as never
@@ -575,83 +571,11 @@ export default function EditProjectForm({
 										);
 									}}
 								</form.Field>
-								<form.Field name="expenses">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Expenses</FieldLabel>
-												<Input
-													aria-invalid={invalid}
-													id={field.name}
-													inputMode="decimal"
-													min={0}
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) =>
-														field.handleChange(
-															e.target.value === ''
-																? undefined
-																: Number(e.target.value)
-														)
-													}
-													placeholder="0"
-													step="0.01"
-													type="number"
-													value={field.state.value ?? ''}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
-								<form.Field name="received">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Received</FieldLabel>
-												<Input
-													aria-invalid={invalid}
-													id={field.name}
-													inputMode="decimal"
-													min={0}
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) =>
-														field.handleChange(
-															e.target.value === ''
-																? undefined
-																: Number(e.target.value)
-														)
-													}
-													placeholder="0"
-													step="0.01"
-													type="number"
-													value={field.state.value ?? ''}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
 								<form.Field name="xeroTrackingOptionId">
 									{(field) => (
 										<Field>
 											<FieldLabel htmlFor={field.name}>
-												Xero project (for Spent sync)
+												Xero project (for Expenses & Received sync)
 											</FieldLabel>
 											<XeroOptionCombobox
 												id={field.name}
