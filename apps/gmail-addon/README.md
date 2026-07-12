@@ -48,13 +48,26 @@ pnpm dlx @google/clasp@3 create-script --type standalone --title "Luxuria Docume
 pnpm push
 ```
 
-3. Open the script (`pnpm open`), then **Project Settings → Script
+3. **Paste the manifest manually.** clasp v3 has a bug: `clasp push` claims it
+   pushed `src/appsscript.json` but never actually updates the remote
+   manifest, so the editor shows "To test deployment as Add-on, update the
+   manifest file" and no Install button. Fix: in the script editor, **Project
+   Settings → check "Show 'appsscript.json' manifest file in editor"**, then
+   open `appsscript.json` in the Editor, replace its contents with
+   `src/appsscript.json` from this repo, and save. Repeat this whenever the
+   manifest changes (rare); `.js` files push fine with `pnpm push`.
+
+4. Open the script (`pnpm open`), then **Project Settings → Script
    Properties** and add:
 
 | Property  | Value                                  |
 | --------- | -------------------------------------- |
 | `API_URL` | `https://<deployment>.convex.site`     |
 | `API_KEY` | the same key set on Convex             |
+
+`API_URL` must be the `.convex.site` host with **no trailing slash**, and the
+deployment must have the gmail-addon code deployed (dev has it via
+`convex dev`; prod requires `npx convex deploy`).
 
 ### 3. Install in Gmail
 
@@ -63,9 +76,19 @@ needs the add-on installs from the same test-deployment link (sufficient for
 internal use). Refresh Gmail; the add-on icon appears in the right sidebar
 when a message is open.
 
-For a permanent domain-wide install: create a versioned deployment, attach a
-standard GCP project with an **Internal** OAuth consent screen, and publish
-unlisted via the Workspace Marketplace SDK.
+Note: a test-deployment install applies only to the Google account that
+clicks Install, and the add-on card only appears when a message is open
+(contextual trigger). To install for another account, share the script with
+that account first, then install from Deploy → Test deployments while logged
+in as it.
+
+For a permanent domain-wide install: create a versioned deployment (Deploy →
+New deployment → Add-on), attach a standard GCP project with an **Internal**
+OAuth consent screen (Project Settings → Change project), enable the
+Workspace Marketplace SDK in that GCP project, configure the app with the
+deployment ID and **Private** visibility, then admin-install it from the
+Admin console. Private listings are only installable by accounts in the same
+Workspace domain as the GCP project.
 
 ## Development
 
