@@ -4,12 +4,6 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
-import {
-	Accordion,
-	AccordionItem,
-	AccordionPanel,
-	AccordionPrimitive,
-} from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -28,6 +22,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	Menu,
 	MenuItem,
@@ -45,12 +40,10 @@ import {
 	TableRow,
 } from '@workspace/ui/components/table';
 import { toastManager } from '@workspace/ui/components/toast';
-import { cn } from '@workspace/ui/lib/utils';
 import { useMutation, useQuery } from 'convex/react';
 import {
 	Ban,
 	Check,
-	ChevronDownIcon,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
 	DollarSign,
@@ -62,7 +55,7 @@ import {
 	Trash2,
 	X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
 import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
 import AddQuotation from '@/components/quotations/add-quotation';
@@ -70,6 +63,11 @@ import DeleteQuotation from '@/components/quotations/delete-quotation';
 import EditQuotation from '@/components/quotations/edit-quotation';
 import type { QuotationFormValues } from '@/components/quotations/quotation-form-shared';
 import QuotationNotesDialog from '@/components/quotations/quotation-notes-dialog';
+import {
+	StageGroupedTradeAccordion,
+	type StageGroupedTradeAccordionHandle,
+	type TradeAccordionItem,
+} from '@/components/trades/stage-grouped-trade-accordion';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -91,22 +89,12 @@ interface ProjectQuotation {
 interface TradeGroup {
 	budgetPrice: number | null;
 	quotes: ProjectQuotation[];
+	stageId: Id<'tradeStages'> | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
+	tradeOrder: number | null;
 	// Xero-driven "Actual" for the trade; null when nothing has synced.
 	xeroActual: number | null;
-}
-
-// Green when the Xero actual is within budget, red when over, neutral when the
-// trade has no budget set — mirrors the Budgets tab colour logic.
-function actualBadgeVariant(
-	actual: number,
-	budgetPrice: number | null
-): 'success-outline' | 'destructive-outline' | 'secondary' {
-	if (budgetPrice === null) {
-		return 'secondary';
-	}
-	return actual <= budgetPrice ? 'success-outline' : 'destructive-outline';
 }
 
 const STATUS_VALUES: QuotationFormValues['status'][] = [
@@ -363,7 +351,7 @@ export default function ProjectQuotationsTabContent({
 	const [filterStatuses, setFilterStatuses] = useState<
 		QuotationFormValues['status'][]
 	>(initialStatus ? [initialStatus] : []);
-	const [openTradeIds, setOpenTradeIds] = useState<Id<'trades'>[]>([]);
+	const listRef = useRef<StageGroupedTradeAccordionHandle>(null);
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -376,6 +364,7 @@ export default function ProjectQuotationsTabContent({
 			projectId,
 		}
 	) as ProjectQuotation[] | undefined;
+	const stages = useQuery(api.tradeStages.list.list, {});
 	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
 		projectId,
 	});
@@ -383,11 +372,18 @@ export default function ProjectQuotationsTabContent({
 	const budgetByTrade = useMemo(() => {
 		const map = new Map<
 			Id<'trades'>,
-			{ budgetPrice: number | null; xeroActual: number | null }
+			{
+				budgetPrice: number | null;
+				stageId: Id<'tradeStages'> | null;
+				tradeOrder: number | null;
+				xeroActual: number | null;
+			}
 		>();
 		for (const row of tradeSummary ?? []) {
 			map.set(row.tradeId, {
 				budgetPrice: row.budgetPrice,
+				stageId: row.stageId,
+				tradeOrder: row.tradeOrder,
 				xeroActual: row.xeroActual,
 			});
 		}
@@ -427,6 +423,8 @@ export default function ProjectQuotationsTabContent({
 					tradeId: q.tradeId,
 					tradeName: q.tradeName,
 					budgetPrice: budget?.budgetPrice ?? null,
+					stageId: budget?.stageId ?? null,
+					tradeOrder: budget?.tradeOrder ?? null,
 					xeroActual: budget?.xeroActual ?? null,
 					quotes: [],
 				};
@@ -480,108 +478,55 @@ export default function ProjectQuotationsTabContent({
 			</Empty>
 		);
 	} else {
-		content = (
-			<Accordion
-				className="rounded-xl border"
-				multiple
-				onValueChange={(value) => setOpenTradeIds(value as Id<'trades'>[])}
-				value={openTradeIds}
-			>
-				{groups.map((group) => (
-					<AccordionItem
-						className="border-b last:border-b-0"
-						key={group.tradeId}
-						value={group.tradeId}
-					>
-						<AccordionPrimitive.Header className="flex">
-							<AccordionPrimitive.Trigger
-								className={cn(
-									'flex flex-1 cursor-pointer items-center justify-between gap-2 px-4 py-3 outline-none transition-colors hover:bg-muted/40',
-									'focus-visible:ring-[3px] focus-visible:ring-ring',
-									'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
-								)}
-								type="button"
-							>
-								<span className="flex items-center gap-2 font-medium text-sm">
-									{group.tradeName}
-									<ChevronDownIcon
-										className="size-4 shrink-0 opacity-70 transition-transform duration-200"
-										data-slot="accordion-indicator"
-									/>
-									<Badge size="lg" variant="outline">
-										{group.quotes.length}
+		const items: TradeAccordionItem[] = groups.map((group) => ({
+			budgetPrice: group.budgetPrice,
+			count: group.quotes.length,
+			stageId: group.stageId,
+			tradeId: group.tradeId,
+			tradeName: group.tradeName,
+			tradeOrder: group.tradeOrder,
+			xeroActual: group.xeroActual,
+			content: (
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Title</TableHead>
+							<TableHead>Service Provider</TableHead>
+							<TableHead>Price</TableHead>
+							<TableHead>Notes</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead />
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{group.quotes.map((quote) => (
+							<TableRow key={quote._id}>
+								<TableCell className="font-medium">{quote.title}</TableCell>
+								<TableCell className="text-muted-foreground text-sm">
+									{quote.companyName}
+								</TableCell>
+								<TableCell>
+									<QuotationPriceCell row={quote} />
+								</TableCell>
+								<TableCell>
+									<QuotationNotesBadge row={quote} />
+								</TableCell>
+								<TableCell>
+									<Badge size="lg" variant={statusBadgeVariant(quote.status)}>
+										{quote.status}
 									</Badge>
-								</span>
-								<span className="flex items-center gap-2">
-									{group.budgetPrice === null ? (
-										<Badge size="lg" variant="outline">
-											No budget
-										</Badge>
-									) : (
-										<Badge size="lg" variant="purple">
-											B {formatBudgetPrice(group.budgetPrice)}
-										</Badge>
-									)}
-									{group.xeroActual === null ? null : (
-										<Badge
-											size="lg"
-											variant={actualBadgeVariant(
-												group.xeroActual,
-												group.budgetPrice
-											)}
-										>
-											A {formatBudgetPrice(group.xeroActual)}
-										</Badge>
-									)}
-								</span>
-							</AccordionPrimitive.Trigger>
-						</AccordionPrimitive.Header>
-						<AccordionPanel className="p-0">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Title</TableHead>
-										<TableHead>Service Provider</TableHead>
-										<TableHead>Price</TableHead>
-										<TableHead>Notes</TableHead>
-										<TableHead>Status</TableHead>
-										<TableHead />
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{group.quotes.map((quote) => (
-										<TableRow key={quote._id}>
-											<TableCell className="font-medium">
-												{quote.title}
-											</TableCell>
-											<TableCell className="text-muted-foreground text-sm">
-												{quote.companyName}
-											</TableCell>
-											<TableCell>
-												<QuotationPriceCell row={quote} />
-											</TableCell>
-											<TableCell>
-												<QuotationNotesBadge row={quote} />
-											</TableCell>
-											<TableCell>
-												<Badge
-													size="lg"
-													variant={statusBadgeVariant(quote.status)}
-												>
-													{quote.status}
-												</Badge>
-											</TableCell>
-											<TableCell className="text-right">
-												<QuotationActionsCell row={quote} />
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</AccordionPanel>
-					</AccordionItem>
-				))}
-			</Accordion>
+								</TableCell>
+								<TableCell className="text-right">
+									<QuotationActionsCell row={quote} />
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			),
+		}));
+		content = (
+			<StageGroupedTradeAccordion items={items} ref={listRef} stages={stages} />
 		);
 	}
 
@@ -653,24 +598,27 @@ export default function ProjectQuotationsTabContent({
 					) : null}
 
 					{groups.length > 0 ? (
-						<>
+						<Group>
 							<Button
-								onClick={() => setOpenTradeIds(groups.map((g) => g.tradeId))}
+								aria-label="Expand all"
+								onClick={() => listRef.current?.expandAll()}
+								size="icon"
 								type="button"
 								variant="outline"
 							>
 								<ChevronsDownIcon />
-								Expand All
 							</Button>
+							<GroupSeparator />
 							<Button
-								onClick={() => setOpenTradeIds([])}
+								aria-label="Collapse all"
+								onClick={() => listRef.current?.collapseAll()}
+								size="icon"
 								type="button"
 								variant="outline"
 							>
 								<ChevronsUpIcon />
-								Collapse All
 							</Button>
-						</>
+						</Group>
 					) : null}
 
 					<AddQuotation
