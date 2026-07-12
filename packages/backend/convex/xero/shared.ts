@@ -258,6 +258,8 @@ export interface CumulativeExpensesResult {
 	expensesByOption: Map<string, number>;
 	/** The final window's raw report, for inspecting report shape. */
 	lastReport?: XeroReport;
+	/** Summed trading income per tracking option across every window. */
+	tradingIncomeByOption: Map<string, number>;
 	/** The windows fetched, for diagnostics. */
 	windows: Array<{ fromDate: string; toDate: string }>;
 }
@@ -286,6 +288,7 @@ export async function fetchCumulativeExpensesByOption(
 	const windows = profitAndLossDateWindows(params.fromDate, params.toDate);
 	const expensesByOption = new Map<string, number>();
 	const costOfSalesByOption = new Map<string, number>();
+	const tradingIncomeByOption = new Map<string, number>();
 	let lastReport: XeroReport | undefined;
 	for (const window of windows) {
 		const report = await fetchProfitAndLoss(accessToken, tenantId, {
@@ -296,8 +299,15 @@ export async function fetchCumulativeExpensesByOption(
 		lastReport = report;
 		accumulateInto(expensesByOption, parseExpensesByOption(report));
 		accumulateInto(costOfSalesByOption, parseCostOfSalesByOption(report));
+		accumulateInto(tradingIncomeByOption, parseTradingIncomeByOption(report));
 	}
-	return { expensesByOption, costOfSalesByOption, windows, lastReport };
+	return {
+		expensesByOption,
+		costOfSalesByOption,
+		tradingIncomeByOption,
+		windows,
+		lastReport,
+	};
 }
 
 const TOTAL_EXPENSES_LABELS = ['total expenses', 'total operating expenses'];
@@ -305,6 +315,7 @@ const TOTAL_COST_OF_SALES_LABELS = [
 	'total cost of sales',
 	'total cost of goods sold',
 ];
+const TOTAL_TRADING_INCOME_LABELS = ['total trading income'];
 
 /**
  * Extracts each tracking option's figure from a Profit & Loss report's section
@@ -366,4 +377,14 @@ export function parseCostOfSalesByOption(
 	report: XeroReport
 ): Map<string, number> {
 	return parseTotalRowByOption(report, TOTAL_COST_OF_SALES_LABELS);
+}
+
+/**
+ * Extracts each tracking option's total trading income from a Profit & Loss
+ * report.
+ */
+export function parseTradingIncomeByOption(
+	report: XeroReport
+): Map<string, number> {
+	return parseTotalRowByOption(report, TOTAL_TRADING_INCOME_LABELS);
 }

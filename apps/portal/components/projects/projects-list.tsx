@@ -180,11 +180,15 @@ const RightHeader = ({ label }: { label: string }) => (
 	<div className="text-right">{label}</div>
 );
 
-// "Spent" column header with an on-demand button that re-syncs every mapped
-// project's Spent value from Xero. The table is reactive, so values update in
-// place once the sync's mutation lands — no manual refetch needed.
-function SpentHeader() {
-	const syncNow = useAction(api.xero.syncProjectSpendNow.syncProjectSpendNow);
+// Column header with an on-demand button that re-syncs every mapped project's
+// Spent (cost of sales) and Received (trading income) values from Xero in one
+// pass. Used on both money columns; either button triggers the same combined
+// sync. The table is reactive, so values update in place once the sync's
+// mutation lands — no manual refetch needed.
+function XeroSyncHeader({ label }: { label: string }) {
+	const syncNow = useAction(
+		api.xero.syncProjectFinancialsNow.syncProjectFinancialsNow
+	);
 	const [pending, setPending] = useState(false);
 
 	const handleSync = async () => {
@@ -192,7 +196,7 @@ function SpentHeader() {
 		try {
 			const { updated, skipped } = await syncNow({});
 			toastManager.add({
-				title: 'Spend synced from Xero',
+				title: 'Synced from Xero',
 				description: `Updated ${updated} project${updated === 1 ? '' : 's'}${
 					skipped > 0 ? `, skipped ${skipped} unmatched` : ''
 				}.`,
@@ -211,9 +215,9 @@ function SpentHeader() {
 
 	return (
 		<div className="flex items-center justify-end gap-1">
-			<span>Spent</span>
+			<span>{label}</span>
 			<Button
-				aria-label="Sync Spent from Xero"
+				aria-label={`Sync ${label} from Xero`}
 				loading={pending}
 				onClick={handleSync}
 				size="icon-sm"
@@ -321,7 +325,7 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'expenses',
-		header: () => <SpentHeader />,
+		header: () => <XeroSyncHeader label="Spent" />,
 		size: 120,
 		cell: ({ row }) => {
 			const { expenses } = row.original;
@@ -338,7 +342,7 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'received',
-		header: () => <RightHeader label="Received" />,
+		header: () => <XeroSyncHeader label="Received" />,
 		size: 130,
 		cell: ({ row }) => {
 			const { received, expenses } = row.original;

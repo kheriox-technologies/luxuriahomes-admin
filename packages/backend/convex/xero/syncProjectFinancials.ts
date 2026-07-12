@@ -13,22 +13,24 @@ import {
 	todayUtcDate,
 } from './shared';
 
-// Xero cost of sales is grossed up by 10% before being written to a project's
-// "Spent" (expenses) value.
-const SPEND_UPLIFT = 1.1;
+// Xero figures are grossed up by 10% before being written to a project. Cost of
+// sales feeds "Spent" (expenses); trading income feeds "Received".
+const XERO_UPLIFT = 1.1;
 
 function roundToCents(value: number): number {
 	return Math.round(value * 100) / 100;
 }
 
 /**
- * Syncs each mapped project's "Spent" (expenses) value from Xero. Fetches the
- * cumulative Cost of Sales per tracking option, then for every project that has
- * a `xeroTrackingOptionId` set, resolves its current option name, applies a 10%
- * uplift, and writes the result. Projects whose mapped option no longer exists
- * are left untouched. Runs nightly (crons.ts) and on demand (syncProjectSpendNow).
+ * Syncs each mapped project's "Spent" (expenses) and "Received" values from
+ * Xero. Fetches the cumulative Cost of Sales and Total Trading Income per
+ * tracking option from a single Profit & Loss pass, then for every project that
+ * has a `xeroTrackingOptionId` set, resolves its current option name, applies a
+ * 10% uplift to each figure, and writes both. Projects whose mapped option no
+ * longer exists are left untouched. Runs nightly (crons.ts) and on demand
+ * (syncProjectFinancialsNow).
  */
-export const syncProjectSpend = internalAction({
+export const syncProjectFinancials = internalAction({
 	args: {},
 	handler: async (ctx) => {
 		const config = getXeroConfig();
@@ -54,15 +56,12 @@ export const syncProjectSpend = internalAction({
 			optionIdToName.set(option.TrackingOptionID, option.Name);
 		}
 
-		const { costOfSalesByOption } = await fetchCumulativeExpensesByOption(
-			accessToken,
-			tenantId,
-			{
+		const { costOfSalesByOption, tradingIncomeByOption } =
+			await fetchCumulativeExpensesByOption(accessToken, tenantId, {
 				trackingCategoryId: config.trackingCategoryId,
 				fromDate: SYNC_FROM_DATE,
 				toDate: todayUtcDate(),
-			}
-		);
+			});
 
 		const mapped = await ctx.runQuery(
 			internal.projects.listXeroMapped.listXeroMapped,
@@ -72,6 +71,7 @@ export const syncProjectSpend = internalAction({
 		const updates: Array<{
 			projectId: (typeof mapped)[number]['_id'];
 			expenses: number;
+			received: number;
 		}> = [];
 		let skipped = 0;
 		for (const project of mapped) {
@@ -83,15 +83,18 @@ export const syncProjectSpend = internalAction({
 				continue;
 			}
 			const costOfSales = costOfSalesByOption.get(optionName) ?? 0;
+			const tradingIncome = tradingIncomeByOption.get(optionName) ?? 0;
 			updates.push({
 				projectId: project._id,
-				expenses: roundToCents(costOfSales * SPEND_UPLIFT),
+				expenses: roundToCents(costOfSales * XERO_UPLIFT),
+				received: roundToCents(tradingIncome * XERO_UPLIFT),
 			});
 		}
 
-		await ctx.runMutation(internal.projects.applyXeroSpend.applyXeroSpend, {
-			updates,
-		});
+		await ctx.runMutation(
+			internal.projects.applyXeroFinancials.applyXeroFinancials,
+			{ updates }
+		);
 
 		return { updated: updates.length, skipped };
 	},
