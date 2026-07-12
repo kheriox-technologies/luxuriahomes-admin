@@ -48,14 +48,23 @@ pnpm dlx @google/clasp@3 create-script --type standalone --title "Luxuria Docume
 pnpm push
 ```
 
-3. **Paste the manifest manually.** clasp v3 has a bug: `clasp push` claims it
-   pushed `src/appsscript.json` but never actually updates the remote
-   manifest, so the editor shows "To test deployment as Add-on, update the
-   manifest file" and no Install button. Fix: in the script editor, **Project
-   Settings → check "Show 'appsscript.json' manifest file in editor"**, then
-   open `appsscript.json` in the Editor, replace its contents with
-   `src/appsscript.json` from this repo, and save. Repeat this whenever the
-   manifest changes (rare); `.js` files push fine with `pnpm push`.
+3. **Paste the manifest manually.** clasp v3 has a bug: `clasp push` never
+   uploads `src/appsscript.json` — worse, it OVERWRITES the local file with
+   the remote manifest (check `git status` after pushing and restore if
+   needed). Without the manifest the editor shows "To test deployment as
+   Add-on, update the manifest file" and no Install button. Fix: in the
+   script editor, **Project Settings → check "Show 'appsscript.json' manifest
+   file in editor"**, then open `appsscript.json` in the Editor, replace its
+   contents with `src/appsscript.json` from this repo, and save. Repeat this
+   whenever the manifest changes (rare); `.js` files push fine with
+   `pnpm push`.
+
+   The manifest's `urlFetchWhitelist` (required for versioned/Marketplace
+   deployments; test deployments ignore it) must list every URL prefix the
+   add-on fetches: both Convex `.convex.site` hosts and both S3 bucket hosts
+   (dev + prod). If the Convex deployment or bucket ever changes, update the
+   whitelist or every call fails with "An explicit urlFetchWhitelist is
+   required".
 
 4. Open the script (`pnpm open`), then **Project Settings → Script
    Properties** and add:

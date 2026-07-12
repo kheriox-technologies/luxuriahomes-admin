@@ -1,6 +1,31 @@
 {
-  "timeZone": "America/New_York",
-  "dependencies": {},
+  "timeZone": "Australia/Sydney",
+  "runtimeVersion": "V8",
   "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8"
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/gmail.addons.execute",
+    "https://www.googleapis.com/auth/gmail.addons.current.message.readonly",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/userinfo.email"
+  ],
+  "urlFetchWhitelist": [
+    "https://fast-lion-840.convex.site/",
+    "https://aromatic-eel-830.convex.site/",
+    "https://apse2-lha-dev-cdn.s3.ap-southeast-2.amazonaws.com/",
+    "https://apse2-lha-prod-cdn.s3.ap-southeast-2.amazonaws.com/"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Luxuria Documents",
+      "logoUrl": "https://fonts.gstatic.com/s/i/googlematerialicons/description/v12/black-24dp/1x/gm_description_black_24dp.png"
+    },
+    "gmail": {
+      "contextualTriggers": [
+        {
+          "unconditional": {},
+          "onTriggerFunction": "onGmailMessageOpen"
+        }
+      ]
+    }
+  }
 }
