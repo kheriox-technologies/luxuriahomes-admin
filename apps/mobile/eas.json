@@ -7,6 +7,10 @@
     "production": {
       "distribution": "store",
       "credentialsSource": "local",
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://aromatic-eel-830.convex.cloud",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsubHV4dXJpYWhvbWVzLmNvbS5hdSQ"
+      },
       "ios": {
         "buildConfiguration": "Release"
       },
