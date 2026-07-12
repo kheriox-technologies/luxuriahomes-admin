@@ -38,12 +38,12 @@ dashboard.
 ### 2. Apps Script project
 
 1. Enable the Apps Script API: https://script.google.com/home/usersettings
-2. From `apps/gmail-addon/`:
+2. From `apps/gmail-addon/` (clasp v3 is run via `pnpm dlx` — do not install
+   v2 locally, it cannot read v3-format `~/.clasprc.json` credentials):
 
 ```bash
-pnpm install
-pnpm dlx @google/clasp login
-pnpm dlx @google/clasp create --type standalone --title "Luxuria Documents" --rootDir src
+pnpm dlx @google/clasp@3 login
+pnpm dlx @google/clasp@3 create-script --type standalone --title "Luxuria Documents" --rootDir src
 # clasp writes .clasp.json (git-ignored scriptId lives there)
 pnpm push
 ```
