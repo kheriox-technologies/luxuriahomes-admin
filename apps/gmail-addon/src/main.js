@@ -1,5 +1,15 @@
 // Entry points for the Gmail add-on: contextual trigger + card actions.
 
+const LH_APP_LABEL = 'LH APP';
+
+// Gets (or creates) the "LH APP" label and applies it to the current thread.
+function applyFiledLabel_(e) {
+	const label =
+		GmailApp.getUserLabelByName(LH_APP_LABEL) ||
+		GmailApp.createLabel(LH_APP_LABEL);
+	GmailApp.getMessageById(e.gmail.messageId).getThread().addLabel(label);
+}
+
 function getAttachments_(e) {
 	GmailApp.setCurrentMessageAccessToken(e.gmail.accessToken);
 	const message = GmailApp.getMessageById(e.gmail.messageId);
@@ -127,6 +137,14 @@ function onSubmit(e) {
 	const destination = folderPath || 'root';
 
 	if (failed.length === 0) {
+		try {
+			applyFiledLabel_(e);
+		} catch (labelError) {
+			// Filing succeeded; labeling is best-effort, so don't fail the action.
+			return notify_(
+				`Filed ${succeeded.length} file(s) to ${projectName} / ${destination} (label not applied)`
+			);
+		}
 		return notify_(
 			`Filed ${succeeded.length} file(s) to ${projectName} / ${destination}`
 		);
