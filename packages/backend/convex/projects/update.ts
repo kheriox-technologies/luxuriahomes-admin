@@ -25,6 +25,7 @@ export const update = mutation({
 		quotePrice: v.optional(v.union(v.number(), v.null())),
 		expenses: v.optional(v.union(v.number(), v.null())),
 		received: v.optional(v.union(v.number(), v.null())),
+		xeroTrackingOptionId: v.optional(v.union(v.string(), v.null())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -99,6 +100,14 @@ export const update = mutation({
 			received = args.received === null ? undefined : args.received;
 		}
 
+		let xeroTrackingOptionId = existing.xeroTrackingOptionId;
+		if (args.xeroTrackingOptionId !== undefined) {
+			xeroTrackingOptionId =
+				args.xeroTrackingOptionId === null
+					? undefined
+					: args.xeroTrackingOptionId;
+		}
+
 		// When start date changes and a schedule exists, shift all stage/task dates
 		// by the same number of business days (skips weekends, preserving weekday alignment).
 		if (
@@ -154,6 +163,7 @@ export const update = mutation({
 			quotePrice,
 			expenses,
 			received,
+			xeroTrackingOptionId,
 			searchText,
 		});
 		return args.projectId;

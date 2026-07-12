@@ -3,24 +3,14 @@
 import { v } from 'convex/values';
 import { internalAction } from '../_generated/server';
 import {
-	fetchProfitAndLoss,
+	fetchCumulativeExpensesByOption,
 	getXeroAccessToken,
 	getXeroConfig,
 	getXeroTenantId,
-	parseExpensesByOption,
+	SYNC_FROM_DATE,
+	todayUtcDate,
 	type XeroReportRow,
 } from './shared';
-
-// Far-past start so the P&L spans cumulative expenses-to-date for every project.
-const DEFAULT_FROM_DATE = '2000-01-01';
-
-function todayUtcDate(): string {
-	const now = new Date();
-	const year = now.getUTCFullYear();
-	const month = `${now.getUTCMonth() + 1}`.padStart(2, '0');
-	const day = `${now.getUTCDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
 
 function summarizeRow(row: XeroReportRow): {
 	rowType: string;
@@ -60,28 +50,34 @@ export const testProfitAndLoss = internalAction({
 		const accessToken = await getXeroAccessToken(config);
 		const tenantId = await getXeroTenantId(accessToken);
 
-		const fromDate = args.fromDate ?? DEFAULT_FROM_DATE;
+		const fromDate = args.fromDate ?? SYNC_FROM_DATE;
 		const toDate = args.toDate ?? todayUtcDate();
 
-		const report = await fetchProfitAndLoss(accessToken, tenantId, {
-			trackingCategoryId,
-			fromDate,
-			toDate,
-		});
-
-		const expensesByOption = Array.from(
-			parseExpensesByOption(report).entries()
-		).map(([option, expenses]) => ({ option, expenses }));
+		const { expensesByOption, costOfSalesByOption, windows, lastReport } =
+			await fetchCumulativeExpensesByOption(accessToken, tenantId, {
+				trackingCategoryId,
+				fromDate,
+				toDate,
+			});
 
 		return {
 			trackingCategoryId,
 			fromDate,
 			toDate,
-			reportName: report.ReportName,
-			expensesByOption,
-			// Raw top-level rows (header + section summaries) for debugging the
-			// report shape when an option doesn't match or a total is missing.
-			rows: (report.Rows ?? []).map(summarizeRow),
+			// The ≤365-day windows the range was split into (Xero caps P&L ranges
+			// at 365 days); totals are summed across all of them.
+			windows,
+			reportName: lastReport?.ReportName,
+			// Total Cost of Sales per project (tracking option).
+			costOfSalesByOption: Array.from(costOfSalesByOption.entries()).map(
+				([option, costOfSales]) => ({ option, costOfSales })
+			),
+			expensesByOption: Array.from(expensesByOption.entries()).map(
+				([option, expenses]) => ({ option, expenses })
+			),
+			// Raw top-level rows of the final window (header + section summaries)
+			// for debugging report shape when an option doesn't match a total.
+			rows: (lastReport?.Rows ?? []).map(summarizeRow),
 		};
 	},
 });

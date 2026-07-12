@@ -261,8 +261,10 @@ import type * as projectTasks_update from "../projectTasks/update.js";
 import type * as projectTasks_updateDates from "../projectTasks/updateDates.js";
 import type * as projectTasks_updateStatus from "../projectTasks/updateStatus.js";
 import type * as projects_add from "../projects/add.js";
+import type * as projects_applyXeroFinancials from "../projects/applyXeroFinancials.js";
 import type * as projects_get from "../projects/get.js";
 import type * as projects_list from "../projects/list.js";
+import type * as projects_listXeroMapped from "../projects/listXeroMapped.js";
 import type * as projects_remove from "../projects/remove.js";
 import type * as projects_search from "../projects/search.js";
 import type * as projects_shared from "../projects/shared.js";
@@ -383,7 +385,10 @@ import type * as websiteProjects_removeMediaEntry from "../websiteProjects/remov
 import type * as websiteProjects_setMainImage from "../websiteProjects/setMainImage.js";
 import type * as websiteProjects_shared from "../websiteProjects/shared.js";
 import type * as websiteProjects_update from "../websiteProjects/update.js";
+import type * as xero_listTrackingOptions from "../xero/listTrackingOptions.js";
 import type * as xero_shared from "../xero/shared.js";
+import type * as xero_syncProjectFinancials from "../xero/syncProjectFinancials.js";
+import type * as xero_syncProjectFinancialsNow from "../xero/syncProjectFinancialsNow.js";
 import type * as xero_testConnection from "../xero/testConnection.js";
 import type * as xero_testProfitAndLoss from "../xero/testProfitAndLoss.js";
 
@@ -647,8 +652,10 @@ declare const fullApi: ApiFromModules<{
   "projectTasks/updateDates": typeof projectTasks_updateDates;
   "projectTasks/updateStatus": typeof projectTasks_updateStatus;
   "projects/add": typeof projects_add;
+  "projects/applyXeroFinancials": typeof projects_applyXeroFinancials;
   "projects/get": typeof projects_get;
   "projects/list": typeof projects_list;
+  "projects/listXeroMapped": typeof projects_listXeroMapped;
   "projects/remove": typeof projects_remove;
   "projects/search": typeof projects_search;
   "projects/shared": typeof projects_shared;
@@ -769,7 +776,10 @@ declare const fullApi: ApiFromModules<{
   "websiteProjects/setMainImage": typeof websiteProjects_setMainImage;
   "websiteProjects/shared": typeof websiteProjects_shared;
   "websiteProjects/update": typeof websiteProjects_update;
+  "xero/listTrackingOptions": typeof xero_listTrackingOptions;
   "xero/shared": typeof xero_shared;
+  "xero/syncProjectFinancials": typeof xero_syncProjectFinancials;
+  "xero/syncProjectFinancialsNow": typeof xero_syncProjectFinancialsNow;
   "xero/testConnection": typeof xero_testConnection;
   "xero/testProfitAndLoss": typeof xero_testProfitAndLoss;
 }>;

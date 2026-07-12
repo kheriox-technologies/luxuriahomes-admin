@@ -2,6 +2,7 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
+import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
@@ -20,10 +21,13 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { toastManager } from '@workspace/ui/components/toast';
+import { useAction } from 'convex/react';
 import {
 	Building2,
 	EllipsisVertical,
 	Pencil,
+	RefreshCw,
 	SearchIcon,
 	Trash2,
 } from 'lucide-react';
@@ -176,6 +180,56 @@ const RightHeader = ({ label }: { label: string }) => (
 	<div className="text-right">{label}</div>
 );
 
+// Column header with an on-demand button that re-syncs every mapped project's
+// Spent (cost of sales) and Received (trading income) values from Xero in one
+// pass. Used on both money columns; either button triggers the same combined
+// sync. The table is reactive, so values update in place once the sync's
+// mutation lands — no manual refetch needed.
+function XeroSyncHeader({ label }: { label: string }) {
+	const syncNow = useAction(
+		api.xero.syncProjectFinancialsNow.syncProjectFinancialsNow
+	);
+	const [pending, setPending] = useState(false);
+
+	const handleSync = async () => {
+		setPending(true);
+		try {
+			const { updated, skipped } = await syncNow({});
+			toastManager.add({
+				title: 'Synced from Xero',
+				description: `Updated ${updated} project${updated === 1 ? '' : 's'}${
+					skipped > 0 ? `, skipped ${skipped} unmatched` : ''
+				}.`,
+				type: 'success',
+			});
+		} catch {
+			toastManager.add({
+				title: 'Could not sync from Xero',
+				description: 'Please try again in a moment.',
+				type: 'error',
+			});
+		} finally {
+			setPending(false);
+		}
+	};
+
+	return (
+		<div className="flex items-center justify-end gap-1">
+			<span>{label}</span>
+			<Button
+				aria-label={`Sync ${label} from Xero`}
+				loading={pending}
+				onClick={handleSync}
+				size="icon-sm"
+				type="button"
+				variant="ghost"
+			>
+				<RefreshCw />
+			</Button>
+		</div>
+	);
+}
+
 function MoneyDelta({
 	amount,
 	positiveSuffix,
@@ -271,7 +325,7 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'expenses',
-		header: () => <RightHeader label="Spent" />,
+		header: () => <XeroSyncHeader label="Expenses" />,
 		size: 120,
 		cell: ({ row }) => {
 			const { expenses } = row.original;
@@ -288,7 +342,7 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'received',
-		header: () => <RightHeader label="Received" />,
+		header: () => <XeroSyncHeader label="Received" />,
 		size: 130,
 		cell: ({ row }) => {
 			const { received, expenses } = row.original;

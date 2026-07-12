@@ -48,6 +48,7 @@ import {
 	projectClientAddressesEqual,
 	projectClientFromDraft,
 	toConvexCreatePayload,
+	XeroOptionCombobox,
 } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -410,7 +411,7 @@ export default function AddProjectForm() {
 									Pricing
 								</FrameTitle>
 							</FrameHeader>
-							<FramePanel className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+							<FramePanel className="space-y-4">
 								<form.Field name="quotePrice">
 									{(field) => {
 										const invalid =
@@ -449,77 +450,21 @@ export default function AddProjectForm() {
 										);
 									}}
 								</form.Field>
-								<form.Field name="expenses">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Expenses</FieldLabel>
-												<Input
-													aria-invalid={invalid}
-													id={field.name}
-													inputMode="decimal"
-													min={0}
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) =>
-														field.handleChange(
-															e.target.value === ''
-																? undefined
-																: Number(e.target.value)
-														)
-													}
-													placeholder="0"
-													step="0.01"
-													type="number"
-													value={field.state.value ?? ''}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
-								</form.Field>
-								<form.Field name="received">
-									{(field) => {
-										const invalid =
-											field.state.meta.isTouched && !field.state.meta.isValid;
-										return (
-											<Field data-invalid={invalid}>
-												<FieldLabel htmlFor={field.name}>Received</FieldLabel>
-												<Input
-													aria-invalid={invalid}
-													id={field.name}
-													inputMode="decimal"
-													min={0}
-													name={field.name}
-													nativeInput
-													onBlur={field.handleBlur}
-													onChange={(e) =>
-														field.handleChange(
-															e.target.value === ''
-																? undefined
-																: Number(e.target.value)
-														)
-													}
-													placeholder="0"
-													step="0.01"
-													type="number"
-													value={field.state.value ?? ''}
-												/>
-												{invalid ? (
-													<FieldError>
-														{formatFieldErrors(field.state.meta.errors)}
-													</FieldError>
-												) : null}
-											</Field>
-										);
-									}}
+								<form.Field name="xeroTrackingOptionId">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Xero project (for Expenses & Received sync)
+											</FieldLabel>
+											<XeroOptionCombobox
+												id={field.name}
+												onBlur={field.handleBlur}
+												onChange={(next) => field.handleChange(next)}
+												placeholder="Select Xero project"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
 								</form.Field>
 							</FramePanel>
 						</Frame>
