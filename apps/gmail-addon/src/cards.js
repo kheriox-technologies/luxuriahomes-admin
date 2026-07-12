@@ -55,14 +55,15 @@ function buildFilingCard_(state) {
 	const destinationSection =
 		CardService.newCardSection().setHeader('Destination');
 
+	// No setTitle() on the dropdowns: Gmail draws the floating title on top of
+	// the selected value (overlapping text); placeholder items label them.
 	const projectDropdown = CardService.newSelectionInput()
 		.setType(CardService.SelectionInputType.DROPDOWN)
 		.setFieldName('projectId')
-		.setTitle('Project')
 		.setOnChangeAction(
 			CardService.newAction().setFunctionName('onProjectChange')
 		);
-	projectDropdown.addItem('Select a project…', '', !inputs.projectId);
+	projectDropdown.addItem('Project: select…', '', !inputs.projectId);
 	for (const project of state.projects) {
 		projectDropdown.addItem(
 			project.name,
@@ -74,10 +75,9 @@ function buildFilingCard_(state) {
 
 	const folderDropdown = CardService.newSelectionInput()
 		.setType(CardService.SelectionInputType.DROPDOWN)
-		.setFieldName('folderPath')
-		.setTitle('Folder');
+		.setFieldName('folderPath');
 	if (state.folders) {
-		folderDropdown.addItem('/ (root)', '', !inputs.folderPath);
+		folderDropdown.addItem('Folder: / (root)', '', !inputs.folderPath);
 		for (const folder of state.folders) {
 			folderDropdown.addItem(
 				folder.path,
@@ -86,7 +86,7 @@ function buildFilingCard_(state) {
 			);
 		}
 	} else {
-		folderDropdown.addItem('Select a project first', '', true);
+		folderDropdown.addItem('Folder: select a project first', '', true);
 	}
 	destinationSection.addWidget(folderDropdown);
 
