@@ -6,7 +6,41 @@ import { requireAdmin } from '../lib/checkIdentity';
 import { syncMaterialSearchText } from '../materials/shared';
 import { syncQuotationSearchText } from '../projectQuotations/shared';
 import { syncServiceProviderSearchText } from '../serviceProviders/shared';
-import { getTradeOrThrow, nextTradeOrder, parseTradeName } from './shared';
+import {
+	getTradeOrThrow,
+	nextTradeOrder,
+	normalizeXeroAccountIds,
+	parseTradeName,
+} from './shared';
+
+/** True when two normalized (deduped) GUID lists differ as sets. */
+function xeroAccountIdsDiffer(
+	a: string[] | undefined,
+	b: string[] | undefined
+): boolean {
+	const setA = new Set(a ?? []);
+	const setB = new Set(b ?? []);
+	if (setA.size !== setB.size) {
+		return true;
+	}
+	for (const id of setA) {
+		if (!setB.has(id)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Deletes every synced actual row for a trade (mapping changed / trade gone). */
+async function deleteTradeActuals(ctx: MutationCtx, tradeId: Id<'trades'>) {
+	const rows = await ctx.db
+		.query('xeroTradeActuals')
+		.withIndex('by_trade', (q) => q.eq('tradeId', tradeId))
+		.collect();
+	for (const row of rows) {
+		await ctx.db.delete(row._id);
+	}
+}
 
 /**
  * Trade names are denormalized into the searchText of every material, quotation,
@@ -48,6 +82,9 @@ export const update = mutation({
 		// undefined → leave the stage unchanged; null → move to Ungrouped; an id →
 		// move into that stage (appended to its end).
 		stageId: v.optional(v.union(v.id('tradeStages'), v.null())),
+		// undefined → leave the Xero account mapping unchanged (a name-only rename
+		// from the Budgets tab omits it); an array replaces it (empty array clears).
+		xeroAccountIds: v.optional(v.array(v.string())),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -67,6 +104,7 @@ export const update = mutation({
 			searchText: string;
 			stageId?: Id<'tradeStages'> | undefined;
 			order?: number;
+			xeroAccountIds?: string[] | undefined;
 		} = { name, description, searchText };
 		// Re-slot into the target stage only when the caller changes it.
 		if (args.stageId !== undefined) {
@@ -76,7 +114,21 @@ export const update = mutation({
 				patch.order = await nextTradeOrder(ctx, nextStageId);
 			}
 		}
+		// Only touch the mapping when the caller provides it. When it changes, drop
+		// the trade's synced actuals so stale values blank immediately; the next
+		// sync repopulates from the new accounts.
+		let mappingChanged = false;
+		if (args.xeroAccountIds !== undefined) {
+			const nextAccountIds = normalizeXeroAccountIds(args.xeroAccountIds);
+			if (xeroAccountIdsDiffer(nextAccountIds, existing.xeroAccountIds)) {
+				patch.xeroAccountIds = nextAccountIds;
+				mappingChanged = true;
+			}
+		}
 		await ctx.db.patch(args.tradeId, patch);
+		if (mappingChanged) {
+			await deleteTradeActuals(ctx, args.tradeId);
+		}
 		if (existing.name !== name) {
 			await reindexTradeReferences(ctx, args.tradeId);
 		}

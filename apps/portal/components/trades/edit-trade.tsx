@@ -14,13 +14,19 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
-import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
+import {
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+} from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { Check } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
+import { XeroAccountsCombobox } from '@/components/xero/xero-accounts-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyTradeFormValues,
@@ -47,6 +53,10 @@ export default function EditTrade({
 	const [open, setOpen] = useState(false);
 	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
 	const [newStageName, setNewStageName] = useState('');
+	// Self-fetch the trade's Xero account mapping only while the dialog is open,
+	// so the three EditTrade call sites don't have to thread it through as a prop.
+	const trade = useQuery(api.trades.get.get, open ? { tradeId } : 'skip');
+	const [xeroAccountIds, setXeroAccountIds] = useState<string[]>([]);
 	const updateTrade = useMutation(api.trades.update.update);
 	const addStage = useMutation(api.tradeStages.add.add);
 
@@ -75,6 +85,8 @@ export default function EditTrade({
 					// intentional clear apart from a name-only update that omits it.
 					description: parsed.description ?? '',
 					stageId: await resolveStageId(),
+					// Always send the mapping (empty array clears it) — same rationale.
+					xeroAccountIds,
 				});
 				toastManager.add({
 					title: 'Trade updated',
@@ -112,7 +124,15 @@ export default function EditTrade({
 		form.reset();
 		setStageId('');
 		setNewStageName('');
+		setXeroAccountIds([]);
 	}, [form, initialName, initialDescription, initialStageId, open]);
+
+	// Seed the Xero account mapping once the trade query resolves after opening.
+	useEffect(() => {
+		if (open && trade) {
+			setXeroAccountIds(trade.xeroAccountIds ?? []);
+		}
+	}, [open, trade]);
 
 	return (
 		<Dialog
@@ -190,6 +210,23 @@ export default function EditTrade({
 							onStageIdChange={setStageId}
 							stageId={stageId}
 						/>
+						<Field>
+							<FieldLabel htmlFor="edit-trade-xero-accounts">
+								Xero accounts
+								<span className="ml-1 text-muted-foreground text-xs">
+									(optional)
+								</span>
+							</FieldLabel>
+							<XeroAccountsCombobox
+								id="edit-trade-xero-accounts"
+								onChange={setXeroAccountIds}
+								value={xeroAccountIds}
+							/>
+							<FieldDescription>
+								The Budgets tab “Actual” is the sum of these accounts' Xero
+								spend. An account mapped to multiple trades is counted in each.
+							</FieldDescription>
+						</Field>
 					</DialogPanel>
 				</form>
 				<DialogFooter>

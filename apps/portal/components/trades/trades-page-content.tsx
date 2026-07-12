@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import { useXeroAccountCodes } from '@/components/xero/use-xero-account-codes';
+import { XeroAccountBadges } from '@/components/xero/xero-account-badges';
 import AddTrade from './add-trade';
 import AddTradeStage from './add-trade-stage';
 import DeleteTrade from './delete-trade';
@@ -80,6 +82,7 @@ export default function TradesPageContent() {
 
 	const [search, setSearch] = useState('');
 	const listRef = useRef<StageGroupedListHandle>(null);
+	const xeroLabelsById = useXeroAccountCodes();
 
 	type TradeItem = NonNullable<typeof trades>[number];
 
@@ -200,8 +203,14 @@ export default function TradesPageContent() {
 					renderRowContent={(trade) => (
 						<>
 							<div className="min-w-0 flex-1">
-								<div className="font-medium text-foreground text-sm">
-									{trade.name}
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="font-medium text-foreground text-sm">
+										{trade.name}
+									</span>
+									<XeroAccountBadges
+										accountIds={trade.xeroAccountIds}
+										labelsById={xeroLabelsById}
+									/>
 								</div>
 								{trade.description ? (
 									<div className="truncate text-muted-foreground text-xs">

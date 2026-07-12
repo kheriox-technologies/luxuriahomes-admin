@@ -91,9 +91,22 @@ interface ProjectQuotation {
 interface TradeGroup {
 	budgetPrice: number | null;
 	quotes: ProjectQuotation[];
-	remaining: number | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
+	// Xero-driven "Actual" for the trade; null when nothing has synced.
+	xeroActual: number | null;
+}
+
+// Green when the Xero actual is within budget, red when over, neutral when the
+// trade has no budget set — mirrors the Budgets tab colour logic.
+function actualBadgeVariant(
+	actual: number,
+	budgetPrice: number | null
+): 'success-outline' | 'destructive-outline' | 'secondary' {
+	if (budgetPrice === null) {
+		return 'secondary';
+	}
+	return actual <= budgetPrice ? 'success-outline' : 'destructive-outline';
 }
 
 const STATUS_VALUES: QuotationFormValues['status'][] = [
@@ -370,14 +383,13 @@ export default function ProjectQuotationsTabContent({
 	const budgetByTrade = useMemo(() => {
 		const map = new Map<
 			Id<'trades'>,
-			{ budgetPrice: number | null; remaining: number | null }
+			{ budgetPrice: number | null; xeroActual: number | null }
 		>();
 		for (const row of tradeSummary ?? []) {
-			const remaining =
-				row.budgetPrice === null
-					? null
-					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
-			map.set(row.tradeId, { budgetPrice: row.budgetPrice, remaining });
+			map.set(row.tradeId, {
+				budgetPrice: row.budgetPrice,
+				xeroActual: row.xeroActual,
+			});
 		}
 		return map;
 	}, [tradeSummary]);
@@ -415,7 +427,7 @@ export default function ProjectQuotationsTabContent({
 					tradeId: q.tradeId,
 					tradeName: q.tradeName,
 					budgetPrice: budget?.budgetPrice ?? null,
-					remaining: budget?.remaining ?? null,
+					xeroActual: budget?.xeroActual ?? null,
 					quotes: [],
 				};
 				map.set(q.tradeId, group);
@@ -506,21 +518,20 @@ export default function ProjectQuotationsTabContent({
 											No budget
 										</Badge>
 									) : (
-										<>
-											<Badge size="lg" variant="purple">
-												Budget {formatBudgetPrice(group.budgetPrice)}
-											</Badge>
-											<Badge
-												size="lg"
-												variant={
-													(group.remaining ?? 0) >= 0
-														? 'success-outline'
-														: 'destructive-outline'
-												}
-											>
-												Remaining {formatBudgetPrice(group.remaining ?? 0)}
-											</Badge>
-										</>
+										<Badge size="lg" variant="purple">
+											B {formatBudgetPrice(group.budgetPrice)}
+										</Badge>
+									)}
+									{group.xeroActual === null ? null : (
+										<Badge
+											size="lg"
+											variant={actualBadgeVariant(
+												group.xeroActual,
+												group.budgetPrice
+											)}
+										>
+											A {formatBudgetPrice(group.xeroActual)}
+										</Badge>
 									)}
 								</span>
 							</AccordionPrimitive.Trigger>

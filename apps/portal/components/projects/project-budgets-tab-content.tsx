@@ -22,15 +22,15 @@ import {
 import { SearchInput } from '@workspace/ui/components/search-input';
 import { toastManager } from '@workspace/ui/components/toast';
 import { cn } from '@workspace/ui/lib/utils';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import {
 	Check,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
 	Pencil,
+	RefreshCw,
 	Wallet,
 } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { useRef, useState } from 'react';
 import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
 import {
@@ -46,37 +46,30 @@ import {
 	StageGroupedList,
 	type StageGroupedListHandle,
 } from '@/components/trades/stage-grouped-list';
+import { useXeroAccountCodes } from '@/components/xero/use-xero-account-codes';
+import { XeroAccountBadges } from '@/components/xero/xero-account-badges';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import DeleteProjectBudget from './delete-project-budget';
 
 interface TradeBudgetRow {
 	budgetPrice: number | null;
-	orderCount: number;
-	paymentPrice: number | null;
 	projectBudgetId: Id<'projectBudgets'> | null;
-	quotationCount: number;
 	stageId: Id<'tradeStages'> | null;
-	totalOrderPrice: number;
-	totalQuotationPrice: number;
 	tradeDescription: string | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 	tradeOrder: number | null;
+	// Mapped Xero account GUIDs, for the code badges beside the trade name.
+	xeroAccountIds: string[];
+	// Xero-driven "Actual"; null when the trade has no synced amount ("—").
+	xeroActual: number | null;
 }
 
 // Shared grid so the header row and the data rows line up column-for-column.
 // The actions track is a fixed width (not `auto`) so the header — whose actions
 // cell is empty — keeps the same column boundaries as the data rows.
 const ROW_GRID =
-	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
-
-const FILTER_PARAMS = [
-	'orderId',
-	'orderTaskId',
-	'orderTradeId',
-	'quotationTradeId',
-	'quotationStatus',
-] as const;
+	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
 
 function actualColorClass(actual: number, budgetPrice: number | null): string {
 	if (budgetPrice === null) {
@@ -94,94 +87,75 @@ function BudgetValue({ price }: { price: number | null }) {
 	return <span className="tabular-nums">{formatBudgetPrice(price)}</span>;
 }
 
-// `budget` and `payment` are the live (draft-aware) values so the Actual amount
-// and its over/under color react while the row is being edited.
+// `budget` is the live (draft-aware) budget so the Actual's over/under color
+// reacts while the row is being edited. The amount itself is Xero-driven.
 function ActualCell({
 	row,
 	budget,
-	payment,
 }: {
 	row: TradeBudgetRow;
 	budget: number | null;
-	payment: number;
 }) {
-	if (row.quotationCount === 0 && row.orderCount === 0 && payment === 0) {
+	if (row.xeroActual === null) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
-	const actual = row.totalQuotationPrice + row.totalOrderPrice + payment;
 	return (
-		<div className="flex flex-col items-start gap-1">
-			<span
-				className={cn(
-					'font-medium tabular-nums',
-					actualColorClass(actual, budget)
-				)}
-			>
-				{formatBudgetPrice(actual)}
-			</span>
-			{row.quotationCount > 0 || row.orderCount > 0 ? (
-				<div className="flex flex-wrap items-center gap-1">
-					<QuotationsCountCell row={row} />
-					<OrdersCountCell row={row} />
-				</div>
-			) : null}
-		</div>
+		<span
+			className={cn(
+				'font-medium tabular-nums',
+				actualColorClass(row.xeroActual, budget)
+			)}
+		>
+			{formatBudgetPrice(row.xeroActual)}
+		</span>
 	);
 }
 
-function QuotationsCountCell({ row }: { row: TradeBudgetRow }) {
-	const router = useRouter();
-	const searchParams = useSearchParams();
-
-	if (row.quotationCount === 0) {
-		return null;
-	}
-
-	const handleClick = () => {
-		const params = new URLSearchParams(searchParams.toString());
-		for (const key of FILTER_PARAMS) {
-			params.delete(key);
-		}
-		params.set('tab', 'quotations');
-		params.set('quotationTradeId', row.tradeId);
-		params.set('quotationStatus', 'Approved');
-		router.push(`?${params.toString()}`);
-	};
-
-	return (
-		<button className="w-fit" onClick={handleClick} type="button">
-			<Badge size="lg" variant="secondary">
-				{row.quotationCount}{' '}
-				{row.quotationCount === 1 ? 'Quotation' : 'Quotations'}
-			</Badge>
-		</button>
+// On-demand button that re-syncs every mapped project's Xero financials —
+// including per-trade actuals — in one pass. The page is reactive, so the
+// Actual column updates in place once the sync's mutation lands.
+function XeroActualsSyncButton() {
+	const syncNow = useAction(
+		api.xero.syncProjectFinancialsNow.syncProjectFinancialsNow
 	);
-}
+	const [pending, setPending] = useState(false);
 
-function OrdersCountCell({ row }: { row: TradeBudgetRow }) {
-	const router = useRouter();
-	const searchParams = useSearchParams();
-
-	if (row.orderCount === 0) {
-		return null;
-	}
-
-	const handleClick = () => {
-		const params = new URLSearchParams(searchParams.toString());
-		for (const key of FILTER_PARAMS) {
-			params.delete(key);
+	const handleSync = async () => {
+		setPending(true);
+		try {
+			const { tradeActualsWritten } = await syncNow({});
+			toastManager.add({
+				title: 'Synced from Xero',
+				description: `Updated ${tradeActualsWritten} trade actual${
+					tradeActualsWritten === 1 ? '' : 's'
+				}.`,
+				type: 'success',
+			});
+		} catch {
+			toastManager.add({
+				title: 'Could not sync from Xero',
+				description: 'Please try again in a moment.',
+				type: 'error',
+			});
+		} finally {
+			setPending(false);
 		}
-		params.set('tab', 'orders');
-		params.set('orderTradeId', row.tradeId);
-		router.push(`?${params.toString()}`);
 	};
 
 	return (
-		<button className="w-fit" onClick={handleClick} type="button">
-			<Badge size="lg" variant="secondary">
-				{row.orderCount} {row.orderCount === 1 ? 'Order' : 'Orders'}
-			</Badge>
-		</button>
+		<Button
+			loading={pending}
+			onClick={() => {
+				handleSync().catch(() => {
+					/* Error handled in handleSync */
+				});
+			}}
+			type="button"
+			variant="outline"
+		>
+			<RefreshCw />
+			Sync Actuals
+		</Button>
 	);
 }
 
@@ -198,20 +172,18 @@ export default function ProjectBudgetsTabContent({
 	const {
 		isEditing,
 		drafts,
-		paymentDrafts,
 		nameDrafts,
 		begin,
 		setDraft,
-		setPaymentDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
-		getPaymentChanges,
 		getNameChanges,
 	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
 	const [search, setSearch] = useState('');
 	const listRef = useRef<StageGroupedListHandle>(null);
+	const xeroLabelsById = useXeroAccountCodes();
 
 	const setPrices = useMutation(api.projectBudgets.setPrices.setPrices);
 	const addItem = useMutation(api.projectBudgets.addItem.addItem);
@@ -285,7 +257,7 @@ export default function ProjectBudgetsTabContent({
 		.filter((row) => row.budgetPrice !== null)
 		.map((row) => row.tradeId);
 
-	// Live values reflect draft prices while editing so totals update before
+	// Live budget reflects draft prices while editing so totals update before
 	// "Done"; blank/invalid drafts fall back to the saved value.
 	const liveBudget = (row: TradeBudgetRow) => {
 		if (isEditing) {
@@ -296,25 +268,13 @@ export default function ProjectBudgetsTabContent({
 		}
 		return row.budgetPrice ?? 0;
 	};
-	const livePayment = (row: TradeBudgetRow) => {
-		if (isEditing) {
-			const raw = (paymentDrafts[row.tradeId] ?? '').trim();
-			if (raw.length > 0 && isValidMoneyString(raw)) {
-				return parseMoneyString(raw);
-			}
-		}
-		return row.paymentPrice ?? 0;
-	};
-	// Actual includes payments (quotations + orders + payments).
-	const liveActual = (row: TradeBudgetRow) =>
-		row.totalQuotationPrice + row.totalOrderPrice + livePayment(row);
 
 	const totalBudget = (rows ?? []).reduce(
 		(sum, row) => sum + liveBudget(row),
 		0
 	);
 	const totalActual = (rows ?? []).reduce(
-		(sum, row) => sum + liveActual(row),
+		(sum, row) => sum + (row.xeroActual ?? 0),
 		0
 	);
 
@@ -348,7 +308,6 @@ export default function ProjectBudgetsTabContent({
 			(rows ?? []).map((row) => ({
 				tradeId: row.tradeId,
 				price: row.budgetPrice,
-				payments: row.paymentPrice,
 				name: row.tradeName,
 			}))
 		);
@@ -356,24 +315,11 @@ export default function ProjectBudgetsTabContent({
 
 	const handleDone = async () => {
 		const changes = getChanges();
-		const paymentChanges = getPaymentChanges();
 		const nameChanges = getNameChanges();
-		// Merge price + payment changes by trade so each trade is upserted once.
-		const itemsByTrade = new Map<
-			Id<'trades'>,
-			{ tradeId: Id<'trades'>; price?: number; payments?: number }
-		>();
-		for (const change of changes) {
-			const tradeId = change.tradeId as Id<'trades'>;
-			itemsByTrade.set(tradeId, { tradeId, price: change.price });
-		}
-		for (const change of paymentChanges) {
-			const tradeId = change.tradeId as Id<'trades'>;
-			const existing = itemsByTrade.get(tradeId) ?? { tradeId };
-			existing.payments = change.payments;
-			itemsByTrade.set(tradeId, existing);
-		}
-		const items = Array.from(itemsByTrade.values());
+		const items = changes.map((change) => ({
+			tradeId: change.tradeId as Id<'trades'>,
+			price: change.price,
+		}));
 		if (items.length === 0 && nameChanges.length === 0) {
 			cancel();
 			return;
@@ -417,7 +363,13 @@ export default function ProjectBudgetsTabContent({
 					value={nameDrafts[row.tradeId] ?? ''}
 				/>
 			) : (
-				<span className="font-medium text-sm">{row.tradeName}</span>
+				<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<span className="font-medium text-sm">{row.tradeName}</span>
+					<XeroAccountBadges
+						accountIds={row.xeroAccountIds}
+						labelsById={xeroLabelsById}
+					/>
+				</div>
 			)}
 			{isEditing ? (
 				<InputGroup>
@@ -440,32 +392,7 @@ export default function ProjectBudgetsTabContent({
 			) : (
 				<BudgetValue price={row.budgetPrice} />
 			)}
-			{isEditing ? (
-				<InputGroup>
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>$</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label={`Payments for ${row.tradeName}`}
-						inputMode="decimal"
-						nativeInput
-						onChange={(e) => setPaymentDraft(row.tradeId, e.target.value)}
-						placeholder="0.00"
-						type="text"
-						value={paymentDrafts[row.tradeId] ?? ''}
-					/>
-					<InputGroupAddon align="inline-end">
-						<InputGroupText>AUD</InputGroupText>
-					</InputGroupAddon>
-				</InputGroup>
-			) : (
-				<BudgetValue price={row.paymentPrice} />
-			)}
-			<ActualCell
-				budget={liveBudget(row)}
-				payment={livePayment(row)}
-				row={row}
-			/>
+			<ActualCell budget={liveBudget(row)} row={row} />
 			<Group className="justify-end">
 				<EditTrade
 					initialDescription={row.tradeDescription ?? undefined}
@@ -499,12 +426,11 @@ export default function ProjectBudgetsTabContent({
 	);
 
 	// Per-stage subtotals, one cell per column so they align under Budget /
-	// Payments / Actual. Empty stages still emit the cells to keep the grid tracks.
+	// Actual. Empty stages still emit the cells to keep the grid tracks.
 	const renderStageColumns = (group: StageGroup<TradeBudgetRow>) => {
 		if (group.items.length === 0) {
 			return (
 				<>
-					<span />
 					<span />
 					<span />
 				</>
@@ -514,12 +440,8 @@ export default function ProjectBudgetsTabContent({
 			(sum, row) => sum + liveBudget(row),
 			0
 		);
-		const paymentSubtotal = group.items.reduce(
-			(sum, row) => sum + livePayment(row),
-			0
-		);
 		const actualSubtotal = group.items.reduce(
-			(sum, row) => sum + liveActual(row),
+			(sum, row) => sum + (row.xeroActual ?? 0),
 			0
 		);
 		return (
@@ -527,11 +449,6 @@ export default function ProjectBudgetsTabContent({
 				<span className="flex items-center">
 					<Badge size="lg" variant="purple">
 						B {formatBudgetPrice(budgetSubtotal)}
-					</Badge>
-				</span>
-				<span className="flex items-center">
-					<Badge size="lg" variant="secondary">
-						P {formatBudgetPrice(paymentSubtotal)}
 					</Badge>
 				</span>
 				<span className="flex items-center">
@@ -583,6 +500,7 @@ export default function ProjectBudgetsTabContent({
 							</Badge>
 						</>
 					) : null}
+					<XeroActualsSyncButton />
 					<Group>
 						<Button
 							aria-label="Expand all"

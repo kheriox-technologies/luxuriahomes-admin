@@ -1,6 +1,20 @@
 # Xero Chart of Accounts → Trades Integration (Implementation Plan)
 
-> Status: planned, not yet implemented. Companion to `xero-expense-sync.md` (project-level Expenses/Received sync).
+> Status: **implemented** (backend + frontend). Companion to `xero-expense-sync.md` (project-level Expenses/Received sync).
+>
+> Deviation from this plan: `projectBudgets/tradeSummary` was found to be shared
+> by the Quotations tab, Orders tab, and three mobile screens (a per-trade
+> "budget remaining" helper), not only the Budgets tab. Slimming it to the shape
+> below therefore also removed the quotation/order-driven "Remaining" badge from
+> those five consumers (each now shows only the "Budget" figure, which
+> `tradeSummary` still returns). The mobile Budgets screen was likewise
+> re-pointed at `xeroActual` and lost its Payments column.
+>
+> Two-step `payments` removal (§5b) is partially done: step 1 is in place
+> (`clearPayments` migration added, `payments` still in schema). Step 2 — run
+> `internal.projectBudgets.clearPayments.clearPayments` from the Convex
+> dashboard, then delete that file and drop `payments` from `schema.ts` — is
+> still pending.
 
 ## Context
 

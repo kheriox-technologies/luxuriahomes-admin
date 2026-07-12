@@ -157,6 +157,35 @@ export async function fetchTrackingCategories(
 	return data.TrackingCategories ?? [];
 }
 
+export interface XeroAccount {
+	AccountID: string;
+	Class?: string;
+	Code?: string;
+	Name: string;
+	Status?: string;
+	Type?: string;
+}
+
+/**
+ * Fetches all accounts (Chart of Accounts) for the organisation. Uses the same
+ * `accounting.settings.read` scope as `fetchTrackingCategories`. Callers filter
+ * the result (e.g. to expense-class accounts) — no `where=` param is passed.
+ */
+export async function fetchAccounts(
+	accessToken: string,
+	tenantId: string
+): Promise<XeroAccount[]> {
+	const resp = await fetch(`${XERO_API_BASE}/Accounts`, {
+		headers: xeroHeaders(accessToken, tenantId),
+	});
+	if (!resp.ok) {
+		const detail = await resp.text();
+		throw new Error(`Xero Accounts request failed (${resp.status}): ${detail}`);
+	}
+	const data = (await resp.json()) as { Accounts?: XeroAccount[] };
+	return data.Accounts ?? [];
+}
+
 export interface ProfitAndLossParams {
 	fromDate: string;
 	toDate: string;
@@ -197,6 +226,9 @@ export async function fetchProfitAndLoss(
 }
 
 export interface XeroReportCell {
+	// P&L report cells carry attributes; account rows ride an `Id === 'account'`
+	// attribute whose `Value` is the account GUID.
+	Attributes?: Array<{ Id?: string; Value?: string }>;
 	Value?: string;
 }
 
@@ -252,6 +284,11 @@ export function profitAndLossDateWindows(
 }
 
 export interface CumulativeExpensesResult {
+	/**
+	 * Summed P&L amount per account GUID per tracking option across every window
+	 * (`accountId -> optionName -> amount`). Feeds the per-trade "Actual" sync.
+	 */
+	accountAmountsByOption: Map<string, Map<string, number>>;
 	/** Summed cost of sales per tracking option across every window. */
 	costOfSalesByOption: Map<string, number>;
 	/** Summed expenses per tracking option across every window. */
@@ -273,6 +310,20 @@ function accumulateInto(
 	}
 }
 
+function accumulateNestedInto(
+	target: Map<string, Map<string, number>>,
+	source: Map<string, Map<string, number>>
+) {
+	for (const [accountId, byOption] of source) {
+		let targetByOption = target.get(accountId);
+		if (!targetByOption) {
+			targetByOption = new Map<string, number>();
+			target.set(accountId, targetByOption);
+		}
+		accumulateInto(targetByOption, byOption);
+	}
+}
+
 /**
  * Fetches cumulative expenses- and cost-of-sales-per-tracking-option across a
  * range of any length by chunking it into ≤365-day windows, fetching a P&L per
@@ -289,6 +340,7 @@ export async function fetchCumulativeExpensesByOption(
 	const expensesByOption = new Map<string, number>();
 	const costOfSalesByOption = new Map<string, number>();
 	const incomeByOption = new Map<string, number>();
+	const accountAmountsByOption = new Map<string, Map<string, number>>();
 	let lastReport: XeroReport | undefined;
 	for (const window of windows) {
 		const report = await fetchProfitAndLoss(accessToken, tenantId, {
@@ -300,11 +352,16 @@ export async function fetchCumulativeExpensesByOption(
 		accumulateInto(expensesByOption, parseExpensesByOption(report));
 		accumulateInto(costOfSalesByOption, parseCostOfSalesByOption(report));
 		accumulateInto(incomeByOption, parseIncomeByOption(report));
+		accumulateNestedInto(
+			accountAmountsByOption,
+			parseAccountAmountsByOption(report)
+		);
 	}
 	return {
 		expensesByOption,
 		costOfSalesByOption,
 		incomeByOption,
+		accountAmountsByOption,
 		windows,
 		lastReport,
 	};
@@ -387,4 +444,62 @@ export function parseCostOfSalesByOption(
  */
 export function parseIncomeByOption(report: XeroReport): Map<string, number> {
 	return parseTotalRowByOption(report, TOTAL_INCOME_LABELS);
+}
+
+/** Finds an account row's GUID: the first cell attribute with `Id === 'account'`. */
+function accountIdForRow(row: XeroReportRow): string | undefined {
+	for (const cell of row.Cells ?? []) {
+		for (const attribute of cell.Attributes ?? []) {
+			if (attribute.Id === 'account' && attribute.Value) {
+				return attribute.Value;
+			}
+		}
+	}
+	return;
+}
+
+/**
+ * Extracts every account row's per-tracking-option amount from a Profit & Loss
+ * report, keyed by account GUID then option name (`accountId -> option ->
+ * amount`). Columns are aligned by index to the header row of option names; each
+ * detail row (`RowType === 'Row'`, skipping SummaryRows) carries its account
+ * GUID as a cell attribute. All sections are parsed — callers only ever look up
+ * the mapped expense accounts, so section membership is irrelevant here.
+ */
+export function parseAccountAmountsByOption(
+	report: XeroReport
+): Map<string, Map<string, number>> {
+	const rows = report.Rows ?? [];
+	const header = rows.find((row) => row.RowType === 'Header');
+	const columnNames = (header?.Cells ?? []).map((cell) => cell.Value ?? '');
+
+	const result = new Map<string, Map<string, number>>();
+	for (const section of rows) {
+		for (const row of section.Rows ?? []) {
+			if (row.RowType !== 'Row') {
+				continue;
+			}
+			const accountId = accountIdForRow(row);
+			if (!accountId) {
+				continue;
+			}
+			let byOption = result.get(accountId);
+			if (!byOption) {
+				byOption = new Map<string, number>();
+				result.set(accountId, byOption);
+			}
+			const cells = row.Cells ?? [];
+			for (let i = 1; i < columnNames.length; i++) {
+				const name = columnNames[i]?.trim();
+				if (!name) {
+					continue;
+				}
+				const value = Number(cells[i]?.Value ?? '');
+				if (Number.isFinite(value)) {
+					byOption.set(name, (byOption.get(name) ?? 0) + value);
+				}
+			}
+		}
+	}
+	return result;
 }

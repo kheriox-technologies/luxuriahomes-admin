@@ -180,6 +180,7 @@ import type * as permissions_listRoleNames from "../permissions/listRoleNames.js
 import type * as permissions_removeRole from "../permissions/removeRole.js";
 import type * as permissions_upsertRole from "../permissions/upsertRole.js";
 import type * as projectBudgets_addItem from "../projectBudgets/addItem.js";
+import type * as projectBudgets_clearPayments from "../projectBudgets/clearPayments.js";
 import type * as projectBudgets_remove from "../projectBudgets/remove.js";
 import type * as projectBudgets_setPrices from "../projectBudgets/setPrices.js";
 import type * as projectBudgets_tradeSummary from "../projectBudgets/tradeSummary.js";
@@ -354,6 +355,7 @@ import type * as trades_add from "../trades/add.js";
 import type * as trades_addMany from "../trades/addMany.js";
 import type * as trades_get from "../trades/get.js";
 import type * as trades_list from "../trades/list.js";
+import type * as trades_listXeroMapped from "../trades/listXeroMapped.js";
 import type * as trades_remove from "../trades/remove.js";
 import type * as trades_reorderTrades from "../trades/reorderTrades.js";
 import type * as trades_search from "../trades/search.js";
@@ -392,12 +394,15 @@ import type * as websiteProjects_setMainImage from "../websiteProjects/setMainIm
 import type * as websiteProjects_shared from "../websiteProjects/shared.js";
 import type * as websiteProjects_update from "../websiteProjects/update.js";
 import type * as xero_emailBillToXero from "../xero/emailBillToXero.js";
+import type * as xero_listAccounts from "../xero/listAccounts.js";
 import type * as xero_listTrackingOptions from "../xero/listTrackingOptions.js";
 import type * as xero_shared from "../xero/shared.js";
 import type * as xero_syncProjectFinancials from "../xero/syncProjectFinancials.js";
 import type * as xero_syncProjectFinancialsNow from "../xero/syncProjectFinancialsNow.js";
+import type * as xero_testAccounts from "../xero/testAccounts.js";
 import type * as xero_testConnection from "../xero/testConnection.js";
 import type * as xero_testProfitAndLoss from "../xero/testProfitAndLoss.js";
+import type * as xeroTradeActuals_apply from "../xeroTradeActuals/apply.js";
 
 import type {
   ApiFromModules,
@@ -578,6 +583,7 @@ declare const fullApi: ApiFromModules<{
   "permissions/removeRole": typeof permissions_removeRole;
   "permissions/upsertRole": typeof permissions_upsertRole;
   "projectBudgets/addItem": typeof projectBudgets_addItem;
+  "projectBudgets/clearPayments": typeof projectBudgets_clearPayments;
   "projectBudgets/remove": typeof projectBudgets_remove;
   "projectBudgets/setPrices": typeof projectBudgets_setPrices;
   "projectBudgets/tradeSummary": typeof projectBudgets_tradeSummary;
@@ -752,6 +758,7 @@ declare const fullApi: ApiFromModules<{
   "trades/addMany": typeof trades_addMany;
   "trades/get": typeof trades_get;
   "trades/list": typeof trades_list;
+  "trades/listXeroMapped": typeof trades_listXeroMapped;
   "trades/remove": typeof trades_remove;
   "trades/reorderTrades": typeof trades_reorderTrades;
   "trades/search": typeof trades_search;
@@ -790,12 +797,15 @@ declare const fullApi: ApiFromModules<{
   "websiteProjects/shared": typeof websiteProjects_shared;
   "websiteProjects/update": typeof websiteProjects_update;
   "xero/emailBillToXero": typeof xero_emailBillToXero;
+  "xero/listAccounts": typeof xero_listAccounts;
   "xero/listTrackingOptions": typeof xero_listTrackingOptions;
   "xero/shared": typeof xero_shared;
   "xero/syncProjectFinancials": typeof xero_syncProjectFinancials;
   "xero/syncProjectFinancialsNow": typeof xero_syncProjectFinancialsNow;
+  "xero/testAccounts": typeof xero_testAccounts;
   "xero/testConnection": typeof xero_testConnection;
   "xero/testProfitAndLoss": typeof xero_testProfitAndLoss;
+  "xeroTradeActuals/apply": typeof xeroTradeActuals_apply;
 }>;
 
 /**

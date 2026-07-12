@@ -14,7 +14,12 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
-import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
+import {
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+} from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
@@ -23,6 +28,7 @@ import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
+import { XeroAccountsCombobox } from '@/components/xero/xero-accounts-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyTradeFormValues,
@@ -38,6 +44,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 	const [isSaving, setIsSaving] = useState(false);
 	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
 	const [newStageName, setNewStageName] = useState('');
+	const [xeroAccountIds, setXeroAccountIds] = useState<string[]>([]);
 	const multi = useMultiAdd();
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const addTrade = useMutation(api.trades.add.add);
@@ -57,6 +64,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 	const resetStage = () => {
 		setStageId('');
 		setNewStageName('');
+		setXeroAccountIds([]);
 	};
 
 	const form = useForm({
@@ -71,6 +79,8 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 					name: parsed.name,
 					description: parsed.description?.trim() || undefined,
 					stageId: await resolveStageId(),
+					xeroAccountIds:
+						xeroAccountIds.length > 0 ? xeroAccountIds : undefined,
 				});
 				toastManager.add({
 					title: 'Trade added',
@@ -234,27 +244,47 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 							stageId={stageId}
 						/>
 						{multi.isMultiAdd ? null : (
-							<form.Field name="description">
-								{(field) => (
-									<Field>
-										<FieldLabel htmlFor={field.name}>
-											Description
-											<span className="ml-1 text-muted-foreground text-xs">
-												(optional)
-											</span>
-										</FieldLabel>
-										<Textarea
-											id={field.name}
-											name={field.name}
-											onBlur={field.handleBlur}
-											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="Brief description of this trade"
-											rows={3}
-											value={field.state.value ?? ''}
-										/>
-									</Field>
-								)}
-							</form.Field>
+							<>
+								<form.Field name="description">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Description
+												<span className="ml-1 text-muted-foreground text-xs">
+													(optional)
+												</span>
+											</FieldLabel>
+											<Textarea
+												id={field.name}
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(e) => field.handleChange(e.target.value)}
+												placeholder="Brief description of this trade"
+												rows={3}
+												value={field.state.value ?? ''}
+											/>
+										</Field>
+									)}
+								</form.Field>
+								<Field>
+									<FieldLabel htmlFor="add-trade-xero-accounts">
+										Xero accounts
+										<span className="ml-1 text-muted-foreground text-xs">
+											(optional)
+										</span>
+									</FieldLabel>
+									<XeroAccountsCombobox
+										id="add-trade-xero-accounts"
+										onChange={setXeroAccountIds}
+										value={xeroAccountIds}
+									/>
+									<FieldDescription>
+										The Budgets tab “Actual” is the sum of these accounts' Xero
+										spend. An account mapped to multiple trades is counted in
+										each.
+									</FieldDescription>
+								</Field>
+							</>
 						)}
 					</DialogPanel>
 				</form>

@@ -6,15 +6,18 @@ import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useThemeColors } from '@/components/theme';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import type { XeroAccountLabel } from '@/components/xero/use-xero-account-codes';
+import { XeroAccountBadges } from '@/components/xero/xero-account-badges';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
 
 export interface BudgetTrade {
 	actual: number | null;
 	budgetPrice: number | null;
-	payment: number | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
+	// Mapped Xero account GUIDs, for the code badges beside the trade name.
+	xeroAccountIds: string[];
 }
 
 export interface BudgetStageGroup {
@@ -22,7 +25,6 @@ export interface BudgetStageGroup {
 	budgetSubtotal: number;
 	key: string;
 	name: string;
-	paymentSubtotal: number;
 	trades: BudgetTrade[];
 }
 
@@ -37,17 +39,30 @@ function actualVariant(
 	return actual <= budgetPrice ? 'success' : 'destructive';
 }
 
-function TradeRow({ trade }: { trade: BudgetTrade }) {
+function TradeRow({
+	trade,
+	xeroLabelsById,
+}: {
+	trade: BudgetTrade;
+	xeroLabelsById: Map<string, XeroAccountLabel>;
+}) {
 	return (
 		<View className="flex-row items-center gap-2 px-3.5 py-2.5">
-			<Text className="flex-1 font-sans text-foreground text-sm">
-				{trade.tradeName}
-			</Text>
+			<View className="flex-1 gap-1">
+				<Text className="font-sans text-foreground text-sm">
+					{trade.tradeName}
+				</Text>
+				{trade.xeroAccountIds.length > 0 ? (
+					<View className="flex-row flex-wrap gap-1">
+						<XeroAccountBadges
+							accountIds={trade.xeroAccountIds}
+							labelsById={xeroLabelsById}
+						/>
+					</View>
+				) : null}
+			</View>
 			{trade.budgetPrice ? (
 				<Badge variant="purple">B {formatCurrency(trade.budgetPrice)}</Badge>
-			) : null}
-			{trade.payment ? (
-				<Badge variant="default">P {formatCurrency(trade.payment)}</Badge>
 			) : null}
 			{trade.actual ? (
 				<Badge variant={actualVariant(trade.actual, trade.budgetPrice)}>
@@ -62,10 +77,12 @@ export const BudgetStageAccordion = memo(function BudgetStageAccordion({
 	group,
 	expanded,
 	onToggle,
+	xeroLabelsById,
 }: {
 	group: BudgetStageGroup;
 	expanded: boolean;
 	onToggle: () => void;
+	xeroLabelsById: Map<string, XeroAccountLabel>;
 }) {
 	const colors = useThemeColors();
 
@@ -85,9 +102,6 @@ export const BudgetStageAccordion = memo(function BudgetStageAccordion({
 						</Text>
 						<Badge variant="purple">
 							B {formatCurrency(group.budgetSubtotal)}
-						</Badge>
-						<Badge variant="default">
-							P {formatCurrency(group.paymentSubtotal)}
 						</Badge>
 						<Badge
 							variant={actualVariant(
@@ -110,7 +124,11 @@ export const BudgetStageAccordion = memo(function BudgetStageAccordion({
 				{expanded ? (
 					<View className="border-border border-t pb-1.5">
 						{group.trades.map((trade) => (
-							<TradeRow key={trade.tradeId} trade={trade} />
+							<TradeRow
+								key={trade.tradeId}
+								trade={trade}
+								xeroLabelsById={xeroLabelsById}
+							/>
 						))}
 					</View>
 				) : null}
