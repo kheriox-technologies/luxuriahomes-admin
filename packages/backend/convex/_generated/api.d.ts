@@ -66,6 +66,7 @@ import type * as crons from "../crons.js";
 import type * as dashboard_scheduleOverview from "../dashboard/scheduleOverview.js";
 import type * as documentFolders_add from "../documentFolders/add.js";
 import type * as documentFolders_addMany from "../documentFolders/addMany.js";
+import type * as documentFolders_backfillBillsFolder from "../documentFolders/backfillBillsFolder.js";
 import type * as documentFolders_get from "../documentFolders/get.js";
 import type * as documentFolders_lib_seedFolders from "../documentFolders/lib/seedFolders.js";
 import type * as documentFolders_list from "../documentFolders/list.js";
@@ -390,6 +391,7 @@ import type * as websiteProjects_removeMediaEntry from "../websiteProjects/remov
 import type * as websiteProjects_setMainImage from "../websiteProjects/setMainImage.js";
 import type * as websiteProjects_shared from "../websiteProjects/shared.js";
 import type * as websiteProjects_update from "../websiteProjects/update.js";
+import type * as xero_emailBillToXero from "../xero/emailBillToXero.js";
 import type * as xero_listTrackingOptions from "../xero/listTrackingOptions.js";
 import type * as xero_shared from "../xero/shared.js";
 import type * as xero_syncProjectFinancials from "../xero/syncProjectFinancials.js";
@@ -462,6 +464,7 @@ declare const fullApi: ApiFromModules<{
   "dashboard/scheduleOverview": typeof dashboard_scheduleOverview;
   "documentFolders/add": typeof documentFolders_add;
   "documentFolders/addMany": typeof documentFolders_addMany;
+  "documentFolders/backfillBillsFolder": typeof documentFolders_backfillBillsFolder;
   "documentFolders/get": typeof documentFolders_get;
   "documentFolders/lib/seedFolders": typeof documentFolders_lib_seedFolders;
   "documentFolders/list": typeof documentFolders_list;
@@ -786,6 +789,7 @@ declare const fullApi: ApiFromModules<{
   "websiteProjects/setMainImage": typeof websiteProjects_setMainImage;
   "websiteProjects/shared": typeof websiteProjects_shared;
   "websiteProjects/update": typeof websiteProjects_update;
+  "xero/emailBillToXero": typeof xero_emailBillToXero;
   "xero/listTrackingOptions": typeof xero_listTrackingOptions;
   "xero/shared": typeof xero_shared;
   "xero/syncProjectFinancials": typeof xero_syncProjectFinancials;

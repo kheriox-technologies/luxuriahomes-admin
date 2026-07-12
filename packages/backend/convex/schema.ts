@@ -303,6 +303,15 @@ export default defineSchema({
 		clientPortalVisible: v.optional(v.boolean()),
 		// True when the document was uploaded by a client via the portal.
 		uploadedByClient: v.optional(v.boolean()),
+		// Xero bill forwarding: set for PDFs added to the "bills" folder, which
+		// are emailed to the org's Xero bills inbox so Xero drafts a bill. Absent
+		// means the document was never a candidate (non-PDF or non-bills folder).
+		xeroBillStatus: v.optional(
+			v.union(v.literal('queued'), v.literal('sent'), v.literal('failed'))
+		),
+		xeroBillSentAt: v.optional(v.number()),
+		xeroBillMessageId: v.optional(v.string()),
+		xeroBillError: v.optional(v.string()),
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_folder', ['projectId', 'folderPath']),
