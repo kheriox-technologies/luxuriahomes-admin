@@ -536,7 +536,7 @@ export default function EditProjectForm({
 									Pricing
 								</FrameTitle>
 							</FrameHeader>
-							<FramePanel className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+							<FramePanel className="space-y-4">
 								<form.Field name="quotePrice">
 									{(field) => {
 										const invalid =
