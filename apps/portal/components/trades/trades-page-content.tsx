@@ -13,16 +13,22 @@ import {
 } from '@workspace/ui/components/empty';
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { SearchInput } from '@workspace/ui/components/search-input';
+import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
 import {
+	Check,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
 	Pencil,
 	Trash2,
 	Wrench,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import type { XeroAccountLabel } from '@/components/xero/use-xero-account-codes';
+import { useXeroAccounts } from '@/components/xero/use-xero-accounts';
+import { XeroAccountsCombobox } from '@/components/xero/xero-accounts-combobox';
+import { getConvexErrorMessage } from '@/lib/convex-errors';
 import AddTrade from './add-trade';
 import AddTradeStage from './add-trade-stage';
 import DeleteTrade from './delete-trade';
@@ -34,6 +40,30 @@ import {
 	StageGroupedList,
 	type StageGroupedListHandle,
 } from './stage-grouped-list';
+import { useXeroMappingEditing } from './use-xero-mapping-editing';
+
+// Read-only "Xero codes" column: the trade's mapped accounts as comma-separated
+// `code — name` entries (matching the combobox chips), or an em dash when the
+// trade maps to nothing.
+function XeroCodesCell({
+	accountIds,
+	labelsById,
+}: {
+	accountIds: string[] | undefined;
+	labelsById: Map<string, XeroAccountLabel>;
+}) {
+	const ids = accountIds ?? [];
+	if (ids.length === 0) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
+	const labels = ids.map((id) => {
+		const account = labelsById.get(id);
+		return account ? `${account.code} — ${account.name}` : '…';
+	});
+	return (
+		<span className="text-muted-foreground text-sm">{labels.join(', ')}</span>
+	);
+}
 
 export default function TradesPageContent() {
 	const stages = useQuery(api.tradeStages.list.list, {});
@@ -77,9 +107,26 @@ export default function TradesPageContent() {
 		});
 		store.setQuery(api.trades.list.list, {}, next);
 	});
+	const updateTrade = useMutation(api.trades.update.update);
 
 	const [search, setSearch] = useState('');
 	const listRef = useRef<StageGroupedListHandle>(null);
+
+	// Fetch the org's Xero accounts once for the whole page: the read-only column
+	// resolves codes from `xeroLabelsById`, and every inline combobox reuses the
+	// same list instead of fetching per row.
+	const { accounts: xeroAccounts, loading: xeroLoading } = useXeroAccounts();
+	const xeroLabelsById = useMemo(() => {
+		const map = new Map<string, XeroAccountLabel>();
+		for (const account of xeroAccounts) {
+			map.set(account.id, { code: account.code, name: account.name });
+		}
+		return map;
+	}, [xeroAccounts]);
+
+	const { isEditing, drafts, begin, setDraft, cancel, getChanges } =
+		useXeroMappingEditing();
+	const [isSaving, setIsSaving] = useState(false);
 
 	type TradeItem = NonNullable<typeof trades>[number];
 
@@ -109,6 +156,52 @@ export default function TradesPageContent() {
 			reorderTrades({ updates }).catch(() => {
 				/* Convex reactive queries revert the UI automatically */
 			});
+		}
+	};
+
+	const handleEdit = () => {
+		begin(
+			(trades ?? []).map((trade) => ({
+				tradeId: trade._id,
+				xeroAccountIds: trade.xeroAccountIds ?? [],
+			}))
+		);
+	};
+
+	const handleDone = async () => {
+		const changes = getChanges();
+		if (changes.length === 0) {
+			cancel();
+			return;
+		}
+		const nameById = new Map<string, string>(
+			(trades ?? []).map((trade) => [trade._id, trade.name])
+		);
+		setIsSaving(true);
+		try {
+			await Promise.all(
+				changes.map((change) =>
+					updateTrade({
+						tradeId: change.tradeId as Id<'trades'>,
+						// name is required; pass the existing name (unchanged so it's a no-op).
+						name: nameById.get(change.tradeId) ?? '',
+						xeroAccountIds: change.xeroAccountIds,
+					})
+				)
+			);
+			toastManager.add({ title: 'Xero mappings saved', type: 'success' });
+			cancel();
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not save Xero mappings. Please try again in a moment.'
+				),
+				title: 'Could not save Xero mappings',
+				type: 'error',
+			});
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
@@ -148,6 +241,24 @@ export default function TradesPageContent() {
 								<ChevronsUpIcon />
 							</Button>
 						</Group>
+						{isEditing ? (
+							<Button
+								loading={isSaving}
+								onClick={() => {
+									handleDone().catch(() => {
+										/* Error handled in handleDone */
+									});
+								}}
+								type="button"
+								variant="outline"
+							>
+								<Check aria-hidden /> Done
+							</Button>
+						) : (
+							<Button onClick={handleEdit} type="button" variant="outline">
+								<Pencil /> Edit Xero codes
+							</Button>
+						)}
 						<AddTradeStage />
 						<AddTrade />
 					</>
@@ -200,14 +311,29 @@ export default function TradesPageContent() {
 					renderRowContent={(trade) => (
 						<>
 							<div className="min-w-0 flex-1">
-								<div className="font-medium text-foreground text-sm">
+								<span className="font-medium text-foreground text-sm">
 									{trade.name}
-								</div>
+								</span>
 								{trade.description ? (
 									<div className="truncate text-muted-foreground text-xs">
 										{trade.description}
 									</div>
 								) : null}
+							</div>
+							<div className="min-w-0 flex-1">
+								{isEditing ? (
+									<XeroAccountsCombobox
+										accounts={xeroAccounts}
+										loading={xeroLoading}
+										onChange={(next) => setDraft(trade._id, next)}
+										value={drafts[trade._id] ?? []}
+									/>
+								) : (
+									<XeroCodesCell
+										accountIds={trade.xeroAccountIds}
+										labelsById={xeroLabelsById}
+									/>
+								)}
 							</div>
 							<Group>
 								<EditTrade

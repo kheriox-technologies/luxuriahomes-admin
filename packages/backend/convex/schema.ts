@@ -380,6 +380,9 @@ export default defineSchema({
 		// Sort position within the trade's stage (or within Ungrouped). Optional for
 		// legacy rows; they fall back to alphabetical until first reordered.
 		order: v.optional(v.number()),
+		// Xero Chart of Accounts GUIDs this trade maps to. The project Budgets tab's
+		// "Actual" column is the sum of these accounts' P&L amounts for the project.
+		xeroAccountIds: v.optional(v.array(v.string())),
 		searchText: v.string(),
 	})
 		.index('by_stage', ['stageId'])
@@ -408,6 +411,19 @@ export default defineSchema({
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_trade', ['projectId', 'tradeId']),
+	// Per-trade "Actual" amounts synced from Xero (sum of the trade's mapped
+	// Chart-of-Accounts P&L amounts for the project). Sync-owned: written by the
+	// Xero financials sync, cleared when a trade's mapping/rows go away. Stored
+	// separately from projectBudgets so actuals can exist without a budget row and
+	// survive budget-row deletion. Amounts are uplifted (×1.1) and cents-rounded;
+	// zero/absent amounts are not stored (UI shows "—").
+	xeroTradeActuals: defineTable({
+		projectId: v.id('projects'),
+		tradeId: v.id('trades'),
+		amount: v.number(),
+	})
+		.index('by_project', ['projectId'])
+		.index('by_trade', ['tradeId']),
 	scheduleTemplates: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

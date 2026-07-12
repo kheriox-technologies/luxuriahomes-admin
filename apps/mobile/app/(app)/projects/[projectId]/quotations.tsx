@@ -78,14 +78,13 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 	const budgetByTradeId = useMemo(() => {
 		const map = new Map<
 			Id<'trades'>,
-			{ budgetPrice: number | null; remaining: number | null }
+			{ budgetPrice: number | null; xeroActual: number | null }
 		>();
 		for (const row of tradeSummary ?? []) {
-			const remaining =
-				row.budgetPrice === null
-					? null
-					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
-			map.set(row.tradeId, { budgetPrice: row.budgetPrice, remaining });
+			map.set(row.tradeId, {
+				budgetPrice: row.budgetPrice,
+				xeroActual: row.xeroActual,
+			});
 		}
 		return map;
 	}, [tradeSummary]);
@@ -143,7 +142,7 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 					tradeName: quotation.tradeName,
 					quotations: [],
 					budgetPrice: budget?.budgetPrice ?? null,
-					remaining: budget?.remaining ?? null,
+					xeroActual: budget?.xeroActual ?? null,
 				};
 				map.set(key, group);
 			}

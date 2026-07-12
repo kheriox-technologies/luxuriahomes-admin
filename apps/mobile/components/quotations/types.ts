@@ -12,9 +12,10 @@ export interface QuotationGroup {
 	budgetPrice: number | null;
 	key: string;
 	quotations: ProjectQuotation[];
-	remaining: number | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
+	// Xero-driven "Actual" for the trade; null when nothing has synced.
+	xeroActual: number | null;
 }
 
 export const QUOTATION_STATUSES = [

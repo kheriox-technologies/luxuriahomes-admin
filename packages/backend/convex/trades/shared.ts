@@ -3,6 +3,22 @@ import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import { buildTradeSearchText } from '../lib/buildSearchText';
 
+/**
+ * Normalizes a trade's Xero account GUID list: trims, drops blanks, dedupes. An
+ * empty result becomes `undefined` so an unmapped trade stores no field.
+ */
+export function normalizeXeroAccountIds(
+	ids: string[] | undefined
+): string[] | undefined {
+	if (ids === undefined) {
+		return;
+	}
+	const cleaned = Array.from(
+		new Set(ids.map((id) => id.trim()).filter((id) => id.length > 0))
+	);
+	return cleaned.length > 0 ? cleaned : undefined;
+}
+
 export function parseTradeName(name: string): string {
 	const trimmed = name.trim();
 	if (trimmed.length === 0) {
@@ -52,6 +68,7 @@ export async function createTrade(
 		name: string;
 		description?: string | undefined;
 		stageId?: Id<'tradeStages'> | undefined;
+		xeroAccountIds?: string[] | undefined;
 	}
 ): Promise<Id<'trades'>> {
 	const name = parseTradeName(args.name);
@@ -63,6 +80,7 @@ export async function createTrade(
 		description,
 		stageId: args.stageId,
 		order,
+		xeroAccountIds: normalizeXeroAccountIds(args.xeroAccountIds),
 		searchText,
 	});
 }

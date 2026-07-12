@@ -1009,24 +1009,27 @@ export default function GanttPanel({
 								Month
 							</Button>
 						</Group>
-						<Button
-							onClick={expandAll}
-							size="sm"
-							type="button"
-							variant="outline"
-						>
-							<ChevronsDownIcon />
-							Expand All
-						</Button>
-						<Button
-							onClick={collapseAll}
-							size="sm"
-							type="button"
-							variant="outline"
-						>
-							<ChevronsUpIcon />
-							Collapse All
-						</Button>
+						<Group>
+							<Button
+								aria-label="Expand all"
+								onClick={expandAll}
+								size="icon-sm"
+								type="button"
+								variant="outline"
+							>
+								<ChevronsDownIcon />
+							</Button>
+							<GroupSeparator />
+							<Button
+								aria-label="Collapse all"
+								onClick={collapseAll}
+								size="icon-sm"
+								type="button"
+								variant="outline"
+							>
+								<ChevronsUpIcon />
+							</Button>
+						</Group>
 					</div>
 				</div>
 

@@ -10,6 +10,18 @@ import { formatCurrency } from '@/lib/format';
 import { OrderCard } from './order-card';
 import type { OrderGroup } from './types';
 
+// Green when the Xero actual is within budget, red when over, neutral with no
+// budget set — mirrors the Budgets tab colour logic.
+function actualBadgeVariant(
+	actual: number,
+	budgetPrice: number | null
+): 'success' | 'destructive' | 'default' {
+	if (budgetPrice === null) {
+		return 'default';
+	}
+	return actual <= budgetPrice ? 'success' : 'destructive';
+}
+
 export const OrderTradeAccordion = memo(function OrderTradeAccordion({
 	group,
 	expanded,
@@ -21,7 +33,6 @@ export const OrderTradeAccordion = memo(function OrderTradeAccordion({
 }) {
 	const colors = useThemeColors();
 	const hasBudget = group.budgetPrice !== null;
-	const remaining = group.remaining ?? 0;
 
 	return (
 		<Animated.View layout={LinearTransition.duration(200)}>
@@ -48,16 +59,21 @@ export const OrderTradeAccordion = memo(function OrderTradeAccordion({
 					</View>
 					<View className="flex-row flex-wrap items-center gap-1.5">
 						{hasBudget ? (
-							<>
-								<Badge variant="purple">
-									Budget {formatCurrency(group.budgetPrice ?? 0)}
-								</Badge>
-								<Badge variant={remaining >= 0 ? 'success' : 'destructive'}>
-									Remaining {formatCurrency(remaining)}
-								</Badge>
-							</>
+							<Badge variant="purple">
+								B {formatCurrency(group.budgetPrice ?? 0)}
+							</Badge>
 						) : (
 							<Badge variant="outline">No budget</Badge>
+						)}
+						{group.xeroActual === null ? null : (
+							<Badge
+								variant={actualBadgeVariant(
+									group.xeroActual,
+									group.budgetPrice
+								)}
+							>
+								A {formatCurrency(group.xeroActual)}
+							</Badge>
 						)}
 					</View>
 				</Pressable>

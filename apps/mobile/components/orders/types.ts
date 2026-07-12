@@ -13,9 +13,10 @@ export interface OrderGroup {
 	budgetPrice: number | null;
 	key: string;
 	orders: ProjectOrder[];
-	remaining: number | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
+	// Xero-driven "Actual" for the trade; null when nothing has synced.
+	xeroActual: number | null;
 }
 
 export const ORDER_STATUSES = [

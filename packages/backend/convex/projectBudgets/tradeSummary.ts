@@ -3,72 +3,38 @@ import type { Id } from '../_generated/dataModel';
 import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
 
+/**
+ * One row per trade for the project Budgets tab: the trade's set budget price
+ * and its Xero-driven "Actual" (sum of the trade's mapped Chart-of-Accounts P&L
+ * amounts for this project, synced into `xeroTradeActuals`). `xeroActual` is
+ * `null` when the trade has no synced actual — the UI shows "—".
+ */
 export const tradeSummary = query({
 	args: { projectId: v.id('projects') },
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 
-		const [trades, projectBudgets, approvedQuotations, projectOrders] =
-			await Promise.all([
-				ctx.db.query('trades').collect(),
-				ctx.db
-					.query('projectBudgets')
-					.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-					.collect(),
-				ctx.db
-					.query('projectQuotations')
-					.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-					.filter((q) => q.eq(q.field('status'), 'Approved'))
-					.collect(),
-				ctx.db
-					.query('projectOrders')
-					.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
-					.collect(),
-			]);
+		const [trades, projectBudgets, xeroActuals] = await Promise.all([
+			ctx.db.query('trades').collect(),
+			ctx.db
+				.query('projectBudgets')
+				.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+				.collect(),
+			ctx.db
+				.query('xeroTradeActuals')
+				.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+				.collect(),
+		]);
 
 		const budgetByTrade = new Map(
 			projectBudgets.map((pb) => [pb.tradeId, pb] as const)
 		);
-
-		const quotationTotals = new Map<
-			Id<'trades'>,
-			{ total: number; count: number }
-		>();
-		for (const quotation of approvedQuotations) {
-			const current = quotationTotals.get(quotation.tradeId) ?? {
-				total: 0,
-				count: 0,
-			};
-			current.total += quotation.price;
-			current.count += 1;
-			quotationTotals.set(quotation.tradeId, current);
-		}
-
-		const orderTotals = new Map<
-			Id<'trades'>,
-			{ total: number; count: number }
-		>();
-		for (const order of projectOrders) {
-			const orderTotal = order.items.reduce(
-				(sum, item) => sum + (item.price ?? 0) * item.quantity,
-				0
-			);
-			const current = orderTotals.get(order.tradeId) ?? { total: 0, count: 0 };
-			current.total += orderTotal;
-			current.count += 1;
-			orderTotals.set(order.tradeId, current);
-		}
+		const actualByTrade = new Map<Id<'trades'>, number>(
+			xeroActuals.map((row) => [row.tradeId, row.amount] as const)
+		);
 
 		const rows = trades.map((trade) => {
 			const projectBudget = budgetByTrade.get(trade._id) ?? null;
-			const quotation = quotationTotals.get(trade._id) ?? {
-				total: 0,
-				count: 0,
-			};
-			const order = orderTotals.get(trade._id) ?? {
-				total: 0,
-				count: 0,
-			};
 			return {
 				tradeId: trade._id,
 				tradeName: trade.name,
@@ -77,11 +43,9 @@ export const tradeSummary = query({
 				tradeOrder: trade.order ?? null,
 				projectBudgetId: projectBudget?._id ?? null,
 				budgetPrice: projectBudget?.price ?? null,
-				paymentPrice: projectBudget?.payments ?? null,
-				totalQuotationPrice: quotation.total,
-				quotationCount: quotation.count,
-				totalOrderPrice: order.total,
-				orderCount: order.count,
+				xeroActual: actualByTrade.get(trade._id) ?? null,
+				// Mapped Xero account GUIDs so the Budgets tab can show code badges.
+				xeroAccountIds: trade.xeroAccountIds ?? [],
 			};
 		});
 

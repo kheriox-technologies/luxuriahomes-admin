@@ -56,7 +56,7 @@ export const syncProjectFinancials = internalAction({
 			optionIdToName.set(option.TrackingOptionID, option.Name);
 		}
 
-		const { costOfSalesByOption, incomeByOption } =
+		const { costOfSalesByOption, incomeByOption, accountAmountsByOption } =
 			await fetchCumulativeExpensesByOption(accessToken, tenantId, {
 				trackingCategoryId: config.trackingCategoryId,
 				fromDate: SYNC_FROM_DATE,
@@ -67,11 +67,23 @@ export const syncProjectFinancials = internalAction({
 			internal.projects.listXeroMapped.listXeroMapped,
 			{}
 		);
+		const mappedTrades = await ctx.runQuery(
+			internal.trades.listXeroMapped.listXeroMapped,
+			{}
+		);
 
 		const updates: Array<{
 			projectId: (typeof mapped)[number]['_id'];
 			expenses: number;
 			received: number;
+		}> = [];
+		// Per-trade actuals for every mapped project whose option resolved. Only
+		// these projects are reconciled — skipped projects keep their rows.
+		const syncedProjectIds: (typeof mapped)[number]['_id'][] = [];
+		const tradeActualEntries: Array<{
+			projectId: (typeof mapped)[number]['_id'];
+			tradeId: (typeof mappedTrades)[number]['_id'];
+			amount: number;
 		}> = [];
 		let skipped = 0;
 		for (const project of mapped) {
@@ -89,13 +101,37 @@ export const syncProjectFinancials = internalAction({
 				expenses: roundToCents(costOfSales * XERO_UPLIFT),
 				received: roundToCents(income * XERO_UPLIFT),
 			});
+
+			syncedProjectIds.push(project._id);
+			for (const trade of mappedTrades) {
+				let sum = 0;
+				for (const accountId of trade.xeroAccountIds) {
+					sum += accountAmountsByOption.get(accountId)?.get(optionName) ?? 0;
+				}
+				// Zero rows are not stored — the reconcile deletes any stale row.
+				if (sum !== 0) {
+					tradeActualEntries.push({
+						projectId: project._id,
+						tradeId: trade._id,
+						amount: roundToCents(sum * XERO_UPLIFT),
+					});
+				}
+			}
 		}
 
 		await ctx.runMutation(
 			internal.projects.applyXeroFinancials.applyXeroFinancials,
 			{ updates }
 		);
+		await ctx.runMutation(internal.xeroTradeActuals.apply.apply, {
+			projectIds: syncedProjectIds,
+			entries: tradeActualEntries,
+		});
 
-		return { updated: updates.length, skipped };
+		return {
+			updated: updates.length,
+			skipped,
+			tradeActualsWritten: tradeActualEntries.length,
+		};
 	},
 });

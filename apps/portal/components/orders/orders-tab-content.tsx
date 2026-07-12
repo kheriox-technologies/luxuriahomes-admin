@@ -3,12 +3,6 @@
 
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
-import {
-	Accordion,
-	AccordionItem,
-	AccordionPanel,
-	AccordionPrimitive,
-} from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -27,6 +21,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
+import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	Menu,
 	MenuItem,
@@ -44,10 +39,8 @@ import {
 	TableRow,
 } from '@workspace/ui/components/table';
 import { toastManager } from '@workspace/ui/components/toast';
-import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
 import {
-	ChevronDownIcon,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
 	ClipboardList,
@@ -61,9 +54,13 @@ import {
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { formatBudgetPrice } from '@/components/budgets/budget-form-shared';
+import { useMemo, useRef, useState } from 'react';
 import ComposeEmailDialog from '@/components/email/compose-email-dialog';
+import {
+	StageGroupedTradeAccordion,
+	type StageGroupedTradeAccordionHandle,
+	type TradeAccordionItem,
+} from '@/components/trades/stage-grouped-trade-accordion';
 import TradeSelect from '@/components/trades/trade-select';
 import { formatAud } from '@/lib/currency';
 import type { ComposeAttachment } from '@/lib/email';
@@ -97,8 +94,12 @@ interface OrderGroup {
 	budgetPrice: number | null;
 	key: string;
 	orders: ProjectOrder[];
-	remaining: number | null;
+	stageId: Id<'tradeStages'> | null;
+	tradeId: Id<'trades'>;
 	tradeName: string;
+	tradeOrder: number | null;
+	// Xero-driven "Actual" for the trade; null when nothing has synced.
+	xeroActual: number | null;
 }
 
 function orderStatusBadgeVariant(
@@ -430,6 +431,7 @@ export default function ProjectOrdersTabContent({
 }) {
 	const project = useQuery(api.projects.get.get, { projectId });
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
+	const stages = useQuery(api.tradeStages.list.list, {});
 	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
 		projectId,
 	});
@@ -438,23 +440,26 @@ export default function ProjectOrdersTabContent({
 		initialTradeId ? [initialTradeId] : []
 	);
 	const [filterStatuses, setFilterStatuses] = useState<OrderStatus[]>([]);
-	const [openKeys, setOpenKeys] = useState<string[]>([]);
+	const listRef = useRef<StageGroupedTradeAccordionHandle>(null);
 
 	const trimmedSearch = search.trim();
 
 	const budgetByTradeId = useMemo(() => {
 		const map = new Map<
 			Id<'trades'>,
-			{ budgetPrice: number | null; remaining: number | null }
+			{
+				budgetPrice: number | null;
+				stageId: Id<'tradeStages'> | null;
+				tradeOrder: number | null;
+				xeroActual: number | null;
+			}
 		>();
 		for (const row of tradeSummary ?? []) {
-			const remaining =
-				row.budgetPrice === null
-					? null
-					: row.budgetPrice - (row.totalQuotationPrice + row.totalOrderPrice);
 			map.set(row.tradeId, {
 				budgetPrice: row.budgetPrice,
-				remaining,
+				stageId: row.stageId,
+				tradeOrder: row.tradeOrder,
+				xeroActual: row.xeroActual,
 			});
 		}
 		return map;
@@ -494,8 +499,11 @@ export default function ProjectOrdersTabContent({
 					budgetPrice: budget?.budgetPrice ?? null,
 					key,
 					orders: [],
-					remaining: budget?.remaining ?? null,
+					stageId: budget?.stageId ?? null,
+					tradeId: o.tradeId,
 					tradeName: o.tradeName,
+					tradeOrder: budget?.tradeOrder ?? null,
+					xeroActual: budget?.xeroActual ?? null,
 				};
 				map.set(key, group);
 			}
@@ -553,72 +561,20 @@ export default function ProjectOrdersTabContent({
 			</Empty>
 		);
 	} else {
+		const items: TradeAccordionItem[] = groups.map((group) => ({
+			budgetPrice: group.budgetPrice,
+			count: group.orders.length,
+			stageId: group.stageId,
+			tradeId: group.tradeId,
+			tradeName: group.tradeName,
+			tradeOrder: group.tradeOrder,
+			xeroActual: group.xeroActual,
+			content: (
+				<OrdersTable orders={group.orders} projectAddress={project?.address} />
+			),
+		}));
 		content = (
-			<Accordion
-				className="rounded-xl border"
-				multiple
-				onValueChange={(value) => setOpenKeys(value as string[])}
-				value={openKeys}
-			>
-				{groups.map((group) => (
-					<AccordionItem
-						className="border-b last:border-b-0"
-						key={group.key}
-						value={group.key}
-					>
-						<AccordionPrimitive.Header className="flex">
-							<AccordionPrimitive.Trigger
-								className={cn(
-									'flex flex-1 cursor-pointer items-center justify-between gap-2 px-4 py-3 outline-none transition-colors hover:bg-muted/40',
-									'focus-visible:ring-[3px] focus-visible:ring-ring',
-									'[&[data-panel-open]_[data-slot=accordion-indicator]]:rotate-180'
-								)}
-								type="button"
-							>
-								<span className="flex items-center gap-2 font-medium text-sm">
-									{group.tradeName}
-									<ChevronDownIcon
-										className="size-4 shrink-0 opacity-70 transition-transform duration-200"
-										data-slot="accordion-indicator"
-									/>
-									<Badge size="lg" variant="outline">
-										{group.orders.length}
-									</Badge>
-								</span>
-								<span className="flex items-center gap-2">
-									{group.budgetPrice === null ? (
-										<Badge size="lg" variant="outline">
-											No budget
-										</Badge>
-									) : (
-										<>
-											<Badge size="lg" variant="purple">
-												Budget {formatBudgetPrice(group.budgetPrice)}
-											</Badge>
-											<Badge
-												size="lg"
-												variant={
-													(group.remaining ?? 0) >= 0
-														? 'success-outline'
-														: 'destructive-outline'
-												}
-											>
-												Remaining {formatBudgetPrice(group.remaining ?? 0)}
-											</Badge>
-										</>
-									)}
-								</span>
-							</AccordionPrimitive.Trigger>
-						</AccordionPrimitive.Header>
-						<AccordionPanel className="overflow-x-auto p-0">
-							<OrdersTable
-								orders={group.orders}
-								projectAddress={project?.address}
-							/>
-						</AccordionPanel>
-					</AccordionItem>
-				))}
-			</Accordion>
+			<StageGroupedTradeAccordion items={items} ref={listRef} stages={stages} />
 		);
 	}
 
@@ -673,24 +629,27 @@ export default function ProjectOrdersTabContent({
 
 				<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
 					{groups.length > 0 ? (
-						<>
+						<Group>
 							<Button
-								onClick={() => setOpenKeys(groups.map((g) => g.key))}
+								aria-label="Expand all"
+								onClick={() => listRef.current?.expandAll()}
+								size="icon"
 								type="button"
 								variant="outline"
 							>
 								<ChevronsDownIcon />
-								Expand All
 							</Button>
+							<GroupSeparator />
 							<Button
-								onClick={() => setOpenKeys([])}
+								aria-label="Collapse all"
+								onClick={() => listRef.current?.collapseAll()}
+								size="icon"
 								type="button"
 								variant="outline"
 							>
 								<ChevronsUpIcon />
-								Collapse All
 							</Button>
-						</>
+						</Group>
 					) : null}
 					<AddOrder projectId={projectId} />
 				</div>

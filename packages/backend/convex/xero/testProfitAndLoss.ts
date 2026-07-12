@@ -53,12 +53,17 @@ export const testProfitAndLoss = internalAction({
 		const fromDate = args.fromDate ?? SYNC_FROM_DATE;
 		const toDate = args.toDate ?? todayUtcDate();
 
-		const { expensesByOption, costOfSalesByOption, windows, lastReport } =
-			await fetchCumulativeExpensesByOption(accessToken, tenantId, {
-				trackingCategoryId,
-				fromDate,
-				toDate,
-			});
+		const {
+			expensesByOption,
+			costOfSalesByOption,
+			accountAmountsByOption,
+			windows,
+			lastReport,
+		} = await fetchCumulativeExpensesByOption(accessToken, tenantId, {
+			trackingCategoryId,
+			fromDate,
+			toDate,
+		});
 
 		return {
 			trackingCategoryId,
@@ -74,6 +79,17 @@ export const testProfitAndLoss = internalAction({
 			),
 			expensesByOption: Array.from(expensesByOption.entries()).map(
 				([option, expenses]) => ({ option, expenses })
+			),
+			// Per-account amounts keyed by account GUID then option — validates the
+			// account parser against a known project's per-account P&L in Xero.
+			accountAmountsByOption: Array.from(accountAmountsByOption.entries()).map(
+				([accountId, byOption]) => ({
+					accountId,
+					amounts: Array.from(byOption.entries()).map(([option, amount]) => ({
+						option,
+						amount,
+					})),
+				})
 			),
 			// Raw top-level rows of the final window (header + section summaries)
 			// for debugging report shape when an option doesn't match a total.

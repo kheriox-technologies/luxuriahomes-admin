@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
 import { ListSkeleton } from '@/components/ui/skeleton';
+import { useXeroAccountCodes } from '@/components/xero/use-xero-account-codes';
 import { formatCurrency } from '@/lib/format';
 
 const UNGROUPED_KEY = 'ungrouped';
@@ -22,15 +23,12 @@ const NO_ORDER = Number.MAX_SAFE_INTEGER;
 
 interface TradeBudgetRow {
 	budgetPrice: number | null;
-	orderCount: number;
-	paymentPrice: number | null;
-	quotationCount: number;
 	stageId: Id<'tradeStages'> | null;
-	totalOrderPrice: number;
-	totalQuotationPrice: number;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 	tradeOrder: number | null;
+	xeroAccountIds: string[];
+	xeroActual: number | null;
 }
 
 function ToolbarIconButton({
@@ -61,6 +59,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 		projectId,
 	}) as TradeBudgetRow[] | undefined;
 	const stages = useQuery(api.tradeStages.list.list, {});
+	const xeroLabelsById = useXeroAccountCodes();
 
 	const [search, setSearch] = useState('');
 	// Stages start collapsed; keys here are the ones the user has expanded.
@@ -81,12 +80,9 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 			stages.map((stage) => [stage._id, stage.name])
 		);
 
-		// Only trades with a budget set or with actual activity are shown on mobile.
+		// Only trades with a budget set or a Xero actual are shown on mobile.
 		const visible = rows.filter(
-			(row) =>
-				row.budgetPrice !== null ||
-				row.quotationCount + row.orderCount > 0 ||
-				(row.paymentPrice ?? 0) !== 0
+			(row) => row.budgetPrice !== null || row.xeroActual !== null
 		);
 
 		const searched = trimmedSearch
@@ -131,24 +127,16 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 			bucket: TradeBudgetRow[]
 		): BudgetStageGroup => {
 			let budgetSubtotal = 0;
-			let paymentSubtotal = 0;
 			let actualSubtotal = 0;
 			const trades = bucket.map((row) => {
-				const payment = row.paymentPrice ?? 0;
-				const hasActivity =
-					row.quotationCount + row.orderCount > 0 || payment !== 0;
-				const actual = hasActivity
-					? row.totalQuotationPrice + row.totalOrderPrice + payment
-					: null;
 				budgetSubtotal += row.budgetPrice ?? 0;
-				paymentSubtotal += payment;
-				actualSubtotal += actual ?? 0;
+				actualSubtotal += row.xeroActual ?? 0;
 				return {
 					tradeId: row.tradeId,
 					tradeName: row.tradeName,
 					budgetPrice: row.budgetPrice,
-					payment: row.paymentPrice,
-					actual,
+					actual: row.xeroActual,
+					xeroAccountIds: row.xeroAccountIds,
 				};
 			});
 			return {
@@ -156,7 +144,6 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 				name,
 				trades,
 				budgetSubtotal,
-				paymentSubtotal,
 				actualSubtotal,
 			};
 		};
@@ -257,6 +244,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 						expanded={isSearching || expandedKeys.has(item.key)}
 						group={item}
 						onToggle={() => toggleKey(item.key)}
+						xeroLabelsById={xeroLabelsById}
 					/>
 				)}
 			/>
