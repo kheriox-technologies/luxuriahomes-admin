@@ -1,5 +1,38 @@
 import { ConvexError, v } from 'convex/values';
-import { internalMutation, internalQuery } from '../_generated/server';
+import type { Id } from '../_generated/dataModel';
+import {
+	internalMutation,
+	internalQuery,
+	type MutationCtx,
+} from '../_generated/server';
+
+// Shared insert used by the admin `create` mutation and the Gmail add-on
+// ingestion path, which resolves `uploadedBy` outside of Clerk identity.
+export async function insertProjectDocument(
+	ctx: MutationCtx,
+	args: {
+		projectId: Id<'projects'>;
+		name: string;
+		kebabName: string;
+		s3Key: string;
+		folderPath: string;
+		size?: number;
+		mimeType?: string;
+		uploadedBy: string;
+	}
+): Promise<Id<'projectDocuments'>> {
+	return await ctx.db.insert('projectDocuments', {
+		projectId: args.projectId,
+		name: args.name,
+		kebabName: args.kebabName,
+		s3Key: args.s3Key,
+		folderPath: args.folderPath,
+		size: args.size,
+		mimeType: args.mimeType,
+		uploadedBy: args.uploadedBy,
+		uploadedAt: Date.now(),
+	});
+}
 
 export const getDocumentById = internalQuery({
 	args: { documentId: v.id('projectDocuments') },

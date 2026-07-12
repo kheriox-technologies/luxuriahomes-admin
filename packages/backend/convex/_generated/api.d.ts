@@ -96,6 +96,11 @@ import type * as fileStorage_deleteStorage from "../fileStorage/deleteStorage.js
 import type * as fileStorage_generateS3UploadUrl from "../fileStorage/generateS3UploadUrl.js";
 import type * as fileStorage_generateUploadUrl from "../fileStorage/generateUploadUrl.js";
 import type * as fileStorage_resolvePublicUrl from "../fileStorage/resolvePublicUrl.js";
+import type * as gmailAddon_actions from "../gmailAddon/actions.js";
+import type * as gmailAddon_handlers from "../gmailAddon/handlers.js";
+import type * as gmailAddon_mutations from "../gmailAddon/mutations.js";
+import type * as gmailAddon_queries from "../gmailAddon/queries.js";
+import type * as http from "../http.js";
 import type * as inclusionCategories_add from "../inclusionCategories/add.js";
 import type * as inclusionCategories_list from "../inclusionCategories/list.js";
 import type * as inclusionCategories_remove from "../inclusionCategories/remove.js";
@@ -487,6 +492,11 @@ declare const fullApi: ApiFromModules<{
   "fileStorage/generateS3UploadUrl": typeof fileStorage_generateS3UploadUrl;
   "fileStorage/generateUploadUrl": typeof fileStorage_generateUploadUrl;
   "fileStorage/resolvePublicUrl": typeof fileStorage_resolvePublicUrl;
+  "gmailAddon/actions": typeof gmailAddon_actions;
+  "gmailAddon/handlers": typeof gmailAddon_handlers;
+  "gmailAddon/mutations": typeof gmailAddon_mutations;
+  "gmailAddon/queries": typeof gmailAddon_queries;
+  http: typeof http;
   "inclusionCategories/add": typeof inclusionCategories_add;
   "inclusionCategories/list": typeof inclusionCategories_list;
   "inclusionCategories/remove": typeof inclusionCategories_remove;

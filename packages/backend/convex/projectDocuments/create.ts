@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
+import { insertProjectDocument } from './shared';
 
 export const create = mutation({
 	args: {
@@ -15,16 +16,9 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
-		return await ctx.db.insert('projectDocuments', {
-			projectId: args.projectId,
-			name: args.name,
-			kebabName: args.kebabName,
-			s3Key: args.s3Key,
-			folderPath: args.folderPath,
-			size: args.size,
-			mimeType: args.mimeType,
+		return await insertProjectDocument(ctx, {
+			...args,
 			uploadedBy: identity.name ?? identity.email ?? 'Unknown',
-			uploadedAt: Date.now(),
 		});
 	},
 });

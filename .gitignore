@@ -58,3 +58,5 @@ temp
 
 .playwright-mcp
 credentials.json
+# Apps Script (gmail-addon) — created by clasp create, machine-specific
+apps/gmail-addon/.clasp.json

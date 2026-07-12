@@ -1,0 +1,10 @@
+{
+  "name": "gmail-addon",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "push": "pnpm dlx @google/clasp@3 push",
+    "pull": "pnpm dlx @google/clasp@3 pull",
+    "open": "pnpm dlx @google/clasp@3 open-script"
+  }
+}

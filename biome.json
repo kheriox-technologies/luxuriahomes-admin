@@ -50,6 +50,17 @@
       }
     },
     {
+      "includes": ["apps/gmail-addon/src/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUndeclaredVariables": "off",
+            "noUnusedVariables": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["apps/mobile/global.css"],
       "linter": {
         "rules": {
