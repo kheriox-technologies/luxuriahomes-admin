@@ -17,7 +17,7 @@
   "addOns": {
     "common": {
       "name": "Luxuria Documents",
-      "logoUrl": "https://fonts.gstatic.com/s/i/googlematerialicons/description/v12/black-24dp/1x/gm_description_black_24dp.png"
+      "logoUrl": "https://luxuriahomes.com.au/gmail-addon-icon.png"
     },
     "gmail": {
       "contextualTriggers": [
