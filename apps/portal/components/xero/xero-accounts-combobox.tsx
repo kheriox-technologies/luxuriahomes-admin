@@ -1,6 +1,5 @@
 'use client';
 
-import { api } from '@workspace/backend/api';
 import {
 	Combobox,
 	ComboboxChip,
@@ -11,15 +10,8 @@ import {
 	ComboboxList,
 	ComboboxPopup,
 } from '@workspace/ui/components/combobox';
-import { useAction } from 'convex/react';
-import { useEffect, useMemo, useState } from 'react';
-
-interface XeroAccount {
-	code: string;
-	id: string;
-	name: string;
-	type: string;
-}
+import { useMemo } from 'react';
+import { useXeroAccounts, type XeroAccount } from './use-xero-accounts';
 
 /**
  * Multi-select chips picker for the Xero Chart-of-Accounts entries a trade maps
@@ -27,43 +19,33 @@ interface XeroAccount {
  * `listAccounts` action (non-reactive). Stores account GUIDs; each chip shows
  * `"{code} — {name}"`, falling back to the raw GUID for accounts that no longer
  * exist so the mapping stays removable.
+ *
+ * By default the account list is fetched internally (used by the Edit Trade
+ * dialog). Callers that render many comboboxes at once — e.g. the inline Xero
+ * editor on the trades list — pass a pre-fetched `accounts`/`loading` so the
+ * page fetches the list a single time instead of once per instance.
  */
 export function XeroAccountsCombobox({
 	id,
 	disabled,
 	value,
 	onChange,
+	accounts: accountsProp,
+	loading: loadingProp,
 }: {
 	id?: string;
 	disabled?: boolean;
 	value: string[];
 	onChange: (next: string[]) => void;
+	accounts?: XeroAccount[];
+	loading?: boolean;
 }) {
-	const listAccounts = useAction(api.xero.listAccounts.listAccounts);
-	const [accounts, setAccounts] = useState<XeroAccount[]>([]);
-	const [loading, setLoading] = useState(true);
-
-	useEffect(() => {
-		let active = true;
-		setLoading(true);
-		listAccounts({})
-			.then((result) => {
-				if (active) {
-					setAccounts(result.accounts);
-				}
-			})
-			.catch(() => {
-				// Leave the list empty on failure; existing chips stay removable.
-			})
-			.finally(() => {
-				if (active) {
-					setLoading(false);
-				}
-			});
-		return () => {
-			active = false;
-		};
-	}, [listAccounts]);
+	// Only self-fetch when the caller doesn't provide the accounts. The hook is
+	// still called unconditionally (rules of hooks); passing `enabled: false`
+	// skips its fetch when the parent already supplies the list.
+	const fetched = useXeroAccounts(accountsProp === undefined);
+	const accounts = accountsProp ?? fetched.accounts;
+	const loading = loadingProp ?? fetched.loading;
 
 	const labelById = useMemo(() => {
 		const map = new Map<string, string>();
