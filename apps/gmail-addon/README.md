@@ -1,0 +1,87 @@
+# Luxuria Documents — Gmail Add-on
+
+A Google Workspace Add-on that appears in Gmail's right sidebar when a message
+is open. It lists the message's attachments, lets you pick a project and one
+of its document folders (or create a new subfolder), and files the selected
+attachments into the portal's project documents — identical to uploading via
+the portal.
+
+## How it works
+
+- The add-on runs on Google's Apps Script platform (`src/` is the script
+  source, pushed with [clasp](https://github.com/google/clasp)).
+- It talks to four Convex HTTP endpoints (see
+  `packages/backend/convex/gmailAddon/`), authenticated with a static bearer
+  key:
+  - `GET /gmail-addon/projects`
+  - `GET /gmail-addon/folders?projectId=...`
+  - `POST /gmail-addon/prepare-upload` → presigned S3 PUT URL
+  - `POST /gmail-addon/complete-upload` → creates the document record
+- Attachment bytes are PUT directly from Apps Script to S3 via the presigned
+  URL, so the full Gmail attachment size range (~25MB) works.
+
+## One-time setup
+
+### 1. Backend
+
+```bash
+# In packages/backend — generate and set the API key on the Convex deployment
+openssl rand -hex 32
+npx convex env set GMAIL_ADDON_API_KEY <key>            # dev
+npx convex env set --prod GMAIL_ADDON_API_KEY <key>     # prod
+```
+
+The HTTP endpoints are served at `https://<deployment>.convex.site` (note:
+`.convex.site`, not `.convex.cloud`). Find the deployment name in the Convex
+dashboard.
+
+### 2. Apps Script project
+
+1. Enable the Apps Script API: https://script.google.com/home/usersettings
+2. From `apps/gmail-addon/`:
+
+```bash
+pnpm install
+pnpm dlx @google/clasp login
+pnpm dlx @google/clasp create --type standalone --title "Luxuria Documents" --rootDir src
+# clasp writes .clasp.json (git-ignored scriptId lives there)
+pnpm push
+```
+
+3. Open the script (`pnpm open`), then **Project Settings → Script
+   Properties** and add:
+
+| Property  | Value                                  |
+| --------- | -------------------------------------- |
+| `API_URL` | `https://<deployment>.convex.site`     |
+| `API_KEY` | the same key set on Convex             |
+
+### 3. Install in Gmail
+
+In the script editor: **Deploy → Test deployments → Install**. Each user who
+needs the add-on installs from the same test-deployment link (sufficient for
+internal use). Refresh Gmail; the add-on icon appears in the right sidebar
+when a message is open.
+
+For a permanent domain-wide install: create a versioned deployment, attach a
+standard GCP project with an **Internal** OAuth consent screen, and publish
+unlisted via the Workspace Marketplace SDK.
+
+## Development
+
+```bash
+pnpm push   # push src/ to Apps Script
+pnpm pull   # pull remote changes back
+pnpm open   # open the script editor
+```
+
+After pushing, reopen the message in Gmail (or use the test deployment's
+reinstall) to pick up changes.
+
+## Notes
+
+- `logoUrl` in `src/appsscript.json` uses a generic document icon; replace
+  with a hosted 128px Luxuria logo when available.
+- Filenames are kebab-cased and de-duplicated (`file-1.pdf`) by the backend,
+  matching portal uploads.
+- `uploadedBy` records the Gmail user's email address.
