@@ -40,6 +40,7 @@ export default function ProjectDocumentsTabContent({
 			.setFolderClientPortalVisibility
 	);
 	const addToTakeoffs = useAction(api.takeoffs.addToTakeoffs.addToTakeoffs);
+	const sendBillToXero = useAction(api.xero.emailBillToXero.sendBillToXeroNow);
 
 	return (
 		<ProjectFileManagerTabContent
@@ -94,6 +95,14 @@ export default function ProjectDocumentsTabContent({
 					folderId: folderId as Id<'projectDocumentFolders'>,
 					newName,
 				});
+			}}
+			onSendBillToXero={async (fileId) => {
+				const result = await sendBillToXero({
+					documentId: fileId as Id<'projectDocuments'>,
+				});
+				if (!result.ok) {
+					throw new Error(result.error ?? 'Xero send failed');
+				}
 			}}
 			onSetClientPortalVisibility={async (fileId, visible) => {
 				await setClientPortalVisibility({

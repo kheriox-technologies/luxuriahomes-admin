@@ -71,6 +71,7 @@ import {
 	MonitorX,
 	MoveRight,
 	Pencil,
+	Receipt,
 	Ruler,
 	Trash2,
 	Upload,
@@ -108,6 +109,9 @@ interface FileItem {
 	size?: number;
 	uploadedAt: number;
 	uploadedByClient?: boolean;
+	// Xero bill forwarding status (project documents in the "bills" folder only).
+	xeroBillError?: string;
+	xeroBillStatus?: 'queued' | 'sent' | 'failed';
 }
 
 interface FolderItem {
@@ -157,6 +161,9 @@ export interface ProjectFileManagerTabContentProps {
 	onRemoveFile: (fileId: string) => Promise<void>;
 	onRenameFile: (fileId: string, newName: string) => Promise<void>;
 	onRenameFolder: (folderId: string, newName: string) => Promise<void>;
+	// When provided, bill PDFs in the "bills" folder gain a "Send to Xero" action
+	// (used to retry a failed forward). Only wired for project documents.
+	onSendBillToXero?: (fileId: string) => Promise<void>;
 	// When provided, files gain an "Add to / Remove from client portal" action.
 	onSetClientPortalVisibility?: (
 		fileId: string,
@@ -220,6 +227,31 @@ function getFileIcon(mimeType?: string) {
 		return <File className="size-4 text-orange-500" />;
 	}
 	return <File className="size-4 text-muted-foreground" />;
+}
+
+function XeroBillBadge({ status }: { status: FileItem['xeroBillStatus'] }) {
+	if (status === 'queued') {
+		return (
+			<Badge size="lg" variant="secondary">
+				Xero: queued
+			</Badge>
+		);
+	}
+	if (status === 'sent') {
+		return (
+			<Badge size="lg" variant="success">
+				Xero: sent
+			</Badge>
+		);
+	}
+	if (status === 'failed') {
+		return (
+			<Badge size="lg" variant="destructive">
+				Xero: failed
+			</Badge>
+		);
+	}
+	return null;
 }
 
 const OFFICE_MIME_TYPES = new Set([
@@ -1092,6 +1124,7 @@ function FileRowActions({
 	onRemoveFile,
 	onAddToTakeoffs,
 	onSetClientPortalVisibility,
+	onSendBillToXero,
 }: {
 	item: FileItem;
 	buildQueryArgs: ProjectFileManagerTabContentProps['buildQueryArgs'];
@@ -1101,6 +1134,7 @@ function FileRowActions({
 	onRemoveFile: ProjectFileManagerTabContentProps['onRemoveFile'];
 	onAddToTakeoffs?: ProjectFileManagerTabContentProps['onAddToTakeoffs'];
 	onSetClientPortalVisibility?: ProjectFileManagerTabContentProps['onSetClientPortalVisibility'];
+	onSendBillToXero?: ProjectFileManagerTabContentProps['onSendBillToXero'];
 }) {
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [moveOpen, setMoveOpen] = useState(false);
@@ -1120,6 +1154,22 @@ function FileRowActions({
 				type: 'error',
 			});
 			throw error;
+		}
+	};
+
+	// Bill PDFs carry a Xero forwarding status; offer a manual (re)send for them.
+	const isBill = item.xeroBillStatus !== undefined;
+
+	const onSendToXero = async () => {
+		try {
+			await onSendBillToXero?.(item._id);
+			toastManager.add({ title: 'Sent to Xero', type: 'success' });
+		} catch (error) {
+			toastManager.add({
+				title: 'Could not send to Xero',
+				description: getConvexErrorMessage(error, 'Please try again.'),
+				type: 'error',
+			});
 		}
 	};
 
@@ -1223,6 +1273,14 @@ function FileRowActions({
 							{item.clientPortalVisible
 								? 'Remove from client portal'
 								: 'Add to client portal'}
+						</MenuItem>
+					) : null}
+					{onSendBillToXero && isBill ? (
+						<MenuItem onClick={() => onSendToXero().catch(() => undefined)}>
+							<Receipt />
+							{item.xeroBillStatus === 'failed'
+								? 'Retry Xero send'
+								: 'Send to Xero'}
 						</MenuItem>
 					) : null}
 					<MenuSeparator />
@@ -1455,6 +1513,7 @@ export function ProjectFileManagerTabContent({
 	onAddToTakeoffs,
 	onSetClientPortalVisibility,
 	onSetFolderClientPortalVisibility,
+	onSendBillToXero,
 	projectId,
 	rootLabel = 'Files',
 	emptyTitle = 'No files yet',
@@ -1796,6 +1855,7 @@ export function ProjectFileManagerTabContent({
 												On client portal
 											</Badge>
 										) : null}
+										<XeroBillBadge status={doc.xeroBillStatus} />
 									</div>
 								</TableCell>
 								<TableCell className="text-muted-foreground text-sm">
@@ -1817,6 +1877,7 @@ export function ProjectFileManagerTabContent({
 											onMoveFile={onMoveFile}
 											onRemoveFile={onRemoveFile}
 											onRenameFile={onRenameFile}
+											onSendBillToXero={onSendBillToXero}
 											onSetClientPortalVisibility={onSetClientPortalVisibility}
 										/>
 									</div>

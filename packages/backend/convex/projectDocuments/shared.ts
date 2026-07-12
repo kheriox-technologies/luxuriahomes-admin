@@ -1,10 +1,21 @@
 import { ConvexError, v } from 'convex/values';
+import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import {
 	internalMutation,
 	internalQuery,
 	type MutationCtx,
 } from '../_generated/server';
+
+// Documents added to this folder (by slug) are candidates for Xero bill
+// forwarding. Matches the "Bills" template slug from `documentFolders`.
+const BILLS_FOLDER_PATH = 'bills';
+const PDF_NAME_REGEX = /\.pdf$/i;
+
+/** True when the document is a PDF, by MIME type or filename extension. */
+function isPdf(name: string, mimeType?: string): boolean {
+	return mimeType?.includes('pdf') === true || PDF_NAME_REGEX.test(name);
+}
 
 // Shared insert used by the admin `create` mutation and the Gmail add-on
 // ingestion path, which resolves `uploadedBy` outside of Clerk identity.
@@ -21,7 +32,12 @@ export async function insertProjectDocument(
 		uploadedBy: string;
 	}
 ): Promise<Id<'projectDocuments'>> {
-	return await ctx.db.insert('projectDocuments', {
+	// PDFs dropped into the Bills folder (via the portal or the Gmail add-on,
+	// both of which route through here) get emailed to Xero for bill drafting.
+	const forwardToXero =
+		args.folderPath === BILLS_FOLDER_PATH && isPdf(args.name, args.mimeType);
+
+	const documentId = await ctx.db.insert('projectDocuments', {
 		projectId: args.projectId,
 		name: args.name,
 		kebabName: args.kebabName,
@@ -31,8 +47,45 @@ export async function insertProjectDocument(
 		mimeType: args.mimeType,
 		uploadedBy: args.uploadedBy,
 		uploadedAt: Date.now(),
+		xeroBillStatus: forwardToXero ? 'queued' : undefined,
 	});
+
+	if (forwardToXero) {
+		await ctx.scheduler.runAfter(
+			0,
+			internal.xero.emailBillToXero.emailBillToXero,
+			{ documentId }
+		);
+	}
+
+	return documentId;
 }
+
+/**
+ * Records the outcome of forwarding a bill PDF to Xero. Called by the
+ * `emailBillToXero` action after the send attempt.
+ */
+export const setXeroBillStatus = internalMutation({
+	args: {
+		documentId: v.id('projectDocuments'),
+		status: v.union(
+			v.literal('queued'),
+			v.literal('sent'),
+			v.literal('failed')
+		),
+		sentAt: v.optional(v.number()),
+		messageId: v.optional(v.string()),
+		error: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		await ctx.db.patch(args.documentId, {
+			xeroBillStatus: args.status,
+			xeroBillSentAt: args.sentAt,
+			xeroBillMessageId: args.messageId,
+			xeroBillError: args.error,
+		});
+	},
+});
 
 export const getDocumentById = internalQuery({
 	args: { documentId: v.id('projectDocuments') },

@@ -10,6 +10,8 @@ const DOCUMENT_FOLDERS_DATA: string[] = [
 	'Marketing',
 	'Design & CC Stage',
 	'Certifier Approved Documents',
+	// PDFs added here are auto-forwarded to the Xero bills inbox (slug: "bills").
+	'Bills',
 ];
 
 export const populate = internalMutation({
