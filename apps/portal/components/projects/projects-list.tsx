@@ -325,7 +325,7 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'expenses',
-		header: () => <XeroSyncHeader label="Spent" />,
+		header: () => <XeroSyncHeader label="Expenses" />,
 		size: 120,
 		cell: ({ row }) => {
 			const { expenses } = row.original;
