@@ -56,7 +56,7 @@ export const syncProjectFinancials = internalAction({
 			optionIdToName.set(option.TrackingOptionID, option.Name);
 		}
 
-		const { costOfSalesByOption, tradingIncomeByOption } =
+		const { costOfSalesByOption, incomeByOption } =
 			await fetchCumulativeExpensesByOption(accessToken, tenantId, {
 				trackingCategoryId: config.trackingCategoryId,
 				fromDate: SYNC_FROM_DATE,
@@ -83,11 +83,11 @@ export const syncProjectFinancials = internalAction({
 				continue;
 			}
 			const costOfSales = costOfSalesByOption.get(optionName) ?? 0;
-			const tradingIncome = tradingIncomeByOption.get(optionName) ?? 0;
+			const income = incomeByOption.get(optionName) ?? 0;
 			updates.push({
 				projectId: project._id,
 				expenses: roundToCents(costOfSales * XERO_UPLIFT),
-				received: roundToCents(tradingIncome * XERO_UPLIFT),
+				received: roundToCents(income * XERO_UPLIFT),
 			});
 		}
 

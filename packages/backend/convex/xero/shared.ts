@@ -256,10 +256,10 @@ export interface CumulativeExpensesResult {
 	costOfSalesByOption: Map<string, number>;
 	/** Summed expenses per tracking option across every window. */
 	expensesByOption: Map<string, number>;
+	/** Summed income per tracking option across every window. */
+	incomeByOption: Map<string, number>;
 	/** The final window's raw report, for inspecting report shape. */
 	lastReport?: XeroReport;
-	/** Summed trading income per tracking option across every window. */
-	tradingIncomeByOption: Map<string, number>;
 	/** The windows fetched, for diagnostics. */
 	windows: Array<{ fromDate: string; toDate: string }>;
 }
@@ -288,7 +288,7 @@ export async function fetchCumulativeExpensesByOption(
 	const windows = profitAndLossDateWindows(params.fromDate, params.toDate);
 	const expensesByOption = new Map<string, number>();
 	const costOfSalesByOption = new Map<string, number>();
-	const tradingIncomeByOption = new Map<string, number>();
+	const incomeByOption = new Map<string, number>();
 	let lastReport: XeroReport | undefined;
 	for (const window of windows) {
 		const report = await fetchProfitAndLoss(accessToken, tenantId, {
@@ -299,12 +299,12 @@ export async function fetchCumulativeExpensesByOption(
 		lastReport = report;
 		accumulateInto(expensesByOption, parseExpensesByOption(report));
 		accumulateInto(costOfSalesByOption, parseCostOfSalesByOption(report));
-		accumulateInto(tradingIncomeByOption, parseTradingIncomeByOption(report));
+		accumulateInto(incomeByOption, parseIncomeByOption(report));
 	}
 	return {
 		expensesByOption,
 		costOfSalesByOption,
-		tradingIncomeByOption,
+		incomeByOption,
 		windows,
 		lastReport,
 	};
@@ -315,7 +315,10 @@ const TOTAL_COST_OF_SALES_LABELS = [
 	'total cost of sales',
 	'total cost of goods sold',
 ];
-const TOTAL_TRADING_INCOME_LABELS = ['total trading income'];
+// Xero's default P&L names the income section "Income" with a "Total Income"
+// summary row; "total trading income" is kept as a fallback for orgs using the
+// alternative layout.
+const TOTAL_INCOME_LABELS = ['total income', 'total trading income'];
 
 /**
  * Extracts each tracking option's figure from a Profit & Loss report's section
@@ -380,11 +383,8 @@ export function parseCostOfSalesByOption(
 }
 
 /**
- * Extracts each tracking option's total trading income from a Profit & Loss
- * report.
+ * Extracts each tracking option's total income from a Profit & Loss report.
  */
-export function parseTradingIncomeByOption(
-	report: XeroReport
-): Map<string, number> {
-	return parseTotalRowByOption(report, TOTAL_TRADING_INCOME_LABELS);
+export function parseIncomeByOption(report: XeroReport): Map<string, number> {
+	return parseTotalRowByOption(report, TOTAL_INCOME_LABELS);
 }
