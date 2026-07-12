@@ -11,4 +11,12 @@ crons.daily(
 	internal.adminUsers.syncAdminUsers.syncAdminUsers
 );
 
+// Sync each mapped project's "Spent" value from Xero cost of sales nightly.
+// 16:00 UTC ≈ 2–3am AEST, well after end-of-day bookkeeping.
+crons.daily(
+	'sync project spend from xero',
+	{ hourUTC: 16, minuteUTC: 0 },
+	internal.xero.syncProjectSpend.syncProjectSpend
+);
+
 export default crons;

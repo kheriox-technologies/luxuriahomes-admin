@@ -20,6 +20,7 @@ export const add = mutation({
 		quotePrice: v.optional(v.number()),
 		expenses: v.optional(v.number()),
 		received: v.optional(v.number()),
+		xeroTrackingOptionId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -50,6 +51,7 @@ export const add = mutation({
 			quotePrice: args.quotePrice,
 			expenses: args.expenses,
 			received: args.received,
+			xeroTrackingOptionId: args.xeroTrackingOptionId,
 			searchText,
 		});
 		await seedProjectDocumentFolders(ctx, projectId);

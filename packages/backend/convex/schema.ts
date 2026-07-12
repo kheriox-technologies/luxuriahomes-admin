@@ -270,6 +270,9 @@ export default defineSchema({
 		quotePrice: v.optional(v.number()),
 		expenses: v.optional(v.number()),
 		received: v.optional(v.number()),
+		// GUID of the Xero tracking option this project maps to. When set, the
+		// nightly Xero sync overwrites `expenses` from the option's cost of sales.
+		xeroTrackingOptionId: v.optional(v.string()),
 		searchText: v.string(),
 	}).searchIndex('search_projects', { searchField: 'searchText' }),
 	units: defineTable({

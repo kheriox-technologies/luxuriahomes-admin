@@ -48,6 +48,7 @@ import {
 	projectClientAddressesEqual,
 	projectClientFromDraft,
 	toConvexCreatePayload,
+	XeroOptionCombobox,
 } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -520,6 +521,22 @@ export default function AddProjectForm() {
 											</Field>
 										);
 									}}
+								</form.Field>
+								<form.Field name="xeroTrackingOptionId">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Xero project (for Spent sync)
+											</FieldLabel>
+											<XeroOptionCombobox
+												id={field.name}
+												onBlur={field.handleBlur}
+												onChange={(next) => field.handleChange(next)}
+												placeholder="Select Xero project"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
 								</form.Field>
 							</FramePanel>
 						</Frame>

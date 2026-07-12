@@ -49,6 +49,7 @@ import {
 	projectClientAddressesEqual,
 	projectClientFromDraft,
 	toConvexUpdatePayload,
+	XeroOptionCombobox,
 } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -63,6 +64,7 @@ function projectDocToEditDefaults(project: Doc<'projects'>) {
 		quotePrice: project.quotePrice,
 		expenses: project.expenses,
 		received: project.received,
+		xeroTrackingOptionId: project.xeroTrackingOptionId,
 	};
 }
 
@@ -185,6 +187,10 @@ export default function EditProjectForm({
 			form.setFieldValue('quotePrice', defaults.quotePrice as never);
 			form.setFieldValue('expenses', defaults.expenses as never);
 			form.setFieldValue('received', defaults.received as never);
+			form.setFieldValue(
+				'xeroTrackingOptionId',
+				defaults.xeroTrackingOptionId as never
+			);
 			setClients(cloneClientsFromProject(nextProject));
 			setDraft(emptyClientDraft);
 			setSameAsFirstClient(true);
@@ -640,6 +646,22 @@ export default function EditProjectForm({
 											</Field>
 										);
 									}}
+								</form.Field>
+								<form.Field name="xeroTrackingOptionId">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>
+												Xero project (for Spent sync)
+											</FieldLabel>
+											<XeroOptionCombobox
+												id={field.name}
+												onBlur={field.handleBlur}
+												onChange={(next) => field.handleChange(next)}
+												placeholder="Select Xero project"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
 								</form.Field>
 							</FramePanel>
 						</Frame>

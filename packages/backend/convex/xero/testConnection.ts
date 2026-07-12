@@ -2,25 +2,16 @@
 
 import { internalAction } from '../_generated/server';
 import {
-	fetchProfitAndLoss,
+	fetchCumulativeExpensesByOption,
 	fetchTrackingCategories,
 	getXeroAccessToken,
 	getXeroConfig,
 	getXeroTenantId,
-	parseExpensesByOption,
+	SYNC_FROM_DATE,
+	todayUtcDate,
 } from './shared';
 
 const SAMPLE_OPTION_LIMIT = 5;
-// Far-past start so the P&L spans cumulative expenses-to-date for every project.
-const PROFIT_AND_LOSS_FROM_DATE = '2000-01-01';
-
-function todayUtcDate(): string {
-	const now = new Date();
-	const year = now.getUTCFullYear();
-	const month = `${now.getUTCMonth() + 1}`.padStart(2, '0');
-	const day = `${now.getUTCDate()}`.padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
 
 /**
  * Diagnostic for the Xero Custom Connection. Authenticates, resolves the tenant,
@@ -60,15 +51,18 @@ export const testConnection = internalAction({
 
 		if (config.trackingCategoryId) {
 			const toDate = todayUtcDate();
-			const report = await fetchProfitAndLoss(accessToken, tenantId, {
-				trackingCategoryId: config.trackingCategoryId,
-				fromDate: PROFIT_AND_LOSS_FROM_DATE,
-				toDate,
-			});
-			const expensesByOption = parseExpensesByOption(report);
+			const { expensesByOption } = await fetchCumulativeExpensesByOption(
+				accessToken,
+				tenantId,
+				{
+					trackingCategoryId: config.trackingCategoryId,
+					fromDate: SYNC_FROM_DATE,
+					toDate,
+				}
+			);
 			profitAndLoss = {
 				trackingCategoryId: config.trackingCategoryId,
-				fromDate: PROFIT_AND_LOSS_FROM_DATE,
+				fromDate: SYNC_FROM_DATE,
 				toDate,
 				expensesByOption: Array.from(expensesByOption.entries()).map(
 					([option, expenses]) => ({ option, expenses })

@@ -2,6 +2,7 @@
 'use client';
 
 import type { ColumnDef } from '@tanstack/react-table';
+import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
@@ -20,10 +21,13 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
+import { toastManager } from '@workspace/ui/components/toast';
+import { useAction } from 'convex/react';
 import {
 	Building2,
 	EllipsisVertical,
 	Pencil,
+	RefreshCw,
 	SearchIcon,
 	Trash2,
 } from 'lucide-react';
@@ -176,6 +180,52 @@ const RightHeader = ({ label }: { label: string }) => (
 	<div className="text-right">{label}</div>
 );
 
+// "Spent" column header with an on-demand button that re-syncs every mapped
+// project's Spent value from Xero. The table is reactive, so values update in
+// place once the sync's mutation lands — no manual refetch needed.
+function SpentHeader() {
+	const syncNow = useAction(api.xero.syncProjectSpendNow.syncProjectSpendNow);
+	const [pending, setPending] = useState(false);
+
+	const handleSync = async () => {
+		setPending(true);
+		try {
+			const { updated, skipped } = await syncNow({});
+			toastManager.add({
+				title: 'Spend synced from Xero',
+				description: `Updated ${updated} project${updated === 1 ? '' : 's'}${
+					skipped > 0 ? `, skipped ${skipped} unmatched` : ''
+				}.`,
+				type: 'success',
+			});
+		} catch {
+			toastManager.add({
+				title: 'Could not sync from Xero',
+				description: 'Please try again in a moment.',
+				type: 'error',
+			});
+		} finally {
+			setPending(false);
+		}
+	};
+
+	return (
+		<div className="flex items-center justify-end gap-1">
+			<span>Spent</span>
+			<Button
+				aria-label="Sync Spent from Xero"
+				loading={pending}
+				onClick={handleSync}
+				size="icon-sm"
+				type="button"
+				variant="ghost"
+			>
+				<RefreshCw />
+			</Button>
+		</div>
+	);
+}
+
 function MoneyDelta({
 	amount,
 	positiveSuffix,
@@ -271,7 +321,7 @@ const columns: ColumnDef<Project>[] = [
 	},
 	{
 		id: 'expenses',
-		header: () => <RightHeader label="Spent" />,
+		header: () => <SpentHeader />,
 		size: 120,
 		cell: ({ row }) => {
 			const { expenses } = row.original;

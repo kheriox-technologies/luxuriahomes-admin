@@ -1,5 +1,6 @@
 'use client';
 
+import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
 import { Calendar } from '@workspace/ui/components/calendar';
@@ -16,7 +17,9 @@ import {
 	PopoverPopup,
 	PopoverTrigger,
 } from '@workspace/ui/components/popover';
+import { useAction } from 'convex/react';
 import { CalendarIcon, XIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 
 export const AUSTRALIAN_STATES = [
@@ -158,6 +161,7 @@ export const projectCoreFormSchema = z.object({
 		.optional(),
 	expenses: z.number().nonnegative('Expenses must be 0 or more').optional(),
 	received: z.number().nonnegative('Received must be 0 or more').optional(),
+	xeroTrackingOptionId: z.string().optional(),
 });
 
 export const PROJECT_STATUSES = [
@@ -193,6 +197,7 @@ export const emptyProjectCoreFormValues = {
 	quotePrice: undefined,
 	expenses: undefined,
 	received: undefined,
+	xeroTrackingOptionId: undefined,
 } as unknown as ProjectCoreFormValues;
 
 export const emptyEditProjectFormValues = {
@@ -348,6 +353,7 @@ export function toConvexCreatePayload(
 		quotePrice: value.quotePrice,
 		expenses: value.expenses,
 		received: value.received,
+		xeroTrackingOptionId: value.xeroTrackingOptionId,
 	};
 }
 
@@ -369,6 +375,7 @@ export function toConvexUpdatePayload(
 		quotePrice: value.quotePrice ?? null,
 		expenses: value.expenses ?? null,
 		received: value.received ?? null,
+		xeroTrackingOptionId: value.xeroTrackingOptionId ?? null,
 	};
 }
 
@@ -536,6 +543,92 @@ export function AustralianStateCombobox({
 					{(item: AustralianState) => (
 						<ComboboxItem key={item} value={item}>
 							{STATE_LABELS[item]}
+						</ComboboxItem>
+					)}
+				</ComboboxList>
+			</ComboboxPopup>
+		</Combobox>
+	);
+}
+
+interface XeroOption {
+	id: string;
+	name: string;
+}
+
+/**
+ * Searchable picker for the Xero tracking option a project maps to. Options are
+ * fetched live from Xero via the `listTrackingOptions` action (non-reactive).
+ * Stores the option's GUID; the label shows its current name. Clearable.
+ */
+export function XeroOptionCombobox({
+	id,
+	disabled,
+	value,
+	onChange,
+	onBlur,
+	placeholder,
+}: {
+	id: string;
+	disabled?: boolean;
+	value: string | undefined;
+	onChange: (next: string | undefined) => void;
+	onBlur?: () => void;
+	placeholder?: string;
+}) {
+	const listOptions = useAction(
+		api.xero.listTrackingOptions.listTrackingOptions
+	);
+	const [options, setOptions] = useState<XeroOption[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		let active = true;
+		setLoading(true);
+		listOptions({})
+			.then((result) => {
+				if (active) {
+					setOptions(result.options);
+				}
+			})
+			.catch(() => {
+				// Leave the list empty on failure; the field stays usable (clearable).
+			})
+			.finally(() => {
+				if (active) {
+					setLoading(false);
+				}
+			});
+		return () => {
+			active = false;
+		};
+	}, [listOptions]);
+
+	const selected =
+		options.find((option) => option.id === value) ??
+		(value ? { id: value, name: value } : null);
+
+	return (
+		<Combobox<XeroOption>
+			disabled={disabled || loading}
+			items={options}
+			itemToStringLabel={(option) => option.name}
+			onValueChange={(next) => {
+				onChange(next?.id);
+			}}
+			value={selected}
+		>
+			<ComboboxInput
+				id={id}
+				onBlur={onBlur}
+				placeholder={loading ? 'Loading Xero options…' : placeholder}
+			/>
+			<ComboboxPopup>
+				<ComboboxEmpty>No Xero option found.</ComboboxEmpty>
+				<ComboboxList>
+					{(item: XeroOption) => (
+						<ComboboxItem key={item.id} value={item}>
+							{item.name}
 						</ComboboxItem>
 					)}
 				</ComboboxList>
