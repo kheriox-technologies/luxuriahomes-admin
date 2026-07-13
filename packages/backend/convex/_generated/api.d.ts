@@ -181,6 +181,7 @@ import type * as permissions_removeRole from "../permissions/removeRole.js";
 import type * as permissions_upsertRole from "../permissions/upsertRole.js";
 import type * as projectBudgets_addItem from "../projectBudgets/addItem.js";
 import type * as projectBudgets_clearPayments from "../projectBudgets/clearPayments.js";
+import type * as projectBudgets_projectSummary from "../projectBudgets/projectSummary.js";
 import type * as projectBudgets_remove from "../projectBudgets/remove.js";
 import type * as projectBudgets_setPrices from "../projectBudgets/setPrices.js";
 import type * as projectBudgets_tradeSummary from "../projectBudgets/tradeSummary.js";
@@ -355,7 +356,7 @@ import type * as trades_add from "../trades/add.js";
 import type * as trades_addMany from "../trades/addMany.js";
 import type * as trades_get from "../trades/get.js";
 import type * as trades_list from "../trades/list.js";
-import type * as trades_listXeroMapped from "../trades/listXeroMapped.js";
+import type * as trades_listXeroAssignments from "../trades/listXeroAssignments.js";
 import type * as trades_remove from "../trades/remove.js";
 import type * as trades_reorderTrades from "../trades/reorderTrades.js";
 import type * as trades_search from "../trades/search.js";
@@ -402,7 +403,7 @@ import type * as xero_syncProjectFinancialsNow from "../xero/syncProjectFinancia
 import type * as xero_testAccounts from "../xero/testAccounts.js";
 import type * as xero_testConnection from "../xero/testConnection.js";
 import type * as xero_testProfitAndLoss from "../xero/testProfitAndLoss.js";
-import type * as xeroTradeActuals_apply from "../xeroTradeActuals/apply.js";
+import type * as xeroAccountActuals_apply from "../xeroAccountActuals/apply.js";
 
 import type {
   ApiFromModules,
@@ -584,6 +585,7 @@ declare const fullApi: ApiFromModules<{
   "permissions/upsertRole": typeof permissions_upsertRole;
   "projectBudgets/addItem": typeof projectBudgets_addItem;
   "projectBudgets/clearPayments": typeof projectBudgets_clearPayments;
+  "projectBudgets/projectSummary": typeof projectBudgets_projectSummary;
   "projectBudgets/remove": typeof projectBudgets_remove;
   "projectBudgets/setPrices": typeof projectBudgets_setPrices;
   "projectBudgets/tradeSummary": typeof projectBudgets_tradeSummary;
@@ -758,7 +760,7 @@ declare const fullApi: ApiFromModules<{
   "trades/addMany": typeof trades_addMany;
   "trades/get": typeof trades_get;
   "trades/list": typeof trades_list;
-  "trades/listXeroMapped": typeof trades_listXeroMapped;
+  "trades/listXeroAssignments": typeof trades_listXeroAssignments;
   "trades/remove": typeof trades_remove;
   "trades/reorderTrades": typeof trades_reorderTrades;
   "trades/search": typeof trades_search;
@@ -805,7 +807,7 @@ declare const fullApi: ApiFromModules<{
   "xero/testAccounts": typeof xero_testAccounts;
   "xero/testConnection": typeof xero_testConnection;
   "xero/testProfitAndLoss": typeof xero_testProfitAndLoss;
-  "xeroTradeActuals/apply": typeof xeroTradeActuals_apply;
+  "xeroAccountActuals/apply": typeof xeroAccountActuals_apply;
 }>;
 
 /**

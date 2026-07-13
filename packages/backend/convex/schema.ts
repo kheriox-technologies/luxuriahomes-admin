@@ -380,12 +380,14 @@ export default defineSchema({
 		// Sort position within the trade's stage (or within Ungrouped). Optional for
 		// legacy rows; they fall back to alphabetical until first reordered.
 		order: v.optional(v.number()),
-		// Xero Chart of Accounts GUIDs this trade maps to. The project Budgets tab's
-		// "Actual" column is the sum of these accounts' P&L amounts for the project.
-		xeroAccountIds: v.optional(v.array(v.string())),
+		// The single Xero Chart-of-Accounts GUID this trade maps to (1:1 — a code
+		// belongs to at most one trade, enforced on write). The Budgets tab "Actual"
+		// is this account's Xero spend for the project.
+		xeroAccountId: v.optional(v.string()),
 		searchText: v.string(),
 	})
 		.index('by_stage', ['stageId'])
+		.index('by_xero_account', ['xeroAccountId'])
 		.searchIndex('search_trades', { searchField: 'searchText' }),
 	budgetTemplates: defineTable({
 		title: v.string(),
@@ -410,13 +412,11 @@ export default defineSchema({
 		payments: v.optional(v.number()),
 	})
 		.index('by_project', ['projectId'])
-		.index('by_project_and_trade', ['projectId', 'tradeId']),
-	// Per-trade "Actual" amounts synced from Xero (sum of the trade's mapped
-	// Chart-of-Accounts P&L amounts for the project). Sync-owned: written by the
-	// Xero financials sync, cleared when a trade's mapping/rows go away. Stored
-	// separately from projectBudgets so actuals can exist without a budget row and
-	// survive budget-row deletion. Amounts are uplifted (×1.1) and cents-rounded;
-	// zero/absent amounts are not stored (UI shows "—").
+		.index('by_project_and_trade', ['projectId', 'tradeId'])
+		.index('by_trade', ['tradeId']),
+	// DEPRECATED: superseded by `xeroAccountActuals` (per Xero account code instead
+	// of per trade). No longer read or written — kept defined so existing rows don't
+	// break schema validation; can be dropped once the table is emptied.
 	xeroTradeActuals: defineTable({
 		projectId: v.id('projects'),
 		tradeId: v.id('trades'),
@@ -424,6 +424,17 @@ export default defineSchema({
 	})
 		.index('by_project', ['projectId'])
 		.index('by_trade', ['tradeId']),
+	// Per Xero Chart-of-Accounts "Actual" amounts synced from Xero, one row per
+	// (project, account GUID). Sync-owned: written by the Xero financials sync,
+	// reconciled each run. The Budgets tab groups trades sharing a code and sums the
+	// group's distinct codes' amounts here (each code counted once → no double count
+	// when several trades map to the same code). Amounts are uplifted (×1.1) and
+	// cents-rounded; zero/absent amounts are not stored (UI shows "—").
+	xeroAccountActuals: defineTable({
+		projectId: v.id('projects'),
+		accountId: v.string(),
+		amount: v.number(),
+	}).index('by_project', ['projectId']),
 	scheduleTemplates: defineTable({
 		name: v.string(),
 		description: v.optional(v.string()),

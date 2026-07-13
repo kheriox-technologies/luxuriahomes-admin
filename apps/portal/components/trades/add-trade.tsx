@@ -28,7 +28,7 @@ import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
 import { useMultiAdd } from '@/components/lists/use-multi-add';
-import { XeroAccountsCombobox } from '@/components/xero/xero-accounts-combobox';
+import { XeroAccountCombobox } from '@/components/xero/xero-accounts-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyTradeFormValues,
@@ -44,7 +44,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 	const [isSaving, setIsSaving] = useState(false);
 	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
 	const [newStageName, setNewStageName] = useState('');
-	const [xeroAccountIds, setXeroAccountIds] = useState<string[]>([]);
+	const [xeroAccountId, setXeroAccountId] = useState<string | null>(null);
 	const multi = useMultiAdd();
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const addTrade = useMutation(api.trades.add.add);
@@ -64,7 +64,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 	const resetStage = () => {
 		setStageId('');
 		setNewStageName('');
-		setXeroAccountIds([]);
+		setXeroAccountId(null);
 	};
 
 	const form = useForm({
@@ -79,8 +79,7 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 					name: parsed.name,
 					description: parsed.description?.trim() || undefined,
 					stageId: await resolveStageId(),
-					xeroAccountIds:
-						xeroAccountIds.length > 0 ? xeroAccountIds : undefined,
+					xeroAccountId: xeroAccountId ?? undefined,
 				});
 				toastManager.add({
 					title: 'Trade added',
@@ -268,20 +267,19 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 								</form.Field>
 								<Field>
 									<FieldLabel htmlFor="add-trade-xero-accounts">
-										Xero accounts
+										Xero account
 										<span className="ml-1 text-muted-foreground text-xs">
 											(optional)
 										</span>
 									</FieldLabel>
-									<XeroAccountsCombobox
+									<XeroAccountCombobox
 										id="add-trade-xero-accounts"
-										onChange={setXeroAccountIds}
-										value={xeroAccountIds}
+										onChange={setXeroAccountId}
+										value={xeroAccountId}
 									/>
 									<FieldDescription>
-										The Budgets tab “Actual” is the sum of these accounts' Xero
-										spend. An account mapped to multiple trades is counted in
-										each.
+										The Budgets tab “Actual” is this account's Xero spend. Each
+										Xero code maps to a single trade.
 									</FieldDescription>
 								</Field>
 							</>

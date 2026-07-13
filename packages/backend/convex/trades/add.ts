@@ -8,7 +8,7 @@ export const add = mutation({
 		name: v.string(),
 		description: v.optional(v.string()),
 		stageId: v.optional(v.id('tradeStages')),
-		xeroAccountIds: v.optional(v.array(v.string())),
+		xeroAccountId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -16,7 +16,7 @@ export const add = mutation({
 			name: args.name,
 			description: args.description,
 			stageId: args.stageId,
-			xeroAccountIds: args.xeroAccountIds,
+			xeroAccountId: args.xeroAccountId,
 		});
 	},
 });

@@ -10,12 +10,14 @@ export const remove = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		await getTradeOrThrow(ctx, args.tradeId);
-		// Clear the trade's synced Xero actuals before deleting it.
-		const actuals = await ctx.db
-			.query('xeroTradeActuals')
+		// Remove the trade's budget rows across every project so deleting a trade
+		// doesn't leave orphaned project budgets. (Xero actuals are stored per
+		// account, not per trade, so there's nothing trade-keyed to clear.)
+		const budgets = await ctx.db
+			.query('projectBudgets')
 			.withIndex('by_trade', (q) => q.eq('tradeId', args.tradeId))
 			.collect();
-		for (const row of actuals) {
+		for (const row of budgets) {
 			await ctx.db.delete(row._id);
 		}
 		await ctx.db.delete(args.tradeId);

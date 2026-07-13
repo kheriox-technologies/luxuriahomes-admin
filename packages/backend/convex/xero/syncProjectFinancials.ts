@@ -67,22 +67,20 @@ export const syncProjectFinancials = internalAction({
 			internal.projects.listXeroMapped.listXeroMapped,
 			{}
 		);
-		const mappedTrades = await ctx.runQuery(
-			internal.trades.listXeroMapped.listXeroMapped,
-			{}
-		);
 
 		const updates: Array<{
 			projectId: (typeof mapped)[number]['_id'];
 			expenses: number;
 			received: number;
 		}> = [];
-		// Per-trade actuals for every mapped project whose option resolved. Only
-		// these projects are reconciled — skipped projects keep their rows.
+		// Per-account actuals for every mapped project whose option resolved. Only
+		// these projects are reconciled — skipped projects keep their rows. Stored
+		// per Xero account GUID (not per trade) so a code shared by several trades is
+		// counted once; the Budgets tab groups trades by code and sums these.
 		const syncedProjectIds: (typeof mapped)[number]['_id'][] = [];
-		const tradeActualEntries: Array<{
+		const accountActualEntries: Array<{
 			projectId: (typeof mapped)[number]['_id'];
-			tradeId: (typeof mappedTrades)[number]['_id'];
+			accountId: string;
 			amount: number;
 		}> = [];
 		let skipped = 0;
@@ -103,17 +101,16 @@ export const syncProjectFinancials = internalAction({
 			});
 
 			syncedProjectIds.push(project._id);
-			for (const trade of mappedTrades) {
-				let sum = 0;
-				for (const accountId of trade.xeroAccountIds) {
-					sum += accountAmountsByOption.get(accountId)?.get(optionName) ?? 0;
-				}
+			// Store every account that has project spend (not just mapped ones) so the
+			// Budgets tab can flag codes with spend that no trade maps to.
+			for (const [accountId, amountsByOption] of accountAmountsByOption) {
+				const amount = amountsByOption.get(optionName) ?? 0;
 				// Zero rows are not stored — the reconcile deletes any stale row.
-				if (sum !== 0) {
-					tradeActualEntries.push({
+				if (amount !== 0) {
+					accountActualEntries.push({
 						projectId: project._id,
-						tradeId: trade._id,
-						amount: roundToCents(sum * XERO_UPLIFT),
+						accountId,
+						amount: roundToCents(amount * XERO_UPLIFT),
 					});
 				}
 			}
@@ -123,15 +120,15 @@ export const syncProjectFinancials = internalAction({
 			internal.projects.applyXeroFinancials.applyXeroFinancials,
 			{ updates }
 		);
-		await ctx.runMutation(internal.xeroTradeActuals.apply.apply, {
+		await ctx.runMutation(internal.xeroAccountActuals.apply.apply, {
 			projectIds: syncedProjectIds,
-			entries: tradeActualEntries,
+			entries: accountActualEntries,
 		});
 
 		return {
 			updated: updates.length,
 			skipped,
-			tradeActualsWritten: tradeActualEntries.length,
+			tradeActualsWritten: accountActualEntries.length,
 		};
 	},
 });
