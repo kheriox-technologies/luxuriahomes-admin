@@ -168,6 +168,7 @@ import type * as materials_shared from "../materials/shared.js";
 import type * as materials_update from "../materials/update.js";
 import type * as migration_exportScheduleTemplates from "../migration/exportScheduleTemplates.js";
 import type * as migration_importScheduleTemplate from "../migration/importScheduleTemplate.js";
+import type * as migrations_clearTradeXeroAccountIds from "../migrations/clearTradeXeroAccountIds.js";
 import type * as notifications_list from "../notifications/list.js";
 import type * as notifications_listUnread from "../notifications/listUnread.js";
 import type * as notifications_markAllRead from "../notifications/markAllRead.js";
@@ -572,6 +573,7 @@ declare const fullApi: ApiFromModules<{
   "materials/update": typeof materials_update;
   "migration/exportScheduleTemplates": typeof migration_exportScheduleTemplates;
   "migration/importScheduleTemplate": typeof migration_importScheduleTemplate;
+  "migrations/clearTradeXeroAccountIds": typeof migrations_clearTradeXeroAccountIds;
   "notifications/list": typeof notifications_list;
   "notifications/listUnread": typeof notifications_listUnread;
   "notifications/markAllRead": typeof notifications_markAllRead;

@@ -384,6 +384,10 @@ export default defineSchema({
 		// belongs to at most one trade, enforced on write). The Budgets tab "Actual"
 		// is this account's Xero spend for the project.
 		xeroAccountId: v.optional(v.string()),
+		// DEPRECATED: replaced by the single `xeroAccountId`. No longer read or
+		// written; kept optional so deployments whose data still has it validate.
+		// Run migrations/clearTradeXeroAccountIds against each deployment, then drop.
+		xeroAccountIds: v.optional(v.array(v.string())),
 		searchText: v.string(),
 	})
 		.index('by_stage', ['stageId'])
