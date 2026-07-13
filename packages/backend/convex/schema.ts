@@ -384,10 +384,6 @@ export default defineSchema({
 		// belongs to at most one trade, enforced on write). The Budgets tab "Actual"
 		// is this account's Xero spend for the project.
 		xeroAccountId: v.optional(v.string()),
-		// DEPRECATED: replaced by the single `xeroAccountId`. No longer read or
-		// written; kept optional so deployments whose data still has it validate.
-		// Run migrations/clearTradeXeroAccountIds against each deployment, then drop.
-		xeroAccountIds: v.optional(v.array(v.string())),
 		searchText: v.string(),
 	})
 		.index('by_stage', ['stageId'])
@@ -418,22 +414,11 @@ export default defineSchema({
 		.index('by_project', ['projectId'])
 		.index('by_project_and_trade', ['projectId', 'tradeId'])
 		.index('by_trade', ['tradeId']),
-	// DEPRECATED: superseded by `xeroAccountActuals` (per Xero account code instead
-	// of per trade). No longer read or written — kept defined so existing rows don't
-	// break schema validation; can be dropped once the table is emptied.
-	xeroTradeActuals: defineTable({
-		projectId: v.id('projects'),
-		tradeId: v.id('trades'),
-		amount: v.number(),
-	})
-		.index('by_project', ['projectId'])
-		.index('by_trade', ['tradeId']),
 	// Per Xero Chart-of-Accounts "Actual" amounts synced from Xero, one row per
 	// (project, account GUID). Sync-owned: written by the Xero financials sync,
-	// reconciled each run. The Budgets tab groups trades sharing a code and sums the
-	// group's distinct codes' amounts here (each code counted once → no double count
-	// when several trades map to the same code). Amounts are uplifted (×1.1) and
-	// cents-rounded; zero/absent amounts are not stored (UI shows "—").
+	// reconciled each run. With the 1:1 trade↔code model each trade's Actual is its
+	// code's amount here. Amounts are uplifted (×1.1) and cents-rounded; zero/absent
+	// amounts are not stored (UI shows "—").
 	xeroAccountActuals: defineTable({
 		projectId: v.id('projects'),
 		accountId: v.string(),
