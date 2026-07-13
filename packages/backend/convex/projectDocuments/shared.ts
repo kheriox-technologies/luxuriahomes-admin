@@ -7,9 +7,11 @@ import {
 	type MutationCtx,
 } from '../_generated/server';
 
-// Documents added to this folder (by slug) are candidates for Xero bill
-// forwarding. Matches the "Bills" template slug from `documentFolders`.
-const BILLS_FOLDER_PATH = 'bills';
+// Documents added to this nested folder (by slug path) are candidates for Xero
+// bill forwarding. Only the "Bills" subfolder under the "Xero" folder triggers
+// forwarding, so other Xero-related documents (placed directly in "Xero" or
+// elsewhere) are not emailed to Xero.
+const XERO_BILLS_FOLDER_PATH = 'xero/bills';
 const PDF_NAME_REGEX = /\.pdf$/i;
 
 /** True when the document is a PDF, by MIME type or filename extension. */
@@ -32,10 +34,12 @@ export async function insertProjectDocument(
 		uploadedBy: string;
 	}
 ): Promise<Id<'projectDocuments'>> {
-	// PDFs dropped into the Bills folder (via the portal or the Gmail add-on,
-	// both of which route through here) get emailed to Xero for bill drafting.
+	// PDFs dropped into the Xero/Bills folder (via the portal or the Gmail
+	// add-on, both of which route through here) get emailed to Xero for bill
+	// drafting.
 	const forwardToXero =
-		args.folderPath === BILLS_FOLDER_PATH && isPdf(args.name, args.mimeType);
+		args.folderPath === XERO_BILLS_FOLDER_PATH &&
+		isPdf(args.name, args.mimeType);
 
 	const documentId = await ctx.db.insert('projectDocuments', {
 		projectId: args.projectId,
