@@ -136,3 +136,76 @@ export const completeUpload = httpAction(async (ctx, request) => {
 		return jsonResponse(400, { error: errorMessage(error) });
 	}
 });
+
+export const listTrades = httpAction(async (ctx, request) => {
+	if (!isAuthorized(request)) {
+		return jsonResponse(401, { error: 'unauthorized' });
+	}
+	const trades = await ctx.runQuery(internal.gmailAddon.queries.listTrades, {});
+	return jsonResponse(200, { trades });
+});
+
+export const listServiceProviders = httpAction(async (ctx, request) => {
+	if (!isAuthorized(request)) {
+		return jsonResponse(401, { error: 'unauthorized' });
+	}
+	const tradeId = new URL(request.url).searchParams.get('tradeId');
+	const serviceProviders = await ctx.runQuery(
+		internal.gmailAddon.queries.listServiceProviders,
+		{ tradeId: tradeId ? (tradeId as Id<'trades'>) : undefined }
+	);
+	return jsonResponse(200, { serviceProviders });
+});
+
+export const prepareQuotationUpload = httpAction(async (ctx, request) => {
+	if (!isAuthorized(request)) {
+		return jsonResponse(401, { error: 'unauthorized' });
+	}
+	try {
+		const body = (await request.json()) as Record<string, unknown>;
+		const result = await ctx.runAction(
+			internal.gmailAddon.actions.generateQuotationUploadUrl,
+			{
+				projectId: requireString(body, 'projectId') as Id<'projects'>,
+				contentType: requireString(body, 'contentType'),
+				ext: requireString(body, 'ext'),
+			}
+		);
+		return jsonResponse(200, result);
+	} catch (error) {
+		return jsonResponse(400, { error: errorMessage(error) });
+	}
+});
+
+export const createQuotation = httpAction(async (ctx, request) => {
+	if (!isAuthorized(request)) {
+		return jsonResponse(401, { error: 'unauthorized' });
+	}
+	try {
+		const body = (await request.json()) as Record<string, unknown>;
+		const price = Number(body.price);
+		if (!Number.isFinite(price)) {
+			throw new ConvexError({
+				code: 'INVALID_ARGUMENT',
+				message: 'price must be a valid number',
+			});
+		}
+		const quotationId = await ctx.runMutation(
+			internal.gmailAddon.mutations.createQuotation,
+			{
+				projectId: requireString(body, 'projectId') as Id<'projects'>,
+				title: requireString(body, 'title'),
+				tradeId: requireString(body, 'tradeId') as Id<'trades'>,
+				serviceProviderId: requireString(
+					body,
+					'serviceProviderId'
+				) as Id<'serviceProviders'>,
+				price,
+				s3Key: typeof body.s3Key === 'string' ? body.s3Key : undefined,
+			}
+		);
+		return jsonResponse(200, { quotationId });
+	} catch (error) {
+		return jsonResponse(400, { error: errorMessage(error) });
+	}
+});
