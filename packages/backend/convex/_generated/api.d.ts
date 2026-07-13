@@ -394,6 +394,7 @@ import type * as websiteProjects_removeMediaEntry from "../websiteProjects/remov
 import type * as websiteProjects_setMainImage from "../websiteProjects/setMainImage.js";
 import type * as websiteProjects_shared from "../websiteProjects/shared.js";
 import type * as websiteProjects_update from "../websiteProjects/update.js";
+import type * as xero_createAccount from "../xero/createAccount.js";
 import type * as xero_emailBillToXero from "../xero/emailBillToXero.js";
 import type * as xero_listAccounts from "../xero/listAccounts.js";
 import type * as xero_listTrackingOptions from "../xero/listTrackingOptions.js";
@@ -798,6 +799,7 @@ declare const fullApi: ApiFromModules<{
   "websiteProjects/setMainImage": typeof websiteProjects_setMainImage;
   "websiteProjects/shared": typeof websiteProjects_shared;
   "websiteProjects/update": typeof websiteProjects_update;
+  "xero/createAccount": typeof xero_createAccount;
   "xero/emailBillToXero": typeof xero_emailBillToXero;
   "xero/listAccounts": typeof xero_listAccounts;
   "xero/listTrackingOptions": typeof xero_listTrackingOptions;

@@ -4,6 +4,7 @@ import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
+import { CheckboxCard } from '@workspace/ui/components/checkbox-card';
 import {
 	Dialog,
 	DialogClose,
@@ -21,9 +22,17 @@ import {
 	FieldLabel,
 } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import {
+	Select,
+	SelectItem,
+	SelectPopup,
+	SelectTrigger,
+	SelectValue,
+} from '@workspace/ui/components/select';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
-import { useMutation } from 'convex/react';
+import { useAction, useMutation } from 'convex/react';
 import { Plus, PlusIcon } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { PendingItemsList } from '@/components/lists/pending-items-list';
@@ -39,17 +48,33 @@ import TradeStageInlineSelect from './trade-stage-inline-select';
 
 const FORM_ID = 'add-trade-form';
 
+// Xero expense-class account Types offered when creating a new account for a
+// trade. The chosen value is sent to the `createAccount` action as `type`.
+const XERO_ACCOUNT_TYPES = [
+	{ label: 'Direct Costs', value: 'DIRECTCOSTS' },
+	{ label: 'Expense', value: 'EXPENSE' },
+	{ label: 'Overhead', value: 'OVERHEADS' },
+] as const;
+
+type XeroAccountType = (typeof XERO_ACCOUNT_TYPES)[number]['value'];
+
 export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 	const [open, setOpen] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
 	const [newStageName, setNewStageName] = useState('');
 	const [xeroAccountId, setXeroAccountId] = useState<string | null>(null);
+	// When on, create a matching Xero account (named after the trade) and map to
+	// it instead of picking an existing one from the combobox.
+	const [createNewXeroAccount, setCreateNewXeroAccount] = useState(false);
+	const [xeroAccountType, setXeroAccountType] =
+		useState<XeroAccountType>('DIRECTCOSTS');
 	const multi = useMultiAdd();
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const addTrade = useMutation(api.trades.add.add);
 	const addManyTrades = useMutation(api.trades.addMany.addMany);
 	const addStage = useMutation(api.tradeStages.add.add);
+	const createXeroAccount = useAction(api.xero.createAccount.createAccount);
 
 	// Resolve the chosen stage: create one when a new name is typed, otherwise use
 	// the selected stage id (or none, leaving the trade Ungrouped).
@@ -65,6 +90,8 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 		setStageId('');
 		setNewStageName('');
 		setXeroAccountId(null);
+		setCreateNewXeroAccount(false);
+		setXeroAccountType('DIRECTCOSTS');
 	};
 
 	const form = useForm({
@@ -75,11 +102,21 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = tradeFormSchema.parse(value);
+				// Create the Xero account first (when requested) so the trade maps to
+				// the freshly created account's id; otherwise use the picked account.
+				const resolvedXeroAccountId = createNewXeroAccount
+					? (
+							await createXeroAccount({
+								name: parsed.name,
+								type: xeroAccountType,
+							})
+						).id
+					: (xeroAccountId ?? undefined);
 				await addTrade({
 					name: parsed.name,
 					description: parsed.description?.trim() || undefined,
 					stageId: await resolveStageId(),
-					xeroAccountId: xeroAccountId ?? undefined,
+					xeroAccountId: resolvedXeroAccountId,
 				});
 				toastManager.add({
 					title: 'Trade added',
@@ -272,15 +309,56 @@ export default function AddTrade({ trigger }: { trigger?: ReactElement } = {}) {
 											(optional)
 										</span>
 									</FieldLabel>
-									<XeroAccountCombobox
-										id="add-trade-xero-accounts"
-										onChange={setXeroAccountId}
-										value={xeroAccountId}
+									<CheckboxCard
+										checked={createNewXeroAccount}
+										description="Create a matching Chart of Accounts entry in Xero, named after this trade, and map the trade to it. Leave off to map to an existing account below."
+										onCheckedChange={(checked) => {
+											setCreateNewXeroAccount(checked);
+											if (checked) {
+												setXeroAccountId(null);
+											}
+										}}
+										title="Create a new Xero account"
 									/>
-									<FieldDescription>
-										The Budgets tab “Actual” is this account's Xero spend. Each
-										Xero code maps to a single trade.
-									</FieldDescription>
+									{createNewXeroAccount ? (
+										<div className="flex flex-col gap-2">
+											<Label htmlFor="add-trade-xero-type">Account type</Label>
+											<Select
+												onValueChange={(next) =>
+													setXeroAccountType(next as XeroAccountType)
+												}
+												value={xeroAccountType}
+											>
+												<SelectTrigger id="add-trade-xero-type">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectPopup>
+													{XERO_ACCOUNT_TYPES.map((type) => (
+														<SelectItem key={type.value} value={type.value}>
+															{type.label}
+														</SelectItem>
+													))}
+												</SelectPopup>
+											</Select>
+											<FieldDescription>
+												A new Xero account named after this trade will be
+												created with an auto-assigned code and mapped to this
+												trade.
+											</FieldDescription>
+										</div>
+									) : (
+										<>
+											<XeroAccountCombobox
+												id="add-trade-xero-accounts"
+												onChange={setXeroAccountId}
+												value={xeroAccountId}
+											/>
+											<FieldDescription>
+												The Budgets tab “Actual” is this account's Xero spend.
+												Each Xero code maps to a single trade.
+											</FieldDescription>
+										</>
+									)}
 								</Field>
 							</>
 						)}

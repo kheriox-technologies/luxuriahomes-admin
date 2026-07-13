@@ -8,9 +8,10 @@ const XERO_TOKEN_ENDPOINT = 'https://identity.xero.com/connect/token';
 const XERO_CONNECTIONS_ENDPOINT = 'https://api.xero.com/connections';
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0';
 // Custom Connections created from 29 Apr 2026 use Xero's granular scopes:
-// `accounting.reports.read` is split per-report (P&L below); settings is unchanged.
-const XERO_SCOPES =
-	'accounting.reports.profitandloss.read accounting.settings.read';
+// `accounting.reports.read` is split per-report (P&L below). The full
+// `accounting.settings` scope (read + write) supersedes `.read` — it is required
+// to create Chart of Accounts entries (see `createXeroAccount`).
+const XERO_SCOPES = 'accounting.reports.profitandloss.read accounting.settings';
 
 // Far-past start so the P&L spans cumulative figures-to-date for every project.
 export const SYNC_FROM_DATE = '2000-01-01';
@@ -184,6 +185,116 @@ export async function fetchAccounts(
 	}
 	const data = (await resp.json()) as { Accounts?: XeroAccount[] };
 	return data.Accounts ?? [];
+}
+
+// Xero account Types whose Class is EXPENSE — the only types the Budgets picker
+// (and the trade → account mapping) reads. A new account must be one of these.
+export const XERO_EXPENSE_ACCOUNT_TYPES = [
+	'DIRECTCOSTS',
+	'EXPENSE',
+	'OVERHEADS',
+] as const;
+
+export type XeroExpenseAccountType =
+	(typeof XERO_EXPENSE_ACCOUNT_TYPES)[number];
+
+/**
+ * Picks the next free account Code: one past the highest purely-numeric code in
+ * use, skipping any already taken. Xero requires a unique Code on every account,
+ * so this lets the app auto-assign one when creating an account for a new trade.
+ * Falls back to `1` when the org has no numeric codes yet.
+ */
+export function nextAccountCode(accounts: XeroAccount[]): string {
+	const taken = new Set<string>();
+	let max = 0;
+	for (const account of accounts) {
+		const code = account.Code?.trim();
+		if (!code) {
+			continue;
+		}
+		taken.add(code);
+		const parsed = Number.parseInt(code, 10);
+		if (Number.isFinite(parsed) && `${parsed}` === code && parsed > max) {
+			max = parsed;
+		}
+	}
+	let candidate = max + 1;
+	while (taken.has(`${candidate}`)) {
+		candidate += 1;
+	}
+	return `${candidate}`;
+}
+
+/**
+ * Pulls a human-readable message out of a Xero error body. Account-creation
+ * failures come back either as a top-level `{ Message }` or, for per-record
+ * validation issues, as `Elements[].ValidationErrors[].Message`.
+ */
+function extractXeroErrorMessage(body: unknown): string | undefined {
+	if (!body || typeof body !== 'object') {
+		return;
+	}
+	const record = body as {
+		Message?: string;
+		Elements?: Array<{ ValidationErrors?: Array<{ Message?: string }> }>;
+	};
+	const validation = record.Elements?.flatMap(
+		(element) => element.ValidationErrors ?? []
+	)
+		.map((error) => error.Message)
+		.filter((message): message is string => Boolean(message));
+	if (validation && validation.length > 0) {
+		return validation.join('; ');
+	}
+	return record.Message;
+}
+
+/**
+ * Creates a Chart of Accounts entry in Xero (PUT /Accounts) and returns the
+ * created account. Requires the write `accounting.settings` scope. Surfaces
+ * Xero's validation messages (e.g. duplicate code/name) as a ConvexError.
+ */
+export async function createXeroAccount(
+	accessToken: string,
+	tenantId: string,
+	input: { code: string; name: string; type: string }
+): Promise<XeroAccount> {
+	const resp = await fetch(`${XERO_API_BASE}/Accounts`, {
+		method: 'PUT',
+		headers: {
+			...xeroHeaders(accessToken, tenantId),
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			Code: input.code,
+			Name: input.name,
+			Type: input.type,
+		}),
+	});
+	const text = await resp.text();
+	let body: unknown;
+	try {
+		body = JSON.parse(text);
+	} catch {
+		body = undefined;
+	}
+	if (!resp.ok) {
+		const detail = extractXeroErrorMessage(body) ?? text;
+		throw new ConvexError({
+			code: 'XERO_CREATE_FAILED',
+			message: `Could not create the Xero account: ${detail}`,
+		});
+	}
+	const account = (body as { Accounts?: XeroAccount[] })?.Accounts?.[0];
+	if (!account?.AccountID) {
+		throw new ConvexError({
+			code: 'XERO_CREATE_FAILED',
+			message:
+				extractXeroErrorMessage(body) ??
+				'Xero did not return the created account.',
+		});
+	}
+	return account;
 }
 
 export interface ProfitAndLossParams {
