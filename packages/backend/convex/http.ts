@@ -1,8 +1,12 @@
 import { httpRouter } from 'convex/server';
 import {
 	completeUpload,
+	createQuotation,
 	listFolders,
 	listProjects,
+	listServiceProviders,
+	listTrades,
+	prepareQuotationUpload,
 	prepareUpload,
 } from './gmailAddon/handlers';
 
@@ -30,6 +34,30 @@ http.route({
 	path: '/gmail-addon/complete-upload',
 	method: 'POST',
 	handler: completeUpload,
+});
+
+http.route({
+	path: '/gmail-addon/trades',
+	method: 'GET',
+	handler: listTrades,
+});
+
+http.route({
+	path: '/gmail-addon/service-providers',
+	method: 'GET',
+	handler: listServiceProviders,
+});
+
+http.route({
+	path: '/gmail-addon/prepare-quotation-upload',
+	method: 'POST',
+	handler: prepareQuotationUpload,
+});
+
+http.route({
+	path: '/gmail-addon/create-quotation',
+	method: 'POST',
+	handler: createQuotation,
 });
 
 export default http;

@@ -59,3 +59,32 @@ function prepareUpload_(payload) {
 function completeUpload_(payload) {
 	return api_('/gmail-addon/complete-upload', { method: 'post', payload });
 }
+
+function fetchTrades_() {
+	const cache = CacheService.getScriptCache();
+	const cached = cache.get('trades');
+	if (cached) {
+		return JSON.parse(cached);
+	}
+	const { trades } = api_('/gmail-addon/trades');
+	cache.put('trades', JSON.stringify(trades), 300);
+	return trades;
+}
+
+function fetchServiceProviders_(tradeId) {
+	const { serviceProviders } = api_(
+		`/gmail-addon/service-providers?tradeId=${encodeURIComponent(tradeId)}`
+	);
+	return serviceProviders;
+}
+
+function prepareQuotationUpload_(payload) {
+	return api_('/gmail-addon/prepare-quotation-upload', {
+		method: 'post',
+		payload,
+	});
+}
+
+function createQuotation_(payload) {
+	return api_('/gmail-addon/create-quotation', { method: 'post', payload });
+}
