@@ -4,48 +4,33 @@ import { useCallback, useRef, useState } from 'react';
 
 export interface XeroMappingEntry {
 	tradeId: string;
-	xeroAccountIds: string[];
-}
-
-/** True when two GUID lists differ as sets (order/duplicates ignored). */
-function accountIdsDiffer(a: string[], b: string[]): boolean {
-	const setA = new Set(a);
-	const setB = new Set(b);
-	if (setA.size !== setB.size) {
-		return true;
-	}
-	for (const id of setA) {
-		if (!setB.has(id)) {
-			return true;
-		}
-	}
-	return false;
+	xeroAccountId: string | null;
 }
 
 /**
  * Shared edit-mode + draft state for the trades list' inline Xero-mapping
- * editor, keyed by trade id. Clicking "Edit" seeds a draft account-id list for
- * every row; each row's column becomes a combobox; "Done" saves only the rows
- * whose draft differs (as a set) from the original via `getChanges()`.
+ * editor, keyed by trade id. Clicking "Edit" seeds a draft account id for every
+ * row; each row's column becomes a single-select combobox; "Done" saves only the
+ * rows whose draft differs from the original via `getChanges()`.
  */
 export function useXeroMappingEditing() {
 	const [isEditing, setIsEditing] = useState(false);
-	const [drafts, setDrafts] = useState<Record<string, string[]>>({});
-	const originalsRef = useRef<Record<string, string[]>>({});
+	const [drafts, setDrafts] = useState<Record<string, string | null>>({});
+	const originalsRef = useRef<Record<string, string | null>>({});
 
 	const begin = useCallback((entries: XeroMappingEntry[]) => {
-		const nextDrafts: Record<string, string[]> = {};
-		const nextOriginals: Record<string, string[]> = {};
+		const nextDrafts: Record<string, string | null> = {};
+		const nextOriginals: Record<string, string | null> = {};
 		for (const entry of entries) {
-			nextDrafts[entry.tradeId] = entry.xeroAccountIds;
-			nextOriginals[entry.tradeId] = entry.xeroAccountIds;
+			nextDrafts[entry.tradeId] = entry.xeroAccountId;
+			nextOriginals[entry.tradeId] = entry.xeroAccountId;
 		}
 		setDrafts(nextDrafts);
 		originalsRef.current = nextOriginals;
 		setIsEditing(true);
 	}, []);
 
-	const setDraft = useCallback((tradeId: string, next: string[]) => {
+	const setDraft = useCallback((tradeId: string, next: string | null) => {
 		setDrafts((prev) => ({ ...prev, [tradeId]: next }));
 	}, []);
 
@@ -57,10 +42,10 @@ export function useXeroMappingEditing() {
 
 	const getChanges = useCallback((): XeroMappingEntry[] => {
 		const changes: XeroMappingEntry[] = [];
-		for (const [tradeId, xeroAccountIds] of Object.entries(drafts)) {
-			const original = originalsRef.current[tradeId] ?? [];
-			if (accountIdsDiffer(xeroAccountIds, original)) {
-				changes.push({ tradeId, xeroAccountIds });
+		for (const [tradeId, xeroAccountId] of Object.entries(drafts)) {
+			const original = originalsRef.current[tradeId] ?? null;
+			if ((xeroAccountId ?? null) !== original) {
+				changes.push({ tradeId, xeroAccountId: xeroAccountId ?? null });
 			}
 		}
 		return changes;

@@ -14,8 +14,8 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "check-types": "tsc --noEmit",
-    "build:ios": "node --env-file=./.env.prod scripts/build.mjs ios",
-    "build:android": "node --env-file=./.env.prod scripts/build.mjs android",
+    "build:ios": "node scripts/build.mjs ios",
+    "build:android": "node scripts/build.mjs android",
     "submit:ios": "node scripts/submit.mjs ios",
     "submit:android": "node scripts/submit.mjs android"
   },

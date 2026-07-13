@@ -61,7 +61,9 @@ export interface StageGroupedListHandle {
 
 interface StageGroupedListProps<Item> {
 	emptyGroupLabel?: string;
-	getItemId: (item: Item) => Id<'trades'>;
+	// Top-align the drag handle for this item (e.g. tall, multi-line grouped rows).
+	getItemAlignStart?: (item: Item) => boolean;
+	getItemId: (item: Item) => string;
 	getItemName: (item: Item) => string;
 	getItemOrder?: (item: Item) => number | undefined;
 	getItemSearchText?: (item: Item) => string;
@@ -108,15 +110,20 @@ function DragHandle({
 	attributes,
 	listeners,
 	label,
+	className,
 }: {
 	attributes: SortableHandle['attributes'];
 	listeners: SortableHandle['listeners'];
 	label: string;
+	className?: string;
 }) {
 	return (
 		<button
 			aria-label={label}
-			className="flex cursor-grab touch-none items-center text-muted-foreground active:cursor-grabbing"
+			className={cn(
+				'flex cursor-grab touch-none items-center text-muted-foreground active:cursor-grabbing',
+				className
+			)}
 			type="button"
 			{...attributes}
 			{...listeners}
@@ -132,6 +139,7 @@ function SortableItemRow<Item>({
 	label,
 	groupKey,
 	dndEnabled,
+	alignStart,
 	renderRowContent,
 }: {
 	item: Item;
@@ -139,6 +147,7 @@ function SortableItemRow<Item>({
 	label: string;
 	groupKey: string;
 	dndEnabled: boolean;
+	alignStart: boolean;
 	renderRowContent: (item: Item) => ReactNode;
 }) {
 	const {
@@ -161,18 +170,24 @@ function SortableItemRow<Item>({
 
 	return (
 		<div
-			className="flex items-center gap-2 bg-card px-3 py-2"
+			className={cn(
+				'flex gap-2 bg-card px-3 py-2',
+				// Top-align the handle for tall (grouped) rows so the grip sits on the
+				// header line instead of floating in the middle of the expanded block.
+				alignStart ? 'items-start' : 'items-center'
+			)}
 			ref={setNodeRef}
 			style={style}
 		>
 			{dndEnabled ? (
 				<DragHandle
 					attributes={attributes}
+					className={alignStart ? 'h-9' : undefined}
 					label={`Reorder ${label}`}
 					listeners={listeners}
 				/>
 			) : (
-				<span aria-hidden className="w-4 shrink-0" />
+				<span aria-hidden className={cn('w-4 shrink-0', alignStart && 'h-9')} />
 			)}
 			{renderRowContent(item)}
 		</div>
@@ -184,13 +199,15 @@ function ItemList<Item>({
 	dndEnabled,
 	getItemId,
 	getItemName,
+	getItemAlignStart,
 	renderRowContent,
 	emptyGroupLabel,
 }: {
 	group: StageGroup<Item>;
 	dndEnabled: boolean;
-	getItemId: (item: Item) => Id<'trades'>;
+	getItemId: (item: Item) => string;
 	getItemName: (item: Item) => string;
+	getItemAlignStart?: (item: Item) => boolean;
 	renderRowContent: (item: Item) => ReactNode;
 	emptyGroupLabel: string;
 }) {
@@ -223,6 +240,7 @@ function ItemList<Item>({
 							const itemId = getItemId(item);
 							return (
 								<SortableItemRow
+									alignStart={getItemAlignStart?.(item) ?? false}
 									dndEnabled={dndEnabled}
 									groupKey={group.key}
 									item={item}
@@ -258,6 +276,7 @@ function StageSection<Item>({
 	dndEnabled,
 	getItemId,
 	getItemName,
+	getItemAlignStart,
 	renderRowContent,
 	renderStageBadges,
 	renderStageActions,
@@ -267,8 +286,9 @@ function StageSection<Item>({
 }: {
 	group: StageGroup<Item>;
 	dndEnabled: boolean;
-	getItemId: (item: Item) => Id<'trades'>;
+	getItemId: (item: Item) => string;
 	getItemName: (item: Item) => string;
+	getItemAlignStart?: (item: Item) => boolean;
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageBadges: (group: StageGroup<Item>) => ReactNode;
 	renderStageActions?: (group: StageGroup<Item>) => ReactNode;
@@ -333,6 +353,7 @@ function StageSection<Item>({
 					<ItemList
 						dndEnabled={dndEnabled}
 						emptyGroupLabel={emptyGroupLabel}
+						getItemAlignStart={getItemAlignStart}
 						getItemId={getItemId}
 						getItemName={getItemName}
 						group={group}
@@ -349,6 +370,7 @@ function UngroupedSection<Item>({
 	dndEnabled,
 	getItemId,
 	getItemName,
+	getItemAlignStart,
 	renderRowContent,
 	renderStageBadges,
 	renderStageColumns,
@@ -357,8 +379,9 @@ function UngroupedSection<Item>({
 }: {
 	group: StageGroup<Item>;
 	dndEnabled: boolean;
-	getItemId: (item: Item) => Id<'trades'>;
+	getItemId: (item: Item) => string;
 	getItemName: (item: Item) => string;
+	getItemAlignStart?: (item: Item) => boolean;
 	renderRowContent: (item: Item) => ReactNode;
 	renderStageBadges: (group: StageGroup<Item>) => ReactNode;
 	renderStageColumns?: (group: StageGroup<Item>) => ReactNode;
@@ -400,6 +423,7 @@ function UngroupedSection<Item>({
 					<ItemList
 						dndEnabled={dndEnabled}
 						emptyGroupLabel={emptyGroupLabel}
+						getItemAlignStart={getItemAlignStart}
 						getItemId={getItemId}
 						getItemName={getItemName}
 						group={group}
@@ -419,6 +443,7 @@ export function StageGroupedList<Item>({
 	getItemName,
 	getItemOrder,
 	getItemSearchText,
+	getItemAlignStart,
 	renderRowContent,
 	renderStageBadges,
 	renderStageActions,
@@ -870,6 +895,7 @@ export function StageGroupedList<Item>({
 								<StageSection
 									dndEnabled={dndEnabled && Boolean(onReorderStages)}
 									emptyGroupLabel={emptyGroupLabel}
+									getItemAlignStart={getItemAlignStart}
 									getItemId={getItemId}
 									getItemName={getItemName}
 									group={group}
@@ -888,6 +914,7 @@ export function StageGroupedList<Item>({
 							<UngroupedSection
 								dndEnabled={dndEnabled}
 								emptyGroupLabel={emptyGroupLabel}
+								getItemAlignStart={getItemAlignStart}
 								getItemId={getItemId}
 								getItemName={getItemName}
 								group={group}

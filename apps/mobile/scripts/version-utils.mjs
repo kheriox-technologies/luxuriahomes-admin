@@ -1,12 +1,9 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const appJsonPath = resolve(rootDir, 'app.json');
-const buildDir = resolve(rootDir, 'build');
-
-const EXTENSION = { ios: 'ipa', android: 'aab' };
 
 export function assertPlatform(platform) {
 	if (platform !== 'ios' && platform !== 'android') {
@@ -51,13 +48,4 @@ export function current(platform) {
 	const build =
 		platform === 'ios' ? expo.ios.buildNumber : expo.android.versionCode;
 	return { version: expo.version, build };
-}
-
-export function artifactPath(platform, version, build) {
-	assertPlatform(platform);
-	mkdirSync(buildDir, { recursive: true });
-	return resolve(
-		buildDir,
-		`luxuria-${platform}-${version}-${build}.${EXTENSION[platform]}`
-	);
 }

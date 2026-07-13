@@ -4,19 +4,40 @@ import type { MutationCtx } from '../_generated/server';
 import { buildTradeSearchText } from '../lib/buildSearchText';
 
 /**
- * Normalizes a trade's Xero account GUID list: trims, drops blanks, dedupes. An
- * empty result becomes `undefined` so an unmapped trade stores no field.
+ * Normalizes a trade's single Xero account GUID: trims; a blank/`null` becomes
+ * `undefined` so an unmapped trade stores no field.
  */
-export function normalizeXeroAccountIds(
-	ids: string[] | undefined
-): string[] | undefined {
-	if (ids === undefined) {
+export function normalizeXeroAccountId(
+	id: string | null | undefined
+): string | undefined {
+	if (id === undefined || id === null) {
 		return;
 	}
-	const cleaned = Array.from(
-		new Set(ids.map((id) => id.trim()).filter((id) => id.length > 0))
-	);
-	return cleaned.length > 0 ? cleaned : undefined;
+	const trimmed = id.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/**
+ * Enforces the 1:1 rule — a Xero account GUID maps to at most one trade. Throws
+ * if `accountId` is already mapped to a different trade (`exceptTradeId` is the
+ * trade being edited, excluded from the check).
+ */
+export async function assertXeroAccountAvailable(
+	ctx: MutationCtx,
+	accountId: string,
+	exceptTradeId?: Id<'trades'>
+): Promise<void> {
+	const mapped = await ctx.db
+		.query('trades')
+		.withIndex('by_xero_account', (q) => q.eq('xeroAccountId', accountId))
+		.collect();
+	const conflict = mapped.find((trade) => trade._id !== exceptTradeId);
+	if (conflict) {
+		throw new ConvexError({
+			code: 'DUPLICATE_XERO_CODE',
+			message: `This Xero code is already mapped to "${conflict.name}".`,
+		});
+	}
 }
 
 export function parseTradeName(name: string): string {
@@ -68,19 +89,23 @@ export async function createTrade(
 		name: string;
 		description?: string | undefined;
 		stageId?: Id<'tradeStages'> | undefined;
-		xeroAccountIds?: string[] | undefined;
+		xeroAccountId?: string | null | undefined;
 	}
 ): Promise<Id<'trades'>> {
 	const name = parseTradeName(args.name);
 	const description = args.description?.trim() || undefined;
 	const searchText = buildTradeSearchText(name, description);
 	const order = await nextTradeOrder(ctx, args.stageId);
+	const xeroAccountId = normalizeXeroAccountId(args.xeroAccountId);
+	if (xeroAccountId) {
+		await assertXeroAccountAvailable(ctx, xeroAccountId);
+	}
 	return await ctx.db.insert('trades', {
 		name,
 		description,
 		stageId: args.stageId,
 		order,
-		xeroAccountIds: normalizeXeroAccountIds(args.xeroAccountIds),
+		xeroAccountId,
 		searchText,
 	});
 }

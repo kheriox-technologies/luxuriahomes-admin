@@ -27,7 +27,7 @@ import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import type { XeroAccountLabel } from '@/components/xero/use-xero-account-codes';
 import { useXeroAccounts } from '@/components/xero/use-xero-accounts';
-import { XeroAccountsCombobox } from '@/components/xero/xero-accounts-combobox';
+import { XeroAccountCombobox } from '@/components/xero/xero-accounts-combobox';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import AddTrade from './add-trade';
 import AddTradeStage from './add-trade-stage';
@@ -42,27 +42,21 @@ import {
 } from './stage-grouped-list';
 import { useXeroMappingEditing } from './use-xero-mapping-editing';
 
-// Read-only "Xero codes" column: the trade's mapped accounts as comma-separated
-// `code — name` entries (matching the combobox chips), or an em dash when the
-// trade maps to nothing.
+// Read-only "Xero code" column: the trade's single mapped account as
+// `code — name`, or an em dash when the trade maps to nothing.
 function XeroCodesCell({
-	accountIds,
+	accountId,
 	labelsById,
 }: {
-	accountIds: string[] | undefined;
+	accountId: string | null | undefined;
 	labelsById: Map<string, XeroAccountLabel>;
 }) {
-	const ids = accountIds ?? [];
-	if (ids.length === 0) {
+	if (!accountId) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
-	const labels = ids.map((id) => {
-		const account = labelsById.get(id);
-		return account ? `${account.code} — ${account.name}` : '…';
-	});
-	return (
-		<span className="text-muted-foreground text-sm">{labels.join(', ')}</span>
-	);
+	const account = labelsById.get(accountId);
+	const label = account ? `${account.code} — ${account.name}` : '…';
+	return <span className="text-muted-foreground text-sm">{label}</span>;
 }
 
 export default function TradesPageContent() {
@@ -163,7 +157,7 @@ export default function TradesPageContent() {
 		begin(
 			(trades ?? []).map((trade) => ({
 				tradeId: trade._id,
-				xeroAccountIds: trade.xeroAccountIds ?? [],
+				xeroAccountId: trade.xeroAccountId ?? null,
 			}))
 		);
 	};
@@ -185,7 +179,7 @@ export default function TradesPageContent() {
 						tradeId: change.tradeId as Id<'trades'>,
 						// name is required; pass the existing name (unchanged so it's a no-op).
 						name: nameById.get(change.tradeId) ?? '',
-						xeroAccountIds: change.xeroAccountIds,
+						xeroAccountId: change.xeroAccountId,
 					})
 				)
 			);
@@ -322,15 +316,16 @@ export default function TradesPageContent() {
 							</div>
 							<div className="min-w-0 flex-1">
 								{isEditing ? (
-									<XeroAccountsCombobox
+									<XeroAccountCombobox
 										accounts={xeroAccounts}
+										currentTradeId={trade._id}
 										loading={xeroLoading}
 										onChange={(next) => setDraft(trade._id, next)}
-										value={drafts[trade._id] ?? []}
+										value={drafts[trade._id] ?? null}
 									/>
 								) : (
 									<XeroCodesCell
-										accountIds={trade.xeroAccountIds}
+										accountId={trade.xeroAccountId}
 										labelsById={xeroLabelsById}
 									/>
 								)}

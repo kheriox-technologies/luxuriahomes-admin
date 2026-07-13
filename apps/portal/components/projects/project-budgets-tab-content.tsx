@@ -2,6 +2,11 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from '@workspace/ui/components/alert';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -29,6 +34,7 @@ import {
 	ChevronsUpIcon,
 	Pencil,
 	RefreshCw,
+	TriangleAlert,
 	Wallet,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -51,18 +57,23 @@ import { XeroAccountBadges } from '@/components/xero/xero-account-badges';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import DeleteProjectBudget from './delete-project-budget';
 
+// One row per trade in the project (1:1 trade↔Xero code). The Actual is the
+// trade's mapped code's Xero amount for this project; null shows "—".
 interface TradeBudgetRow {
 	budgetPrice: number | null;
-	projectBudgetId: Id<'projectBudgets'> | null;
+	projectBudgetId: Id<'projectBudgets'>;
 	stageId: Id<'tradeStages'> | null;
 	tradeDescription: string | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 	tradeOrder: number | null;
-	// Mapped Xero account GUIDs, for the code badges beside the trade name.
-	xeroAccountIds: string[];
-	// Xero-driven "Actual"; null when the trade has no synced amount ("—").
+	xeroAccountId: string | null;
 	xeroActual: number | null;
+}
+
+interface BudgetsSummary {
+	rows: TradeBudgetRow[];
+	unmappedCodes: { accountId: string; amount: number }[];
 }
 
 // Shared grid so the header row and the data rows line up column-for-column.
@@ -90,29 +101,29 @@ function BudgetValue({ price }: { price: number | null }) {
 // `budget` is the live (draft-aware) budget so the Actual's over/under color
 // reacts while the row is being edited. The amount itself is Xero-driven.
 function ActualCell({
-	row,
+	actual,
 	budget,
 }: {
-	row: TradeBudgetRow;
+	actual: number | null;
 	budget: number | null;
 }) {
-	if (row.xeroActual === null) {
+	if (actual === null) {
 		return <span className="text-muted-foreground text-sm">—</span>;
 	}
 	return (
 		<span
 			className={cn(
 				'font-medium tabular-nums',
-				actualColorClass(row.xeroActual, budget)
+				actualColorClass(actual, budget)
 			)}
 		>
-			{formatBudgetPrice(row.xeroActual)}
+			{formatBudgetPrice(actual)}
 		</span>
 	);
 }
 
 // On-demand button that re-syncs every mapped project's Xero financials —
-// including per-trade actuals — in one pass. The page is reactive, so the
+// including per-code actuals — in one pass. The page is reactive, so the
 // Actual column updates in place once the sync's mutation lands.
 function XeroActualsSyncButton() {
 	const syncNow = useAction(
@@ -126,7 +137,7 @@ function XeroActualsSyncButton() {
 			const { tradeActualsWritten } = await syncNow({});
 			toastManager.add({
 				title: 'Synced from Xero',
-				description: `Updated ${tradeActualsWritten} trade actual${
+				description: `Updated ${tradeActualsWritten} account actual${
 					tradeActualsWritten === 1 ? '' : 's'
 				}.`,
 				type: 'success',
@@ -159,14 +170,54 @@ function XeroActualsSyncButton() {
 	);
 }
 
+// Warning banner listing Xero codes with project spend that no trade in this
+// project maps to, so their Actual isn't reflected against any budget.
+function UnmappedCodesAlert({
+	codes,
+	labelsById,
+}: {
+	codes: BudgetsSummary['unmappedCodes'];
+	labelsById: ReturnType<typeof useXeroAccountCodes>;
+}) {
+	if (codes.length === 0) {
+		return null;
+	}
+	return (
+		<Alert variant="warning">
+			<TriangleAlert />
+			<AlertTitle>Unmapped Xero codes with spend</AlertTitle>
+			<AlertDescription>
+				<span>
+					These Xero accounts have spend on this project but aren’t mapped to
+					any trade here, so their Actual isn’t counted. Map a trade to include
+					them.
+				</span>
+				<div className="flex flex-wrap gap-2">
+					{codes.map((code) => {
+						const label = labelsById.get(code.accountId);
+						const text = label
+							? `${label.code || label.name} — ${formatBudgetPrice(code.amount)}`
+							: formatBudgetPrice(code.amount);
+						return (
+							<Badge key={code.accountId} size="lg" variant="warning">
+								{text}
+							</Badge>
+						);
+					})}
+				</div>
+			</AlertDescription>
+		</Alert>
+	);
+}
+
 export default function ProjectBudgetsTabContent({
 	projectId,
 }: {
 	projectId: Id<'projects'>;
 }) {
-	const rows = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
+	const summary = useQuery(api.projectBudgets.projectSummary.projectSummary, {
 		projectId,
-	}) as TradeBudgetRow[] | undefined;
+	}) as BudgetsSummary | undefined;
 	const stages = useQuery(api.tradeStages.list.list, {});
 
 	const {
@@ -185,6 +236,9 @@ export default function ProjectBudgetsTabContent({
 	const listRef = useRef<StageGroupedListHandle>(null);
 	const xeroLabelsById = useXeroAccountCodes();
 
+	const rows = summary?.rows ?? [];
+	const unmappedCodes = summary?.unmappedCodes ?? [];
+
 	const setPrices = useMutation(api.projectBudgets.setPrices.setPrices);
 	const addItem = useMutation(api.projectBudgets.addItem.addItem);
 	const updateTrade = useMutation(api.trades.update.update);
@@ -193,25 +247,26 @@ export default function ProjectBudgetsTabContent({
 	).withOptimisticUpdate((store, args) => {
 		const byId = new Map(args.updates.map((u) => [u.tradeId, u]));
 		const current = store.getQuery(
-			api.projectBudgets.tradeSummary.tradeSummary,
-			{
-				projectId,
-			}
-		);
+			api.projectBudgets.projectSummary.projectSummary,
+			{ projectId }
+		) as BudgetsSummary | undefined;
 		if (current) {
 			store.setQuery(
-				api.projectBudgets.tradeSummary.tradeSummary,
+				api.projectBudgets.projectSummary.projectSummary,
 				{ projectId },
-				current.map((row) => {
-					const update = byId.get(row.tradeId);
-					return update
-						? {
-								...row,
-								stageId: update.stageId ?? null,
-								tradeOrder: update.order,
-							}
-						: row;
-				})
+				{
+					...current,
+					rows: current.rows.map((row) => {
+						const update = byId.get(row.tradeId);
+						return update
+							? {
+									...row,
+									stageId: update.stageId ?? null,
+									tradeOrder: update.order,
+								}
+							: row;
+					}),
+				}
 			);
 		}
 		const trades = store.getQuery(api.trades.list.list, {});
@@ -253,9 +308,9 @@ export default function ProjectBudgetsTabContent({
 		);
 	});
 
-	const budgetedTradeIds = (rows ?? [])
-		.filter((row) => row.budgetPrice !== null)
-		.map((row) => row.tradeId);
+	// Every row is already in the project's budget, so exclude them all from
+	// "Add Budget Item" (adding a duplicate would throw).
+	const budgetedTradeIds = rows.map((row) => row.tradeId);
 
 	// Live budget reflects draft prices while editing so totals update before
 	// "Done"; blank/invalid drafts fall back to the saved value.
@@ -269,14 +324,8 @@ export default function ProjectBudgetsTabContent({
 		return row.budgetPrice ?? 0;
 	};
 
-	const totalBudget = (rows ?? []).reduce(
-		(sum, row) => sum + liveBudget(row),
-		0
-	);
-	const totalActual = (rows ?? []).reduce(
-		(sum, row) => sum + (row.xeroActual ?? 0),
-		0
-	);
+	const totalBudget = rows.reduce((sum, row) => sum + liveBudget(row), 0);
+	const totalActual = rows.reduce((sum, row) => sum + (row.xeroActual ?? 0), 0);
 
 	const persistItems = (
 		groups: StageGroup<TradeBudgetRow>[],
@@ -305,7 +354,7 @@ export default function ProjectBudgetsTabContent({
 
 	const handleEdit = () => {
 		begin(
-			(rows ?? []).map((row) => ({
+			rows.map((row) => ({
 				tradeId: row.tradeId,
 				price: row.budgetPrice,
 				name: row.tradeName,
@@ -366,7 +415,7 @@ export default function ProjectBudgetsTabContent({
 				<div className="flex min-w-0 flex-wrap items-center gap-2">
 					<span className="font-medium text-sm">{row.tradeName}</span>
 					<XeroAccountBadges
-						accountIds={row.xeroAccountIds}
+						accountIds={row.xeroAccountId ? [row.xeroAccountId] : []}
 						labelsById={xeroLabelsById}
 					/>
 				</div>
@@ -392,7 +441,7 @@ export default function ProjectBudgetsTabContent({
 			) : (
 				<BudgetValue price={row.budgetPrice} />
 			)}
-			<ActualCell budget={liveBudget(row)} row={row} />
+			<ActualCell actual={row.xeroActual} budget={liveBudget(row)} />
 			<Group className="justify-end">
 				<EditTrade
 					initialDescription={row.tradeDescription ?? undefined}
@@ -405,15 +454,11 @@ export default function ProjectBudgetsTabContent({
 						</Button>
 					}
 				/>
-				{row.projectBudgetId ? (
-					<>
-						<GroupSeparator />
-						<DeleteProjectBudget
-							projectBudgetId={row.projectBudgetId}
-							tradeName={row.tradeName}
-						/>
-					</>
-				) : null}
+				<GroupSeparator />
+				<DeleteProjectBudget
+					projectBudgetId={row.projectBudgetId}
+					tradeName={row.tradeName}
+				/>
 			</Group>
 		</div>
 	);
@@ -467,7 +512,7 @@ export default function ProjectBudgetsTabContent({
 		);
 	};
 
-	if (rows === undefined) {
+	if (summary === undefined) {
 		return (
 			<div className="text-muted-foreground text-sm">Loading budgets…</div>
 		);
@@ -551,6 +596,8 @@ export default function ProjectBudgetsTabContent({
 					/>
 				</div>
 			</div>
+
+			<UnmappedCodesAlert codes={unmappedCodes} labelsById={xeroLabelsById} />
 
 			{rows.length === 0 ? (
 				<Empty>
