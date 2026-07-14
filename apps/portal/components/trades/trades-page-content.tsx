@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import { UnmappedXeroCodesAlert } from '@/components/xero/unmapped-xero-codes-alert';
 import type { XeroAccountLabel } from '@/components/xero/use-xero-account-codes';
 import { useXeroAccounts } from '@/components/xero/use-xero-accounts';
 import { XeroAccountCombobox } from '@/components/xero/xero-accounts-combobox';
@@ -117,6 +118,25 @@ export default function TradesPageContent() {
 		}
 		return map;
 	}, [xeroAccounts]);
+
+	// Xero expense accounts that no trade maps to yet, so a builder can spot and
+	// map them. Guard on `trades === undefined` so we don't flash "all unmapped"
+	// before the trades query resolves.
+	const unmappedXeroAccounts = useMemo(() => {
+		if (trades === undefined) {
+			return [];
+		}
+		const mapped = new Set(
+			trades.map((trade) => trade.xeroAccountId).filter(Boolean)
+		);
+		return xeroAccounts
+			.filter((account) => !mapped.has(account.id))
+			.map((account) => ({
+				id: account.id,
+				code: account.code,
+				name: account.name,
+			}));
+	}, [trades, xeroAccounts]);
 
 	const { isEditing, drafts, begin, setDraft, cancel, getChanges } =
 		useXeroMappingEditing();
@@ -257,6 +277,11 @@ export default function TradesPageContent() {
 						<AddTrade />
 					</>
 				}
+			/>
+			<UnmappedXeroCodesAlert
+				codes={unmappedXeroAccounts}
+				description="These Xero accounts aren’t mapped to any trade. Map a trade to each so its spend is tracked."
+				title="Unmapped Xero codes"
 			/>
 			{hasNoData && stages !== undefined && trades !== undefined ? (
 				<Empty>
