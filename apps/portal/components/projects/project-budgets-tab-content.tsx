@@ -2,11 +2,6 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
-import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
-} from '@workspace/ui/components/alert';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -34,7 +29,6 @@ import {
 	ChevronsUpIcon,
 	Pencil,
 	RefreshCw,
-	TriangleAlert,
 	Wallet,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -52,6 +46,7 @@ import {
 	StageGroupedList,
 	type StageGroupedListHandle,
 } from '@/components/trades/stage-grouped-list';
+import { UnmappedXeroCodesAlert } from '@/components/xero/unmapped-xero-codes-alert';
 import { useXeroAccountCodes } from '@/components/xero/use-xero-account-codes';
 import { XeroAccountBadges } from '@/components/xero/xero-account-badges';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -170,46 +165,6 @@ function XeroActualsSyncButton() {
 	);
 }
 
-// Warning banner listing Xero codes with project spend that no trade in this
-// project maps to, so their Actual isn't reflected against any budget.
-function UnmappedCodesAlert({
-	codes,
-	labelsById,
-}: {
-	codes: BudgetsSummary['unmappedCodes'];
-	labelsById: ReturnType<typeof useXeroAccountCodes>;
-}) {
-	if (codes.length === 0) {
-		return null;
-	}
-	return (
-		<Alert variant="warning">
-			<TriangleAlert />
-			<AlertTitle>Unmapped Xero codes with spend</AlertTitle>
-			<AlertDescription>
-				<span>
-					These Xero accounts have spend on this project but aren’t mapped to
-					any trade here, so their Actual isn’t counted. Map a trade to include
-					them.
-				</span>
-				<div className="flex flex-wrap gap-2">
-					{codes.map((code) => {
-						const label = labelsById.get(code.accountId);
-						const text = label
-							? `${label.code || label.name} — ${formatBudgetPrice(code.amount)}`
-							: formatBudgetPrice(code.amount);
-						return (
-							<Badge key={code.accountId} size="lg" variant="warning">
-								{text}
-							</Badge>
-						);
-					})}
-				</div>
-			</AlertDescription>
-		</Alert>
-	);
-}
-
 export default function ProjectBudgetsTabContent({
 	projectId,
 }: {
@@ -238,6 +193,19 @@ export default function ProjectBudgetsTabContent({
 
 	const rows = summary?.rows ?? [];
 	const unmappedCodes = summary?.unmappedCodes ?? [];
+	// Only surface codes we can resolve to a real Xero code/name — an unresolved
+	// account (archived, non-expense, or labels still loading) would otherwise
+	// render as a meaningless GUID, so skip it.
+	const unmappedForAlert = unmappedCodes
+		.map((code) => {
+			const label = xeroLabelsById.get(code.accountId);
+			return label
+				? { id: code.accountId, code: label.code, name: label.name }
+				: null;
+		})
+		.filter((code): code is { id: string; code: string; name: string } =>
+			Boolean(code)
+		);
 
 	const setPrices = useMutation(api.projectBudgets.setPrices.setPrices);
 	const addItem = useMutation(api.projectBudgets.addItem.addItem);
@@ -597,7 +565,11 @@ export default function ProjectBudgetsTabContent({
 				</div>
 			</div>
 
-			<UnmappedCodesAlert codes={unmappedCodes} labelsById={xeroLabelsById} />
+			<UnmappedXeroCodesAlert
+				codes={unmappedForAlert}
+				description="These Xero accounts have spend on this project but aren’t mapped to any trade here, so their Actual isn’t counted. Map a trade to include them."
+				title="Unmapped Xero codes with spend"
+			/>
 
 			{rows.length === 0 ? (
 				<Empty>

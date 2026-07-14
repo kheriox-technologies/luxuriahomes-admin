@@ -1,4 +1,9 @@
-import { useSignIn, useSSO } from '@clerk/clerk-expo';
+import {
+	isClerkAPIResponseError,
+	useAuth,
+	useSignIn,
+	useSSO,
+} from '@clerk/clerk-expo';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -22,6 +27,16 @@ import { brand } from '@/lib/theme';
 
 maybeCompleteAuthSession();
 
+// Clerk throws this code when a session already exists on the client (single-
+// session mode). It surfaces on the sign-in screen when a timed-out session
+// hasn't been cleared from the Clerk client yet.
+function isSessionExistsError(err: unknown): boolean {
+	return (
+		isClerkAPIResponseError(err) &&
+		err.errors.some((e) => e.code === 'session_exists')
+	);
+}
+
 function useWarmUpBrowser() {
 	useEffect(() => {
 		if (Platform.OS !== 'android') {
@@ -40,6 +55,17 @@ export default function SignInScreen() {
 	const router = useRouter();
 	const { signIn, setActive, isLoaded } = useSignIn();
 	const { startSSOFlow } = useSSO();
+	const { isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
+
+	// This screen only renders when Convex is unauthenticated. If Clerk still
+	// holds a session here it's a timed-out/stale one that blocks a fresh SSO
+	// flow (single-session mode → `session_exists`) — clear it so the next tap
+	// works without an app restart.
+	useEffect(() => {
+		if (authLoaded && isSignedIn) {
+			signOut();
+		}
+	}, [authLoaded, isSignedIn, signOut]);
 
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
@@ -75,12 +101,19 @@ export default function SignInScreen() {
 			} else {
 				setError('Google sign-in did not complete. Please try again.');
 			}
-		} catch {
-			setError('Google sign-in failed. Please try again.');
+		} catch (err) {
+			// A stale/timed-out session can still slip through (e.g. mid-refresh).
+			// Clear it so the user's next tap starts from a clean state.
+			if (isSessionExistsError(err)) {
+				await signOut();
+				setError('Please tap Continue with Google again.');
+			} else {
+				setError('Google sign-in failed. Please try again.');
+			}
 		} finally {
 			setGoogleLoading(false);
 		}
-	}, [router, startSSOFlow]);
+	}, [router, signOut, startSSOFlow]);
 
 	const onEmailPress = useCallback(async () => {
 		if (!(isLoaded && email && password)) {
