@@ -27,6 +27,13 @@ import { brand } from '@/lib/theme';
 
 maybeCompleteAuthSession();
 
+// How long a lingering Clerk session may sit on the sign-in screen before we
+// treat it as stale and clear it. A freshly-created session (e.g. just after
+// MFA) makes Convex authenticate and unmount this screen well within this
+// window, so the timer is cleared before it can reap a valid session; only a
+// genuinely dead/timed-out session survives long enough to be signed out.
+const STALE_SESSION_GRACE_MS = 4000;
+
 // Clerk throws this code when a session already exists on the client (single-
 // session mode). It surfaces on the sign-in screen when a timed-out session
 // hasn't been cleared from the Clerk client yet.
@@ -58,13 +65,24 @@ export default function SignInScreen() {
 	const { isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
 
 	// This screen only renders when Convex is unauthenticated. If Clerk still
-	// holds a session here it's a timed-out/stale one that blocks a fresh SSO
-	// flow (single-session mode → `session_exists`) — clear it so the next tap
+	// holds a session here it's usually a timed-out/stale one that blocks a fresh
+	// SSO flow (single-session mode → `session_exists`) — clear it so the next tap
 	// works without an app restart.
+	//
+	// But right after a successful login (including MFA) Clerk flips `isSignedIn`
+	// to true while Convex is still authenticating, and this screen can briefly
+	// (re)mount in that window. Signing out immediately would destroy that valid
+	// new session and bounce the user back here. So we wait out a grace period: a
+	// real session makes Convex authenticate and unmount this screen (clearing the
+	// timer) before it fires; only a dead session survives long enough to be reaped.
 	useEffect(() => {
-		if (authLoaded && isSignedIn) {
-			signOut();
+		if (!(authLoaded && isSignedIn)) {
+			return;
 		}
+		const timer = setTimeout(() => {
+			signOut();
+		}, STALE_SESSION_GRACE_MS);
+		return () => clearTimeout(timer);
 	}, [authLoaded, isSignedIn, signOut]);
 
 	const [email, setEmail] = useState('');
