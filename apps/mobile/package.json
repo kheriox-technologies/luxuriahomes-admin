@@ -24,6 +24,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@workspace/backend": "workspace:*",
     "clsx": "^2.1.1",
     "convex": "^1.32.0",

@@ -36,3 +36,7 @@ export const semantic = {
 } as const;
 
 export type ColorScheme = keyof typeof palette;
+
+// Shared height (px) for form controls — inputs, dropdowns, buttons — so they
+// align on a row. Matches the `h-9` Tailwind class used by Select/Button.
+export const CONTROL_HEIGHT = 36;

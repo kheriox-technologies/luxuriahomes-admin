@@ -43,7 +43,8 @@
           "photosPermission": "Allow Luxuria Homes to access your photos to attach images to inclusion notes."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

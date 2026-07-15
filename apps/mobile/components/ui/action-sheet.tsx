@@ -2,11 +2,11 @@ import {
 	BottomSheetBackdrop,
 	type BottomSheetBackdropProps,
 	BottomSheetModal,
-	BottomSheetView,
+	BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import type { LucideIcon } from 'lucide-react-native';
 import { forwardRef, useCallback } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { cn } from '@/lib/cn';
@@ -30,6 +30,11 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 	({ title, items, onDismiss }, ref) => {
 		const colors = useThemeColors();
 		const insets = useSafeAreaInsets();
+		const { height } = useWindowDimensions();
+
+		// Cap the sheet so a long list (e.g. Xero projects) scrolls instead of
+		// growing behind the status bar / Dynamic Island.
+		const maxDynamicContentSize = height - insets.top - insets.bottom - 48;
 
 		const renderBackdrop = useCallback(
 			(props: BottomSheetBackdropProps) => (
@@ -49,12 +54,16 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 				backgroundStyle={{ backgroundColor: colors.card }}
 				enableDynamicSizing
 				handleIndicatorStyle={{ backgroundColor: colors.mutedForeground }}
+				maxDynamicContentSize={maxDynamicContentSize}
 				onDismiss={onDismiss}
 				ref={ref}
+				topInset={insets.top}
 			>
-				<BottomSheetView
-					className="px-4"
-					style={{ paddingBottom: insets.bottom + 16 }}
+				<BottomSheetScrollView
+					contentContainerStyle={{
+						paddingHorizontal: 16,
+						paddingBottom: insets.bottom + 16,
+					}}
 				>
 					{title ? (
 						<Text className="px-2 pb-2 font-sans-semibold text-muted-foreground text-sm">
@@ -97,7 +106,7 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 							);
 						})}
 					</View>
-				</BottomSheetView>
+				</BottomSheetScrollView>
 			</BottomSheetModal>
 		);
 	}

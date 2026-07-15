@@ -36,6 +36,27 @@ export function formatCurrency(value: number | undefined): string {
 	return currencyFormatter.format(value);
 }
 
+// Manual compact currency formatter for summary tiles, e.g. `$18.4M`, `$980K`,
+// `-$1,234`. Built by hand rather than using Intl `notation: 'compact'`, which
+// Hermes does not reliably support (see formatRelativeTime note below).
+const THOUSAND = 1000;
+const MILLION = 1_000_000;
+
+export function formatCurrencyCompact(value: number | undefined): string {
+	if (value === undefined) {
+		return '—';
+	}
+	const sign = value < 0 ? '-' : '';
+	const abs = Math.abs(value);
+	if (abs >= MILLION) {
+		return `${sign}$${(abs / MILLION).toFixed(1)}M`;
+	}
+	if (abs >= THOUSAND) {
+		return `${sign}$${Math.round(abs / THOUSAND)}K`;
+	}
+	return `${sign}${currencyFormatter.format(abs)}`;
+}
+
 const MINUS_SIGN = '−';
 
 export function formatSignedCurrency(value: number): string {

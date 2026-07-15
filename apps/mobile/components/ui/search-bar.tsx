@@ -1,6 +1,7 @@
 import { Search, X } from 'lucide-react-native';
-import { Pressable, TextInput, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useThemeColors } from '@/components/theme';
+import { CenteredTextInput } from '@/components/ui/centered-text-input';
 
 export function SearchBar({
 	value,
@@ -15,14 +16,12 @@ export function SearchBar({
 	return (
 		<View className="h-9 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3">
 			<Search color={colors.mutedForeground} size={18} strokeWidth={2} />
-			<TextInput
+			<CenteredTextInput
 				accessibilityLabel={placeholder}
 				autoCapitalize="none"
 				autoCorrect={false}
-				className="flex-1 font-sans text-base text-foreground"
 				onChangeText={onChangeText}
 				placeholder={placeholder}
-				placeholderTextColor={colors.mutedForeground}
 				returnKeyType="search"
 				value={value}
 			/>
