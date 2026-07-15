@@ -33,6 +33,7 @@ import {
 	View,
 } from 'react-native';
 import { DocumentCardMenu } from '@/components/documents/document-card-menu';
+import { FolderCardMenu } from '@/components/documents/folder-card-menu';
 import {
 	InputSheet,
 	type InputSheetHandle,
@@ -338,11 +339,7 @@ export default function DocumentsScreen() {
 						<Text className="flex-1 font-sans-medium text-foreground text-sm">
 							{folder.name}
 						</Text>
-						<ChevronRight
-							color={colors.mutedForeground}
-							size={16}
-							strokeWidth={2}
-						/>
+						<FolderCardMenu folder={folder} inputSheetRef={inputSheetRef} />
 					</PressableCard>
 				))}
 
