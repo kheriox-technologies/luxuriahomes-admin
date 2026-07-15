@@ -1,8 +1,8 @@
 import type { Doc } from '@workspace/backend/dataModel';
 import { useRouter } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { MoreVertical } from 'lucide-react-native';
 import { memo } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useThemeColors } from '@/components/theme';
 import { Badge } from '@/components/ui/badge';
 import { PressableCard } from '@/components/ui/card';
@@ -11,7 +11,13 @@ import { formatCurrency } from '@/lib/format';
 export type BudgetTemplate = Doc<'budgetTemplates'>;
 
 export const BudgetTemplateCard = memo(
-	({ template }: { template: BudgetTemplate }) => {
+	({
+		template,
+		onOpenMenu,
+	}: {
+		template: BudgetTemplate;
+		onOpenMenu: (template: BudgetTemplate) => void;
+	}) => {
 		const router = useRouter();
 		const colors = useThemeColors();
 
@@ -44,11 +50,18 @@ export const BudgetTemplateCard = memo(
 						) : null}
 					</View>
 					<Badge variant="purple">{formatCurrency(template.totalPrice)}</Badge>
-					<ChevronRight
-						color={colors.mutedForeground}
-						size={18}
-						strokeWidth={2}
-					/>
+					<Pressable
+						accessibilityLabel={`Actions for ${template.title}`}
+						accessibilityRole="button"
+						hitSlop={8}
+						onPress={() => onOpenMenu(template)}
+					>
+						<MoreVertical
+							color={colors.mutedForeground}
+							size={18}
+							strokeWidth={2}
+						/>
+					</Pressable>
 				</View>
 			</PressableCard>
 		);
