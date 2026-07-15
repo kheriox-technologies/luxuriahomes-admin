@@ -174,6 +174,7 @@ export default function ProjectBudgetsTabContent({
 		projectId,
 	}) as BudgetsSummary | undefined;
 	const stages = useQuery(api.tradeStages.list.list, {});
+	const project = useQuery(api.projects.get.get, { projectId });
 
 	const {
 		isEditing,
@@ -500,6 +501,9 @@ export default function ProjectBudgetsTabContent({
 						<>
 							<Badge size="lg" variant="purple">
 								B {formatBudgetPrice(totalBudget)}
+							</Badge>
+							<Badge size="lg" variant="info">
+								Q {formatBudgetPrice(project?.quotePrice ?? 0)}
 							</Badge>
 							<Badge
 								size="lg"

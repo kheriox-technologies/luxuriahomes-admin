@@ -38,7 +38,7 @@ import { formatAud } from '@/lib/currency';
 import DeleteProject from './delete-project';
 import EditProjectForm from './edit-project';
 
-type Project = Doc<'projects'>;
+type Project = Doc<'projects'> & { budgetTotal: number };
 
 function ProjectActionsCell({ project }: { project: Project }) {
 	const [editOpen, setEditOpen] = useState(false);
@@ -294,6 +294,22 @@ const columns: ColumnDef<Project>[] = [
 							{formatDuration(startDate)}
 						</p>
 					) : null}
+				</div>
+			);
+		},
+	},
+	{
+		id: 'budgetTotal',
+		header: () => <RightHeader label="Budget" />,
+		size: 130,
+		cell: ({ row }) => {
+			const { budgetTotal } = row.original;
+			if (!budgetTotal) {
+				return <div className="text-right text-muted-foreground">—</div>;
+			}
+			return (
+				<div className="space-y-0.5 text-right tabular-nums">
+					<p className="font-medium">{formatAud(budgetTotal)}</p>
 				</div>
 			);
 		},

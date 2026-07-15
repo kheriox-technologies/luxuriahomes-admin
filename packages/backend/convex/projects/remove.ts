@@ -15,6 +15,15 @@ export const remove = mutation({
 				message: 'Project not found',
 			});
 		}
+		// Remove the project's budget rows so deleting a project doesn't leave
+		// orphaned project budgets behind.
+		const budgets = await ctx.db
+			.query('projectBudgets')
+			.withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+			.collect();
+		for (const row of budgets) {
+			await ctx.db.delete(row._id);
+		}
 		await ctx.db.delete(args.projectId);
 		return args.projectId;
 	},

@@ -59,6 +59,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 		projectId,
 	}) as TradeBudgetRow[] | undefined;
 	const stages = useQuery(api.tradeStages.list.list, {});
+	const project = useQuery(api.projects.get.get, { projectId });
 	const xeroLabelsById = useXeroAccountCodes();
 
 	const [search, setSearch] = useState('');
@@ -220,11 +221,14 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 					/>
 				</View>
 				<View className="flex-row flex-wrap items-center gap-2">
-					<Badge variant="purple">Budget {formatCurrency(totalBudget)}</Badge>
+					<Badge variant="purple">B {formatCurrency(totalBudget)}</Badge>
+					<Badge variant="info">
+						Q {formatCurrency(project?.quotePrice ?? 0)}
+					</Badge>
 					<Badge
 						variant={totalActual <= totalBudget ? 'success' : 'destructive'}
 					>
-						Actual {formatCurrency(totalActual)}
+						A {formatCurrency(totalActual)}
 					</Badge>
 				</View>
 			</View>

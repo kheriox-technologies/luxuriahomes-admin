@@ -19,7 +19,7 @@ import { PressableCard } from '@/components/ui/card';
 import { cn } from '@/lib/cn';
 import { formatCurrency, formatDate } from '@/lib/format';
 
-export type Project = Doc<'projects'>;
+export type Project = Doc<'projects'> & { budgetTotal: number };
 
 const statusVariants: Record<Project['status'], BadgeVariant> = {
 	not_started: 'info',
@@ -40,7 +40,7 @@ export const ProjectCard = memo(({ project }: { project: Project }) => {
 	const removeProject = useMutation(api.projects.remove.remove);
 
 	const address = `${project.address.street}, ${project.address.suburb}`;
-	const { quotePrice, expenses, received } = project;
+	const { budgetTotal, quotePrice, expenses, received } = project;
 	const remaining =
 		quotePrice === undefined || expenses === undefined
 			? undefined
@@ -145,53 +145,65 @@ export const ProjectCard = memo(({ project }: { project: Project }) => {
 					</Pressable>
 				</View>
 				<View className="mt-3 flex-row justify-between gap-2 border-border border-t pt-3">
-					<View className="flex-1 gap-0.5">
-						<Text className="font-sans text-muted-foreground text-xs">
-							Quote
-						</Text>
-						<Text className="font-sans-semibold text-foreground text-sm">
-							{formatCurrency(quotePrice)}
-						</Text>
-						{remaining === undefined ? null : (
-							<Text
-								className={cn(
-									'font-sans text-xs',
-									remaining >= 0 ? 'text-success' : 'text-destructive'
-								)}
-							>
-								{remaining >= 0
-									? `${formatCurrency(remaining)} left`
-									: `${formatCurrency(Math.abs(remaining))} over`}
+					<View className="flex-1 gap-3">
+						<View className="gap-0.5">
+							<Text className="font-sans text-muted-foreground text-xs">
+								Budget
 							</Text>
-						)}
-					</View>
-					<View className="flex-1 items-center gap-0.5">
-						<Text className="font-sans text-muted-foreground text-xs">
-							Expenses
-						</Text>
-						<Text className="font-sans-semibold text-foreground text-sm">
-							{formatCurrency(expenses)}
-						</Text>
-					</View>
-					<View className="flex-1 items-end gap-0.5">
-						<Text className="font-sans text-muted-foreground text-xs">
-							Received
-						</Text>
-						<Text className="font-sans-semibold text-foreground text-sm">
-							{formatCurrency(received)}
-						</Text>
-						{profit === undefined ? null : (
-							<Text
-								className={cn(
-									'font-sans text-xs',
-									profit >= 0 ? 'text-success' : 'text-destructive'
-								)}
-							>
-								{profit >= 0
-									? `${formatCurrency(profit)} profit`
-									: `${formatCurrency(Math.abs(profit))} loss`}
+							<Text className="font-sans-semibold text-foreground text-sm">
+								{formatCurrency(budgetTotal)}
 							</Text>
-						)}
+						</View>
+						<View className="gap-0.5">
+							<Text className="font-sans text-muted-foreground text-xs">
+								Quote
+							</Text>
+							<Text className="font-sans-semibold text-foreground text-sm">
+								{formatCurrency(quotePrice)}
+							</Text>
+							{remaining === undefined ? null : (
+								<Text
+									className={cn(
+										'font-sans text-xs',
+										remaining >= 0 ? 'text-success' : 'text-destructive'
+									)}
+								>
+									{remaining >= 0
+										? `${formatCurrency(remaining)} left`
+										: `${formatCurrency(Math.abs(remaining))} over`}
+								</Text>
+							)}
+						</View>
+					</View>
+					<View className="flex-1 items-end gap-3">
+						<View className="items-end gap-0.5">
+							<Text className="font-sans text-muted-foreground text-xs">
+								Expenses
+							</Text>
+							<Text className="font-sans-semibold text-foreground text-sm">
+								{formatCurrency(expenses)}
+							</Text>
+						</View>
+						<View className="items-end gap-0.5">
+							<Text className="font-sans text-muted-foreground text-xs">
+								Received
+							</Text>
+							<Text className="font-sans-semibold text-foreground text-sm">
+								{formatCurrency(received)}
+							</Text>
+							{profit === undefined ? null : (
+								<Text
+									className={cn(
+										'font-sans text-xs',
+										profit >= 0 ? 'text-success' : 'text-destructive'
+									)}
+								>
+									{profit >= 0
+										? `${formatCurrency(profit)} profit`
+										: `${formatCurrency(Math.abs(profit))} loss`}
+								</Text>
+							)}
+						</View>
 					</View>
 				</View>
 			</PressableCard>

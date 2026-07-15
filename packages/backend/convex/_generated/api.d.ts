@@ -184,6 +184,7 @@ import type * as permissions_upsertRole from "../permissions/upsertRole.js";
 import type * as projectBudgets_addItem from "../projectBudgets/addItem.js";
 import type * as projectBudgets_clearPayments from "../projectBudgets/clearPayments.js";
 import type * as projectBudgets_projectSummary from "../projectBudgets/projectSummary.js";
+import type * as projectBudgets_purgeOrphaned from "../projectBudgets/purgeOrphaned.js";
 import type * as projectBudgets_remove from "../projectBudgets/remove.js";
 import type * as projectBudgets_setPrices from "../projectBudgets/setPrices.js";
 import type * as projectBudgets_tradeSummary from "../projectBudgets/tradeSummary.js";
@@ -594,6 +595,7 @@ declare const fullApi: ApiFromModules<{
   "projectBudgets/addItem": typeof projectBudgets_addItem;
   "projectBudgets/clearPayments": typeof projectBudgets_clearPayments;
   "projectBudgets/projectSummary": typeof projectBudgets_projectSummary;
+  "projectBudgets/purgeOrphaned": typeof projectBudgets_purgeOrphaned;
   "projectBudgets/remove": typeof projectBudgets_remove;
   "projectBudgets/setPrices": typeof projectBudgets_setPrices;
   "projectBudgets/tradeSummary": typeof projectBudgets_tradeSummary;
