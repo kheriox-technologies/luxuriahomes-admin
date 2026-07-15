@@ -110,7 +110,7 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 									) : null}
 									<Text
 										className={cn(
-											'font-sans-medium text-base',
+											'font-sans-medium text-xs',
 											item.disabled && 'text-muted-foreground',
 											!item.disabled &&
 												(item.destructive

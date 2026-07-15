@@ -1,22 +1,39 @@
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Share2 } from 'lucide-react-native';
-import { useState } from 'react';
+import {
+	ArrowLeft,
+	ClipboardList,
+	EllipsisVertical,
+	Mail,
+	Pencil,
+	Share2,
+	Trash2,
+} from 'lucide-react-native';
+import { useRef, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
+	Modal,
 	Pressable,
 	ScrollView,
 	Text,
 	View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { AddToTaskSheetHandle } from '@/components/orders/add-to-task-sheet';
+import { AddToTaskSheet } from '@/components/orders/add-to-task-sheet';
+import type { OrderEmailSheetHandle } from '@/components/orders/order-email-sheet';
+import { OrderEmailSheet } from '@/components/orders/order-email-sheet';
+import type { OrderFormSheetHandle } from '@/components/orders/order-form-sheet';
+import { OrderFormSheet } from '@/components/orders/order-form-sheet';
 import { OrderNotesSection } from '@/components/orders/order-notes-section';
 import { OrderStatusHistorySection } from '@/components/orders/order-status-history-section';
 import { ORDER_STATUSES, type OrderStatus } from '@/components/orders/types';
 import { useThemeColors } from '@/components/theme';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -36,9 +53,15 @@ export default function OrderDetailsScreen() {
 		| Order
 		| undefined;
 	const update = useMutation(api.projectOrders.update.update);
+	const removeOrder = useMutation(api.projectOrders.remove.remove);
 	const generatePdf = useAction(api.projectOrders.generatePdf.generatePdf);
 
-	const [sharing, setSharing] = useState(false);
+	const menuRef = useRef<BottomSheetModal>(null);
+	const formSheetRef = useRef<OrderFormSheetHandle>(null);
+	const addToTaskRef = useRef<AddToTaskSheetHandle>(null);
+	const emailRef = useRef<OrderEmailSheetHandle>(null);
+
+	const [preparing, setPreparing] = useState(false);
 
 	const changeStatus = (status: OrderStatus) => {
 		if (!order || order.status === status) {
@@ -61,16 +84,114 @@ export default function OrderDetailsScreen() {
 		if (!order) {
 			return;
 		}
-		setSharing(true);
+		setPreparing(true);
 		try {
 			const { url } = await generatePdf({ orderId: order._id });
 			await shareRemotePdf(url, `${order.orderId}.pdf`);
 		} catch {
 			Alert.alert('Unable to generate PDF', 'Please try again.');
 		} finally {
-			setSharing(false);
+			setPreparing(false);
 		}
 	};
+
+	const handleEmail = async () => {
+		if (!order) {
+			return;
+		}
+		setPreparing(true);
+		try {
+			const { s3Key } = await generatePdf({ orderId: order._id });
+			emailRef.current?.present({
+				filename: `${order.orderId}.pdf`,
+				s3Key,
+				subject: `Purchase Order ${order.orderId}`,
+			});
+		} catch {
+			Alert.alert('Unable to prepare email', 'Please try again.');
+		} finally {
+			setPreparing(false);
+		}
+	};
+
+	const confirmDelete = () => {
+		if (!order) {
+			return;
+		}
+		Alert.alert(
+			'Delete order',
+			`Delete order ${order.orderId} from ${order.vendor}? This also removes its notes and status history.`,
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Delete',
+					style: 'destructive',
+					onPress: () => {
+						removeOrder({ orderId: order._id })
+							.then(() => router.back())
+							.catch(() => {
+								Alert.alert('Unable to delete', 'Please try again.');
+							});
+					},
+				},
+			]
+		);
+	};
+
+	const openMenu = () => menuRef.current?.present();
+
+	const menuItems = order
+		? [
+				{
+					key: 'edit',
+					label: 'Edit',
+					icon: Pencil,
+					onPress: () => {
+						menuRef.current?.dismiss();
+						formSheetRef.current?.present(order);
+					},
+				},
+				{
+					key: 'add-to-task',
+					label: 'Add to task',
+					icon: ClipboardList,
+					onPress: () => {
+						menuRef.current?.dismiss();
+						addToTaskRef.current?.present(order);
+					},
+				},
+				{
+					key: 'share',
+					label: 'Share',
+					icon: Share2,
+					disabled: preparing,
+					onPress: () => {
+						menuRef.current?.dismiss();
+						handleShare();
+					},
+				},
+				{
+					key: 'email',
+					label: 'Email',
+					icon: Mail,
+					disabled: preparing,
+					onPress: () => {
+						menuRef.current?.dismiss();
+						handleEmail();
+					},
+				},
+				{
+					key: 'delete',
+					label: 'Delete',
+					icon: Trash2,
+					destructive: true,
+					onPress: () => {
+						menuRef.current?.dismiss();
+						confirmDelete();
+					},
+				},
+			]
+		: [];
 
 	return (
 		<View className="flex-1 bg-background">
@@ -121,18 +242,17 @@ export default function OrderDetailsScreen() {
 							value={order.status as OrderStatus}
 						/>
 						<Pressable
-							accessibilityLabel="Share order PDF"
+							accessibilityLabel="Order actions"
 							accessibilityRole="button"
 							className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
-							disabled={sharing}
 							hitSlop={4}
-							onPress={handleShare}
+							onPress={openMenu}
 						>
-							{sharing ? (
-								<ActivityIndicator color={colors.foreground} size="small" />
-							) : (
-								<Share2 color={colors.foreground} size={18} strokeWidth={2} />
-							)}
+							<EllipsisVertical
+								color={colors.foreground}
+								size={18}
+								strokeWidth={2}
+							/>
 						</Pressable>
 					</View>
 
@@ -164,6 +284,26 @@ export default function OrderDetailsScreen() {
 					</Card>
 				</ScrollView>
 			)}
+
+			{order ? (
+				<>
+					<ActionSheet items={menuItems} ref={menuRef} title="Order actions" />
+					<OrderFormSheet projectId={order.projectId} ref={formSheetRef} />
+					<AddToTaskSheet ref={addToTaskRef} />
+					<OrderEmailSheet projectId={order.projectId} ref={emailRef} />
+				</>
+			) : null}
+
+			<Modal animationType="fade" transparent visible={preparing}>
+				<View className="flex-1 items-center justify-center bg-black/50">
+					<View className="items-center gap-3 rounded-2xl bg-card px-6 py-5">
+						<ActivityIndicator color={colors.foreground} size="large" />
+						<Text className="font-sans-medium text-foreground text-sm">
+							Generating PDF…
+						</Text>
+					</View>
+				</View>
+			</Modal>
 		</View>
 	);
 }

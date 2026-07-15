@@ -3,9 +3,16 @@ import type { Id } from '@workspace/backend/dataModel';
 import { useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
-import { ChevronsDown, ChevronsUp, DollarSign } from 'lucide-react-native';
+import {
+	ChevronsDown,
+	ChevronsUp,
+	DollarSign,
+	Plus,
+} from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
+import type { QuotationFormSheetHandle } from '@/components/quotations/quotation-form-sheet';
+import { QuotationFormSheet } from '@/components/quotations/quotation-form-sheet';
 import type { QuotationNotesSheetHandle } from '@/components/quotations/quotation-notes-sheet';
 import { QuotationNotesSheet } from '@/components/quotations/quotation-notes-sheet';
 import { QuotationTradeAccordion } from '@/components/quotations/quotation-trade-accordion';
@@ -63,6 +70,7 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 	const [filterStatuses, setFilterStatuses] = useState<QuotationStatus[]>([]);
 	const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 	const notesSheetRef = useRef<QuotationNotesSheetHandle>(null);
+	const formSheetRef = useRef<QuotationFormSheetHandle>(null);
 	const didInitCollapse = useRef(false);
 
 	// Trades start collapsed. Seed collapsedKeys with every trade id the first
@@ -191,7 +199,7 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 
 	const emptyDescription =
 		quotations.length === 0
-			? 'Quotations created in the web portal will appear here.'
+			? 'Tap the + button to add a quotation.'
 			: 'No quotations match your filters.';
 
 	return (
@@ -224,6 +232,11 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 						label="Collapse all trades"
 						onPress={collapseAll}
 					/>
+					<ToolbarIconButton
+						icon={Plus}
+						label="Add quotation"
+						onPress={() => formSheetRef.current?.present()}
+					/>
 				</View>
 				<SearchBar
 					onChangeText={setSearch}
@@ -245,6 +258,7 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 				renderItem={({ item }) => (
 					<QuotationTradeAccordion
 						expanded={!collapsedKeys.has(item.key)}
+						formSheetRef={formSheetRef}
 						group={item}
 						notesSheetRef={notesSheetRef}
 						onToggle={() => toggleKey(item.key)}
@@ -252,6 +266,7 @@ function QuotationsBody({ projectId }: { projectId: Id<'projects'> }) {
 				)}
 			/>
 			<QuotationNotesSheet ref={notesSheetRef} />
+			<QuotationFormSheet projectId={projectId} ref={formSheetRef} />
 		</View>
 	);
 }

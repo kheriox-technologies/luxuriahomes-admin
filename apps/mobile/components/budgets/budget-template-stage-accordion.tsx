@@ -1,7 +1,7 @@
 import type { Id } from '@workspace/backend/dataModel';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, MoreVertical } from 'lucide-react-native';
 import { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useThemeColors } from '@/components/theme';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,10 @@ import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
 
 export interface BudgetTemplateTrade {
+	budgetTemplateItemId: Id<'budgetTemplateItems'>;
 	price: number;
+	stageId: Id<'tradeStages'> | null;
+	tradeDescription: string | null;
 	tradeId: Id<'trades'>;
 	tradeName: string;
 }
@@ -22,13 +25,76 @@ export interface BudgetTemplateStageGroup {
 	trades: BudgetTemplateTrade[];
 }
 
-function TradeRow({ trade }: { trade: BudgetTemplateTrade }) {
+function TradeRow({
+	trade,
+	isFirst,
+	editing,
+	nameDraft,
+	priceDraft,
+	onChangeName,
+	onChangePrice,
+	onOpenMenu,
+}: {
+	trade: BudgetTemplateTrade;
+	isFirst: boolean;
+	editing: boolean;
+	nameDraft: string;
+	priceDraft: string;
+	onChangeName: (tradeId: Id<'trades'>, value: string) => void;
+	onChangePrice: (tradeId: Id<'trades'>, value: string) => void;
+	onOpenMenu: (trade: BudgetTemplateTrade) => void;
+}) {
+	const colors = useThemeColors();
+
+	// Rows after the first get a top divider so trades in a stage are separated.
+	const rowClass = cn(
+		'flex-row items-center gap-2 px-3.5 py-2.5',
+		!isFirst && 'border-border border-t'
+	);
+
+	if (editing) {
+		return (
+			<View className={rowClass}>
+				<TextInput
+					className="h-9 flex-1 rounded-lg border border-border bg-background px-3 font-sans text-foreground text-sm"
+					onChangeText={(value) => onChangeName(trade.tradeId, value)}
+					placeholder="Trade name"
+					placeholderTextColor={colors.mutedForeground}
+					value={nameDraft}
+				/>
+				<View className="h-9 w-28 flex-row items-center gap-1 rounded-lg border border-border bg-background px-2.5">
+					<Text className="font-sans text-muted-foreground text-sm">$</Text>
+					<TextInput
+						className="flex-1 font-sans text-foreground text-sm"
+						keyboardType="decimal-pad"
+						onChangeText={(value) => onChangePrice(trade.tradeId, value)}
+						placeholder="0.00"
+						placeholderTextColor={colors.mutedForeground}
+						value={priceDraft}
+					/>
+				</View>
+			</View>
+		);
+	}
+
 	return (
-		<View className="flex-row items-center gap-2 px-3.5 py-2.5">
+		<View className={rowClass}>
 			<Text className="flex-1 font-sans text-foreground text-sm">
 				{trade.tradeName}
 			</Text>
 			<Badge variant="purple">{formatCurrency(trade.price)}</Badge>
+			<Pressable
+				accessibilityLabel={`Actions for ${trade.tradeName}`}
+				accessibilityRole="button"
+				hitSlop={8}
+				onPress={() => onOpenMenu(trade)}
+			>
+				<MoreVertical
+					color={colors.mutedForeground}
+					size={18}
+					strokeWidth={2}
+				/>
+			</Pressable>
 		</View>
 	);
 }
@@ -38,10 +104,22 @@ export const BudgetTemplateStageAccordion = memo(
 		group,
 		expanded,
 		onToggle,
+		editing,
+		nameDrafts,
+		priceDrafts,
+		onChangeName,
+		onChangePrice,
+		onOpenTradeMenu,
 	}: {
 		group: BudgetTemplateStageGroup;
 		expanded: boolean;
 		onToggle: () => void;
+		editing: boolean;
+		nameDrafts: Record<string, string>;
+		priceDrafts: Record<string, string>;
+		onChangeName: (tradeId: Id<'trades'>, value: string) => void;
+		onChangePrice: (tradeId: Id<'trades'>, value: string) => void;
+		onOpenTradeMenu: (trade: BudgetTemplateTrade) => void;
 	}) {
 		const colors = useThemeColors();
 
@@ -72,8 +150,18 @@ export const BudgetTemplateStageAccordion = memo(
 
 					{expanded ? (
 						<View className="border-border border-t pb-1.5">
-							{group.trades.map((trade) => (
-								<TradeRow key={trade.tradeId} trade={trade} />
+							{group.trades.map((trade, index) => (
+								<TradeRow
+									editing={editing}
+									isFirst={index === 0}
+									key={trade.tradeId}
+									nameDraft={nameDrafts[trade.tradeId] ?? trade.tradeName}
+									onChangeName={onChangeName}
+									onChangePrice={onChangePrice}
+									onOpenMenu={onOpenTradeMenu}
+									priceDraft={priceDrafts[trade.tradeId] ?? String(trade.price)}
+									trade={trade}
+								/>
 							))}
 						</View>
 					) : null}

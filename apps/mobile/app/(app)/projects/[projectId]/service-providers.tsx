@@ -1,15 +1,27 @@
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
-import { ChevronsDown, ChevronsUp, Handshake, Plus } from 'lucide-react-native';
+import {
+	ChevronsDown,
+	ChevronsUp,
+	Handshake,
+	Link2,
+	MoreVertical,
+	UserPlus,
+} from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { Alert, FlatList, Pressable, View } from 'react-native';
 import {
 	AddServiceProviderSheet,
 	type AddServiceProviderSheetHandle,
 } from '@/components/service-providers/add-service-provider-sheet';
+import {
+	CreateServiceProviderSheet,
+	type CreateServiceProviderSheetHandle,
+} from '@/components/service-providers/create-service-provider-sheet';
 import { ServiceProviderTradeAccordion } from '@/components/service-providers/service-provider-trade-accordion';
 import {
 	OTHER_TRADE_KEY,
@@ -17,6 +29,10 @@ import {
 	type ServiceProviderGroup,
 } from '@/components/service-providers/types';
 import { useThemeColors } from '@/components/theme';
+import {
+	ActionSheet,
+	type ActionSheetItem,
+} from '@/components/ui/action-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -53,6 +69,9 @@ function ServiceProvidersBody({ projectId }: { projectId: Id<'projects'> }) {
 	const [search, setSearch] = useState('');
 	const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 	const addSheetRef = useRef<AddServiceProviderSheetHandle>(null);
+	const createSheetRef = useRef<CreateServiceProviderSheetHandle>(null);
+	const menuRef = useRef<BottomSheetModal>(null);
+	const linkProvider = useMutation(api.projectServiceProviders.add.add);
 
 	const tradeMap = useMemo(() => {
 		return new Map((trades ?? []).map((trade) => [trade._id, trade.name]));
@@ -135,6 +154,27 @@ function ServiceProvidersBody({ projectId }: { projectId: Id<'projects'> }) {
 	const collapseAll = () =>
 		setCollapsedKeys(new Set(groups.map((group) => group.key)));
 
+	const menuItems: ActionSheetItem[] = [
+		{
+			key: 'add-existing',
+			label: 'Add Existing',
+			icon: Link2,
+			onPress: () => {
+				menuRef.current?.dismiss();
+				addSheetRef.current?.present();
+			},
+		},
+		{
+			key: 'new',
+			label: 'New Service Provider',
+			icon: UserPlus,
+			onPress: () => {
+				menuRef.current?.dismiss();
+				createSheetRef.current?.present();
+			},
+		},
+	];
+
 	const emptyDescription =
 		providers.length === 0
 			? 'Add a service provider to link them to this project.'
@@ -162,9 +202,9 @@ function ServiceProvidersBody({ projectId }: { projectId: Id<'projects'> }) {
 						onPress={collapseAll}
 					/>
 					<ToolbarIconButton
-						icon={Plus}
+						icon={MoreVertical}
 						label="Add service provider"
-						onPress={() => addSheetRef.current?.present()}
+						onPress={() => menuRef.current?.present()}
 					/>
 				</View>
 			</View>
@@ -192,6 +232,22 @@ function ServiceProvidersBody({ projectId }: { projectId: Id<'projects'> }) {
 				linkedIds={linkedIds}
 				projectId={projectId}
 				ref={addSheetRef}
+			/>
+			<CreateServiceProviderSheet
+				onCreated={({ id }) => {
+					linkProvider({ projectId, serviceProviderId: id }).catch(() =>
+						Alert.alert(
+							'Unable to link',
+							'Provider created but could not be linked to this project.'
+						)
+					);
+				}}
+				ref={createSheetRef}
+			/>
+			<ActionSheet
+				items={menuItems}
+				ref={menuRef}
+				title="Add service provider"
 			/>
 		</View>
 	);

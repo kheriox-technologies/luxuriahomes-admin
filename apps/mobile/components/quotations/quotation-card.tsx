@@ -7,7 +7,9 @@ import {
 	EllipsisVertical,
 	ExternalLink,
 	MessageSquareText,
+	Pencil,
 	StickyNote,
+	Trash2,
 } from 'lucide-react-native';
 import { memo, type RefObject, useRef } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
@@ -21,6 +23,7 @@ import { Card } from '@/components/ui/card';
 import { QuotationStatusPill } from '@/components/ui/status-pill';
 import { formatCurrency } from '@/lib/format';
 import { shareRemotePdf } from '@/lib/share-file';
+import type { QuotationFormSheetHandle } from './quotation-form-sheet';
 import type { QuotationNotesSheetHandle } from './quotation-notes-sheet';
 import type { ProjectQuotation } from './types';
 
@@ -34,15 +37,18 @@ function pdfFilename(title: string): string {
 export const QuotationCard = memo(function QuotationCard({
 	quotation,
 	notesSheetRef,
+	formSheetRef,
 }: {
 	quotation: ProjectQuotation;
 	notesSheetRef: RefObject<QuotationNotesSheetHandle | null>;
+	formSheetRef: RefObject<QuotationFormSheetHandle | null>;
 }) {
 	const colors = useThemeColors();
 	const sheetRef = useRef<BottomSheetModal>(null);
 
 	const approve = useMutation(api.projectQuotations.approve.approve);
 	const reject = useMutation(api.projectQuotations.reject.reject);
+	const remove = useMutation(api.projectQuotations.remove.remove);
 	const signUrl = useAction(api.cdn.signUrl.signUrl);
 
 	const handleApprove = () => {
@@ -69,7 +75,36 @@ export const QuotationCard = memo(function QuotationCard({
 		}
 	};
 
-	const items: ActionSheetItem[] = [];
+	const confirmDelete = () => {
+		Alert.alert(
+			'Delete quotation?',
+			'This will permanently delete this quotation. This action cannot be undone.',
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Delete',
+					style: 'destructive',
+					onPress: () => {
+						remove({ quotationId: quotation._id }).catch(() =>
+							Alert.alert('Unable to delete', 'Please try again.')
+						);
+					},
+				},
+			]
+		);
+	};
+
+	const items: ActionSheetItem[] = [
+		{
+			key: 'edit',
+			label: 'Edit',
+			icon: Pencil,
+			onPress: () => {
+				sheetRef.current?.dismiss();
+				formSheetRef.current?.present(quotation);
+			},
+		},
+	];
 	if (quotation.status !== 'Approved') {
 		items.push({
 			key: 'approve',
@@ -110,6 +145,16 @@ export const QuotationCard = memo(function QuotationCard({
 		onPress: () => {
 			sheetRef.current?.dismiss();
 			notesSheetRef.current?.present(quotation);
+		},
+	});
+	items.push({
+		key: 'delete',
+		label: 'Delete',
+		icon: Trash2,
+		destructive: true,
+		onPress: () => {
+			sheetRef.current?.dismiss();
+			confirmDelete();
 		},
 	});
 

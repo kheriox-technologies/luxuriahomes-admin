@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompanyDocumentCardMenu } from '@/components/documents/company-document-card-menu';
+import { CompanyFolderCardMenu } from '@/components/documents/company-folder-card-menu';
 import {
 	InputSheet,
 	type InputSheetHandle,
@@ -347,10 +348,9 @@ export default function CompanyDocumentsScreen() {
 							<Text className="flex-1 font-sans-medium text-foreground text-sm">
 								{folder.name}
 							</Text>
-							<ChevronRight
-								color={colors.mutedForeground}
-								size={16}
-								strokeWidth={2}
+							<CompanyFolderCardMenu
+								folder={folder}
+								inputSheetRef={inputSheetRef}
 							/>
 						</PressableCard>
 					))}

@@ -1,18 +1,35 @@
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Sofa } from 'lucide-react-native';
+import {
+	ArrowLeft,
+	EllipsisVertical,
+	Pencil,
+	Plus,
+	Sofa,
+	Trash2,
+} from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
 	AddVariantToProjectSheet,
 	type AddVariantToProjectSheetHandle,
 } from '@/components/inclusions/add-variant-to-project-sheet';
 import { CatalogueVariantCard } from '@/components/inclusions/catalogue-variant-card';
+import {
+	InclusionFormSheet,
+	type InclusionFormSheetHandle,
+} from '@/components/inclusions/inclusion-form-sheet';
 import { CLASS_FILTERS, type ClassFilter } from '@/components/inclusions/types';
+import {
+	VariantFormSheet,
+	type VariantFormSheetHandle,
+} from '@/components/inclusions/variant-form-sheet';
 import { useThemeColors } from '@/components/theme';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
@@ -54,10 +71,39 @@ export default function InclusionDetailScreen() {
 	const data = useQuery(api.inclusions.get.get, {
 		inclusionId: inclusionId as Id<'inclusions'>,
 	});
+	const removeInclusion = useMutation(api.inclusions.remove.remove);
 
 	const [search, setSearch] = useState('');
 	const [classFilter, setClassFilter] = useState<ClassFilter>('All');
 	const addSheetRef = useRef<AddVariantToProjectSheetHandle>(null);
+	const inclusionFormRef = useRef<InclusionFormSheetHandle>(null);
+	const variantFormRef = useRef<VariantFormSheetHandle>(null);
+	const menuRef = useRef<BottomSheetModal>(null);
+
+	const handleDeleteInclusion = () => {
+		if (!data) {
+			return;
+		}
+		const { inclusion } = data;
+		Alert.alert(
+			'Delete inclusion',
+			`Delete "${inclusion.title}" and all its variants? This cannot be undone.`,
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Delete',
+					style: 'destructive',
+					onPress: () => {
+						removeInclusion({ inclusionId: inclusion._id })
+							.then(() => router.back())
+							.catch(() => {
+								Alert.alert('Could not delete inclusion', 'Please try again.');
+							});
+					},
+				},
+			]
+		);
+	};
 
 	const filteredVariants = useMemo<InclusionVariant[]>(() => {
 		if (!data) {
@@ -136,11 +182,13 @@ export default function InclusionDetailScreen() {
 				{inclusion.variantCount > 0 ? (
 					<Badge variant="info">{variantLabel(inclusion.variantCount)}</Badge>
 				) : null}
-				{inclusion.standardPrice !== undefined ? (
+				{inclusion.standardPrice === undefined ? (
+					<Badge variant="yellow">No standard price set</Badge>
+				) : (
 					<Badge variant="purple">
 						Base {formatCurrency(inclusion.standardPrice)}
 					</Badge>
-				) : null}
+				)}
 				{inclusion.standardLabourPrice !== undefined ? (
 					<Badge variant="gold">
 						Labour {formatCurrency(inclusion.standardLabourPrice)}
@@ -161,6 +209,19 @@ export default function InclusionDetailScreen() {
 					title="Filter by class"
 					value={classFilter}
 				/>
+				<Pressable
+					accessibilityLabel="Inclusion actions"
+					accessibilityRole="button"
+					className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+					hitSlop={4}
+					onPress={() => menuRef.current?.present()}
+				>
+					<EllipsisVertical
+						color={colors.foreground}
+						size={18}
+						strokeWidth={2}
+					/>
+				</Pressable>
 			</View>
 			<FlatList
 				contentContainerClassName="pb-6"
@@ -181,11 +242,50 @@ export default function InclusionDetailScreen() {
 					<CatalogueVariantCard
 						inclusion={inclusion}
 						onAddToProject={(variant) => addSheetRef.current?.present(variant)}
+						onEdit={(variant) =>
+							variantFormRef.current?.present(inclusion._id, variant)
+						}
 						variant={item}
 					/>
 				)}
 			/>
 			<AddVariantToProjectSheet ref={addSheetRef} />
+			<InclusionFormSheet ref={inclusionFormRef} />
+			<VariantFormSheet ref={variantFormRef} />
+			<ActionSheet
+				items={[
+					{
+						key: 'edit',
+						label: 'Edit inclusion',
+						icon: Pencil,
+						onPress: () => {
+							menuRef.current?.dismiss();
+							inclusionFormRef.current?.present(inclusion);
+						},
+					},
+					{
+						key: 'add-variant',
+						label: 'Add variant',
+						icon: Plus,
+						onPress: () => {
+							menuRef.current?.dismiss();
+							variantFormRef.current?.present(inclusion._id);
+						},
+					},
+					{
+						key: 'delete',
+						label: 'Delete inclusion',
+						icon: Trash2,
+						destructive: true,
+						onPress: () => {
+							menuRef.current?.dismiss();
+							handleDeleteInclusion();
+						},
+					},
+				]}
+				ref={menuRef}
+				title={inclusion.title}
+			/>
 		</View>
 	);
 }

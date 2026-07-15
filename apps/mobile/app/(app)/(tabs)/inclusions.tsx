@@ -1,10 +1,18 @@
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
-import { useQuery } from 'convex/react';
-import { ChevronsDown, ChevronsUp, Sofa } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useMutation, useQuery } from 'convex/react';
+import { ChevronsDown, ChevronsUp, Plus, Sofa } from 'lucide-react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { CatalogueCategoryAccordion } from '@/components/inclusions/catalogue-category-accordion';
+import {
+	CategoryFormSheet,
+	type CategoryFormSheetHandle,
+} from '@/components/inclusions/category-form-sheet';
+import {
+	InclusionFormSheet,
+	type InclusionFormSheetHandle,
+} from '@/components/inclusions/inclusion-form-sheet';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ScreenHeader } from '@/components/screen-header';
 import { useThemeColors } from '@/components/theme';
@@ -28,6 +36,51 @@ export default function InclusionsCatalogueScreen() {
 		new Set()
 	);
 	const colors = useThemeColors();
+
+	const inclusionFormRef = useRef<InclusionFormSheetHandle>(null);
+	const categoryFormRef = useRef<CategoryFormSheetHandle>(null);
+	const removeInclusion = useMutation(api.inclusions.remove.remove);
+
+	const handleAddInclusion = useCallback(() => {
+		inclusionFormRef.current?.present();
+	}, []);
+
+	const handleAddInclusionToCategory = useCallback(
+		(category: InclusionCategory) => {
+			inclusionFormRef.current?.present(undefined, category._id);
+		},
+		[]
+	);
+
+	const handleEditCategory = useCallback((category: InclusionCategory) => {
+		categoryFormRef.current?.present(category);
+	}, []);
+
+	const handleEditInclusion = useCallback((inclusion: Inclusion) => {
+		inclusionFormRef.current?.present(inclusion);
+	}, []);
+
+	const handleDeleteInclusion = useCallback(
+		(inclusion: Inclusion) => {
+			Alert.alert(
+				'Delete inclusion',
+				`Delete "${inclusion.title}" and all its variants? This cannot be undone.`,
+				[
+					{ text: 'Cancel', style: 'cancel' },
+					{
+						text: 'Delete',
+						style: 'destructive',
+						onPress: () => {
+							removeInclusion({ inclusionId: inclusion._id }).catch(() => {
+								Alert.alert('Could not delete inclusion', 'Please try again.');
+							});
+						},
+					},
+				]
+			);
+		},
+		[removeInclusion]
+	);
 
 	const sections = useMemo<CatalogueSection[]>(() => {
 		if (!(categories && inclusions)) {
@@ -109,6 +162,15 @@ export default function InclusionsCatalogueScreen() {
 				>
 					<ChevronsUp color={colors.foreground} size={18} strokeWidth={2} />
 				</Pressable>
+				<Pressable
+					accessibilityLabel="Add inclusion"
+					accessibilityRole="button"
+					className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+					hitSlop={4}
+					onPress={handleAddInclusion}
+				>
+					<Plus color={colors.foreground} size={18} strokeWidth={2} />
+				</Pressable>
 			</View>
 			{categories === undefined || inclusions === undefined ? (
 				<ListSkeleton />
@@ -133,12 +195,18 @@ export default function InclusionsCatalogueScreen() {
 								}
 								inclusions={section.inclusions}
 								key={section.category._id}
+								onAddInclusion={handleAddInclusionToCategory}
+								onDeleteInclusion={handleDeleteInclusion}
+								onEditCategory={handleEditCategory}
+								onEditInclusion={handleEditInclusion}
 								onToggle={() => toggleCategory(section.category._id)}
 							/>
 						))
 					)}
 				</ScrollView>
 			)}
+			<InclusionFormSheet ref={inclusionFormRef} />
+			<CategoryFormSheet ref={categoryFormRef} />
 		</View>
 	);
 }

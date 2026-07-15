@@ -7,10 +7,15 @@ import {
 	ChevronsDown,
 	ChevronsUp,
 	Handshake,
+	Plus,
 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+	CreateServiceProviderSheet,
+	type CreateServiceProviderSheetHandle,
+} from '@/components/service-providers/create-service-provider-sheet';
 import { ServiceProviderTradeAccordion } from '@/components/service-providers/service-provider-trade-accordion';
 import {
 	OTHER_TRADE_KEY,
@@ -57,6 +62,7 @@ export default function ServiceProvidersScreen() {
 
 	const [search, setSearch] = useState('');
 	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+	const createRef = useRef<CreateServiceProviderSheetHandle>(null);
 
 	const tradeMap = useMemo(() => {
 		return new Map((trades ?? []).map((trade) => [trade._id, trade.name]));
@@ -155,6 +161,15 @@ export default function ServiceProvidersScreen() {
 				<Text className="flex-1 font-sans-bold text-2xl text-foreground">
 					Service Providers
 				</Text>
+				<Pressable
+					accessibilityLabel="New service provider"
+					accessibilityRole="button"
+					className="h-10 w-10 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+					hitSlop={4}
+					onPress={() => createRef.current?.present()}
+				>
+					<Plus color={colors.foreground} size={20} strokeWidth={2} />
+				</Pressable>
 			</View>
 
 			{providers === undefined ? (
@@ -203,6 +218,8 @@ export default function ServiceProvidersScreen() {
 					/>
 				</>
 			)}
+
+			<CreateServiceProviderSheet ref={createRef} />
 		</View>
 	);
 }

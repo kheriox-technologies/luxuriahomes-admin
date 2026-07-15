@@ -1,8 +1,16 @@
+import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import {
+	ArrowLeft,
+	FolderPlus,
+	MoreVertical,
+	Pencil,
+	Trash2,
+} from 'lucide-react-native';
+import { useRef } from 'react';
 import {
 	Alert,
 	Linking,
@@ -12,7 +20,16 @@ import {
 	View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+	AddServiceProviderToProjectSheet,
+	type AddServiceProviderToProjectSheetHandle,
+} from '@/components/service-providers/add-service-provider-to-project-sheet';
+import {
+	CreateServiceProviderSheet,
+	type CreateServiceProviderSheetHandle,
+} from '@/components/service-providers/create-service-provider-sheet';
 import { useThemeColors } from '@/components/theme';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -104,6 +121,11 @@ export default function ServiceProviderDetailsScreen() {
 	const removeFromProject = useMutation(
 		api.projectServiceProviders.remove.remove
 	);
+	const removeProvider = useMutation(api.serviceProviders.remove.remove);
+
+	const actionsRef = useRef<BottomSheetModal>(null);
+	const editRef = useRef<CreateServiceProviderSheetHandle>(null);
+	const addToProjectRef = useRef<AddServiceProviderToProjectSheetHandle>(null);
 
 	const tradeNames = (() => {
 		if (!(provider && trades)) {
@@ -139,6 +161,63 @@ export default function ServiceProviderDetailsScreen() {
 		);
 	};
 
+	const handleDelete = () => {
+		if (!provider) {
+			return;
+		}
+		Alert.alert(
+			'Delete service provider?',
+			`Delete ${provider.company}? This removes it from all projects and cannot be undone.`,
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Delete',
+					style: 'destructive',
+					onPress: () => {
+						removeProvider({ serviceProviderId })
+							.then(() => router.back())
+							.catch(() =>
+								Alert.alert('Unable to delete', 'Please try again.')
+							);
+					},
+				},
+			]
+		);
+	};
+
+	const actionItems = provider
+		? [
+				{
+					key: 'edit',
+					label: 'Edit',
+					icon: Pencil,
+					onPress: () => {
+						actionsRef.current?.dismiss();
+						editRef.current?.present({ provider });
+					},
+				},
+				{
+					key: 'add-to-project',
+					label: 'Add to project',
+					icon: FolderPlus,
+					onPress: () => {
+						actionsRef.current?.dismiss();
+						addToProjectRef.current?.present();
+					},
+				},
+				{
+					key: 'delete',
+					label: 'Delete',
+					icon: Trash2,
+					destructive: true,
+					onPress: () => {
+						actionsRef.current?.dismiss();
+						handleDelete();
+					},
+				},
+			]
+		: [];
+
 	return (
 		<View className="flex-1 bg-background">
 			<View
@@ -170,6 +249,17 @@ export default function ServiceProviderDetailsScreen() {
 						</Text>
 					) : null}
 				</View>
+				{provider ? (
+					<Pressable
+						accessibilityLabel="Service provider actions"
+						accessibilityRole="button"
+						className="h-10 w-10 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+						hitSlop={4}
+						onPress={() => actionsRef.current?.present()}
+					>
+						<MoreVertical color={colors.foreground} size={20} strokeWidth={2} />
+					</Pressable>
+				) : null}
 			</View>
 
 			{provider === undefined ? <ListSkeleton /> : null}
@@ -246,6 +336,17 @@ export default function ServiceProviderDetailsScreen() {
 					) : null}
 				</ScrollView>
 			) : null}
+
+			<ActionSheet
+				items={actionItems}
+				ref={actionsRef}
+				title={provider?.company}
+			/>
+			<CreateServiceProviderSheet ref={editRef} />
+			<AddServiceProviderToProjectSheet
+				ref={addToProjectRef}
+				serviceProviderId={serviceProviderId}
+			/>
 		</View>
 	);
 }

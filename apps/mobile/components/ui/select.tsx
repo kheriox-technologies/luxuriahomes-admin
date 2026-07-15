@@ -49,7 +49,7 @@ export function Select<T extends string>({
 			>
 				<Text
 					className={cn(
-						'font-sans text-sm',
+						'font-sans text-xs',
 						selectedOption ? 'text-foreground' : 'text-muted-foreground'
 					)}
 					numberOfLines={1}

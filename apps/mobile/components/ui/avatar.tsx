@@ -5,10 +5,12 @@ import { getInitials } from '@/lib/format';
 export function Avatar({
 	name,
 	size = 'md',
+	variant = 'solid',
 	className,
 }: {
 	name: string;
 	size?: 'sm' | 'md' | 'lg';
+	variant?: 'solid' | 'outline';
 	className?: string;
 }) {
 	const sizeStyles = {
@@ -21,17 +23,23 @@ export function Avatar({
 		md: 'text-sm',
 		lg: 'text-lg',
 	}[size];
+	const isOutline = variant === 'outline';
 
 	return (
 		<View
 			className={cn(
-				'items-center justify-center rounded-full bg-primary',
+				'items-center justify-center rounded-full',
+				isOutline ? 'border border-primary bg-transparent' : 'bg-primary',
 				sizeStyles,
 				className
 			)}
 		>
 			<Text
-				className={cn('font-sans-semibold text-primary-foreground', textSize)}
+				className={cn(
+					'font-sans-semibold',
+					isOutline ? 'text-primary' : 'text-primary-foreground',
+					textSize
+				)}
 			>
 				{getInitials(name)}
 			</Text>
