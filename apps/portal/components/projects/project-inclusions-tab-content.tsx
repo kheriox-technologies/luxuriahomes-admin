@@ -2315,49 +2315,51 @@ export default function ProjectInclusionsTabContent({
 				placeholder="Search product variants (vendor, models, code…)"
 				value={search}
 			/>
-			<ToggleGroup
-				aria-label="Group inclusions by"
-				className="shrink-0"
-				onValueChange={(val) => {
-					if (val.length > 0) {
-						setGroupBy(val[0] as GroupBy);
-					}
-				}}
-				value={[groupBy]}
-				variant="outline"
-			>
-				<ToggleGroupItem value="category">Category</ToggleGroupItem>
-				<ToggleGroupItem value="location">Location</ToggleGroupItem>
-				<ToggleGroupItem value="vendor">Vendor</ToggleGroupItem>
-			</ToggleGroup>
-			<Button
-				aria-label="Download project inclusions"
-				className="shrink-0"
-				onClick={() => {
-					onDownloadPdf().catch(() => {
-						/* Error handled in onDownloadPdf */
-					});
-				}}
-				type="button"
-				variant="outline"
-			>
-				<Download aria-hidden />
-				Download
-			</Button>
-			<Button
-				aria-label="Email project inclusions"
-				className="shrink-0"
-				onClick={() => {
-					onEmailPdf().catch(() => {
-						/* Error handled in onEmailPdf */
-					});
-				}}
-				type="button"
-				variant="outline"
-			>
-				<Mail aria-hidden />
-				Email
-			</Button>
+			<div className="ml-auto flex shrink-0 flex-row items-center gap-2">
+				<ToggleGroup
+					aria-label="Group inclusions by"
+					className="shrink-0"
+					onValueChange={(val) => {
+						if (val.length > 0) {
+							setGroupBy(val[0] as GroupBy);
+						}
+					}}
+					value={[groupBy]}
+					variant="outline"
+				>
+					<ToggleGroupItem value="category">Category</ToggleGroupItem>
+					<ToggleGroupItem value="location">Location</ToggleGroupItem>
+					<ToggleGroupItem value="vendor">Vendor</ToggleGroupItem>
+				</ToggleGroup>
+				<Button
+					aria-label="Download project inclusions"
+					className="shrink-0"
+					onClick={() => {
+						onDownloadPdf().catch(() => {
+							/* Error handled in onDownloadPdf */
+						});
+					}}
+					type="button"
+					variant="outline"
+				>
+					<Download aria-hidden />
+					Download
+				</Button>
+				<Button
+					aria-label="Email project inclusions"
+					className="shrink-0"
+					onClick={() => {
+						onEmailPdf().catch(() => {
+							/* Error handled in onEmailPdf */
+						});
+					}}
+					type="button"
+					variant="outline"
+				>
+					<Mail aria-hidden />
+					Email
+				</Button>
+			</div>
 		</div>
 	);
 
