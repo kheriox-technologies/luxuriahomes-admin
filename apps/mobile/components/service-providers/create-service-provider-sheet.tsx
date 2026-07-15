@@ -5,7 +5,7 @@ import {
 	BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
-import type { Id } from '@workspace/backend/dataModel';
+import type { Doc, Id } from '@workspace/backend/dataModel';
 import { useMutation } from 'convex/react';
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import {
@@ -45,16 +45,20 @@ export interface CreateServiceProviderResult {
 }
 
 export interface CreateServiceProviderSheetHandle {
-	present: (opts?: { initialTradeIds?: Id<'trades'>[] }) => void;
+	present: (opts?: {
+		initialTradeIds?: Id<'trades'>[];
+		provider?: Doc<'serviceProviders'>;
+	}) => void;
 }
 
 /**
- * The single source of truth for creating a NEW service provider on mobile.
- * A stacked bottom sheet with the provider form (company, contact, optional
- * details, trades). Distinct from `AddServiceProviderSheet`, which only links
- * existing providers to a project. Mirrors the portal `AddServiceProvider`
- * form: exposes `present({ initialTradeIds })` and reports the created provider
- * via `onCreated`.
+ * The single source of truth for creating OR editing a service provider on
+ * mobile. A stacked bottom sheet with the provider form (company, contact,
+ * optional details, trades). Distinct from `AddServiceProviderSheet`, which
+ * only links existing providers to a project. Mirrors the portal
+ * `AddServiceProvider` / `EditServiceProvider` forms: exposes
+ * `present({ initialTradeIds, provider })` — pass `provider` to edit — and
+ * reports the created provider via `onCreated` (create mode only).
  */
 export function CreateServiceProviderSheet({
 	onCreated,
@@ -68,7 +72,11 @@ export function CreateServiceProviderSheet({
 	const sheetRef = useRef<BottomSheetModal>(null);
 
 	const addServiceProvider = useMutation(api.serviceProviders.add.add);
+	const updateServiceProvider = useMutation(api.serviceProviders.update.update);
 
+	const [editingId, setEditingId] = useState<Id<'serviceProviders'> | null>(
+		null
+	);
 	const [company, setCompany] = useState('');
 	const [name, setName] = useState('');
 	const [email, setEmail] = useState('');
@@ -86,6 +94,7 @@ export function CreateServiceProviderSheet({
 	const [showErrors, setShowErrors] = useState(false);
 
 	const reset = () => {
+		setEditingId(null);
 		setCompany('');
 		setName('');
 		setEmail('');
@@ -105,7 +114,31 @@ export function CreateServiceProviderSheet({
 	useImperativeHandle(ref, () => ({
 		present: (opts) => {
 			reset();
-			setTradeIds(opts?.initialTradeIds ?? []);
+			const provider = opts?.provider;
+			if (provider) {
+				setEditingId(provider._id);
+				setCompany(provider.company);
+				setName(provider.name);
+				setEmail(provider.email ?? '');
+				setPhone(provider.phone ?? '');
+				setLandline(provider.landline ?? '');
+				setPosition(provider.position ?? '');
+				setQbccLicense(provider.qbccLicense ?? '');
+				setWebsite(provider.website ?? '');
+				setAddress(provider.address ?? '');
+				setTradeIds(provider.tradeIds);
+				setContacts(
+					provider.contacts.map((contact) => ({
+						name: contact.name,
+						email: contact.email ?? '',
+						phone: contact.phone ?? '',
+						landline: contact.landline ?? '',
+						position: contact.position ?? '',
+					}))
+				);
+			} else {
+				setTradeIds(opts?.initialTradeIds ?? []);
+			}
 			sheetRef.current?.present();
 		},
 	}));
@@ -171,34 +204,49 @@ export function CreateServiceProviderSheet({
 			return;
 		}
 		setSaving(true);
+		const fields = {
+			company: company.trim(),
+			name: name.trim(),
+			email: email.trim() || undefined,
+			phone: phone.trim() || undefined,
+			landline: landline.trim() || undefined,
+			position: position.trim() || undefined,
+			qbccLicense: qbccLicense.trim() || undefined,
+			website: website.trim() || undefined,
+			address: address.trim() || undefined,
+			tradeIds,
+			contacts: contacts.map((contact) => ({
+				name: contact.name,
+				email: contact.email || undefined,
+				phone: contact.phone || undefined,
+				landline: contact.landline || undefined,
+				position: contact.position || undefined,
+			})),
+		};
 		try {
-			const id = await addServiceProvider({
-				company: company.trim(),
-				name: name.trim(),
-				email: email.trim() || undefined,
-				phone: phone.trim() || undefined,
-				landline: landline.trim() || undefined,
-				position: position.trim() || undefined,
-				qbccLicense: qbccLicense.trim() || undefined,
-				website: website.trim() || undefined,
-				address: address.trim() || undefined,
-				tradeIds,
-				contacts: contacts.map((contact) => ({
-					name: contact.name,
-					email: contact.email || undefined,
-					phone: contact.phone || undefined,
-					landline: contact.landline || undefined,
-					position: contact.position || undefined,
-				})),
-			});
-			onCreated?.({ id, tradeIds });
+			if (editingId) {
+				await updateServiceProvider({
+					serviceProviderId: editingId,
+					...fields,
+				});
+			} else {
+				const id = await addServiceProvider(fields);
+				onCreated?.({ id, tradeIds });
+			}
 			sheetRef.current?.dismiss();
 		} catch {
-			Alert.alert('Could not create service provider', 'Please try again.');
+			Alert.alert(
+				editingId
+					? 'Could not update service provider'
+					: 'Could not create service provider',
+				'Please try again.'
+			);
 		} finally {
 			setSaving(false);
 		}
 	};
+
+	const isEditing = editingId !== null;
 
 	return (
 		<BottomSheetModal
@@ -218,7 +266,7 @@ export function CreateServiceProviderSheet({
 				keyboardShouldPersistTaps="handled"
 			>
 				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					New service provider
+					{isEditing ? 'Edit service provider' : 'New service provider'}
 				</Text>
 
 				<TextField
@@ -415,7 +463,7 @@ export function CreateServiceProviderSheet({
 					loading={saving}
 					onPress={handleSave}
 				>
-					Create service provider
+					{isEditing ? 'Save changes' : 'Create service provider'}
 				</Button>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
