@@ -105,7 +105,6 @@ export function InputSheet({ ref }: { ref?: Ref<InputSheetHandle> }) {
 					<Button
 						className="flex-1"
 						onPress={() => sheetRef.current?.dismiss()}
-						variant="secondary"
 					>
 						Cancel
 					</Button>
@@ -114,7 +113,6 @@ export function InputSheet({ ref }: { ref?: Ref<InputSheetHandle> }) {
 						disabled={value.trim() === ''}
 						loading={saving}
 						onPress={handleConfirm}
-						variant="primary"
 					>
 						{config?.confirmLabel ?? 'Save'}
 					</Button>

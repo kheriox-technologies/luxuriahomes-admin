@@ -32,8 +32,8 @@ export function Select<T extends string>({
 }) {
 	const colors = useThemeColors();
 	const sheetRef = useRef<BottomSheetModal>(null);
-	const selectedLabel =
-		options.find((option) => option.value === value)?.label ?? placeholder;
+	const selectedOption = options.find((option) => option.value === value);
+	const selectedLabel = selectedOption?.label ?? placeholder;
 
 	return (
 		<>
@@ -48,7 +48,10 @@ export function Select<T extends string>({
 				onPress={() => sheetRef.current?.present()}
 			>
 				<Text
-					className="font-sans-medium text-foreground text-sm"
+					className={cn(
+						'font-sans text-sm',
+						selectedOption ? 'text-foreground' : 'text-muted-foreground'
+					)}
 					numberOfLines={1}
 				>
 					{selectedLabel}

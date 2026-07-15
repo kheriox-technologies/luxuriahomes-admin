@@ -565,7 +565,10 @@ export default defineSchema({
 		orderId: v.string(),
 		projectId: v.id('projects'),
 		vendor: v.string(),
-		tradeId: v.id('trades'),
+		// Deprecated: orders are no longer linked to a trade (budgets/actuals are
+		// Xero-driven). Kept optional until clearOrderTradeId has run everywhere,
+		// then removed from the schema entirely.
+		tradeId: v.optional(v.id('trades')),
 		orderBy: v.optional(v.number()),
 		deliverBy: v.optional(v.number()),
 		orderTaskId: v.optional(v.id('projectOrderTasks')),

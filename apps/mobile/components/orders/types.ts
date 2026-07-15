@@ -1,23 +1,12 @@
-import type { Doc, Id } from '@workspace/backend/dataModel';
+import type { Doc } from '@workspace/backend/dataModel';
 
 // The enriched row returned by api.projectOrders.list.list — a projectOrders
 // doc plus the extra fields the query resolves per row.
 export type ProjectOrder = Doc<'projectOrders'> & {
 	noteCount: number;
-	tradeName: string;
 	linkedOrderTaskName: string | null;
 	linkedParentTaskName: string | null;
 };
-
-export interface OrderGroup {
-	budgetPrice: number | null;
-	key: string;
-	orders: ProjectOrder[];
-	tradeId: Id<'trades'>;
-	tradeName: string;
-	// Xero-driven "Actual" for the trade; null when nothing has synced.
-	xeroActual: number | null;
-}
 
 export const ORDER_STATUSES = [
 	'Pending',

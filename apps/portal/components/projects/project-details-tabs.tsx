@@ -47,8 +47,6 @@ export default function ProjectDetailsTabs({
 	const scheduleSearch = searchParams.get('search') ?? undefined;
 	const orderIdFilter = searchParams.get('orderId') ?? '';
 	const orderTaskIdFilter = searchParams.get('orderTaskId') ?? undefined;
-	const orderTradeIdFilter =
-		(searchParams.get('orderTradeId') as Id<'trades'> | null) ?? undefined;
 	const quotationTradeIdFilter =
 		(searchParams.get('quotationTradeId') as Id<'trades'> | null) ?? undefined;
 	const quotationStatusFilter =
@@ -183,7 +181,6 @@ export default function ProjectDetailsTabs({
 			</TabsPanel>
 			<TabsPanel className="overflow-auto p-4" value="orders">
 				<ProjectOrdersTabContent
-					initialTradeId={orderTradeIdFilter}
 					orderIdFilter={orderIdFilter}
 					orderTaskIdFilter={orderTaskIdFilter}
 					projectId={project._id}

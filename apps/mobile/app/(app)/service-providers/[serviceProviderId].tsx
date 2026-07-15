@@ -240,7 +240,7 @@ export default function ServiceProviderDetailsScreen() {
 					) : null}
 
 					{projectId ? (
-						<Button onPress={handleRemove} variant="destructive">
+						<Button onPress={handleRemove} variant="destructive-outline">
 							Remove from project
 						</Button>
 					) : null}

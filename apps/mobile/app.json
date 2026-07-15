@@ -9,7 +9,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "au.com.luxuriahomes",
-      "buildNumber": "10",
+      "buildNumber": "12",
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "au.com.luxuriahomes",
-      "versionCode": 2,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5EBE0"
@@ -43,7 +43,8 @@
           "photosPermission": "Allow Luxuria Homes to access your photos to attach images to inclusion notes."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

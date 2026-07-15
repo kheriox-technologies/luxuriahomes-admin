@@ -35,7 +35,6 @@ export type OrderItemFormValues = z.infer<typeof orderItemSchema>;
 
 export const orderFormSchema = z.object({
 	vendor: z.string().trim().min(1, 'Vendor is required'),
-	tradeId: z.string().min(1, 'Trade is required'),
 	orderBy: z.date().optional(),
 	items: z.array(orderItemSchema).min(1, 'At least one item is required'),
 	status: z.enum(['Pending', 'Ordered', 'In Transit', 'Delivered']),
@@ -55,7 +54,6 @@ export const emptyOrderItem = {
 
 export const emptyOrderFormValues: OrderFormValues = {
 	vendor: '',
-	tradeId: '',
 	orderBy: undefined,
 	items: [{ ...emptyOrderItem }],
 	status: 'Pending',

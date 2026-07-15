@@ -24,7 +24,6 @@ export const add = mutation({
 	args: {
 		projectId: v.id('projects'),
 		vendor: v.string(),
-		tradeId: v.id('trades'),
 		orderBy: v.optional(v.number()),
 		items: v.array(
 			v.object({
@@ -60,7 +59,6 @@ export const add = mutation({
 			orderId: orderCode,
 			projectId: args.projectId,
 			vendor,
-			tradeId: args.tradeId,
 			orderBy: args.orderBy,
 			items,
 			status,

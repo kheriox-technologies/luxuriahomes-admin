@@ -33,12 +33,9 @@ export const list = query({
 					}
 				}
 
-				const trade = await ctx.db.get(row.tradeId);
-
 				return {
 					...row,
 					noteCount: notes.length,
-					tradeName: trade?.name ?? 'Unknown trade',
 					linkedOrderTaskName,
 					linkedParentTaskName,
 				};

@@ -49,7 +49,6 @@ export default function OrderDetailsScreen() {
 		update({
 			orderId: order._id,
 			vendor: order.vendor,
-			tradeId: order.tradeId,
 			orderBy: order.orderBy,
 			items: order.items,
 			status,

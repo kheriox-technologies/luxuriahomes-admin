@@ -286,7 +286,6 @@ export function ClientInclusionNotesSheet({
 									/>
 								}
 								onPress={pickImage}
-								variant="secondary"
 							>
 								Attach photo
 							</Button>
@@ -295,7 +294,6 @@ export function ClientInclusionNotesSheet({
 								disabled={draft.trim() === ''}
 								loading={saving}
 								onPress={handleSave}
-								variant="primary"
 							>
 								Add note
 							</Button>
