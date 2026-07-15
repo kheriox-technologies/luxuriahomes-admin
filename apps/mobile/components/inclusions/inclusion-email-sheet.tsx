@@ -170,12 +170,7 @@ export function InclusionEmailSheet({
 					/>
 				</View>
 
-				<Button
-					className="mt-1"
-					loading={sending}
-					onPress={handleSend}
-					variant="primary"
-				>
+				<Button className="mt-1" loading={sending} onPress={handleSend}>
 					{sending ? 'Sending…' : 'Send email'}
 				</Button>
 			</BottomSheetView>

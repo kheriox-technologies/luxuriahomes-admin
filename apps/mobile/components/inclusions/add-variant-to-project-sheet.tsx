@@ -300,7 +300,6 @@ export function AddVariantToProjectSheet({
 					disabled={!canSubmit}
 					loading={submitting}
 					onPress={handleSubmit}
-					variant="primary"
 				>
 					Add to project
 				</Button>

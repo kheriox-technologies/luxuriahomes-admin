@@ -21,7 +21,6 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import {
 	Menu,
 	MenuItem,
@@ -41,8 +40,6 @@ import {
 import { toastManager } from '@workspace/ui/components/toast';
 import { useQuery } from 'convex/react';
 import {
-	ChevronsDownIcon,
-	ChevronsUpIcon,
 	ClipboardList,
 	EllipsisVertical,
 	ExternalLink,
@@ -54,14 +51,8 @@ import {
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import ComposeEmailDialog from '@/components/email/compose-email-dialog';
-import {
-	StageGroupedTradeAccordion,
-	type StageGroupedTradeAccordionHandle,
-	type TradeAccordionItem,
-} from '@/components/trades/stage-grouped-trade-accordion';
-import TradeSelect from '@/components/trades/trade-select';
 import { formatAud } from '@/lib/currency';
 import type { ComposeAttachment } from '@/lib/email';
 import {
@@ -78,7 +69,6 @@ import OrderStatusHistoryDialog from './order-status-history-dialog';
 
 type ProjectOrder = Doc<'projectOrders'> & {
 	noteCount: number;
-	tradeName: string;
 	linkedOrderTaskName: string | null;
 	linkedParentTaskName: string | null;
 };
@@ -88,18 +78,6 @@ interface PdfProjectAddress {
 	state: string;
 	street: string;
 	suburb: string;
-}
-
-interface OrderGroup {
-	budgetPrice: number | null;
-	key: string;
-	orders: ProjectOrder[];
-	stageId: Id<'tradeStages'> | null;
-	tradeId: Id<'trades'>;
-	tradeName: string;
-	tradeOrder: number | null;
-	// Xero-driven "Actual" for the trade; null when nothing has synced.
-	xeroActual: number | null;
 }
 
 function orderStatusBadgeVariant(
@@ -422,59 +400,26 @@ export default function ProjectOrdersTabContent({
 	projectId,
 	orderIdFilter = '',
 	orderTaskIdFilter,
-	initialTradeId,
 }: {
 	projectId: Id<'projects'>;
 	orderIdFilter?: string;
 	orderTaskIdFilter?: string;
-	initialTradeId?: Id<'trades'>;
 }) {
 	const project = useQuery(api.projects.get.get, { projectId });
 	const orders = useQuery(api.projectOrders.list.list, { projectId });
-	const stages = useQuery(api.tradeStages.list.list, {});
-	const tradeSummary = useQuery(api.projectBudgets.tradeSummary.tradeSummary, {
-		projectId,
-	});
 	const [search, setSearch] = useState(orderIdFilter);
-	const [filterTradeIds, setFilterTradeIds] = useState<Id<'trades'>[]>(
-		initialTradeId ? [initialTradeId] : []
-	);
 	const [filterStatuses, setFilterStatuses] = useState<OrderStatus[]>([]);
-	const listRef = useRef<StageGroupedTradeAccordionHandle>(null);
 
 	const trimmedSearch = search.trim();
 
-	const budgetByTradeId = useMemo(() => {
-		const map = new Map<
-			Id<'trades'>,
-			{
-				budgetPrice: number | null;
-				stageId: Id<'tradeStages'> | null;
-				tradeOrder: number | null;
-				xeroActual: number | null;
-			}
-		>();
-		for (const row of tradeSummary ?? []) {
-			map.set(row.tradeId, {
-				budgetPrice: row.budgetPrice,
-				stageId: row.stageId,
-				tradeOrder: row.tradeOrder,
-				xeroActual: row.xeroActual,
-			});
-		}
-		return map;
-	}, [tradeSummary]);
-
-	const groups = useMemo<OrderGroup[]>(() => {
+	// Flat, newest-first list (the query already returns descending by creation).
+	const filteredOrders = useMemo<ProjectOrder[]>(() => {
 		if (!orders) {
 			return [];
 		}
 		const lowerSearch = trimmedSearch.toLowerCase();
-		const filtered = orders.filter((o) => {
+		return orders.filter((o) => {
 			if (orderTaskIdFilter && o.orderTaskId !== orderTaskIdFilter) {
-				return false;
-			}
-			if (filterTradeIds.length > 0 && !filterTradeIds.includes(o.tradeId)) {
 				return false;
 			}
 			if (
@@ -488,43 +433,7 @@ export default function ProjectOrdersTabContent({
 			}
 			return true;
 		});
-
-		const map = new Map<string, OrderGroup>();
-		for (const o of filtered) {
-			const key = o.tradeId as string;
-			let group = map.get(key);
-			if (!group) {
-				const budget = budgetByTradeId.get(o.tradeId);
-				group = {
-					budgetPrice: budget?.budgetPrice ?? null,
-					key,
-					orders: [],
-					stageId: budget?.stageId ?? null,
-					tradeId: o.tradeId,
-					tradeName: o.tradeName,
-					tradeOrder: budget?.tradeOrder ?? null,
-					xeroActual: budget?.xeroActual ?? null,
-				};
-				map.set(key, group);
-			}
-			group.orders.push(o);
-		}
-
-		const arr = [...map.values()];
-		arr.sort((a, b) =>
-			a.tradeName.localeCompare(b.tradeName, undefined, {
-				sensitivity: 'base',
-			})
-		);
-		return arr;
-	}, [
-		orders,
-		trimmedSearch,
-		orderTaskIdFilter,
-		filterTradeIds,
-		filterStatuses,
-		budgetByTradeId,
-	]);
+	}, [orders, trimmedSearch, orderTaskIdFilter, filterStatuses]);
 
 	let content: React.ReactNode;
 
@@ -546,7 +455,7 @@ export default function ProjectOrdersTabContent({
 				</EmptyHeader>
 			</Empty>
 		);
-	} else if (groups.length === 0) {
+	} else if (filteredOrders.length === 0) {
 		content = (
 			<Empty>
 				<EmptyHeader>
@@ -555,50 +464,31 @@ export default function ProjectOrdersTabContent({
 					</EmptyMedia>
 					<EmptyTitle>No matching orders</EmptyTitle>
 					<EmptyDescription>
-						Try a different trade or search term.
+						Try a different search term or status.
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
 		);
 	} else {
-		const items: TradeAccordionItem[] = groups.map((group) => ({
-			budgetPrice: group.budgetPrice,
-			count: group.orders.length,
-			stageId: group.stageId,
-			tradeId: group.tradeId,
-			tradeName: group.tradeName,
-			tradeOrder: group.tradeOrder,
-			xeroActual: group.xeroActual,
-			content: (
-				<OrdersTable orders={group.orders} projectAddress={project?.address} />
-			),
-		}));
 		content = (
-			<StageGroupedTradeAccordion items={items} ref={listRef} stages={stages} />
+			<OrdersTable orders={filteredOrders} projectAddress={project?.address} />
 		);
 	}
 
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="flex flex-col gap-2 lg:flex-row lg:items-start">
-				<SearchInput
-					aria-label="Search orders by ID"
-					onValueChange={setSearch}
-					placeholder="Search by order ID (LHA-XXXXXX)…"
-					value={search}
-				/>
+				<div className="lg:flex-1">
+					<SearchInput
+						aria-label="Search orders by ID"
+						onValueChange={setSearch}
+						placeholder="Search by order ID (LHA-XXXXXX)…"
+						value={search}
+					/>
+				</div>
 
-				<div className="flex flex-1 flex-col gap-2 sm:flex-row">
-					<div className="min-w-0 flex-1">
-						<TradeSelect
-							multiple
-							onValueChange={setFilterTradeIds}
-							placeholder="All trades"
-							value={filterTradeIds}
-						/>
-					</div>
-
-					<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+					<div className="w-full sm:w-52">
 						<Combobox<OrderStatus, true>
 							items={[...ORDER_STATUSES]}
 							itemToStringLabel={(item) => item ?? ''}
@@ -625,32 +515,7 @@ export default function ProjectOrdersTabContent({
 							</ComboboxPopup>
 						</Combobox>
 					</div>
-				</div>
 
-				<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-					{groups.length > 0 ? (
-						<Group>
-							<Button
-								aria-label="Expand all"
-								onClick={() => listRef.current?.expandAll()}
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<ChevronsDownIcon />
-							</Button>
-							<GroupSeparator />
-							<Button
-								aria-label="Collapse all"
-								onClick={() => listRef.current?.collapseAll()}
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<ChevronsUpIcon />
-							</Button>
-						</Group>
-					) : null}
 					<AddOrder projectId={projectId} />
 				</div>
 			</div>

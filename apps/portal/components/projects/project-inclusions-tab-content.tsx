@@ -124,7 +124,6 @@ import {
 	type NoteImageUploaderHandle,
 } from '@/components/notes/note-image-uploader';
 import { NoteImagesRow } from '@/components/notes/note-images-row';
-import SelectTradeDialog from '@/components/orders/select-trade-dialog';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import type { ComposeAttachment } from '@/lib/email';
 import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
@@ -1392,10 +1391,7 @@ function ProjectInclusionsTableInFrame({
 	projectId: Id<'projects'>;
 	pendingOrderItems: PendingOrderItem[];
 	onAddToOrder: (inclusion: ProjectInclusion) => void;
-	onCreateVendorGroupOrder: (
-		inclusions: ProjectInclusion[],
-		tradeId: Id<'trades'>
-	) => Promise<void>;
+	onCreateVendorGroupOrder: (inclusions: ProjectInclusion[]) => Promise<void>;
 	onDownloadSectionPdf: () => Promise<void>;
 	onEmailSectionPdf: () => Promise<void>;
 }) {
@@ -1405,7 +1401,6 @@ function ProjectInclusionsTableInFrame({
 	const [bulkLoading, setBulkLoading] = useState(false);
 	const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 	const [vendorOrderLoading, setVendorOrderLoading] = useState(false);
-	const [vendorOrderConfirmOpen, setVendorOrderConfirmOpen] = useState(false);
 	const [signedImageUrls, setSignedImageUrls] = useState<
 		Record<string, string>
 	>({});
@@ -1480,14 +1475,10 @@ function ProjectInclusionsTableInFrame({
 	const showCreateOrderButton =
 		isVendorGroup && allApproved && unorderedInclusions.length > 0;
 
-	const handleVendorGroupOrder = async (
-		inclusions: ProjectInclusion[],
-		tradeId: Id<'trades'>
-	) => {
+	const handleVendorGroupOrder = async (inclusions: ProjectInclusion[]) => {
 		setVendorOrderLoading(true);
 		try {
-			await onCreateVendorGroupOrder(inclusions, tradeId);
-			setVendorOrderConfirmOpen(false);
+			await onCreateVendorGroupOrder(inclusions);
 		} catch {
 			/* Error handled in onCreateVendorGroupOrder */
 		} finally {
@@ -1512,45 +1503,23 @@ function ProjectInclusionsTableInFrame({
 						{formatSignedAud(section.totalVariationPrice)}
 					</Badge>
 					{showCreateOrderButton ? (
-						<>
-							<Button
-								loading={vendorOrderLoading}
-								onClick={() => setVendorOrderConfirmOpen(true)}
-								type="button"
-								variant="outline"
-							>
-								<ShoppingCart />
-								Create Order
-							</Button>
-							<SelectTradeDialog
-								description={
+						<Button
+							loading={vendorOrderLoading}
+							onClick={() => {
+								handleVendorGroupOrder(
 									alreadyOrderedInclusions.length > 0
-										? 'The following items are already part of an order and will be skipped:'
-										: undefined
-								}
-								loading={vendorOrderLoading}
-								onConfirm={(tradeId) => {
-									handleVendorGroupOrder(
-										alreadyOrderedInclusions.length > 0
-											? unorderedInclusions
-											: section.inclusions,
-										tradeId
-									).catch(() => {
-										/* handled */
-									});
-								}}
-								onOpenChange={setVendorOrderConfirmOpen}
-								open={vendorOrderConfirmOpen}
-							>
-								{alreadyOrderedInclusions.length > 0 ? (
-									<ul className="px-6 pb-2 text-sm">
-										{alreadyOrderedInclusions.map((inc) => (
-											<li key={inc._id}>{inc.title}</li>
-										))}
-									</ul>
-								) : null}
-							</SelectTradeDialog>
-						</>
+										? unorderedInclusions
+										: section.inclusions
+								).catch(() => {
+									/* handled in handleVendorGroupOrder */
+								});
+							}}
+							type="button"
+							variant="outline"
+						>
+							<ShoppingCart />
+							Create Order
+						</Button>
 					) : null}
 					<Button
 						aria-label={`Download ${section.groupName} inclusions PDF`}
@@ -1749,22 +1718,15 @@ function NewOrderBuilderCard({
 }: {
 	items: PendingOrderItem[];
 	onRemove: (inclusionId: Id<'projectInclusions'>) => void;
-	onCreateOrder: (tradeId: Id<'trades'>) => void;
+	onCreateOrder: () => void;
 	onCancel: () => void;
 	isCreating: boolean;
 }) {
-	const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
 	if (items.length === 0) {
 		return null;
 	}
 	return (
 		<Frame className="w-full">
-			<SelectTradeDialog
-				loading={isCreating}
-				onConfirm={(tradeId) => onCreateOrder(tradeId)}
-				onOpenChange={setTradeDialogOpen}
-				open={tradeDialogOpen}
-			/>
 			<FrameHeader className="flex flex-row items-center justify-between gap-3">
 				<div className="min-w-0">
 					<FrameTitle>{items[0].vendor}</FrameTitle>
@@ -1785,7 +1747,7 @@ function NewOrderBuilderCard({
 					</Button>
 					<Button
 						loading={isCreating}
-						onClick={() => setTradeDialogOpen(true)}
+						onClick={onCreateOrder}
 						type="button"
 						variant="outline"
 					>
@@ -2042,58 +2004,53 @@ export default function ProjectInclusionsTabContent({
 		[]
 	);
 
-	const handleCreateOrder = useCallback(
-		async (tradeId: Id<'trades'>) => {
-			if (pendingOrderItems.length === 0) {
-				return;
-			}
-			setIsCreatingOrder(true);
-			try {
-				const vendor = pendingOrderItems[0].vendor;
-				const items = pendingOrderItems.map((item) => {
-					const inc = inclusionById.get(item.inclusionId);
-					const descParts = [inc?.details, inc?.color].filter(Boolean);
-					return {
-						name: item.title,
-						description:
-							descParts.length > 0 ? descParts.join(', ') : undefined,
-						quantity: item.totalQty > 0 ? item.totalQty : 1,
-						unit: item.unit || 'unit',
-						price: inc?.costPrice,
-						sku:
-							inc?.models && inc.models.length > 0
-								? inc.models.join(', ')
-								: undefined,
-					};
-				});
-				await addOrder({
-					projectId,
-					vendor,
-					tradeId,
-					items,
-					status: 'Pending',
-					inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
-				});
-				toastManager.add({ title: 'Order created', type: 'success' });
-				setPendingOrderItems([]);
-			} catch (error) {
-				toastManager.add({
-					description: getConvexErrorMessage(
-						error,
-						'Could not create order. Please try again in a moment.'
-					),
-					title: 'Could not create order',
-					type: 'error',
-				});
-			} finally {
-				setIsCreatingOrder(false);
-			}
-		},
-		[pendingOrderItems, inclusionById, addOrder, projectId]
-	);
+	const handleCreateOrder = useCallback(async () => {
+		if (pendingOrderItems.length === 0) {
+			return;
+		}
+		setIsCreatingOrder(true);
+		try {
+			const vendor = pendingOrderItems[0].vendor;
+			const items = pendingOrderItems.map((item) => {
+				const inc = inclusionById.get(item.inclusionId);
+				const descParts = [inc?.details, inc?.color].filter(Boolean);
+				return {
+					name: item.title,
+					description: descParts.length > 0 ? descParts.join(', ') : undefined,
+					quantity: item.totalQty > 0 ? item.totalQty : 1,
+					unit: item.unit || 'unit',
+					price: inc?.costPrice,
+					sku:
+						inc?.models && inc.models.length > 0
+							? inc.models.join(', ')
+							: undefined,
+				};
+			});
+			await addOrder({
+				projectId,
+				vendor,
+				items,
+				status: 'Pending',
+				inclusionIds: pendingOrderItems.map((i) => i.inclusionId),
+			});
+			toastManager.add({ title: 'Order created', type: 'success' });
+			setPendingOrderItems([]);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not create order. Please try again in a moment.'
+				),
+				title: 'Could not create order',
+				type: 'error',
+			});
+		} finally {
+			setIsCreatingOrder(false);
+		}
+	}, [pendingOrderItems, inclusionById, addOrder, projectId]);
 
 	const handleCreateVendorGroupOrder = useCallback(
-		async (groupInclusions: ProjectInclusion[], tradeId: Id<'trades'>) => {
+		async (groupInclusions: ProjectInclusion[]) => {
 			if (groupInclusions.length === 0) {
 				return;
 			}
@@ -2115,7 +2072,6 @@ export default function ProjectInclusionsTabContent({
 			await addOrder({
 				projectId,
 				vendor,
-				tradeId,
 				items,
 				status: 'Pending',
 				inclusionIds: groupInclusions.map((inc) => inc._id),
@@ -2428,8 +2384,8 @@ export default function ProjectInclusionsTabContent({
 				isCreating={isCreatingOrder}
 				items={pendingOrderItems}
 				onCancel={() => setPendingOrderItems([])}
-				onCreateOrder={(tradeId) => {
-					handleCreateOrder(tradeId).catch(() => {
+				onCreateOrder={() => {
+					handleCreateOrder().catch(() => {
 						/* handled in handleCreateOrder */
 					});
 				}}

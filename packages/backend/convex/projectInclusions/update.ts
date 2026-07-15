@@ -34,7 +34,7 @@ interface UpdateArgs {
 		| undefined;
 	models?: string[] | undefined;
 	orderRefId?: string | null | undefined;
-	orderStatus?: Doc<'projectInclusions'>['orderStatus'] | undefined;
+	orderStatus?: Doc<'projectInclusions'>['orderStatus'] | null | undefined;
 	projectInclusionId: Doc<'projectInclusions'>['_id'];
 	salePrice?: number | undefined;
 	status?: Doc<'projectInclusions'>['status'] | undefined;
@@ -103,7 +103,8 @@ function applyOrderFields(args: UpdateArgs, patch: Record<string, unknown>) {
 		patch.orderRefId = args.orderRefId === null ? undefined : args.orderRefId;
 	}
 	if (args.orderStatus !== undefined) {
-		patch.orderStatus = args.orderStatus;
+		patch.orderStatus =
+			args.orderStatus === null ? undefined : args.orderStatus;
 	}
 }
 
@@ -208,7 +209,9 @@ export const update = mutation({
 		),
 		status: v.optional(projectInclusionStatusValidator),
 		orderRefId: v.optional(v.union(v.string(), v.null())),
-		orderStatus: v.optional(projectInclusionOrderStatusValidator),
+		orderStatus: v.optional(
+			v.union(projectInclusionOrderStatusValidator, v.null())
+		),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);

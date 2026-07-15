@@ -13,11 +13,22 @@ import { cn } from '@/lib/cn';
 
 export interface ActionSheetItem {
 	destructive?: boolean;
+	disabled?: boolean;
 	icon?: LucideIcon;
 	key: string;
 	label: string;
 	onPress: () => void;
 	selected?: boolean;
+}
+
+function itemColor(
+	item: ActionSheetItem,
+	colors: ReturnType<typeof useThemeColors>
+): string {
+	if (item.disabled) {
+		return colors.mutedForeground;
+	}
+	return item.destructive ? colors.destructive : colors.foreground;
 }
 
 interface ActionSheetProps {
@@ -57,6 +68,10 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 				maxDynamicContentSize={maxDynamicContentSize}
 				onDismiss={onDismiss}
 				ref={ref}
+				// Stack on top of any parent sheet (e.g. a Select opened inside the
+				// edit-quantities / order-builder sheets). The gorhom default of
+				// 'switch' dismisses the parent, closing the whole form.
+				stackBehavior="push"
 				topInset={insets.top}
 			>
 				<BottomSheetScrollView
@@ -76,20 +91,19 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 							return (
 								<Pressable
 									accessibilityRole="button"
+									accessibilityState={{ disabled: item.disabled }}
 									className={cn(
-										'min-h-[48px] flex-row items-center gap-3 rounded-lg px-3 active:bg-muted',
+										'min-h-[48px] flex-row items-center gap-3 rounded-lg px-3',
+										item.disabled ? 'opacity-40' : 'active:bg-muted',
 										item.selected && 'bg-muted'
 									)}
+									disabled={item.disabled}
 									key={item.key}
 									onPress={item.onPress}
 								>
 									{Icon ? (
 										<Icon
-											color={
-												item.destructive
-													? colors.destructive
-													: colors.foreground
-											}
+											color={itemColor(item, colors)}
 											size={20}
 											strokeWidth={2}
 										/>
@@ -97,7 +111,11 @@ export const ActionSheet = forwardRef<BottomSheetModal, ActionSheetProps>(
 									<Text
 										className={cn(
 											'font-sans-medium text-base',
-											item.destructive ? 'text-destructive' : 'text-foreground'
+											item.disabled && 'text-muted-foreground',
+											!item.disabled &&
+												(item.destructive
+													? 'text-destructive'
+													: 'text-foreground')
 										)}
 									>
 										{item.label}

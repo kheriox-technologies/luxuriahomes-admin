@@ -29,7 +29,6 @@ import { Check, PlusCircle, Trash2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import VendorSelect from '@/components/inclusions/vendor-select';
 import { ProjectStartDatePicker } from '@/components/projects/project-form-shared';
-import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyOrderItem,
@@ -64,7 +63,6 @@ export default function EditOrder({
 	const form = useForm({
 		defaultValues: {
 			vendor: order.vendor,
-			tradeId: order.tradeId as string,
 			orderBy: order.orderBy ? new Date(order.orderBy) : undefined,
 			items: order.items.map((item) => ({
 				name: item.name,
@@ -86,7 +84,6 @@ export default function EditOrder({
 				await updateOrder({
 					orderId: order._id as Id<'projectOrders'>,
 					vendor: parsed.vendor.trim(),
-					tradeId: parsed.tradeId as Id<'trades'>,
 					orderBy: parsed.orderBy?.getTime(),
 					items: parsed.items.map((item) => ({
 						name: item.name,
@@ -118,7 +115,6 @@ export default function EditOrder({
 		if (open) {
 			form.reset({
 				vendor: order.vendor,
-				tradeId: order.tradeId as string,
 				orderBy: order.orderBy ? new Date(order.orderBy) : undefined,
 				items: order.items.map((item) => ({
 					name: item.name,
@@ -176,30 +172,6 @@ export default function EditOrder({
 											onBlur={field.handleBlur}
 											onValueChange={(next) => field.handleChange(next)}
 											value={field.state.value}
-										/>
-										{invalid ? (
-											<FieldError>
-												{orderFormFieldError(field.state.meta.errors)}
-											</FieldError>
-										) : null}
-									</Field>
-								);
-							}}
-						</form.Field>
-						<form.Field name="tradeId">
-							{(field) => {
-								const invalid =
-									field.state.meta.isTouched && !field.state.meta.isValid;
-								return (
-									<Field data-invalid={invalid}>
-										<FieldLabel htmlFor={field.name}>Trade</FieldLabel>
-										<TradeSelect
-											allowCreate
-											id={field.name}
-											invalid={invalid}
-											onBlur={field.handleBlur}
-											onValueChange={(next) => field.handleChange(next)}
-											value={field.state.value as Id<'trades'> | ''}
 										/>
 										{invalid ? (
 											<FieldError>

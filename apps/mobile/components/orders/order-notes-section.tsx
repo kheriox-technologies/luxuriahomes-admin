@@ -213,7 +213,6 @@ export function OrderNotesSection({ order }: { order: Order }) {
 								/>
 							}
 							onPress={pickImage}
-							variant="secondary"
 						>
 							Attach photo
 						</Button>
@@ -222,7 +221,6 @@ export function OrderNotesSection({ order }: { order: Order }) {
 							disabled={draft.trim() === ''}
 							loading={saving}
 							onPress={handleSave}
-							variant="primary"
 						>
 							Add note
 						</Button>

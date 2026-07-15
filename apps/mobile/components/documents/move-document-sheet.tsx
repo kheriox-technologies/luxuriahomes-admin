@@ -189,7 +189,6 @@ export function MoveDocumentSheet({
 					disabled={isCurrentLocation}
 					loading={saving}
 					onPress={handleMove}
-					variant="primary"
 				>
 					{isCurrentLocation ? 'Already here' : 'Move here'}
 				</Button>

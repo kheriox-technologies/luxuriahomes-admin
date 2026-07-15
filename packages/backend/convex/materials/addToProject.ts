@@ -103,7 +103,6 @@ export const addToProject = mutation({
 				orderId: orderCode,
 				projectId: args.projectId,
 				vendor,
-				tradeId: material.tradeId,
 				items,
 				status,
 				searchText,

@@ -36,11 +36,7 @@ export function ErrorScreen({ code }: { code?: ErrorCode }) {
 				<Text className="text-center font-sans text-muted-foreground text-sm">
 					{details.message}
 				</Text>
-				<Button
-					className="mt-2 w-full"
-					onPress={() => signOut()}
-					variant="primary"
-				>
+				<Button className="mt-2 w-full" onPress={() => signOut()}>
 					Sign out
 				</Button>
 			</Card>

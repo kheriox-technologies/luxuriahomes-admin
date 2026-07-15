@@ -268,7 +268,6 @@ export function QuotationNotesSheet({
 									/>
 								}
 								onPress={pickImage}
-								variant="secondary"
 							>
 								Attach photo
 							</Button>
@@ -277,7 +276,6 @@ export function QuotationNotesSheet({
 								disabled={draft.trim() === ''}
 								loading={saving}
 								onPress={handleSave}
-								variant="primary"
 							>
 								Add note
 							</Button>
