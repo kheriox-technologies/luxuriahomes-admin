@@ -5,25 +5,39 @@ import {
 	BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
-import type { Doc, Id } from '@workspace/backend/dataModel';
-import { useMutation, useQuery } from 'convex/react';
-import { Check } from 'lucide-react-native';
+import type { Id } from '@workspace/backend/dataModel';
+import { useMutation } from 'convex/react';
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import {
 	type Ref,
 	useCallback,
 	useImperativeHandle,
-	useMemo,
 	useRef,
 	useState,
 } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
+import { TradeMultiSelectField } from '@/components/trades/trade-multi-select-field';
 import { Button } from '@/components/ui/button';
-import { MultiSelect } from '@/components/ui/multi-select';
+import { Card } from '@/components/ui/card';
 import { TextField } from '@/components/ui/text-field';
 
-type Trade = Doc<'trades'>;
+interface ContactDraft {
+	email: string;
+	landline: string;
+	name: string;
+	phone: string;
+	position: string;
+}
+
+const emptyContactDraft: ContactDraft = {
+	name: '',
+	email: '',
+	phone: '',
+	landline: '',
+	position: '',
+};
 
 export interface CreateServiceProviderResult {
 	id: Id<'serviceProviders'>;
@@ -53,7 +67,6 @@ export function CreateServiceProviderSheet({
 	const insets = useSafeAreaInsets();
 	const sheetRef = useRef<BottomSheetModal>(null);
 
-	const trades = useQuery(api.trades.list.list, {}) as Trade[] | undefined;
 	const addServiceProvider = useMutation(api.serviceProviders.add.add);
 
 	const [company, setCompany] = useState('');
@@ -66,6 +79,9 @@ export function CreateServiceProviderSheet({
 	const [website, setWebsite] = useState('');
 	const [address, setAddress] = useState('');
 	const [tradeIds, setTradeIds] = useState<Id<'trades'>[]>([]);
+	const [contacts, setContacts] = useState<ContactDraft[]>([]);
+	const [draft, setDraft] = useState<ContactDraft>(emptyContactDraft);
+	const [editingIndex, setEditingIndex] = useState<number | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [showErrors, setShowErrors] = useState(false);
 
@@ -80,6 +96,9 @@ export function CreateServiceProviderSheet({
 		setWebsite('');
 		setAddress('');
 		setTradeIds([]);
+		setContacts([]);
+		setDraft(emptyContactDraft);
+		setEditingIndex(null);
 		setShowErrors(false);
 	};
 
@@ -103,21 +122,48 @@ export function CreateServiceProviderSheet({
 		[]
 	);
 
-	const tradeOptions = useMemo(
-		() =>
-			(trades ?? []).map((trade) => ({
-				value: trade._id as string,
-				label: trade.name,
-			})),
-		[trades]
-	);
+	const updateDraft = (key: keyof ContactDraft, value: string) =>
+		setDraft((prev) => ({ ...prev, [key]: value }));
 
-	const toggleTrade = (value: string) =>
-		setTradeIds((prev) =>
-			prev.includes(value as Id<'trades'>)
-				? prev.filter((id) => id !== value)
-				: [...prev, value as Id<'trades'>]
-		);
+	const handleAddOrSaveContact = () => {
+		if (draft.name.trim() === '') {
+			return;
+		}
+		const next: ContactDraft = {
+			name: draft.name.trim(),
+			email: draft.email.trim(),
+			phone: draft.phone.trim(),
+			landline: draft.landline.trim(),
+			position: draft.position.trim(),
+		};
+		setContacts((prev) => {
+			if (editingIndex === null) {
+				return [...prev, next];
+			}
+			const copy = [...prev];
+			copy[editingIndex] = next;
+			return copy;
+		});
+		setDraft(emptyContactDraft);
+		setEditingIndex(null);
+	};
+
+	const handleEditContact = (index: number) => {
+		const contact = contacts[index];
+		if (!contact) {
+			return;
+		}
+		setDraft(contact);
+		setEditingIndex(index);
+	};
+
+	const handleDeleteContact = (index: number) => {
+		setContacts((prev) => prev.filter((_, i) => i !== index));
+		if (editingIndex === index) {
+			setDraft(emptyContactDraft);
+			setEditingIndex(null);
+		}
+	};
 
 	const handleSave = async () => {
 		if (company.trim() === '' || name.trim() === '') {
@@ -137,7 +183,13 @@ export function CreateServiceProviderSheet({
 				website: website.trim() || undefined,
 				address: address.trim() || undefined,
 				tradeIds,
-				contacts: [],
+				contacts: contacts.map((contact) => ({
+					name: contact.name,
+					email: contact.email || undefined,
+					phone: contact.phone || undefined,
+					landline: contact.landline || undefined,
+					position: contact.position || undefined,
+				})),
 			});
 			onCreated?.({ id, tradeIds });
 			sheetRef.current?.dismiss();
@@ -196,12 +248,9 @@ export function CreateServiceProviderSheet({
 					<Text className="font-sans-medium text-foreground text-sm">
 						Trades
 					</Text>
-					<MultiSelect
-						className="w-full"
-						onToggle={toggleTrade}
-						options={tradeOptions}
-						placeholder="Select trades"
-						title="Select trades"
+					<TradeMultiSelectField
+						allowCreate
+						onValuesChange={setTradeIds}
 						values={tradeIds}
 					/>
 				</View>
@@ -253,6 +302,112 @@ export function CreateServiceProviderSheet({
 					placeholder="Address (optional)"
 					value={address}
 				/>
+
+				<View className="mt-1 gap-2.5">
+					<Text className="px-1 font-sans-semibold text-foreground text-sm">
+						Additional contacts
+					</Text>
+
+					{contacts.map((contact, index) => (
+						<Card
+							className="flex-row items-start gap-2 p-3"
+							key={`${contact.name}-${index}`}
+						>
+							<View className="flex-1 gap-0.5">
+								<Text className="font-sans-semibold text-foreground text-sm">
+									{contact.name}
+								</Text>
+								{contact.position ? (
+									<Text className="font-sans text-muted-foreground text-xs">
+										{contact.position}
+									</Text>
+								) : null}
+								{contact.email ? (
+									<Text className="font-sans text-muted-foreground text-xs">
+										{contact.email}
+									</Text>
+								) : null}
+								{[contact.phone, contact.landline].filter(Boolean).length >
+								0 ? (
+									<Text className="font-sans text-muted-foreground text-xs">
+										{[contact.phone, contact.landline]
+											.filter(Boolean)
+											.join(' | ')}
+									</Text>
+								) : null}
+							</View>
+							<Pressable
+								accessibilityLabel={`Edit contact ${contact.name}`}
+								accessibilityRole="button"
+								className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+								hitSlop={4}
+								onPress={() => handleEditContact(index)}
+							>
+								<Pencil color={colors.foreground} size={16} strokeWidth={2} />
+							</Pressable>
+							<Pressable
+								accessibilityLabel={`Delete contact ${contact.name}`}
+								accessibilityRole="button"
+								className="h-9 w-9 items-center justify-center rounded-lg border border-destructive/40 bg-card active:bg-muted"
+								hitSlop={4}
+								onPress={() => handleDeleteContact(index)}
+							>
+								<Trash2 color={colors.destructive} size={16} strokeWidth={2} />
+							</Pressable>
+						</Card>
+					))}
+
+					<Card className="gap-2.5 p-3">
+						<TextField
+							label="Name"
+							onChangeText={(value) => updateDraft('name', value)}
+							placeholder="Contact name"
+							value={draft.name}
+						/>
+						<TextField
+							label="Position"
+							onChangeText={(value) => updateDraft('position', value)}
+							placeholder="Position (optional)"
+							value={draft.position}
+						/>
+						<TextField
+							autoCapitalize="none"
+							keyboardType="email-address"
+							label="Email"
+							onChangeText={(value) => updateDraft('email', value)}
+							placeholder="Email (optional)"
+							value={draft.email}
+						/>
+						<TextField
+							keyboardType="phone-pad"
+							label="Phone"
+							onChangeText={(value) => updateDraft('phone', value)}
+							placeholder="Phone (optional)"
+							value={draft.phone}
+						/>
+						<TextField
+							keyboardType="phone-pad"
+							label="Landline"
+							onChangeText={(value) => updateDraft('landline', value)}
+							placeholder="Landline (optional)"
+							value={draft.landline}
+						/>
+						<Button
+							disabled={draft.name.trim() === ''}
+							icon={
+								editingIndex === null ? (
+									<Plus color={colors.foreground} size={18} strokeWidth={2} />
+								) : (
+									<Check color={colors.foreground} size={18} strokeWidth={2} />
+								)
+							}
+							onPress={handleAddOrSaveContact}
+							variant="outline"
+						>
+							{editingIndex === null ? 'Add contact' : 'Save contact'}
+						</Button>
+					</Card>
+				</View>
 
 				<Button
 					className="mt-1"
