@@ -19,7 +19,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Select, type SelectOption } from '@/components/ui/select';
 import { ListSkeleton } from '@/components/ui/skeleton';
-import { type KanbanStatus, kanbanLabels } from '@/components/ui/status-pill';
+import {
+	type KanbanStatus,
+	KanbanStatusPill,
+	kanbanLabels,
+} from '@/components/ui/status-pill';
 import { formatDate } from '@/lib/format';
 
 const STATUSES: KanbanStatus[] = ['planned', 'in_progress', 'blocked', 'done'];
@@ -35,7 +39,7 @@ export default function TasksScreen() {
 	const [search, setSearch] = useState('');
 	const [projectId, setProjectId] = useState<string>(ALL);
 	const [assigneeId, setAssigneeId] = useState<string>(ALL);
-	const [status, setStatus] = useState<KanbanStatus>('planned');
+	const [status, setStatus] = useState<string>(ALL);
 	const formRef = useRef<TaskFormSheetHandle>(null);
 	const colors = useThemeColors();
 
@@ -92,20 +96,22 @@ export default function TasksScreen() {
 		[admins]
 	);
 
-	const statusOptions = useMemo<SelectOption<KanbanStatus>[]>(
-		() =>
-			STATUSES.map((s) => ({
+	const statusOptions = useMemo<SelectOption<string>[]>(
+		() => [
+			{ value: ALL, label: `All statuses · ${tasks?.length ?? 0}` },
+			...STATUSES.map((s) => ({
 				value: s,
 				label: `${kanbanLabels[s]} · ${countByStatus.get(s) ?? 0}`,
 			})),
-		[countByStatus]
+		],
+		[countByStatus, tasks]
 	);
 
 	const filtered = useMemo(() => {
 		const term = search.trim().toLowerCase();
 		return (tasks ?? [])
 			.filter((task) => {
-				if (task.status !== status) {
+				if (status !== ALL && task.status !== status) {
 					return false;
 				}
 				if (projectId !== ALL && task.projectId !== projectId) {
@@ -124,7 +130,10 @@ export default function TasksScreen() {
 
 	const now = Date.now();
 	const isFiltering =
-		search.trim() !== '' || projectId !== ALL || assigneeId !== ALL;
+		search.trim() !== '' ||
+		projectId !== ALL ||
+		assigneeId !== ALL ||
+		status !== ALL;
 
 	return (
 		<View className="flex-1 bg-background">
@@ -189,10 +198,10 @@ export default function TasksScreen() {
 							description={
 								isFiltering
 									? 'Try a different search or filter.'
-									: `No ${kanbanLabels[status].toLowerCase()} tasks.`
+									: 'Tap + to create your first task.'
 							}
 							icon={SquareKanban}
-							title={isFiltering ? 'No matching tasks' : 'Nothing here'}
+							title={isFiltering ? 'No matching tasks' : 'No tasks yet'}
 						/>
 					}
 					renderItem={({ item }) => {
@@ -228,7 +237,10 @@ export default function TasksScreen() {
 										{item.description}
 									</Text>
 								) : null}
-								<View className="flex-row items-center gap-2">
+								<View className="flex-row flex-wrap items-center gap-2">
+									{status === ALL ? (
+										<KanbanStatusPill status={item.status as KanbanStatus} />
+									) : null}
 									{projectName ? (
 										<Badge variant="default">{projectName}</Badge>
 									) : null}
