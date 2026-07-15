@@ -27,6 +27,7 @@ import {
 	Check,
 	ChevronsDownIcon,
 	ChevronsUpIcon,
+	Copy,
 	Pencil,
 	Wallet,
 } from 'lucide-react';
@@ -47,6 +48,7 @@ import {
 	isValidMoneyString,
 	parseMoneyString,
 } from './budget-form-shared';
+import CopyBudgetTemplate from './copy-budget-template';
 import DeleteBudgetTemplateItem from './delete-budget-template-item';
 import { usePriceEditing } from './use-price-editing';
 
@@ -208,6 +210,7 @@ export default function BudgetTemplateDetailView({
 	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
 	const [search, setSearch] = useState('');
+	const [copyOpen, setCopyOpen] = useState(false);
 	const listRef = useRef<StageGroupedListHandle>(null);
 
 	const usedTradeIds = useMemo(
@@ -480,6 +483,20 @@ export default function BudgetTemplateDetailView({
 							onSubmit={async (args) => {
 								await addItem({ budgetTemplateId, ...args });
 							}}
+						/>
+						<Button
+							onClick={() => setCopyOpen(true)}
+							type="button"
+							variant="outline"
+						>
+							<Copy />
+							Copy
+						</Button>
+						<CopyBudgetTemplate
+							onOpenChange={setCopyOpen}
+							open={copyOpen}
+							sourceBudgetTemplateId={budgetTemplateId}
+							templateTitle={template.title}
 						/>
 						<AddBudgetTemplateToProject
 							budgetTemplateId={budgetTemplateId}

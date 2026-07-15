@@ -27,6 +27,7 @@ import type * as budgetTemplateItems_setPrice from "../budgetTemplateItems/setPr
 import type * as budgetTemplateItems_setPrices from "../budgetTemplateItems/setPrices.js";
 import type * as budgetTemplates_add from "../budgetTemplates/add.js";
 import type * as budgetTemplates_applyToProject from "../budgetTemplates/applyToProject.js";
+import type * as budgetTemplates_copy from "../budgetTemplates/copy.js";
 import type * as budgetTemplates_get from "../budgetTemplates/get.js";
 import type * as budgetTemplates_list from "../budgetTemplates/list.js";
 import type * as budgetTemplates_remove from "../budgetTemplates/remove.js";
@@ -438,6 +439,7 @@ declare const fullApi: ApiFromModules<{
   "budgetTemplateItems/setPrices": typeof budgetTemplateItems_setPrices;
   "budgetTemplates/add": typeof budgetTemplates_add;
   "budgetTemplates/applyToProject": typeof budgetTemplates_applyToProject;
+  "budgetTemplates/copy": typeof budgetTemplates_copy;
   "budgetTemplates/get": typeof budgetTemplates_get;
   "budgetTemplates/list": typeof budgetTemplates_list;
   "budgetTemplates/remove": typeof budgetTemplates_remove;
