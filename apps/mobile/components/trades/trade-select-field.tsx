@@ -222,7 +222,7 @@ export function TradeSelectField({
 			>
 				<Text
 					className={cn(
-						'flex-1 font-sans text-sm',
+						'flex-1 font-sans text-xs',
 						selectedName ? 'text-foreground' : 'text-muted-foreground'
 					)}
 					numberOfLines={1}
@@ -358,7 +358,7 @@ export function TradeSelectField({
 												onPress={() => handleSelect(trade)}
 											>
 												<Text
-													className="flex-1 font-sans-medium text-base text-foreground"
+													className="flex-1 font-sans-medium text-foreground text-xs"
 													numberOfLines={1}
 												>
 													{trade.name}

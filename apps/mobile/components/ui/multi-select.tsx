@@ -157,7 +157,7 @@ export function MultiSelect<T extends string>({
 				>
 					{values.length === 0 ? (
 						<Text
-							className="font-sans-medium text-muted-foreground text-sm"
+							className="font-sans-medium text-muted-foreground text-xs"
 							numberOfLines={1}
 						>
 							{placeholder}

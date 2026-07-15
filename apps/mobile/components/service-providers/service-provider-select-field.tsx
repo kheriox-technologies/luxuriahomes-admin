@@ -148,7 +148,7 @@ export function ServiceProviderSelectField({
 			>
 				<Text
 					className={cn(
-						'flex-1 font-sans text-sm',
+						'flex-1 font-sans text-xs',
 						selectedLabel ? 'text-foreground' : 'text-muted-foreground'
 					)}
 					numberOfLines={1}
@@ -225,7 +225,7 @@ export function ServiceProviderSelectField({
 							>
 								<View className="flex-1 gap-0.5">
 									<Text
-										className="font-sans-medium text-base text-foreground"
+										className="font-sans-medium text-foreground text-xs"
 										numberOfLines={1}
 									>
 										{provider.company}
