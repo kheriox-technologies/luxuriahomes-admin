@@ -35,14 +35,17 @@ const STATUS_OPTIONS: SelectOption<KanbanStatus>[] = STATUSES.map((status) => ({
 
 const NONE = 'none';
 
+type Task = Doc<'tasks'>;
+
 export interface TaskFormSheetHandle {
-	present: () => void;
+	present: (task?: Task) => void;
 }
 
 /**
- * Create-task bottom sheet. `present()` opens an empty form defaulting the
- * assignee to the current admin user. Mirrors the portal "Add task" sheet
- * (title, description, status, due date, project, assignee).
+ * Add / Edit task bottom sheet. `present()` opens in create mode (assignee
+ * defaulted to the current admin user); `present(task)` opens in edit mode with
+ * fields pre-filled. Mirrors the portal Add/Edit task sheet (title, description,
+ * status, due date, project, assignee).
  */
 export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 	const colors = useThemeColors();
@@ -51,6 +54,7 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 	const { user } = useUser();
 
 	const addTask = useMutation(api.tasks.add.add);
+	const updateTask = useMutation(api.tasks.update.update);
 	const projects = useQuery(api.projects.list.list, {});
 	const admins = useQuery(api.adminUsers.list.list, {});
 
@@ -84,15 +88,17 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 	const [assigneeId, setAssigneeId] = useState<string>(NONE);
 	const [saving, setSaving] = useState(false);
 	const [showErrors, setShowErrors] = useState(false);
+	const [editingId, setEditingId] = useState<Id<'tasks'> | null>(null);
 
 	useImperativeHandle(ref, () => ({
-		present: () => {
-			setTitle('');
-			setDescription('');
-			setStatus('planned');
-			setDueDate(undefined);
-			setProjectId(NONE);
-			setAssigneeId(user?.id ?? NONE);
+		present: (task) => {
+			setEditingId(task?._id ?? null);
+			setTitle(task?.title ?? '');
+			setDescription(task?.description ?? '');
+			setStatus(task?.status ?? 'planned');
+			setDueDate(task?.dueDate ? new Date(task.dueDate) : undefined);
+			setProjectId(task?.projectId ?? NONE);
+			setAssigneeId(task?.assigneeUserId ?? (task ? NONE : (user?.id ?? NONE)));
 			setSaving(false);
 			setShowErrors(false);
 			sheetRef.current?.present();
@@ -117,19 +123,26 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 			return;
 		}
 		setSaving(true);
+		const payload = {
+			title: title.trim(),
+			description: description.trim() || undefined,
+			status,
+			dueDate: dueDate?.getTime(),
+			projectId: projectId === NONE ? undefined : (projectId as Id<'projects'>),
+			assigneeUserId: assigneeId === NONE ? undefined : assigneeId,
+		};
 		try {
-			await addTask({
-				title: title.trim(),
-				description: description.trim() || undefined,
-				status,
-				dueDate: dueDate?.getTime(),
-				projectId:
-					projectId === NONE ? undefined : (projectId as Id<'projects'>),
-				assigneeUserId: assigneeId === NONE ? undefined : assigneeId,
-			});
+			if (editingId) {
+				await updateTask({ taskId: editingId, ...payload });
+			} else {
+				await addTask(payload);
+			}
 			sheetRef.current?.dismiss();
 		} catch {
-			Alert.alert('Could not create task', 'Please try again.');
+			Alert.alert(
+				editingId ? 'Could not update task' : 'Could not create task',
+				'Please try again.'
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -151,7 +164,7 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 				keyboardShouldPersistTaps="handled"
 			>
 				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					Add task
+					{editingId ? 'Edit task' : 'Add task'}
 				</Text>
 
 				<TextField
@@ -223,7 +236,7 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 					loading={saving}
 					onPress={handleSave}
 				>
-					Save task
+					{editingId ? 'Save changes' : 'Save task'}
 				</Button>
 			</BottomSheetScrollView>
 		</BottomSheetModal>

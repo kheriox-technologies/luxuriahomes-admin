@@ -347,6 +347,7 @@ import type * as takeoffs_shared from "../takeoffs/shared.js";
 import type * as tasks_add from "../tasks/add.js";
 import type * as tasks_appendNote from "../tasks/appendNote.js";
 import type * as tasks_deleteNote from "../tasks/deleteNote.js";
+import type * as tasks_get from "../tasks/get.js";
 import type * as tasks_list from "../tasks/list.js";
 import type * as tasks_listNotes from "../tasks/listNotes.js";
 import type * as tasks_remove from "../tasks/remove.js";
@@ -759,6 +760,7 @@ declare const fullApi: ApiFromModules<{
   "tasks/add": typeof tasks_add;
   "tasks/appendNote": typeof tasks_appendNote;
   "tasks/deleteNote": typeof tasks_deleteNote;
+  "tasks/get": typeof tasks_get;
   "tasks/list": typeof tasks_list;
   "tasks/listNotes": typeof tasks_listNotes;
   "tasks/remove": typeof tasks_remove;

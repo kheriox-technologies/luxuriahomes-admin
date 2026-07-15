@@ -1,14 +1,9 @@
-import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
-import { useMutation, useQuery } from 'convex/react';
-import {
-	ArrowRightCircle,
-	CalendarClock,
-	Plus,
-	SquareKanban,
-} from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useQuery } from 'convex/react';
+import { useRouter } from 'expo-router';
+import { CalendarClock, Plus, SquareKanban } from 'lucide-react-native';
+import { useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ScreenHeader } from '@/components/screen-header';
@@ -17,11 +12,8 @@ import {
 	type TaskFormSheetHandle,
 } from '@/components/tasks/task-form-sheet';
 import { useThemeColors } from '@/components/theme';
-import {
-	ActionSheet,
-	type ActionSheetItem,
-} from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { PressableCard } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
@@ -30,24 +22,20 @@ import { ListSkeleton } from '@/components/ui/skeleton';
 import { type KanbanStatus, kanbanLabels } from '@/components/ui/status-pill';
 import { formatDate } from '@/lib/format';
 
-type Task = Doc<'tasks'>;
-
 const STATUSES: KanbanStatus[] = ['planned', 'in_progress', 'blocked', 'done'];
 
 const ALL = 'all';
 
 export default function TasksScreen() {
+	const router = useRouter();
 	const tasks = useQuery(api.tasks.list.list, {});
 	const projects = useQuery(api.projects.list.list, {});
 	const admins = useQuery(api.adminUsers.list.list, {});
-	const updateStatus = useMutation(api.tasks.updateStatus.updateStatus);
 
 	const [search, setSearch] = useState('');
 	const [projectId, setProjectId] = useState<string>(ALL);
 	const [assigneeId, setAssigneeId] = useState<string>(ALL);
 	const [status, setStatus] = useState<KanbanStatus>('planned');
-	const [target, setTarget] = useState<Task | null>(null);
-	const sheetRef = useRef<BottomSheetModal>(null);
 	const formRef = useRef<TaskFormSheetHandle>(null);
 	const colors = useThemeColors();
 
@@ -133,38 +121,6 @@ export default function TasksScreen() {
 			})
 			.sort((a, b) => a.order - b.order);
 	}, [tasks, status, projectId, assigneeId, search]);
-
-	const moveTask = useCallback(
-		(task: Task, next: KanbanStatus) => {
-			const lane = (tasks ?? [])
-				.filter((t) => t.status === next)
-				.sort((a, b) => a.order - b.order);
-			// Append to the end of the target lane, matching the portal's
-			// fractional ordering convention (last.order + 1, or 1 when empty).
-			const last = lane.at(-1);
-			updateStatus({
-				taskId: task._id,
-				status: next,
-				order: last ? last.order + 1 : 1,
-			});
-		},
-		[tasks, updateStatus]
-	);
-
-	const sheetItems: ActionSheetItem[] = useMemo(() => {
-		if (!target) {
-			return [];
-		}
-		return STATUSES.filter((s) => s !== target.status).map((s) => ({
-			key: s,
-			label: `Move to ${kanbanLabels[s]}`,
-			icon: ArrowRightCircle,
-			onPress: () => {
-				sheetRef.current?.dismiss();
-				moveTask(target, s);
-			},
-		}));
-	}, [target, moveTask]);
 
 	const now = Date.now();
 	const isFiltering =
@@ -252,12 +208,14 @@ export default function TasksScreen() {
 							item.status !== 'done';
 						return (
 							<PressableCard
-								accessibilityLabel={`Task ${item.title}. Tap to move.`}
+								accessibilityLabel={`Task ${item.title}. Tap to open.`}
 								className="mx-4 mb-2 gap-2 p-3.5"
-								onPress={() => {
-									setTarget(item);
-									sheetRef.current?.present();
-								}}
+								onPress={() =>
+									router.push({
+										pathname: '/(app)/tasks/[taskId]',
+										params: { taskId: item._id },
+									})
+								}
 							>
 								<Text className="font-sans-semibold text-foreground text-sm">
 									{item.title}
@@ -272,12 +230,7 @@ export default function TasksScreen() {
 								) : null}
 								<View className="flex-row items-center gap-2">
 									{projectName ? (
-										<Text
-											className="font-sans text-muted-foreground text-xs"
-											numberOfLines={1}
-										>
-											{projectName}
-										</Text>
+										<Badge variant="default">{projectName}</Badge>
 									) : null}
 									{item.dueDate ? (
 										<View className="flex-row items-center gap-1">
@@ -301,7 +254,7 @@ export default function TasksScreen() {
 									) : null}
 									<View className="flex-1" />
 									{assigneeName ? (
-										<Avatar name={assigneeName} size="sm" />
+										<Avatar name={assigneeName} size="sm" variant="outline" />
 									) : null}
 								</View>
 							</PressableCard>
@@ -309,13 +262,6 @@ export default function TasksScreen() {
 					}}
 				/>
 			)}
-
-			<ActionSheet
-				items={sheetItems}
-				onDismiss={() => setTarget(null)}
-				ref={sheetRef}
-				title={target ? target.title : undefined}
-			/>
 
 			<TaskFormSheet ref={formRef} />
 		</View>
