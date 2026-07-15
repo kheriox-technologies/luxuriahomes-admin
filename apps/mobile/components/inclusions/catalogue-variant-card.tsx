@@ -1,9 +1,17 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
+import { useMutation } from 'convex/react';
 import { Image } from 'expo-image';
-import { EllipsisVertical, ImageOff, Plus } from 'lucide-react-native';
+import {
+	EllipsisVertical,
+	ImageOff,
+	Pencil,
+	Plus,
+	Trash2,
+} from 'lucide-react-native';
 import { memo, type ReactNode, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { classVariants } from '@/components/inclusions/types';
 import { useThemeColors } from '@/components/theme';
 import { ActionSheet } from '@/components/ui/action-sheet';
@@ -78,14 +86,36 @@ export const CatalogueVariantCard = memo(function CatalogueVariantCard({
 	variant,
 	inclusion,
 	onAddToProject,
+	onEdit,
 }: {
 	variant: InclusionVariant;
 	inclusion: Inclusion;
 	onAddToProject: (variant: InclusionVariant) => void;
+	onEdit: (variant: InclusionVariant) => void;
 }) {
 	const colors = useThemeColors();
 	const sheetRef = useRef<BottomSheetModal>(null);
+	const removeVariant = useMutation(api.inclusionVariants.remove.remove);
 	const variation = computeVariation(variant, inclusion);
+
+	const confirmDelete = () => {
+		Alert.alert(
+			'Delete variant',
+			`Delete variant "${variant.code}"? This cannot be undone.`,
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Delete',
+					style: 'destructive',
+					onPress: () => {
+						removeVariant({ variantId: variant._id }).catch(() => {
+							Alert.alert('Could not delete variant', 'Please try again.');
+						});
+					},
+				},
+			]
+		);
+	};
 	const modelsSuffix =
 		variant.models.length > 0 ? ` · ${variant.models.join(', ')}` : '';
 
@@ -162,6 +192,25 @@ export const CatalogueVariantCard = memo(function CatalogueVariantCard({
 						onPress: () => {
 							sheetRef.current?.dismiss();
 							onAddToProject(variant);
+						},
+					},
+					{
+						key: 'edit',
+						label: 'Edit variant',
+						icon: Pencil,
+						onPress: () => {
+							sheetRef.current?.dismiss();
+							onEdit(variant);
+						},
+					},
+					{
+						key: 'delete',
+						label: 'Delete variant',
+						icon: Trash2,
+						destructive: true,
+						onPress: () => {
+							sheetRef.current?.dismiss();
+							confirmDelete();
 						},
 					},
 				]}
