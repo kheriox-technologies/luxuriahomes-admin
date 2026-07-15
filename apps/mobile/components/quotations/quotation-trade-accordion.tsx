@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
 import { QuotationCard } from './quotation-card';
+import type { QuotationFormSheetHandle } from './quotation-form-sheet';
 import type { QuotationNotesSheetHandle } from './quotation-notes-sheet';
 import type { QuotationGroup } from './types';
 
@@ -28,11 +29,13 @@ export const QuotationTradeAccordion = memo(function QuotationTradeAccordion({
 	expanded,
 	onToggle,
 	notesSheetRef,
+	formSheetRef,
 }: {
 	group: QuotationGroup;
 	expanded: boolean;
 	onToggle: () => void;
 	notesSheetRef: RefObject<QuotationNotesSheetHandle | null>;
+	formSheetRef: RefObject<QuotationFormSheetHandle | null>;
 }) {
 	const colors = useThemeColors();
 	const hasBudget = group.budgetPrice !== null;
@@ -85,6 +88,7 @@ export const QuotationTradeAccordion = memo(function QuotationTradeAccordion({
 					<View className="pb-1.5">
 						{group.quotations.map((quotation) => (
 							<QuotationCard
+								formSheetRef={formSheetRef}
 								key={quotation._id}
 								notesSheetRef={notesSheetRef}
 								quotation={quotation}
