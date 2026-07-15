@@ -19,9 +19,9 @@ const SECTIONS = [
 	{ key: 'inclusions', label: 'Inclusions' },
 	{ key: 'documents', label: 'Documents' },
 	{ key: 'takeoffs', label: 'Take Offs' },
-	{ key: 'service-providers', label: 'Service Providers' },
-	{ key: 'budgets', label: 'Budgets' },
 	{ key: 'quotations', label: 'Quotations' },
+	{ key: 'budgets', label: 'Budgets' },
+	{ key: 'service-providers', label: 'Service Providers' },
 	{ key: 'orders', label: 'Orders' },
 	{ key: 'clients', label: 'Clients' },
 ] as const;

@@ -14,16 +14,23 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@workspace/ui/components/empty';
-import { Group, GroupSeparator } from '@workspace/ui/components/group';
+import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuSeparator,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
 import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
-import { Pencil, Trash2, Wallet } from 'lucide-react';
+import { Copy, EllipsisVertical, Pencil, Trash2, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddBudgetTemplate from './add-budget-template';
 import { formatBudgetPrice } from './budget-form-shared';
+import CopyBudgetTemplate from './copy-budget-template';
 import DeleteBudgetTemplate from './delete-budget-template';
 import EditBudgetTemplate from './edit-budget-template';
 
@@ -31,6 +38,7 @@ type BudgetTemplateRow = Doc<'budgetTemplates'>;
 
 function TemplateActionsCell({ row }: { row: BudgetTemplateRow }) {
 	const [editOpen, setEditOpen] = useState(false);
+	const [copyOpen, setCopyOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
 	return (
@@ -38,6 +46,35 @@ function TemplateActionsCell({ row }: { row: BudgetTemplateRow }) {
 		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation wrapper, not interactive
 		// biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation wrapper, not interactive
 		<div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+			<Menu>
+				<MenuTrigger
+					render={
+						<Button
+							aria-label="Budget template actions"
+							size="icon-sm"
+							type="button"
+							variant="ghost"
+						/>
+					}
+				>
+					<EllipsisVertical className="size-4" />
+				</MenuTrigger>
+				<MenuPopup align="end">
+					<MenuItem onClick={() => setEditOpen(true)}>
+						<Pencil />
+						Edit
+					</MenuItem>
+					<MenuItem onClick={() => setCopyOpen(true)}>
+						<Copy />
+						Copy Template
+					</MenuItem>
+					<MenuSeparator />
+					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
+						<Trash2 />
+						Delete
+					</MenuItem>
+				</MenuPopup>
+			</Menu>
 			<EditBudgetTemplate
 				budgetTemplateId={row._id}
 				initialDescription={row.description}
@@ -45,33 +82,18 @@ function TemplateActionsCell({ row }: { row: BudgetTemplateRow }) {
 				onOpenChange={setEditOpen}
 				open={editOpen}
 			/>
+			<CopyBudgetTemplate
+				onOpenChange={setCopyOpen}
+				open={copyOpen}
+				sourceBudgetTemplateId={row._id}
+				templateTitle={row.title}
+			/>
 			<DeleteBudgetTemplate
 				budgetTemplateId={row._id}
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}
 				templateTitle={row.title}
 			/>
-			<Group>
-				<Button
-					aria-label="Edit budget template"
-					onClick={() => setEditOpen(true)}
-					size="icon"
-					type="button"
-					variant="outline"
-				>
-					<Pencil />
-				</Button>
-				<GroupSeparator />
-				<Button
-					aria-label="Delete budget template"
-					onClick={() => setDeleteOpen(true)}
-					size="icon"
-					type="button"
-					variant="destructive-outline"
-				>
-					<Trash2 />
-				</Button>
-			</Group>
 		</div>
 	);
 }

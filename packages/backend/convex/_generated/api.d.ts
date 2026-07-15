@@ -27,6 +27,7 @@ import type * as budgetTemplateItems_setPrice from "../budgetTemplateItems/setPr
 import type * as budgetTemplateItems_setPrices from "../budgetTemplateItems/setPrices.js";
 import type * as budgetTemplates_add from "../budgetTemplates/add.js";
 import type * as budgetTemplates_applyToProject from "../budgetTemplates/applyToProject.js";
+import type * as budgetTemplates_copy from "../budgetTemplates/copy.js";
 import type * as budgetTemplates_get from "../budgetTemplates/get.js";
 import type * as budgetTemplates_list from "../budgetTemplates/list.js";
 import type * as budgetTemplates_remove from "../budgetTemplates/remove.js";
@@ -184,6 +185,7 @@ import type * as permissions_upsertRole from "../permissions/upsertRole.js";
 import type * as projectBudgets_addItem from "../projectBudgets/addItem.js";
 import type * as projectBudgets_clearPayments from "../projectBudgets/clearPayments.js";
 import type * as projectBudgets_projectSummary from "../projectBudgets/projectSummary.js";
+import type * as projectBudgets_purgeOrphaned from "../projectBudgets/purgeOrphaned.js";
 import type * as projectBudgets_remove from "../projectBudgets/remove.js";
 import type * as projectBudgets_setPrices from "../projectBudgets/setPrices.js";
 import type * as projectBudgets_tradeSummary from "../projectBudgets/tradeSummary.js";
@@ -437,6 +439,7 @@ declare const fullApi: ApiFromModules<{
   "budgetTemplateItems/setPrices": typeof budgetTemplateItems_setPrices;
   "budgetTemplates/add": typeof budgetTemplates_add;
   "budgetTemplates/applyToProject": typeof budgetTemplates_applyToProject;
+  "budgetTemplates/copy": typeof budgetTemplates_copy;
   "budgetTemplates/get": typeof budgetTemplates_get;
   "budgetTemplates/list": typeof budgetTemplates_list;
   "budgetTemplates/remove": typeof budgetTemplates_remove;
@@ -594,6 +597,7 @@ declare const fullApi: ApiFromModules<{
   "projectBudgets/addItem": typeof projectBudgets_addItem;
   "projectBudgets/clearPayments": typeof projectBudgets_clearPayments;
   "projectBudgets/projectSummary": typeof projectBudgets_projectSummary;
+  "projectBudgets/purgeOrphaned": typeof projectBudgets_purgeOrphaned;
   "projectBudgets/remove": typeof projectBudgets_remove;
   "projectBudgets/setPrices": typeof projectBudgets_setPrices;
   "projectBudgets/tradeSummary": typeof projectBudgets_tradeSummary;
