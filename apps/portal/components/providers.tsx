@@ -1,7 +1,6 @@
 'use client';
 
 import { ClerkProvider, useAuth } from '@clerk/nextjs';
-import { dark } from '@clerk/themes';
 import { env } from '@workspace/env/portal';
 import {
 	AnchoredToastProvider,
@@ -33,11 +32,19 @@ export default function Providers({ children }: { children: ReactNode }) {
 				<AnchoredToastProvider>
 					<ClerkProvider
 						appearance={{
-							theme: dark,
+							layout: {
+								logoImageUrl: '/logo-ink.svg',
+							},
 							variables: {
 								colorPrimary: env.NEXT_PUBLIC_APP_PRIMARY_COLOR,
 								colorPrimaryForeground:
 									env.NEXT_PUBLIC_APP_PRIMARY_FOREGROUND_COLOR,
+								colorBackground: '#f5ebe0',
+								colorForeground: '#2b2927',
+								colorInput: '#ffffff',
+								colorInputForeground: '#2b2927',
+								colorNeutral: '#2b2927',
+								borderRadius: '0.375rem',
 							},
 						}}
 						localization={{
