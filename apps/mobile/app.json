@@ -9,8 +9,9 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "au.com.luxuriahomes",
-      "buildNumber": "14",
+      "buildNumber": "16",
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -22,12 +23,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5EBE0"
       },
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-web-browser",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
