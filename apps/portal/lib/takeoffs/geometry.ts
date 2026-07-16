@@ -228,74 +228,43 @@ export function toPolygonPoints(
 	return shape.points;
 }
 
-/** Signed area of a polygon; its sign encodes the winding direction. */
-function signedArea(poly: Point[]): number {
-	let sum = 0;
-	for (let i = 0; i < poly.length; i++) {
-		const a = poly[i];
-		const b = poly[(i + 1) % poly.length];
-		sum += a.x * b.y - b.x * a.y;
-	}
-	return sum / 2;
-}
-
-/** Intersection of segment p1→p2 with the infinite line through a→b. */
-function lineIntersection(p1: Point, p2: Point, a: Point, b: Point): Point {
-	const a1 = b.y - a.y;
-	const b1 = a.x - b.x;
-	const c1 = a1 * a.x + b1 * a.y;
-	const a2 = p2.y - p1.y;
-	const b2 = p1.x - p2.x;
-	const c2 = a2 * p1.x + b2 * p1.y;
-	const det = a1 * b2 - a2 * b1;
-	if (det === 0) {
-		return p2;
-	}
-	return { x: (b2 * c1 - b1 * c2) / det, y: (a1 * c2 - a2 * c1) / det };
-}
-
 /**
- * Clip `subject` against a CONVEX `clip` polygon (Sutherland–Hodgman),
- * returning the intersection polygon (possibly empty). The inside test is
- * compared against the clip polygon's own winding, so either vertex order
- * works. Exact for convex clips (rectangles, circles); a concave parent
- * polygon is only approximated.
+ * Concave-safe intersection of two vertex lists via polygon-clipping (martinez),
+ * which handles concave polygons and holes correctly and normalizes winding —
+ * unlike Sutherland–Hodgman, which is only exact for convex clip polygons and
+ * silently over-clips a concave parent (e.g. the arms of an L-shape). Returns the
+ * total intersection area (pixels²; hole rings subtracted) for overlap detection
+ * and the largest outer ring as a vertex list for the stored clipped shape; the
+ * ring is empty and the area zero when the shapes are disjoint.
  */
-export function clipPolygon(subject: Point[], clip: Point[]): Point[] {
+function polygonIntersection(
+	subject: Point[],
+	clip: Point[]
+): { area: number; ring: Point[] } {
 	if (subject.length < 3 || clip.length < 3) {
-		return [];
+		return { area: 0, ring: [] };
 	}
-	// Positive winding ⇒ a point is "inside" when it lies to the left of each
-	// directed clip edge (cross product ≥ 0); flip the test for the other winding.
-	const sign = signedArea(clip) >= 0 ? 1 : -1;
-	const inside = (p: Point, a: Point, b: Point): boolean =>
-		sign * ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) >= 0;
-
-	let output = subject;
-	for (let i = 0; i < clip.length; i++) {
-		if (output.length === 0) {
-			break;
-		}
-		const a = clip[i];
-		const b = clip[(i + 1) % clip.length];
-		const input = output;
-		output = [];
-		for (let j = 0; j < input.length; j++) {
-			const current = input[j];
-			const prevPoint = input[(j + input.length - 1) % input.length];
-			const currentInside = inside(current, a, b);
-			const prevInside = inside(prevPoint, a, b);
-			if (currentInside) {
-				if (!prevInside) {
-					output.push(lineIntersection(prevPoint, current, a, b));
-				}
-				output.push(current);
-			} else if (prevInside) {
-				output.push(lineIntersection(prevPoint, current, a, b));
+	const toRing = (pts: Point[]): Ring => pts.map((p) => [p.x, p.y] as Pair);
+	const result: MultiPolygon = polygonClipping.intersection(
+		[toRing(subject)],
+		[toRing(clip)]
+	);
+	let area = 0;
+	let best: Ring | null = null;
+	let bestArea = 0;
+	for (const polygon of result) {
+		polygon.forEach((ring, index) => {
+			const a = ringArea(ring);
+			// Ring 0 is the outer boundary (adds area); the rest are holes.
+			area += index === 0 ? a : -a;
+			if (index === 0 && a > bestArea) {
+				bestArea = a;
+				best = ring;
 			}
-		}
+		});
 	}
-	return output;
+	const ring: Point[] = best ? (best as Ring).map(([x, y]) => ({ x, y })) : [];
+	return { area, ring };
 }
 
 /**
@@ -326,7 +295,7 @@ export function clipToParent(
 		if (allowed && !allowed.has(m.id)) {
 			continue;
 		}
-		const overlap = polygonArea(clipPolygon(subj, toPolygonPoints(m)));
+		const overlap = polygonIntersection(subj, toPolygonPoints(m)).area;
 		if (overlap > 0 && (!best || overlap > best.overlap)) {
 			best = { overlap, parent: m };
 		}
@@ -342,7 +311,7 @@ export function clipToParent(
 			points: candidate.points,
 		};
 	}
-	const clipped = clipPolygon(subj, toPolygonPoints(parent));
+	const clipped = polygonIntersection(subj, toPolygonPoints(parent)).ring;
 	if (clipped.length < 3) {
 		return {
 			parentId: parent.id,

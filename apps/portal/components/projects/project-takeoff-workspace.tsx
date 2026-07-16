@@ -2,6 +2,7 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { type Ref, useCallback, useEffect, useRef, useState } from 'react';
 import { signCdnUrl } from '@/actions/cdn';
@@ -75,7 +76,16 @@ export default function ProjectTakeoffWorkspace({
 				clearTimeout(saveTimer.current);
 			}
 			saveTimer.current = setTimeout(() => {
-				save({ takeoffId, ...stateToSaveArgs(state) }).catch(() => undefined);
+				save({ takeoffId, ...stateToSaveArgs(state) }).catch((error) => {
+					// Surface save failures instead of swallowing them — an unsaved
+					// change (e.g. a Convex document-size limit hit on a large takeoff)
+					// otherwise looks like the edit simply "didn't record".
+					console.error('Failed to save takeoff', error);
+					toastManager.add({
+						title: 'Failed to save takeoff — your changes may not be saved.',
+						type: 'error',
+					});
+				});
 			}, SAVE_DEBOUNCE_MS);
 		},
 		[save, takeoffId]
