@@ -40,6 +40,13 @@ maybeCompleteAuthSession();
 // genuinely dead/timed-out session survives long enough to be signed out.
 const STALE_SESSION_GRACE_MS = 4000;
 
+// Shown when SSO completes without a session because Clerk routed the person into
+// sign-up and the instance's Restricted sign-up mode blocked it — i.e. they have no
+// provisioned account. Retrying will never help, so the copy points them to an admin
+// rather than telling them to try again.
+const NO_ACCESS_MESSAGE =
+	'You do not have access to this app. Please contact your administrator.';
+
 // Clerk throws this code when a session already exists on the client (single-
 // session mode). It surfaces on the sign-in screen when a timed-out session
 // hasn't been cleared from the Clerk client yet.
@@ -132,6 +139,10 @@ export default function SignInScreen() {
 			if (sessionId && setActiveSso) {
 				await setActiveSso({ session: sessionId });
 				router.replace('/');
+			} else if (ssoSignUp) {
+				// No session but Clerk handed back a sign-up: an unprovisioned account
+				// that Restricted mode refused to create. This is a hard "no access".
+				setError(NO_ACCESS_MESSAGE);
 			} else {
 				setError('Google sign-in did not complete. Please try again.');
 			}
@@ -168,6 +179,10 @@ export default function SignInScreen() {
 			if (sessionId && setActiveApple) {
 				await setActiveApple({ session: sessionId });
 				router.replace('/');
+			} else if (appleSignUp) {
+				// No session but Clerk handed back a sign-up: an unprovisioned account
+				// that Restricted mode refused to create. This is a hard "no access".
+				setError(NO_ACCESS_MESSAGE);
 			} else {
 				// A user-cancelled sheet resolves with a null session — stay quiet.
 				setError(null);

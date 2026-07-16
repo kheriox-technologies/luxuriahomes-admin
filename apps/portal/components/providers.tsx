@@ -54,11 +54,13 @@ export default function Providers({ children }: { children: ReactNode }) {
 									titleCombined: 'Welcome Back',
 								},
 							},
-							signUp: {
-								start: {
-									title: 'Welcome Back',
-									titleCombined: 'Welcome Back',
-								},
+							// Clerk's restricted sign-up mode returns this error when someone
+							// without a provisioned account tries to log in (e.g. via Google).
+							// Override the default "New sign-ups are currently restricted." with
+							// friendlier, app-specific copy.
+							unstable__errors: {
+								not_allowed_access:
+									'You do not have access to this app. Please contact your administrator.',
 							},
 						}}
 					>
