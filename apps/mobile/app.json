@@ -9,7 +9,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "au.com.luxuriahomes",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -23,7 +23,9 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F5EBE0"
       },
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
