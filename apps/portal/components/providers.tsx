@@ -1,7 +1,6 @@
 'use client';
 
 import { ClerkProvider, useAuth } from '@clerk/nextjs';
-import { dark } from '@clerk/themes';
 import { env } from '@workspace/env/portal';
 import {
 	AnchoredToastProvider,
@@ -33,11 +32,19 @@ export default function Providers({ children }: { children: ReactNode }) {
 				<AnchoredToastProvider>
 					<ClerkProvider
 						appearance={{
-							theme: dark,
+							layout: {
+								logoImageUrl: '/logo-ink.svg',
+							},
 							variables: {
 								colorPrimary: env.NEXT_PUBLIC_APP_PRIMARY_COLOR,
 								colorPrimaryForeground:
 									env.NEXT_PUBLIC_APP_PRIMARY_FOREGROUND_COLOR,
+								colorBackground: '#f5ebe0',
+								colorForeground: '#2b2927',
+								colorInput: '#ffffff',
+								colorInputForeground: '#2b2927',
+								colorNeutral: '#2b2927',
+								borderRadius: '0.375rem',
 							},
 						}}
 						localization={{
@@ -47,11 +54,13 @@ export default function Providers({ children }: { children: ReactNode }) {
 									titleCombined: 'Welcome Back',
 								},
 							},
-							signUp: {
-								start: {
-									title: 'Welcome Back',
-									titleCombined: 'Welcome Back',
-								},
+							// Clerk's restricted sign-up mode returns this error when someone
+							// without a provisioned account tries to log in (e.g. via Google).
+							// Override the default "New sign-ups are currently restricted." with
+							// friendlier, app-specific copy.
+							unstable__errors: {
+								not_allowed_access:
+									'You do not have access to this app. Please contact your administrator.',
 							},
 						}}
 					>

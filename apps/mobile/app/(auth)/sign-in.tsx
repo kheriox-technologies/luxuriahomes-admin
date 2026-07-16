@@ -2,8 +2,14 @@ import {
 	isClerkAPIResponseError,
 	useAuth,
 	useSignIn,
+	useSignInWithApple,
 	useSSO,
 } from '@clerk/clerk-expo';
+import {
+	AppleAuthenticationButton,
+	AppleAuthenticationButtonStyle,
+	AppleAuthenticationButtonType,
+} from 'expo-apple-authentication';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -34,6 +40,13 @@ maybeCompleteAuthSession();
 // genuinely dead/timed-out session survives long enough to be signed out.
 const STALE_SESSION_GRACE_MS = 4000;
 
+// Shown when SSO completes without a session because Clerk routed the person into
+// sign-up and the instance's Restricted sign-up mode blocked it — i.e. they have no
+// provisioned account. Retrying will never help, so the copy points them to an admin
+// rather than telling them to try again.
+const NO_ACCESS_MESSAGE =
+	'You do not have access to this app. Please contact your administrator.';
+
 // Clerk throws this code when a session already exists on the client (single-
 // session mode). It surfaces on the sign-in screen when a timed-out session
 // hasn't been cleared from the Clerk client yet.
@@ -62,6 +75,7 @@ export default function SignInScreen() {
 	const router = useRouter();
 	const { signIn, setActive, isLoaded } = useSignIn();
 	const { startSSOFlow } = useSSO();
+	const { startAppleAuthenticationFlow } = useSignInWithApple();
 	const { isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
 
 	// This screen only renders when Convex is unauthenticated. If Clerk still
@@ -90,6 +104,7 @@ export default function SignInScreen() {
 	const [error, setError] = useState<string | null>(null);
 	const [emailLoading, setEmailLoading] = useState(false);
 	const [googleLoading, setGoogleLoading] = useState(false);
+	const [appleLoading, setAppleLoading] = useState(false);
 
 	// Second step for Clerk's email-code verification (MFA). `factorKind` records
 	// whether the code satisfies a first- or second-factor challenge so the verify
@@ -124,6 +139,10 @@ export default function SignInScreen() {
 			if (sessionId && setActiveSso) {
 				await setActiveSso({ session: sessionId });
 				router.replace('/');
+			} else if (ssoSignUp) {
+				// No session but Clerk handed back a sign-up: an unprovisioned account
+				// that Restricted mode refused to create. This is a hard "no access".
+				setError(NO_ACCESS_MESSAGE);
 			} else {
 				setError('Google sign-in did not complete. Please try again.');
 			}
@@ -140,6 +159,58 @@ export default function SignInScreen() {
 			setGoogleLoading(false);
 		}
 	}, [router, signOut, startSSOFlow]);
+
+	const onApplePress = useCallback(async () => {
+		setError(null);
+		setAppleLoading(true);
+		try {
+			const {
+				createdSessionId,
+				setActive: setActiveApple,
+				signIn: appleSignIn,
+				signUp: appleSignUp,
+			} = await startAppleAuthenticationFlow();
+			// Apple's native flow returns the session id on signIn (existing user) or
+			// signUp (first-time transfer); mirror the Google handler's fallbacks.
+			const sessionId =
+				createdSessionId ??
+				appleSignIn?.createdSessionId ??
+				appleSignUp?.createdSessionId;
+			if (sessionId && setActiveApple) {
+				await setActiveApple({ session: sessionId });
+				router.replace('/');
+			} else if (appleSignUp) {
+				// No session but Clerk handed back a sign-up: an unprovisioned account
+				// that Restricted mode refused to create. This is a hard "no access".
+				setError(NO_ACCESS_MESSAGE);
+			} else {
+				// A user-cancelled sheet resolves with a null session — stay quiet.
+				setError(null);
+			}
+		} catch (err) {
+			// User dismissed the native Apple sheet — not an error worth surfacing.
+			if ((err as { code?: string })?.code === 'ERR_REQUEST_CANCELED') {
+				return;
+			}
+			if (isSessionExistsError(err)) {
+				await signOut();
+				setError('Please tap Continue with Apple again.');
+			} else if (isClerkAPIResponseError(err)) {
+				// Surface Clerk's real reason (e.g. missing Apple SSO connection or bad
+				// credentials on the production instance) instead of a generic message —
+				// TestFlight has no accessible logs, so this is the only way to see it.
+				setError(
+					err.errors.at(0)?.longMessage ??
+						err.errors.at(0)?.message ??
+						'Apple sign-in failed. Please try again.'
+				);
+			} else {
+				setError('Apple sign-in failed. Please try again.');
+			}
+		} finally {
+			setAppleLoading(false);
+		}
+	}, [router, signOut, startAppleAuthenticationFlow]);
 
 	const onEmailPress = useCallback(async () => {
 		if (!(isLoaded && email && password)) {
@@ -379,6 +450,34 @@ export default function SignInScreen() {
 									Continue with Google
 								</Text>
 							</Button>
+
+							{/* Post-authentication spinner. The native Apple button has no
+							loading state, so we swap to the app Button (which does) only
+							after the user has completed Apple's sheet. */}
+							{Platform.OS === 'ios' && appleLoading ? (
+								<Button
+									className="border-black bg-black"
+									loading
+									variant="secondary"
+								>
+									<Text className="font-sans-semibold text-base text-white">
+										Continue with Apple
+									</Text>
+								</Button>
+							) : null}
+
+							{/* Apple's native button guarantees the App Store-compliant logo
+							and wording (guideline 4.8). Height/radius match the app's h-9
+							rounded-lg buttons. */}
+							{Platform.OS === 'ios' && !appleLoading ? (
+								<AppleAuthenticationButton
+									buttonStyle={AppleAuthenticationButtonStyle.BLACK}
+									buttonType={AppleAuthenticationButtonType.CONTINUE}
+									cornerRadius={8}
+									onPress={onApplePress}
+									style={{ height: 36, width: '100%' }}
+								/>
+							) : null}
 						</>
 					)}
 				</Animated.View>
