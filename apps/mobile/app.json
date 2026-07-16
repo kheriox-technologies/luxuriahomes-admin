@@ -9,7 +9,7 @@
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "au.com.luxuriahomes",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {

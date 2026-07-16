@@ -20,6 +20,15 @@ import { Alert, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
+
+type AdjustmentType = 'increase' | 'decrease';
+
+const ADJUSTMENT_OPTIONS: readonly { label: string; value: AdjustmentType }[] =
+	[
+		{ label: 'Increase', value: 'increase' },
+		{ label: 'Decrease', value: 'decrease' },
+	];
 
 const PERCENTAGE_PATTERN = /^\d+(\.\d+)?$/;
 
@@ -47,6 +56,8 @@ export function CopyBudgetTemplateSheet({
 	const [sourceId, setSourceId] = useState<Id<'budgetTemplates'> | null>(null);
 	const [name, setName] = useState('');
 	const [percentage, setPercentage] = useState('');
+	const [adjustmentType, setAdjustmentType] =
+		useState<AdjustmentType>('increase');
 	const [saving, setSaving] = useState(false);
 
 	useImperativeHandle(ref, () => ({
@@ -54,6 +65,7 @@ export function CopyBudgetTemplateSheet({
 			setSourceId(template.sourceBudgetTemplateId);
 			setName(`${template.title} (Copy)`);
 			setPercentage('');
+			setAdjustmentType('increase');
 			sheetRef.current?.present();
 		},
 	}));
@@ -80,23 +92,31 @@ export function CopyBudgetTemplateSheet({
 			return;
 		}
 		const trimmedPercentage = percentage.trim();
-		let percentageIncrease = 0;
+		let percentageValue = 0;
 		if (trimmedPercentage.length > 0) {
 			if (!PERCENTAGE_PATTERN.test(trimmedPercentage)) {
 				Alert.alert(
 					'Percentage is invalid',
-					'Enter a positive number, e.g. 10 for a 10% increase.'
+					'Enter a positive number, e.g. 10 for a 10% change.'
 				);
 				return;
 			}
-			percentageIncrease = Number(trimmedPercentage);
+			percentageValue = Number(trimmedPercentage);
+		}
+		if (adjustmentType === 'decrease' && percentageValue > 100) {
+			Alert.alert(
+				'Percentage is invalid',
+				'Percentage decrease cannot exceed 100%.'
+			);
+			return;
 		}
 		setSaving(true);
 		try {
 			const newId = await copyTemplate({
 				sourceBudgetTemplateId: sourceId,
 				title: trimmedName,
-				percentageIncrease,
+				percentage: percentageValue,
+				adjustmentType,
 			});
 			sheetRef.current?.dismiss();
 			router.push({
@@ -141,19 +161,38 @@ export function CopyBudgetTemplateSheet({
 
 				<View className="gap-1.5">
 					<Text className="font-sans-medium text-foreground text-sm">
-						% increase (optional)
+						Price adjustment (optional)
 					</Text>
-					<BottomSheetTextInput
-						className="h-9 rounded-lg border border-border bg-card px-3 font-sans text-foreground text-sm"
-						keyboardType="decimal-pad"
-						onChangeText={setPercentage}
-						placeholder="0"
-						placeholderTextColor={colors.mutedForeground}
-						value={percentage}
-					/>
+					<View className="flex-row gap-2">
+						<Select
+							className="w-32"
+							onChange={setAdjustmentType}
+							options={ADJUSTMENT_OPTIONS}
+							title="Adjustment"
+							value={adjustmentType}
+						/>
+						<View className="relative flex-1 justify-center">
+							<BottomSheetTextInput
+								className="h-9 rounded-lg border border-border bg-card pr-8 pl-3 font-sans text-foreground text-sm"
+								keyboardType="decimal-pad"
+								onChangeText={setPercentage}
+								placeholder="0"
+								placeholderTextColor={colors.mutedForeground}
+								value={percentage}
+							/>
+							<View
+								className="absolute inset-y-0 right-3 justify-center"
+								pointerEvents="none"
+							>
+								<Text className="font-sans text-muted-foreground text-sm">
+									%
+								</Text>
+							</View>
+						</View>
+					</View>
 					<Text className="font-sans text-muted-foreground text-xs">
-						Increase every trade price by this percentage. Leave blank for an
-						exact copy.
+						Raise or lower every trade price by this percentage. Leave blank for
+						an exact copy.
 					</Text>
 				</View>
 

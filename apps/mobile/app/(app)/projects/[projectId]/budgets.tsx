@@ -147,6 +147,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 	// Stages start collapsed; keys here are the ones the user has expanded.
 	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 	const [savingEdits, setSavingEdits] = useState(false);
+	const [savingRowId, setSavingRowId] = useState<string | null>(null);
 	const [syncing, setSyncing] = useState(false);
 	const [selectedTrade, setSelectedTrade] = useState<BudgetTrade | null>(null);
 
@@ -357,6 +358,43 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 		}
 	};
 
+	const startEditingRow = (trade: BudgetTrade) => {
+		editing.beginRow({
+			tradeId: trade.tradeId,
+			name: trade.tradeName,
+			price: trade.budgetPrice,
+		});
+		// Keep the row's stage open so the inline inputs stay visible.
+		setExpandedKeys((prev) =>
+			new Set(prev).add(trade.stageId ?? UNGROUPED_KEY)
+		);
+	};
+
+	const saveRow = async (trade: BudgetTrade) => {
+		const changes = editing.getRowChanges(trade.tradeId);
+		if (changes.price === undefined && changes.name === undefined) {
+			editing.endRow(trade.tradeId);
+			return;
+		}
+		setSavingRowId(trade.tradeId);
+		try {
+			if (changes.price !== undefined) {
+				await setPrices({
+					projectId,
+					items: [{ tradeId: trade.tradeId, price: changes.price }],
+				});
+			}
+			if (changes.name !== undefined) {
+				await updateTrade({ tradeId: trade.tradeId, name: changes.name });
+			}
+			editing.endRow(trade.tradeId);
+		} catch {
+			Alert.alert('Could not save changes', 'Please try again.');
+		} finally {
+			setSavingRowId(null);
+		}
+	};
+
 	const handleDeleteTrade = (trade: BudgetTrade) => {
 		const projectBudgetId = trade.projectBudgetId;
 		if (!projectBudgetId) {
@@ -422,6 +460,15 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 
 	const tradeMenuItems: ActionSheetItem[] = selectedTrade
 		? [
+				{
+					key: 'edit-budget',
+					label: 'Edit budget',
+					icon: Wallet,
+					onPress: () => {
+						tradeMenuRef.current?.dismiss();
+						startEditingRow(selectedTrade);
+					},
+				},
 				{
 					key: 'edit-trade',
 					label: 'Edit trade',
@@ -514,14 +561,21 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 				renderItem={({ item }) => (
 					<BudgetStageAccordion
 						editing={editing.isEditing}
+						editingRowIds={editing.editingRows}
 						expanded={isSearching || expandedKeys.has(item.key)}
 						group={item}
 						nameDrafts={editing.nameDrafts}
 						onChangeName={editing.setNameDraft}
 						onChangePrice={editing.setPriceDraft}
 						onOpenTradeMenu={openTradeMenu}
+						onSaveRow={(trade) => {
+							saveRow(trade).catch(() => {
+								/* Error handled in saveRow */
+							});
+						}}
 						onToggle={() => toggleKey(item.key)}
 						priceDrafts={editing.priceDrafts}
+						savingTradeId={savingRowId}
 						xeroLabelsById={xeroLabelsById}
 					/>
 				)}

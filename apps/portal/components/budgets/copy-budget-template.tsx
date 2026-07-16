@@ -18,6 +18,19 @@ import {
 	FieldLabel,
 } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
+import {
+	Select,
+	SelectItem,
+	SelectPopup,
+	SelectTrigger,
+	SelectValue,
+} from '@workspace/ui/components/select';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { Copy } from 'lucide-react';
@@ -41,6 +54,9 @@ export default function CopyBudgetTemplate({
 	const router = useRouter();
 	const [name, setName] = useState('');
 	const [percentage, setPercentage] = useState('');
+	const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>(
+		'increase'
+	);
 	const [isSaving, setIsSaving] = useState(false);
 
 	const copyTemplate = useMutation(api.budgetTemplates.copy.copy);
@@ -49,6 +65,7 @@ export default function CopyBudgetTemplate({
 		if (open) {
 			setName(`${templateTitle} (Copy)`);
 			setPercentage('');
+			setAdjustmentType('increase');
 		}
 	}, [open, templateTitle]);
 
@@ -64,17 +81,26 @@ export default function CopyBudgetTemplate({
 		}
 
 		const trimmedPercentage = percentage.trim();
-		let percentageIncrease = 0;
+		let percentageValue = 0;
 		if (trimmedPercentage.length > 0) {
 			if (!PERCENTAGE_PATTERN.test(trimmedPercentage)) {
 				toastManager.add({
-					description: 'Enter a positive number, e.g. 10 for a 10% increase.',
+					description: 'Enter a positive number, e.g. 10 for a 10% change.',
 					title: 'Percentage is invalid',
 					type: 'error',
 				});
 				return;
 			}
-			percentageIncrease = Number(trimmedPercentage);
+			percentageValue = Number(trimmedPercentage);
+		}
+
+		if (adjustmentType === 'decrease' && percentageValue > 100) {
+			toastManager.add({
+				description: 'Percentage decrease cannot exceed 100%.',
+				title: 'Percentage is invalid',
+				type: 'error',
+			});
+			return;
 		}
 
 		setIsSaving(true);
@@ -82,7 +108,8 @@ export default function CopyBudgetTemplate({
 			const newId = await copyTemplate({
 				sourceBudgetTemplateId,
 				title: trimmedName,
-				percentageIncrease,
+				percentage: percentageValue,
+				adjustmentType,
 			});
 			toastManager.add({ title: 'Budget template copied', type: 'success' });
 			onOpenChange(false);
@@ -121,20 +148,42 @@ export default function CopyBudgetTemplate({
 					</Field>
 					<Field>
 						<FieldLabel htmlFor="copy-budget-template-percentage">
-							% increase{' '}
+							Price adjustment{' '}
 							<span className="text-muted-foreground text-xs">(optional)</span>
 						</FieldLabel>
-						<Input
-							id="copy-budget-template-percentage"
-							inputMode="decimal"
-							nativeInput
-							onChange={(e) => setPercentage(e.target.value)}
-							placeholder="0"
-							value={percentage}
-						/>
+						<div className="flex w-full gap-2">
+							<Select
+								onValueChange={(next) =>
+									setAdjustmentType(next as 'increase' | 'decrease')
+								}
+								value={adjustmentType}
+							>
+								<SelectTrigger className="flex-1">
+									<SelectValue />
+								</SelectTrigger>
+								<SelectPopup>
+									<SelectItem value="increase">Increase</SelectItem>
+									<SelectItem value="decrease">Decrease</SelectItem>
+								</SelectPopup>
+							</Select>
+							<InputGroup className="flex-1">
+								<InputGroupInput
+									id="copy-budget-template-percentage"
+									inputMode="decimal"
+									nativeInput
+									onChange={(e) => setPercentage(e.target.value)}
+									placeholder="0"
+									type="text"
+									value={percentage}
+								/>
+								<InputGroupAddon align="inline-end">
+									<InputGroupText>%</InputGroupText>
+								</InputGroupAddon>
+							</InputGroup>
+						</div>
 						<FieldDescription>
-							Increase every trade price by this percentage. Leave blank for an
-							exact copy.
+							Raise or lower every trade price by this percentage. Leave blank
+							for an exact copy.
 						</FieldDescription>
 					</Field>
 				</DialogPanel>

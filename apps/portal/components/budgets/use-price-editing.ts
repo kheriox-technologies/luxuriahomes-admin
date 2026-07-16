@@ -19,6 +19,11 @@ export interface NameChange {
 	tradeId: string;
 }
 
+export interface RowChanges {
+	name?: string;
+	price?: number;
+}
+
 /**
  * Shared edit-mode + draft state for budget price tables. Keyed by trade id so
  * both the budget template page and the project budgets tab behave identically:
@@ -28,6 +33,9 @@ export interface NameChange {
  */
 export function usePriceEditing() {
 	const [isEditing, setIsEditing] = useState(false);
+	// Trade ids currently in single-row edit mode. Coexists with the bulk
+	// `isEditing` flag: a row is editable when either is active for it.
+	const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
 	const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
 	const originalsRef = useRef<Record<string, number | null>>({});
@@ -52,6 +60,48 @@ export function usePriceEditing() {
 		setIsEditing(true);
 	}, []);
 
+	// Seed a single row's draft + original without touching the bulk `isEditing`
+	// flag, so "Edit Budget" makes just that row's name + price editable.
+	const beginRow = useCallback((entry: PriceEntry) => {
+		setDrafts((prev) => ({
+			...prev,
+			[entry.tradeId]: entry.price === null ? '' : String(entry.price),
+		}));
+		setNameDrafts((prev) => ({ ...prev, [entry.tradeId]: entry.name }));
+		originalsRef.current[entry.tradeId] = entry.price;
+		nameOriginalsRef.current[entry.tradeId] = entry.name;
+		setEditingRows((prev) => {
+			const next = new Set(prev);
+			next.add(entry.tradeId);
+			return next;
+		});
+	}, []);
+
+	const endRow = useCallback((tradeId: string) => {
+		setEditingRows((prev) => {
+			const next = new Set(prev);
+			next.delete(tradeId);
+			return next;
+		});
+		setDrafts((prev) => {
+			const next = { ...prev };
+			delete next[tradeId];
+			return next;
+		});
+		setNameDrafts((prev) => {
+			const next = { ...prev };
+			delete next[tradeId];
+			return next;
+		});
+		delete originalsRef.current[tradeId];
+		delete nameOriginalsRef.current[tradeId];
+	}, []);
+
+	const isRowEditing = useCallback(
+		(tradeId: string) => editingRows.has(tradeId),
+		[editingRows]
+	);
+
 	const setDraft = useCallback((tradeId: string, value: string) => {
 		setDrafts((prev) => ({ ...prev, [tradeId]: value }));
 	}, []);
@@ -62,6 +112,7 @@ export function usePriceEditing() {
 
 	const cancel = useCallback(() => {
 		setIsEditing(false);
+		setEditingRows(new Set());
 		setDrafts({});
 		setNameDrafts({});
 		originalsRef.current = {};
@@ -100,15 +151,43 @@ export function usePriceEditing() {
 		return changes;
 	}, [nameDrafts]);
 
+	// Changed price and/or name for a single row, using the same trim/validate/
+	// diff-vs-original rules as the bulk getters.
+	const getRowChanges = useCallback(
+		(tradeId: string): RowChanges => {
+			const changes: RowChanges = {};
+			const rawPrice = (drafts[tradeId] ?? '').trim();
+			if (rawPrice.length > 0 && isValidMoneyString(rawPrice)) {
+				const price = parseMoneyString(rawPrice);
+				const originalPrice = originalsRef.current[tradeId] ?? null;
+				if (originalPrice === null || price !== originalPrice) {
+					changes.price = price;
+				}
+			}
+			const rawName = (nameDrafts[tradeId] ?? '').trim();
+			const originalName = (nameOriginalsRef.current[tradeId] ?? '').trim();
+			if (rawName.length > 0 && rawName !== originalName) {
+				changes.name = rawName;
+			}
+			return changes;
+		},
+		[drafts, nameDrafts]
+	);
+
 	return {
 		isEditing,
+		editingRows,
 		drafts,
 		nameDrafts,
 		begin,
+		beginRow,
+		endRow,
+		isRowEditing,
 		setDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
 		getNameChanges,
+		getRowChanges,
 	};
 }

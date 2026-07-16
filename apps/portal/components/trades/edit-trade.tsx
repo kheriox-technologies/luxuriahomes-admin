@@ -43,14 +43,27 @@ export default function EditTrade({
 	initialDescription,
 	initialStageId,
 	trigger,
+	open: controlledOpen,
+	onOpenChange,
 }: {
 	tradeId: Id<'trades'>;
 	initialName: string;
 	initialDescription?: string;
 	initialStageId?: Id<'tradeStages'>;
-	trigger: ReactElement;
+	// Omit `trigger` to drive the dialog from `open`/`onOpenChange` (e.g. a menu).
+	trigger?: ReactElement;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const isControlled = controlledOpen !== undefined;
+	const open = isControlled ? controlledOpen : internalOpen;
+	const setOpen = (next: boolean) => {
+		if (!isControlled) {
+			setInternalOpen(next);
+		}
+		onOpenChange?.(next);
+	};
 	const [stageId, setStageId] = useState<Id<'tradeStages'> | ''>('');
 	const [newStageName, setNewStageName] = useState('');
 	// Self-fetch the trade's Xero account mapping only while the dialog is open,
@@ -141,7 +154,7 @@ export default function EditTrade({
 			}}
 			open={open}
 		>
-			<DialogTrigger render={trigger} />
+			{trigger ? <DialogTrigger render={trigger} /> : null}
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Edit Trade</DialogTitle>

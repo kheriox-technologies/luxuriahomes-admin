@@ -38,9 +38,9 @@ import {
 	isValidMoneyString,
 	parseMoneyString,
 } from '@/components/budgets/budget-form-shared';
+import BudgetRowActions from '@/components/budgets/budget-row-actions';
 import { usePriceEditing } from '@/components/budgets/use-price-editing';
 import AddTradeStage from '@/components/trades/add-trade-stage';
-import EditTrade from '@/components/trades/edit-trade';
 import {
 	type StageGroup,
 	StageGroupedList,
@@ -181,13 +181,18 @@ export default function ProjectBudgetsTabContent({
 		drafts,
 		nameDrafts,
 		begin,
+		beginRow,
+		endRow,
+		isRowEditing,
 		setDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
 		getNameChanges,
+		getRowChanges,
 	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
+	const [savingRowId, setSavingRowId] = useState<string | null>(null);
 	const [search, setSearch] = useState('');
 	const listRef = useRef<StageGroupedListHandle>(null);
 	const xeroLabelsById = useXeroAccountCodes();
@@ -284,7 +289,7 @@ export default function ProjectBudgetsTabContent({
 	// Live budget reflects draft prices while editing so totals update before
 	// "Done"; blank/invalid drafts fall back to the saved value.
 	const liveBudget = (row: TradeBudgetRow) => {
-		if (isEditing) {
+		if (isEditing || isRowEditing(row.tradeId)) {
 			const raw = (drafts[row.tradeId] ?? '').trim();
 			if (raw.length > 0 && isValidMoneyString(raw)) {
 				return parseMoneyString(raw);
@@ -369,68 +374,118 @@ export default function ProjectBudgetsTabContent({
 		}
 	};
 
-	const renderRowContent = (row: TradeBudgetRow) => (
-		<div className={cn(ROW_GRID, 'flex-1')}>
-			{isEditing ? (
-				<Input
-					aria-label={`Trade name for ${row.tradeName}`}
-					nativeInput
-					onChange={(e) => setNameDraft(row.tradeId, e.target.value)}
-					placeholder="Trade name"
-					type="text"
-					value={nameDrafts[row.tradeId] ?? ''}
-				/>
-			) : (
-				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<span className="font-medium text-sm">{row.tradeName}</span>
-					<XeroAccountBadges
-						accountIds={row.xeroAccountId ? [row.xeroAccountId] : []}
-						labelsById={xeroLabelsById}
-					/>
-				</div>
-			)}
-			{isEditing ? (
-				<InputGroup>
-					<InputGroupAddon align="inline-start">
-						<InputGroupText>$</InputGroupText>
-					</InputGroupAddon>
-					<InputGroupInput
-						aria-label={`Budget for ${row.tradeName}`}
-						inputMode="decimal"
+	const saveRow = async (row: TradeBudgetRow) => {
+		const changes = getRowChanges(row.tradeId);
+		if (changes.price === undefined && changes.name === undefined) {
+			endRow(row.tradeId);
+			return;
+		}
+		setSavingRowId(row.tradeId);
+		try {
+			await Promise.all([
+				changes.price === undefined
+					? Promise.resolve()
+					: setPrices({
+							projectId,
+							items: [{ tradeId: row.tradeId, price: changes.price }],
+						}),
+				changes.name === undefined
+					? Promise.resolve()
+					: updateTrade({ tradeId: row.tradeId, name: changes.name }),
+			]);
+			toastManager.add({ title: 'Budget saved', type: 'success' });
+			endRow(row.tradeId);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not save budget. Please try again in a moment.'
+				),
+				title: 'Could not save budget',
+				type: 'error',
+			});
+		} finally {
+			setSavingRowId(null);
+		}
+	};
+
+	const renderRowContent = (row: TradeBudgetRow) => {
+		const rowEditing = isEditing || isRowEditing(row.tradeId);
+		return (
+			<div className={cn(ROW_GRID, 'flex-1')}>
+				{rowEditing ? (
+					<Input
+						aria-label={`Trade name for ${row.tradeName}`}
 						nativeInput
-						onChange={(e) => setDraft(row.tradeId, e.target.value)}
-						placeholder="0.00"
+						onChange={(e) => setNameDraft(row.tradeId, e.target.value)}
+						placeholder="Trade name"
 						type="text"
-						value={drafts[row.tradeId] ?? ''}
+						value={nameDrafts[row.tradeId] ?? ''}
 					/>
-					<InputGroupAddon align="inline-end">
-						<InputGroupText>AUD</InputGroupText>
-					</InputGroupAddon>
-				</InputGroup>
-			) : (
-				<BudgetValue price={row.budgetPrice} />
-			)}
-			<ActualCell actual={row.xeroActual} budget={liveBudget(row)} />
-			<Group className="justify-end">
-				<EditTrade
-					initialDescription={row.tradeDescription ?? undefined}
-					initialName={row.tradeName}
-					initialStageId={row.stageId ?? undefined}
-					tradeId={row.tradeId}
-					trigger={
-						<Button aria-label="Edit trade" size="icon" variant="outline">
-							<Pencil />
-						</Button>
+				) : (
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
+						<span className="font-medium text-sm">{row.tradeName}</span>
+						<XeroAccountBadges
+							accountIds={row.xeroAccountId ? [row.xeroAccountId] : []}
+							labelsById={xeroLabelsById}
+						/>
+					</div>
+				)}
+				{rowEditing ? (
+					<InputGroup>
+						<InputGroupAddon align="inline-start">
+							<InputGroupText>$</InputGroupText>
+						</InputGroupAddon>
+						<InputGroupInput
+							aria-label={`Budget for ${row.tradeName}`}
+							inputMode="decimal"
+							nativeInput
+							onChange={(e) => setDraft(row.tradeId, e.target.value)}
+							placeholder="0.00"
+							type="text"
+							value={drafts[row.tradeId] ?? ''}
+						/>
+						<InputGroupAddon align="inline-end">
+							<InputGroupText>AUD</InputGroupText>
+						</InputGroupAddon>
+					</InputGroup>
+				) : (
+					<BudgetValue price={row.budgetPrice} />
+				)}
+				<ActualCell actual={row.xeroActual} budget={liveBudget(row)} />
+				<BudgetRowActions
+					onEditBudget={() =>
+						beginRow({
+							tradeId: row.tradeId,
+							price: row.budgetPrice,
+							name: row.tradeName,
+						})
 					}
+					onSaveBudget={() => {
+						saveRow(row).catch(() => {
+							/* Error handled in saveRow */
+						});
+					}}
+					renderDelete={(open, onOpenChange) => (
+						<DeleteProjectBudget
+							onOpenChange={onOpenChange}
+							open={open}
+							projectBudgetId={row.projectBudgetId}
+							tradeName={row.tradeName}
+						/>
+					)}
+					rowEditing={isRowEditing(row.tradeId)}
+					saving={savingRowId === row.tradeId}
+					trade={{
+						tradeId: row.tradeId,
+						name: row.tradeName,
+						description: row.tradeDescription ?? undefined,
+						stageId: row.stageId ?? undefined,
+					}}
 				/>
-				<GroupSeparator />
-				<DeleteProjectBudget
-					projectBudgetId={row.projectBudgetId}
-					tradeName={row.tradeName}
-				/>
-			</Group>
-		</div>
-	);
+			</div>
+		);
+	};
 
 	// Count badge sits with the stage name (Trade column).
 	const renderStageBadges = (group: StageGroup<TradeBudgetRow>) => (

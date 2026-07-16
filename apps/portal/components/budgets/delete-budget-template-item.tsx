@@ -22,11 +22,25 @@ import { getConvexErrorMessage } from '@/lib/convex-errors';
 export default function DeleteBudgetTemplateItem({
 	budgetTemplateItemId,
 	itemName,
+	open: controlledOpen,
+	onOpenChange,
 }: {
 	budgetTemplateItemId: Id<'budgetTemplateItems'>;
 	itemName: string;
+	// Omit these to render the built-in trash trigger; provide them to drive the
+	// dialog from a menu (no visible trigger button).
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
 }) {
-	const [open, setOpen] = useState(false);
+	const [internalOpen, setInternalOpen] = useState(false);
+	const isControlled = controlledOpen !== undefined;
+	const open = isControlled ? controlledOpen : internalOpen;
+	const setOpen = (next: boolean) => {
+		if (!isControlled) {
+			setInternalOpen(next);
+		}
+		onOpenChange?.(next);
+	};
 	const [isDeleting, setIsDeleting] = useState(false);
 	const removeItem = useMutation(api.budgetTemplateItems.remove.remove);
 
@@ -52,18 +66,20 @@ export default function DeleteBudgetTemplateItem({
 
 	return (
 		<AlertDialog onOpenChange={setOpen} open={open}>
-			<AlertDialogTrigger
-				render={
-					<Button
-						aria-label={`Remove ${itemName}`}
-						size="icon"
-						type="button"
-						variant="destructive-outline"
-					>
-						<Trash2 />
-					</Button>
-				}
-			/>
+			{isControlled ? null : (
+				<AlertDialogTrigger
+					render={
+						<Button
+							aria-label={`Remove ${itemName}`}
+							size="icon"
+							type="button"
+							variant="destructive-outline"
+						>
+							<Trash2 />
+						</Button>
+					}
+				/>
+			)}
 			<AlertDialogContent>
 				<AlertDialogHeader>
 					<AlertDialogTitle>Remove item?</AlertDialogTitle>
