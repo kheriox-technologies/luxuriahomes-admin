@@ -15,7 +15,10 @@ export const copy = mutation({
 	args: {
 		sourceBudgetTemplateId: v.id('budgetTemplates'),
 		title: v.string(),
-		percentageIncrease: v.optional(v.number()),
+		percentage: v.optional(v.number()),
+		adjustmentType: v.optional(
+			v.union(v.literal('increase'), v.literal('decrease'))
+		),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -23,14 +26,24 @@ export const copy = mutation({
 		const source = await getTemplateOrThrow(ctx, args.sourceBudgetTemplateId);
 		const title = parseTemplateTitle(args.title);
 
-		const percentageIncrease = args.percentageIncrease ?? 0;
-		if (!Number.isFinite(percentageIncrease) || percentageIncrease < 0) {
+		const percentage = args.percentage ?? 0;
+		if (!Number.isFinite(percentage) || percentage < 0) {
 			throw new ConvexError({
 				code: 'INVALID_PERCENTAGE',
-				message: 'Percentage increase must be a positive number',
+				message: 'Percentage must be a positive number',
 			});
 		}
-		const factor = 1 + percentageIncrease / 100;
+		const adjustmentType = args.adjustmentType ?? 'increase';
+		if (adjustmentType === 'decrease' && percentage > 100) {
+			throw new ConvexError({
+				code: 'INVALID_PERCENTAGE',
+				message: 'Percentage decrease cannot exceed 100%',
+			});
+		}
+		const factor =
+			adjustmentType === 'decrease'
+				? 1 - percentage / 100
+				: 1 + percentage / 100;
 
 		const description = source.description;
 		const searchText = buildBudgetTemplateSearchText(title, description);
