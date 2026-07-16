@@ -34,7 +34,6 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import AddTradeStage from '@/components/trades/add-trade-stage';
-import EditTrade from '@/components/trades/edit-trade';
 import {
 	type StageGroup,
 	StageGroupedList,
@@ -48,6 +47,7 @@ import {
 	isValidMoneyString,
 	parseMoneyString,
 } from './budget-form-shared';
+import BudgetRowActions from './budget-row-actions';
 import CopyBudgetTemplate from './copy-budget-template';
 import DeleteBudgetTemplateItem from './delete-budget-template-item';
 import { usePriceEditing } from './use-price-editing';
@@ -199,16 +199,22 @@ export default function BudgetTemplateDetailView({
 
 	const {
 		isEditing,
+		editingRows,
 		drafts,
 		nameDrafts,
 		begin,
+		beginRow,
+		endRow,
+		isRowEditing,
 		setDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
 		getNameChanges,
+		getRowChanges,
 	} = usePriceEditing();
 	const [isSaving, setIsSaving] = useState(false);
+	const [savingRowId, setSavingRowId] = useState<string | null>(null);
 	const [search, setSearch] = useState('');
 	const [copyOpen, setCopyOpen] = useState(false);
 	const listRef = useRef<StageGroupedListHandle>(null);
@@ -300,6 +306,41 @@ export default function BudgetTemplateDetailView({
 		}
 	};
 
+	const saveRow = async (item: TemplateItem) => {
+		const changes = getRowChanges(item.tradeId);
+		if (changes.price === undefined && changes.name === undefined) {
+			endRow(item.tradeId);
+			return;
+		}
+		setSavingRowId(item.tradeId);
+		try {
+			await Promise.all([
+				changes.price === undefined
+					? Promise.resolve()
+					: setPrices({
+							budgetTemplateId,
+							items: [{ tradeId: item.tradeId, price: changes.price }],
+						}),
+				changes.name === undefined
+					? Promise.resolve()
+					: updateTrade({ tradeId: item.tradeId, name: changes.name }),
+			]);
+			toastManager.add({ title: 'Changes saved', type: 'success' });
+			endRow(item.tradeId);
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'Could not save changes. Please try again in a moment.'
+				),
+				title: 'Could not save changes',
+				type: 'error',
+			});
+		} finally {
+			setSavingRowId(null);
+		}
+	};
+
 	if (template === undefined) {
 		return <div className="text-muted-foreground text-sm">Loading…</div>;
 	}
@@ -312,21 +353,8 @@ export default function BudgetTemplateDetailView({
 		);
 	}
 
-	const displayTotal =
-		isEditing && items
-			? items.reduce((sum, item) => {
-					const raw = (drafts[item.tradeId] ?? '').trim();
-					return (
-						sum +
-						(raw.length > 0 && isValidMoneyString(raw)
-							? parseMoneyString(raw)
-							: (item.price ?? 0))
-					);
-				}, 0)
-			: template.totalPrice;
-
 	const liveBudget = (item: TemplateItem) => {
-		if (isEditing) {
+		if (isEditing || isRowEditing(item.tradeId)) {
 			const raw = (drafts[item.tradeId] ?? '').trim();
 			if (raw.length > 0 && isValidMoneyString(raw)) {
 				return parseMoneyString(raw);
@@ -335,11 +363,18 @@ export default function BudgetTemplateDetailView({
 		return item.price ?? 0;
 	};
 
+	const anyEditing = isEditing || editingRows.size > 0;
+	const displayTotal =
+		anyEditing && items
+			? items.reduce((sum, item) => sum + liveBudget(item), 0)
+			: template.totalPrice;
+
 	const renderRowContent = (item: TemplateItem) => {
 		const tradeName = item.tradeName ?? 'Unknown trade';
+		const rowEditing = isEditing || isRowEditing(item.tradeId);
 		return (
 			<div className={cn(ROW_GRID, 'flex-1')}>
-				{isEditing ? (
+				{rowEditing ? (
 					<Input
 						aria-label={`Trade name for ${tradeName}`}
 						nativeInput
@@ -355,7 +390,7 @@ export default function BudgetTemplateDetailView({
 						)}
 					</span>
 				)}
-				{isEditing ? (
+				{rowEditing ? (
 					<InputGroup>
 						<InputGroupAddon align="inline-start">
 							<InputGroupText>$</InputGroupText>
@@ -376,24 +411,36 @@ export default function BudgetTemplateDetailView({
 				) : (
 					<span className="tabular-nums">{formatBudgetPrice(item.price)}</span>
 				)}
-				<Group className="justify-end">
-					<EditTrade
-						initialDescription={item.tradeDescription ?? undefined}
-						initialName={item.tradeName ?? ''}
-						initialStageId={item.stageId ?? undefined}
-						tradeId={item.tradeId}
-						trigger={
-							<Button aria-label="Edit trade" size="icon" variant="outline">
-								<Pencil />
-							</Button>
-						}
-					/>
-					<GroupSeparator />
-					<DeleteBudgetTemplateItem
-						budgetTemplateItemId={item._id}
-						itemName={tradeName}
-					/>
-				</Group>
+				<BudgetRowActions
+					onEditBudget={() =>
+						beginRow({
+							tradeId: item.tradeId,
+							price: item.price,
+							name: item.tradeName ?? '',
+						})
+					}
+					onSaveBudget={() => {
+						saveRow(item).catch(() => {
+							/* Error handled in saveRow */
+						});
+					}}
+					renderDelete={(open, onOpenChange) => (
+						<DeleteBudgetTemplateItem
+							budgetTemplateItemId={item._id}
+							itemName={tradeName}
+							onOpenChange={onOpenChange}
+							open={open}
+						/>
+					)}
+					rowEditing={isRowEditing(item.tradeId)}
+					saving={savingRowId === item.tradeId}
+					trade={{
+						tradeId: item.tradeId,
+						name: tradeName,
+						description: item.tradeDescription ?? undefined,
+						stageId: item.stageId ?? undefined,
+					}}
+				/>
 			</div>
 		);
 	};

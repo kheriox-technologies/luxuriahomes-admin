@@ -1,7 +1,13 @@
 import type { Id } from '@workspace/backend/dataModel';
-import { ChevronDown, MoreVertical } from 'lucide-react-native';
+import { Check, ChevronDown, MoreVertical } from 'lucide-react-native';
 import { memo } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+	ActivityIndicator,
+	Pressable,
+	Text,
+	TextInput,
+	View,
+} from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useThemeColors } from '@/components/theme';
 import { Badge } from '@/components/ui/badge';
@@ -29,20 +35,26 @@ function TradeRow({
 	trade,
 	isFirst,
 	editing,
+	rowEditing,
+	saving,
 	nameDraft,
 	priceDraft,
 	onChangeName,
 	onChangePrice,
 	onOpenMenu,
+	onSaveRow,
 }: {
 	trade: BudgetTemplateTrade;
 	isFirst: boolean;
 	editing: boolean;
+	rowEditing: boolean;
+	saving: boolean;
 	nameDraft: string;
 	priceDraft: string;
 	onChangeName: (tradeId: Id<'trades'>, value: string) => void;
 	onChangePrice: (tradeId: Id<'trades'>, value: string) => void;
 	onOpenMenu: (trade: BudgetTemplateTrade) => void;
+	onSaveRow: (trade: BudgetTemplateTrade) => void;
 }) {
 	const colors = useThemeColors();
 
@@ -52,7 +64,7 @@ function TradeRow({
 		!isFirst && 'border-border border-t'
 	);
 
-	if (editing) {
+	if (editing || rowEditing) {
 		return (
 			<View className={rowClass}>
 				<TextInput
@@ -73,6 +85,21 @@ function TradeRow({
 						value={priceDraft}
 					/>
 				</View>
+				{rowEditing ? (
+					<Pressable
+						accessibilityLabel={`Save ${trade.tradeName}`}
+						accessibilityRole="button"
+						disabled={saving}
+						hitSlop={8}
+						onPress={() => onSaveRow(trade)}
+					>
+						{saving ? (
+							<ActivityIndicator color={colors.foreground} size="small" />
+						) : (
+							<Check color={colors.foreground} size={18} strokeWidth={2} />
+						)}
+					</Pressable>
+				) : null}
 			</View>
 		);
 	}
@@ -105,21 +132,27 @@ export const BudgetTemplateStageAccordion = memo(
 		expanded,
 		onToggle,
 		editing,
+		editingRowIds,
+		savingTradeId,
 		nameDrafts,
 		priceDrafts,
 		onChangeName,
 		onChangePrice,
 		onOpenTradeMenu,
+		onSaveRow,
 	}: {
 		group: BudgetTemplateStageGroup;
 		expanded: boolean;
 		onToggle: () => void;
 		editing: boolean;
+		editingRowIds: Set<string>;
+		savingTradeId: string | null;
 		nameDrafts: Record<string, string>;
 		priceDrafts: Record<string, string>;
 		onChangeName: (tradeId: Id<'trades'>, value: string) => void;
 		onChangePrice: (tradeId: Id<'trades'>, value: string) => void;
 		onOpenTradeMenu: (trade: BudgetTemplateTrade) => void;
+		onSaveRow: (trade: BudgetTemplateTrade) => void;
 	}) {
 		const colors = useThemeColors();
 
@@ -159,7 +192,10 @@ export const BudgetTemplateStageAccordion = memo(
 									onChangeName={onChangeName}
 									onChangePrice={onChangePrice}
 									onOpenMenu={onOpenTradeMenu}
+									onSaveRow={onSaveRow}
 									priceDraft={priceDrafts[trade.tradeId] ?? String(trade.price)}
+									rowEditing={editingRowIds.has(trade.tradeId)}
+									saving={savingTradeId === trade.tradeId}
 									trade={trade}
 								/>
 							))}

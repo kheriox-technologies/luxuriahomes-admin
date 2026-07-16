@@ -148,6 +148,7 @@ function BudgetTemplateBody({
 	// Stages start collapsed; keys here are the ones the user has expanded.
 	const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 	const [savingEdits, setSavingEdits] = useState(false);
+	const [savingRowId, setSavingRowId] = useState<string | null>(null);
 	const [selectedTrade, setSelectedTrade] =
 		useState<BudgetTemplateTrade | null>(null);
 
@@ -161,17 +162,17 @@ function BudgetTemplateBody({
 	const applySheetRef = useRef<ApplyTemplateToProjectSheetHandle>(null);
 
 	const trimmedSearch = search.trim().toLowerCase();
-	const { isEditing, priceDrafts } = editing;
+	const { isEditing, editingRows, priceDrafts } = editing;
 
 	const { groups, total } = useMemo(() => {
 		if (!(items && stages)) {
 			return { groups: [] as BudgetTemplateStageGroup[], total: 0 };
 		}
 
-		// While editing, a valid draft overrides the saved price so subtotals and
-		// the total update live as the user types.
+		// While editing (bulk or a single row), a valid draft overrides the saved
+		// price so subtotals and the total update live as the user types.
 		const priceOf = (item: TemplateItemRow) => {
-			if (isEditing) {
+			if (isEditing || editingRows.has(item.tradeId)) {
 				const raw = (priceDrafts[item.tradeId] ?? '').trim();
 				if (raw.length > 0 && isValidMoneyString(raw)) {
 					return parseMoneyString(raw);
@@ -259,7 +260,7 @@ function BudgetTemplateBody({
 		const grandTotal = orderedGroups.reduce((sum, g) => sum + g.subtotal, 0);
 
 		return { groups: orderedGroups, total: grandTotal };
-	}, [items, stages, trimmedSearch, isEditing, priceDrafts]);
+	}, [items, stages, trimmedSearch, isEditing, editingRows, priceDrafts]);
 
 	const usedTradeIds = useMemo(
 		() => (items ?? []).map((item) => item.tradeId),
@@ -323,6 +324,43 @@ function BudgetTemplateBody({
 			Alert.alert('Could not save changes', 'Please try again.');
 		} finally {
 			setSavingEdits(false);
+		}
+	};
+
+	const startEditingRow = (trade: BudgetTemplateTrade) => {
+		editing.beginRow({
+			tradeId: trade.tradeId,
+			name: trade.tradeName,
+			price: trade.price,
+		});
+		// Keep the row's stage open so the inline inputs stay visible.
+		setExpandedKeys((prev) =>
+			new Set(prev).add(trade.stageId ?? UNGROUPED_KEY)
+		);
+	};
+
+	const saveRow = async (trade: BudgetTemplateTrade) => {
+		const changes = editing.getRowChanges(trade.tradeId);
+		if (changes.price === undefined && changes.name === undefined) {
+			editing.endRow(trade.tradeId);
+			return;
+		}
+		setSavingRowId(trade.tradeId);
+		try {
+			if (changes.price !== undefined) {
+				await setPrices({
+					budgetTemplateId,
+					items: [{ tradeId: trade.tradeId, price: changes.price }],
+				});
+			}
+			if (changes.name !== undefined) {
+				await updateTrade({ tradeId: trade.tradeId, name: changes.name });
+			}
+			editing.endRow(trade.tradeId);
+		} catch {
+			Alert.alert('Could not save changes', 'Please try again.');
+		} finally {
+			setSavingRowId(null);
 		}
 	};
 
@@ -441,6 +479,15 @@ function BudgetTemplateBody({
 	const tradeMenuItems: ActionSheetItem[] = selectedTrade
 		? [
 				{
+					key: 'edit-budget',
+					label: 'Edit budget',
+					icon: Wallet,
+					onPress: () => {
+						tradeMenuRef.current?.dismiss();
+						startEditingRow(selectedTrade);
+					},
+				},
+				{
 					key: 'edit-trade',
 					label: 'Edit trade',
 					icon: Pencil,
@@ -536,14 +583,21 @@ function BudgetTemplateBody({
 				renderItem={({ item }) => (
 					<BudgetTemplateStageAccordion
 						editing={isEditing}
+						editingRowIds={editing.editingRows}
 						expanded={isSearching || expandedKeys.has(item.key)}
 						group={item}
 						nameDrafts={editing.nameDrafts}
 						onChangeName={editing.setNameDraft}
 						onChangePrice={editing.setPriceDraft}
 						onOpenTradeMenu={openTradeMenu}
+						onSaveRow={(trade) => {
+							saveRow(trade).catch(() => {
+								/* Error handled in saveRow */
+							});
+						}}
 						onToggle={() => toggleKey(item.key)}
 						priceDrafts={editing.priceDrafts}
+						savingTradeId={savingRowId}
 					/>
 				)}
 			/>
