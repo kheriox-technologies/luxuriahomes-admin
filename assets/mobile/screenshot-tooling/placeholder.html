@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		>
+		<style>
+		* {
+			box-sizing: border-box;
+			padding: 0;
+			margin: 0;
+		}
+		html,
+		body {
+			width: 1290px;
+			height: 2796px;
+			font-family: "Inter", sans-serif;
+		}
+		body {
+			color: #101014;
+			background: #f4f4f6;
+		}
+		.statusbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			height: 132px;
+			padding: 60px 96px 0;
+			font-size: 42px;
+			font-weight: 600;
+		}
+		.island {
+			position: absolute;
+			top: 44px;
+			left: 50%;
+			width: 340px;
+			height: 100px;
+			background: #000;
+			border-radius: 60px;
+			transform: translateX(-50%);
+		}
+		.glyphs {
+			display: flex;
+			gap: 16px;
+			align-items: center;
+		}
+		.glyphs span {
+			display: inline-block;
+			width: 42px;
+			height: 30px;
+			background: #101014;
+			border-radius: 6px;
+		}
+		.glyphs .batt {
+			width: 66px;
+		}
+		h1 {
+			padding: 30px 60px 6px;
+			font-size: 78px;
+			font-weight: 700;
+		}
+		.sub {
+			padding: 0 60px 40px;
+			font-size: 40px;
+			color: #6b6b74;
+		}
+		.card {
+			padding: 48px;
+			margin: 24px 48px;
+			background: #fff;
+			border-radius: 40px;
+			box-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+		}
+		.row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 28px 0;
+			font-size: 44px;
+			border-bottom: 2px solid #f0f0f2;
+		}
+		.row:last-child {
+			border-bottom: none;
+		}
+		.pill {
+			padding: 12px 28px;
+			font-size: 32px;
+			font-weight: 600;
+			color: #b7791f;
+			background: #fef0d6;
+			border-radius: 40px;
+		}
+		.muted {
+			font-size: 34px;
+			color: #9a9aa2;
+		}
+		.tabbar {
+			position: absolute;
+			right: 0;
+			bottom: 0;
+			left: 0;
+			display: flex;
+			height: 190px;
+			background: #fff;
+			border-top: 2px solid #ececf0;
+		}
+		.tab {
+			display: flex;
+			flex: 1;
+			flex-direction: column;
+			gap: 14px;
+			align-items: center;
+			justify-content: center;
+			font-size: 28px;
+			color: #9a9aa2;
+		}
+		.tab .dot {
+			width: 52px;
+			height: 52px;
+			background: #cfcfd6;
+			border-radius: 14px;
+		}
+		.tab.active {
+			color: #101014;
+		}
+		.tab.active .dot {
+			background: #101014;
+		}
+		</style>
+	</head>
+	<body>
+		<div class="island"></div>
+		<div class="statusbar">
+			<div>9:41</div>
+			<div class="glyphs">
+				<span></span><span></span><span class="batt"></span>
+			</div>
+		</div>
+		<h1>Dashboard</h1>
+		<div class="sub">Here's what's coming up, Priya</div>
+		<div class="card">
+			<div class="row">
+				<b>Riverside Residence</b><span class="muted">1 · 5</span>
+			</div>
+			<div class="row">
+				<div>
+					Waterproofing sign-off
+					<div class="muted">Wet Areas · due soon</div>
+				</div>
+				<span class="pill">In Progress</span>
+			</div>
+			<div class="row">
+				<div>
+					Frame inspection
+					<div class="muted">Framing</div>
+				</div>
+				<span class="muted">Pending</span>
+			</div>
+			<div class="row">
+				<div>
+					Brick delivery
+					<div class="muted">Brickwork</div>
+				</div>
+				<span class="muted">Pending</span>
+			</div>
+		</div>
+		<div class="card">
+			<div class="row">
+				<b>Hillcrest Estate</b><span class="muted">0 · 3</span>
+			</div>
+		</div>
+		<div class="card">
+			<div class="row">
+				<b>Coastal Haven</b><span class="muted">2 · 6</span>
+			</div>
+		</div>
+		<div class="tabbar">
+			<div class="tab active">
+				<div class="dot"></div>
+				Dashboard
+			</div>
+			<div class="tab">
+				<div class="dot"></div>
+				Projects
+			</div>
+			<div class="tab">
+				<div class="dot"></div>
+				Inclusions
+			</div>
+			<div class="tab">
+				<div class="dot"></div>
+				Tasks
+			</div>
+			<div class="tab">
+				<div class="dot"></div>
+				Menu
+			</div>
+		</div>
+	</body>
+</html>

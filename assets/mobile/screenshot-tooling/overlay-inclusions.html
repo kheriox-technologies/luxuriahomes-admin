@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<style>
+		* {
+			box-sizing: border-box;
+			padding: 0;
+			margin: 0;
+		}
+		html,
+		body {
+			width: 1320px;
+			height: 2868px;
+		}
+		.stage {
+			position: relative;
+			width: 1320px;
+			height: 2868px;
+		}
+		.stage img.bg {
+			position: absolute;
+			inset: 0;
+			display: block;
+			width: 1320px;
+			height: 2868px;
+		}
+		/* Tunable thumbnail placement (device pixels). */
+		:root {
+			--tx: 72px;
+			--ts: 196px;
+			--ty1: 966px;
+			--ty2: 1396px;
+			--ty3: 1826px;
+			--tr: 20px;
+		}
+		.swatch {
+			position: absolute;
+			left: var(--tx);
+			width: var(--ts);
+			height: var(--ts);
+			overflow: hidden;
+			border-radius: var(--tr);
+			box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+		}
+		.swatch svg {
+			display: block;
+			width: 100%;
+			height: 100%;
+		}
+		#s1 {
+			top: var(--ty1);
+		}
+		#s2 {
+			top: var(--ty2);
+		}
+		#s3 {
+			top: var(--ty3);
+		}
+		</style>
+	</head>
+	<body>
+		<div class="stage">
+			<img class="bg" src="raw/ios-phone-4-blank.png" alt="">
+
+			<!-- 1. Engineered Oak — Coastal (light oak, matte grain) -->
+			<div class="swatch" id="s1">
+				<svg
+					viewBox="0 0 200 200"
+					preserveAspectRatio="xMidYMid slice"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<title>Engineered oak flooring sample</title>
+					<defs>
+						<filter id="oak" x="-20%" y="-20%" width="140%" height="140%">
+							<feTurbulence
+								type="fractalNoise"
+								baseFrequency="0.014 0.12"
+								numOctaves="4"
+								seed="11"
+								result="n"
+							/>
+							<feColorMatrix
+								in="n"
+								type="matrix"
+								values="0 0 0 0 0.36
+                      0 0 0 0 0.25
+                      0 0 0 0 0.14
+                      0.7 0 0 0 -0.08"
+							/>
+						</filter>
+					</defs>
+					<rect width="200" height="200" fill="#ceae82" />
+					<rect width="200" height="200" fill="#d8bb90" opacity="0.5" />
+					<rect width="200" height="200" filter="url(#oak)" opacity="0.55" />
+				</svg>
+			</div>
+
+			<!-- 2. Porcelain Tile — Carrara (polished white marble) -->
+			<div class="swatch" id="s2">
+				<svg
+					viewBox="0 0 200 200"
+					preserveAspectRatio="xMidYMid slice"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<title>Carrara porcelain tile sample</title>
+					<defs>
+						<filter id="marble" x="-20%" y="-20%" width="140%" height="140%">
+							<feTurbulence
+								type="fractalNoise"
+								baseFrequency="0.022"
+								numOctaves="5"
+								seed="4"
+								result="n"
+							/>
+							<feColorMatrix
+								in="n"
+								type="matrix"
+								values="0 0 0 0 0.55
+                      0 0 0 0 0.56
+                      0 0 0 0 0.58
+                      0.55 0 0 0 -0.12"
+							/>
+						</filter>
+					</defs>
+					<rect width="200" height="200" fill="#f4f3f0" />
+					<rect width="200" height="200" filter="url(#marble)" opacity="0.7" />
+					<path
+						d="M-10 60 Q60 90 120 50 T230 70"
+						stroke="#b9bbc0"
+						stroke-width="2.5"
+						fill="none"
+						opacity="0.5"
+					/>
+					<path
+						d="M-10 150 Q70 120 140 165 T240 140"
+						stroke="#c7c9ce"
+						stroke-width="2"
+						fill="none"
+						opacity="0.45"
+					/>
+				</svg>
+			</div>
+
+			<!-- 3. Wool Loop Carpet — Dune (warm sand pile) -->
+			<div class="swatch" id="s3">
+				<svg
+					viewBox="0 0 200 200"
+					preserveAspectRatio="xMidYMid slice"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<title>Wool loop carpet sample</title>
+					<defs>
+						<filter id="wool" x="-20%" y="-20%" width="140%" height="140%">
+							<feTurbulence
+								type="fractalNoise"
+								baseFrequency="0.16"
+								numOctaves="3"
+								seed="9"
+								result="n"
+							/>
+							<feColorMatrix
+								in="n"
+								type="matrix"
+								values="0 0 0 0 0.30
+                      0 0 0 0 0.24
+                      0 0 0 0 0.15
+                      0.5 0 0 0 -0.15"
+							/>
+						</filter>
+					</defs>
+					<rect width="200" height="200" fill="#c9b491" />
+					<rect width="200" height="200" fill="#d3bf9d" opacity="0.5" />
+					<rect width="200" height="200" filter="url(#wool)" opacity="0.5" />
+				</svg>
+			</div>
+		</div>
+	</body>
+</html>
