@@ -23,6 +23,7 @@ import type { LetterDestination } from './letter-location-field';
 
 export interface LetterRecipientValue {
 	company?: string;
+	email?: string;
 	id: string;
 	name: string;
 }
@@ -71,6 +72,7 @@ export default function LetterRecipientsField({
 
 	const [manualName, setManualName] = useState('');
 	const [manualCompany, setManualCompany] = useState('');
+	const [manualEmail, setManualEmail] = useState('');
 
 	// Build the selectable options (clients + service providers) keyed by a
 	// synthetic id. Clients have no stable id, so they are keyed by project + index.
@@ -92,14 +94,24 @@ export default function LetterRecipientsField({
 					return;
 				}
 				const id = `client:${clientProject._id}:${index}`;
-				byId.set(id, { id, name, company: client.company });
+				byId.set(id, {
+					id,
+					name,
+					company: client.company,
+					email: client.email,
+				});
 				clientIds.push(id);
 			});
 		}
 
 		for (const provider of providers) {
 			const id = `sp:${provider._id}`;
-			byId.set(id, { id, name: provider.name, company: provider.company });
+			byId.set(id, {
+				id,
+				name: provider.name,
+				company: provider.company,
+				email: provider.email,
+			});
 			providerIds.push(id);
 		}
 
@@ -159,6 +171,7 @@ export default function LetterRecipientsField({
 			return;
 		}
 		const company = manualCompany.trim();
+		const email = manualEmail.trim();
 		const known = selectedKnownIds
 			.map((id) => optionById.get(id))
 			.filter((recipient): recipient is LetterRecipientValue =>
@@ -168,10 +181,12 @@ export default function LetterRecipientsField({
 			id: `${MANUAL_PREFIX}${name}:${company}:${manualRecipients.length}`,
 			name,
 			company: company || undefined,
+			email: email || undefined,
 		};
 		onChange([...known, ...manualRecipients, manual]);
 		setManualName('');
 		setManualCompany('');
+		setManualEmail('');
 	};
 
 	const removeManual = (id: string) => {
@@ -279,6 +294,22 @@ export default function LetterRecipientsField({
 					placeholder="Company (optional)"
 					size="sm"
 					value={manualCompany}
+				/>
+				<Input
+					aria-label="Recipient email"
+					className="min-w-40 flex-1"
+					nativeInput
+					onChange={(event) => setManualEmail(event.target.value)}
+					onKeyDown={(event) => {
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							addManual();
+						}
+					}}
+					placeholder="Email (optional)"
+					size="sm"
+					type="email"
+					value={manualEmail}
 				/>
 				<Button
 					disabled={manualName.trim() === ''}

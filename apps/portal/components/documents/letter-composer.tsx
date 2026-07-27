@@ -3,6 +3,7 @@
 import { api } from '@workspace/backend/api';
 import { Button } from '@workspace/ui/components/button';
 import { Calendar } from '@workspace/ui/components/calendar';
+import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import {
@@ -23,6 +24,7 @@ import RichTextEditor from '@/components/rich-text-editor';
 import { usePdfDocument } from '@/components/takeoffs/use-pdf-document';
 import { buildLetterPdfBlob } from '@/lib/client/pdf/letter-pdf';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import { buildEmailHtml, buildEmailText, isValidEmail } from '@/lib/email';
 import LetterLocationField, {
 	type LetterDestination,
 } from './letter-location-field';
@@ -35,6 +37,10 @@ const PREVIEW_RENDER_WIDTH = 820;
 const EMPTY_EDITOR_HTML = '<p></p>';
 const DEFAULT_FROM_HTML = '<p>Kind Regards,</p><p>Luxuria Homes</p>';
 const PDF_CONTENT_TYPE = 'application/pdf';
+
+// Default body used when the letter is emailed to recipients on save.
+const DEFAULT_EMAIL_BODY_HTML =
+	'<p>Hello,</p><p>Luxuria Homes has shared a document with you. Please find it attached to this email.</p><p>Kind regards,<br/>Luxuria Homes</p>';
 
 // Handoff key for "Create New Letter": the source letter's HTML is stashed here
 // before navigating to the composer, then read once and cleared.
@@ -51,6 +57,22 @@ function formatDateLabel(date: Date): string {
 function isContentEmpty(html: string): boolean {
 	const stripped = html.replace(/<[^>]*>/g, '').replace(/\s|&nbsp;/g, '');
 	return stripped.length === 0;
+}
+
+// Valid, de-duplicated recipient emails (lowercased key) for the letter email.
+function collectRecipientEmails(recipients: LetterRecipientValue[]): string[] {
+	const byKey = new Map<string, string>();
+	for (const recipient of recipients) {
+		const email = recipient.email?.trim();
+		if (!(email && isValidEmail(email))) {
+			continue;
+		}
+		const key = email.toLowerCase();
+		if (!byKey.has(key)) {
+			byKey.set(key, email);
+		}
+	}
+	return Array.from(byKey.values());
 }
 
 // Documents view URL for a destination — used both for the back arrow (origin)
@@ -88,6 +110,7 @@ export default function LetterComposer({
 		api.projectDocuments.generateUploadUrl.generateUploadUrl
 	);
 	const projectCreate = useMutation(api.projectDocuments.create.create);
+	const sendEmail = useAction(api.email.send.send);
 
 	// Read (and clear) the prefill content stashed by "Create New Letter" once.
 	const [initialContentHtml] = useState(() => {
@@ -105,6 +128,7 @@ export default function LetterComposer({
 	const [destination, setDestination] =
 		useState<LetterDestination>(defaultDestination);
 	const [recipients, setRecipients] = useState<LetterRecipientValue[]>([]);
+	const [emailLetter, setEmailLetter] = useState(false);
 	const [contentHtml, setContentHtml] = useState(
 		initialContentHtml || EMPTY_EDITOR_HTML
 	);
@@ -173,6 +197,46 @@ export default function LetterComposer({
 
 	const canSave = !(nameEmpty || contentEmpty || saving);
 
+	// Email the just-saved letter PDF (attached by its S3 key) to recipients that
+	// have a valid email. The letter is already saved, so email issues never fail
+	// the save — they only change which toast is shown.
+	const emailSavedLetter = async (s3Key: string, fileName: string) => {
+		const to = collectRecipientEmails(recipients);
+		if (to.length === 0) {
+			toastManager.add({
+				description: 'No selected recipients have an email address.',
+				title: 'Letter saved, not emailed',
+				type: 'warning',
+			});
+			return;
+		}
+		try {
+			await sendEmail({
+				to,
+				subject: `Luxuria Homes: ${name.trim()}`,
+				html: buildEmailHtml(DEFAULT_EMAIL_BODY_HTML),
+				text: buildEmailText(DEFAULT_EMAIL_BODY_HTML),
+				attachments: [
+					{ filename: fileName, contentType: PDF_CONTENT_TYPE, s3Key },
+				],
+				projectId:
+					destination.scope === 'project' ? destination.projectId : undefined,
+				relatedTable: 'letter',
+				relatedId: s3Key,
+			});
+			toastManager.add({ title: 'Letter saved and emailed', type: 'success' });
+		} catch (emailError) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					emailError,
+					'The letter was saved, but the email could not be sent.'
+				),
+				title: 'Email not sent',
+				type: 'error',
+			});
+		}
+	};
+
 	const handleSave = async () => {
 		if (!canSave) {
 			return;
@@ -227,7 +291,11 @@ export default function LetterComposer({
 					projectId: destination.projectId,
 				});
 			}
-			toastManager.add({ title: 'Letter saved', type: 'success' });
+			if (emailLetter) {
+				await emailSavedLetter(generated.s3Key, fileName);
+			} else {
+				toastManager.add({ title: 'Letter saved', type: 'success' });
+			}
 			router.push(documentsHref(destination) as Route);
 		} catch (error) {
 			toastManager.add({
@@ -331,7 +399,20 @@ export default function LetterComposer({
 						</Field>
 
 						<Field>
-							<FieldLabel>To</FieldLabel>
+							<div className="flex items-center justify-between gap-2">
+								<FieldLabel>To</FieldLabel>
+								<label
+									className="flex cursor-pointer items-center gap-2 font-normal text-muted-foreground text-sm"
+									htmlFor="letter-email"
+								>
+									<Checkbox
+										checked={emailLetter}
+										id="letter-email"
+										onCheckedChange={(checked) => setEmailLetter(checked)}
+									/>
+									Email Letter
+								</label>
+							</div>
 							<LetterRecipientsField
 								destination={destination}
 								onChange={setRecipients}

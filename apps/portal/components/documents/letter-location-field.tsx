@@ -107,7 +107,7 @@ export default function LetterLocationField({
 
 	return (
 		<div className="flex flex-wrap items-center gap-2">
-			<span className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1.5 text-sm">
+			<span className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-muted/40 px-2.5 text-sm sm:h-7">
 				<MapPin aria-hidden className="size-4 text-muted-foreground" />
 				{currentLabel}
 			</span>
