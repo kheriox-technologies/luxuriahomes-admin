@@ -3,7 +3,7 @@ import type { Id } from '@workspace/backend/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { ProjectForm } from '@/components/projects/project-form';
 import { ScreenFormHeader } from '@/components/screen-form-header';
 import { ListSkeleton } from '@/components/ui/skeleton';
@@ -81,20 +81,15 @@ export default function EditProjectScreen() {
 			<ScreenFormHeader title="Edit project" />
 			{project === undefined ? <ListSkeleton /> : null}
 			{project && initialValues ? (
-				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-					className="flex-1"
-				>
-					<ProjectForm
-						deleting={deleting}
-						initialClients={project.clients}
-						initialValues={initialValues}
-						mode="edit"
-						onDelete={handleDelete}
-						onSubmit={handleSubmit}
-						submitting={submitting}
-					/>
-				</KeyboardAvoidingView>
+				<ProjectForm
+					deleting={deleting}
+					initialClients={project.clients}
+					initialValues={initialValues}
+					mode="edit"
+					onDelete={handleDelete}
+					onSubmit={handleSubmit}
+					submitting={submitting}
+				/>
 			) : null}
 		</View>
 	);

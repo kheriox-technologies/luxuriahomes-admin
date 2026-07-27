@@ -19,6 +19,7 @@ import { Alert, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategorySelectField } from '@/components/inclusions/category-select-field';
 import { useThemeColors } from '@/components/theme';
+import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 
@@ -166,71 +167,75 @@ export function InclusionFormSheet({
 				contentContainerStyle={{ paddingBottom: insets.bottom + 16, gap: 12 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					{editingId ? 'Edit inclusion' : 'Add inclusion'}
-				</Text>
-
-				<TextField
-					error={
-						showErrors && title.trim() === '' ? 'Title is required' : undefined
-					}
-					label="Title"
-					onChangeText={setTitle}
-					placeholder="Inclusion title"
-					value={title}
-				/>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Category
+				<BottomSheetInputProvider>
+					<Text className="px-1 font-sans-semibold text-base text-foreground">
+						{editingId ? 'Edit inclusion' : 'Add inclusion'}
 					</Text>
-					<CategorySelectField
-						allowCreate
-						invalid={showErrors && categoryId === ''}
-						onValueChange={setCategoryId}
-						value={categoryId}
+
+					<TextField
+						error={
+							showErrors && title.trim() === ''
+								? 'Title is required'
+								: undefined
+						}
+						label="Title"
+						onChangeText={setTitle}
+						placeholder="Inclusion title"
+						value={title}
 					/>
-					{showErrors && categoryId === '' ? (
-						<Text className="font-sans text-destructive text-xs">
-							A category is required
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Category
 						</Text>
-					) : null}
-				</View>
+						<CategorySelectField
+							allowCreate
+							invalid={showErrors && categoryId === ''}
+							onValueChange={setCategoryId}
+							value={categoryId}
+						/>
+						{showErrors && categoryId === '' ? (
+							<Text className="font-sans text-destructive text-xs">
+								A category is required
+							</Text>
+						) : null}
+					</View>
 
-				<TextField
-					error={
-						showErrors && priceInvalid(standardPrice)
-							? 'Enter a valid amount (up to 2 decimals)'
-							: undefined
-					}
-					keyboardType="decimal-pad"
-					label="Base price (AUD, optional)"
-					onChangeText={setStandardPrice}
-					placeholder="0.00"
-					value={standardPrice}
-				/>
+					<TextField
+						error={
+							showErrors && priceInvalid(standardPrice)
+								? 'Enter a valid amount (up to 2 decimals)'
+								: undefined
+						}
+						keyboardType="decimal-pad"
+						label="Base price (AUD, optional)"
+						onChangeText={setStandardPrice}
+						placeholder="0.00"
+						value={standardPrice}
+					/>
 
-				<TextField
-					error={
-						showErrors && priceInvalid(standardLabourPrice)
-							? 'Enter a valid amount (up to 2 decimals)'
-							: undefined
-					}
-					keyboardType="decimal-pad"
-					label="Labour price (AUD, optional)"
-					onChangeText={setStandardLabourPrice}
-					placeholder="0.00"
-					value={standardLabourPrice}
-				/>
+					<TextField
+						error={
+							showErrors && priceInvalid(standardLabourPrice)
+								? 'Enter a valid amount (up to 2 decimals)'
+								: undefined
+						}
+						keyboardType="decimal-pad"
+						label="Labour price (AUD, optional)"
+						onChangeText={setStandardLabourPrice}
+						placeholder="0.00"
+						value={standardLabourPrice}
+					/>
 
-				<Button
-					className="mt-1"
-					icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
-					loading={saving}
-					onPress={handleSave}
-				>
-					{editingId ? 'Save changes' : 'Save inclusion'}
-				</Button>
+					<Button
+						className="mt-1"
+						icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
+						loading={saving}
+						onPress={handleSave}
+					>
+						{editingId ? 'Save changes' : 'Save inclusion'}
+					</Button>
+				</BottomSheetInputProvider>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
 	);

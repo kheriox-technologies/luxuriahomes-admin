@@ -18,6 +18,7 @@ import {
 import { Alert, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
+import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 
@@ -140,65 +141,67 @@ export function CategoryFormSheet({
 				contentContainerStyle={{ paddingBottom: insets.bottom + 16, gap: 12 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					Edit category
-				</Text>
+				<BottomSheetInputProvider>
+					<Text className="px-1 font-sans-semibold text-base text-foreground">
+						Edit category
+					</Text>
 
-				<TextField
-					error={
-						showErrors && name.trim() === '' ? 'Name is required' : undefined
-					}
-					label="Name"
-					onChangeText={setName}
-					placeholder="Category name"
-					value={name}
-				/>
+					<TextField
+						error={
+							showErrors && name.trim() === '' ? 'Name is required' : undefined
+						}
+						label="Name"
+						onChangeText={setName}
+						placeholder="Category name"
+						value={name}
+					/>
 
-				<TextField
-					autoCapitalize="characters"
-					error={
-						showErrors && code.trim() === '' ? 'Code is required' : undefined
-					}
-					label="Code"
-					onChangeText={setCode}
-					placeholder="e.g. TIL"
-					value={code}
-				/>
+					<TextField
+						autoCapitalize="characters"
+						error={
+							showErrors && code.trim() === '' ? 'Code is required' : undefined
+						}
+						label="Code"
+						onChangeText={setCode}
+						placeholder="e.g. TIL"
+						value={code}
+					/>
 
-				<TextField
-					error={
-						showErrors && priceInvalid(allowance)
-							? 'Enter a valid amount (up to 2 decimals)'
-							: undefined
-					}
-					keyboardType="decimal-pad"
-					label="Base allowance (AUD, optional)"
-					onChangeText={setAllowance}
-					placeholder="0.00"
-					value={allowance}
-				/>
+					<TextField
+						error={
+							showErrors && priceInvalid(allowance)
+								? 'Enter a valid amount (up to 2 decimals)'
+								: undefined
+						}
+						keyboardType="decimal-pad"
+						label="Base allowance (AUD, optional)"
+						onChangeText={setAllowance}
+						placeholder="0.00"
+						value={allowance}
+					/>
 
-				<TextField
-					error={
-						showErrors && priceInvalid(labourAllowance)
-							? 'Enter a valid amount (up to 2 decimals)'
-							: undefined
-					}
-					keyboardType="decimal-pad"
-					label="Labour allowance (AUD, optional)"
-					onChangeText={setLabourAllowance}
-					placeholder="0.00"
-					value={labourAllowance}
-				/>
+					<TextField
+						error={
+							showErrors && priceInvalid(labourAllowance)
+								? 'Enter a valid amount (up to 2 decimals)'
+								: undefined
+						}
+						keyboardType="decimal-pad"
+						label="Labour allowance (AUD, optional)"
+						onChangeText={setLabourAllowance}
+						placeholder="0.00"
+						value={labourAllowance}
+					/>
 
-				<Button
-					className="mt-1"
-					icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
-					loading={saving}
-					onPress={handleSave}
-				>
-					Save changes
-				</Button>
+					<Button
+						className="mt-1"
+						icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
+						loading={saving}
+						onPress={handleSave}
+					>
+						Save changes
+					</Button>
+				</BottomSheetInputProvider>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
 	);

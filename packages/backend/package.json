@@ -33,7 +33,9 @@
     "convex": "^1.31.6",
     "convex-helpers": "^0.1.111",
     "google-auth-library": "^10.7.0",
+    "node-html-parser": "^9.0.0",
     "nodemailer": "^9.0.1",
+    "pdf-lib": "^1.17.1",
     "pdfmake": "^0.3.7",
     "zod": "^4.3.6"
   }

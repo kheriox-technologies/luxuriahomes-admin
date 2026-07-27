@@ -20,6 +20,7 @@ import {
 import { Alert, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
+import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { Select, type SelectOption } from '@/components/ui/select';
@@ -163,81 +164,83 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 				contentContainerStyle={{ paddingBottom: insets.bottom + 16, gap: 12 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					{editingId ? 'Edit task' : 'Add task'}
-				</Text>
-
-				<TextField
-					error={
-						showErrors && title.trim() === ''
-							? 'A title is required'
-							: undefined
-					}
-					label="Title"
-					onChangeText={setTitle}
-					placeholder="Task title"
-					value={title}
-				/>
-
-				<TextField
-					label="Description (optional)"
-					onChangeText={setDescription}
-					placeholder="Short description"
-					value={description}
-				/>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Status
+				<BottomSheetInputProvider>
+					<Text className="px-1 font-sans-semibold text-base text-foreground">
+						{editingId ? 'Edit task' : 'Add task'}
 					</Text>
-					<Select
-						onChange={setStatus}
-						options={STATUS_OPTIONS}
-						title="Select status"
-						value={status}
+
+					<TextField
+						error={
+							showErrors && title.trim() === ''
+								? 'A title is required'
+								: undefined
+						}
+						label="Title"
+						onChangeText={setTitle}
+						placeholder="Task title"
+						value={title}
 					/>
-				</View>
 
-				<DateField
-					label="Due date (optional)"
-					onChange={setDueDate}
-					value={dueDate}
-				/>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Project (optional)
-					</Text>
-					<Select
-						onChange={setProjectId}
-						options={projectOptions}
-						placeholder={projects === undefined ? 'Loading…' : 'No project'}
-						title="Select project"
-						value={projectId}
+					<TextField
+						label="Description (optional)"
+						onChangeText={setDescription}
+						placeholder="Short description"
+						value={description}
 					/>
-				</View>
 
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Assignee (optional)
-					</Text>
-					<Select
-						onChange={setAssigneeId}
-						options={assigneeOptions}
-						placeholder={admins === undefined ? 'Loading…' : 'Unassigned'}
-						title="Select assignee"
-						value={assigneeId}
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Status
+						</Text>
+						<Select
+							onChange={setStatus}
+							options={STATUS_OPTIONS}
+							title="Select status"
+							value={status}
+						/>
+					</View>
+
+					<DateField
+						label="Due date (optional)"
+						onChange={setDueDate}
+						value={dueDate}
 					/>
-				</View>
 
-				<Button
-					className="mt-1"
-					icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
-					loading={saving}
-					onPress={handleSave}
-				>
-					{editingId ? 'Save changes' : 'Save task'}
-				</Button>
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Project (optional)
+						</Text>
+						<Select
+							onChange={setProjectId}
+							options={projectOptions}
+							placeholder={projects === undefined ? 'Loading…' : 'No project'}
+							title="Select project"
+							value={projectId}
+						/>
+					</View>
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Assignee (optional)
+						</Text>
+						<Select
+							onChange={setAssigneeId}
+							options={assigneeOptions}
+							placeholder={admins === undefined ? 'Loading…' : 'Unassigned'}
+							title="Select assignee"
+							value={assigneeId}
+						/>
+					</View>
+
+					<Button
+						className="mt-1"
+						icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
+						loading={saving}
+						onPress={handleSave}
+					>
+						{editingId ? 'Save changes' : 'Save task'}
+					</Button>
+				</BottomSheetInputProvider>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
 	);

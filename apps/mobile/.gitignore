@@ -9,7 +9,7 @@ web-build/
 .env.local
 .env*.local
 
-# EAS credentials (uploaded to cloud builds — see docs/mobile-eas-cloud-build.md)
+# Local signing credentials + build artifacts — see docs/mobile-eas-cloud-build.md
 credentials.json
 credentials/
 build/

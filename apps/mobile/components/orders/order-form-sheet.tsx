@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ORDER_STATUSES, type OrderStatus } from '@/components/orders/types';
 import { VendorSelectField } from '@/components/orders/vendor-select-field';
 import { useThemeColors } from '@/components/theme';
+import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { Select } from '@/components/ui/select';
@@ -214,173 +215,179 @@ export function OrderFormSheet({
 				contentContainerStyle={{ paddingBottom: insets.bottom + 16, gap: 12 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					{editingId ? 'Edit order' : 'Add order'}
-				</Text>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Vendor
+				<BottomSheetInputProvider>
+					<Text className="px-1 font-sans-semibold text-base text-foreground">
+						{editingId ? 'Edit order' : 'Add order'}
 					</Text>
-					<VendorSelectField
-						allowCreate
-						invalid={showErrors && vendor.trim() === ''}
-						onValueChange={setVendor}
-						value={vendor}
-					/>
-					{showErrors && vendor.trim() === '' ? (
-						<Text className="font-sans text-destructive text-xs">
-							A vendor is required
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Vendor
 						</Text>
-					) : null}
-				</View>
+						<VendorSelectField
+							allowCreate
+							invalid={showErrors && vendor.trim() === ''}
+							onValueChange={setVendor}
+							value={vendor}
+						/>
+						{showErrors && vendor.trim() === '' ? (
+							<Text className="font-sans text-destructive text-xs">
+								A vendor is required
+							</Text>
+						) : null}
+					</View>
 
-				<DateField
-					label="Order by (optional)"
-					onChange={setOrderBy}
-					value={orderBy}
-				/>
-
-				<View className="gap-2">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Items
-					</Text>
-					{items.map((item, index) => {
-						const quantityInvalid =
-							showErrors &&
-							(Number.isNaN(Number(item.quantity.trim())) ||
-								Number(item.quantity.trim()) <= 0);
-						const priceInvalid =
-							showErrors &&
-							item.price.trim() !== '' &&
-							!MONEY_PATTERN.test(item.price.trim());
-						return (
-							<View
-								className="gap-2.5 rounded-lg border border-border p-3"
-								// biome-ignore lint/suspicious/noArrayIndexKey: form rows have no stable id
-								key={index}
-							>
-								{items.length > 1 ? (
-									<View className="flex-row justify-end">
-										<Pressable
-											accessibilityLabel="Remove item"
-											accessibilityRole="button"
-											hitSlop={8}
-											onPress={() => removeItem(index)}
-										>
-											<Trash2
-												color={colors.destructive}
-												size={18}
-												strokeWidth={2}
-											/>
-										</Pressable>
-									</View>
-								) : null}
-								<TextField
-									error={
-										showErrors && item.name.trim() === ''
-											? 'Item name is required'
-											: undefined
-									}
-									label="Name"
-									onChangeText={(next) => updateItem(index, { name: next })}
-									placeholder="Item name"
-									value={item.name}
-								/>
-								<TextField
-									label="Description (optional)"
-									onChangeText={(next) =>
-										updateItem(index, { description: next })
-									}
-									placeholder="Short description"
-									value={item.description}
-								/>
-								<TextField
-									error={
-										quantityInvalid ? 'Enter a positive quantity' : undefined
-									}
-									keyboardType="decimal-pad"
-									label="Quantity"
-									onChangeText={(next) => updateItem(index, { quantity: next })}
-									placeholder="0"
-									value={item.quantity}
-								/>
-								<View className="gap-1.5">
-									<Text className="font-sans-medium text-foreground text-sm">
-										Unit
-									</Text>
-									<Select
-										onChange={(next) => updateItem(index, { unit: next })}
-										options={unitOptions}
-										placeholder={
-											units === undefined ? 'Loading…' : 'Select a unit'
-										}
-										title="Select unit"
-										value={item.unit}
-									/>
-									{showErrors && item.unit.trim() === '' ? (
-										<Text className="font-sans text-destructive text-xs">
-											A unit is required
-										</Text>
-									) : null}
-								</View>
-								<TextField
-									error={
-										priceInvalid
-											? 'Enter a valid amount (up to 2 decimals)'
-											: undefined
-									}
-									keyboardType="decimal-pad"
-									label="Price per unit (optional)"
-									onChangeText={(next) => updateItem(index, { price: next })}
-									placeholder="0.00"
-									value={item.price}
-								/>
-								<TextField
-									label="SKU (optional)"
-									onChangeText={(next) => updateItem(index, { sku: next })}
-									placeholder="e.g. ABC-123"
-									value={item.sku}
-								/>
-								<TextField
-									autoCapitalize="none"
-									keyboardType="url"
-									label="Link (optional)"
-									onChangeText={(next) => updateItem(index, { link: next })}
-									placeholder="https://"
-									value={item.link}
-								/>
-							</View>
-						);
-					})}
-					<Button
-						icon={<Plus color={colors.foreground} size={18} strokeWidth={2} />}
-						onPress={addItem}
-					>
-						Add item
-					</Button>
-				</View>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Status
-					</Text>
-					<Select
-						onChange={(next) => setStatus(next as OrderStatus)}
-						options={STATUS_OPTIONS}
-						title="Select status"
-						value={status}
+					<DateField
+						label="Order by (optional)"
+						onChange={setOrderBy}
+						value={orderBy}
 					/>
-				</View>
 
-				<Button
-					className="mt-1"
-					icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
-					loading={saving}
-					onPress={handleSave}
-				>
-					{editingId ? 'Save changes' : 'Save order'}
-				</Button>
+					<View className="gap-2">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Items
+						</Text>
+						{items.map((item, index) => {
+							const quantityInvalid =
+								showErrors &&
+								(Number.isNaN(Number(item.quantity.trim())) ||
+									Number(item.quantity.trim()) <= 0);
+							const priceInvalid =
+								showErrors &&
+								item.price.trim() !== '' &&
+								!MONEY_PATTERN.test(item.price.trim());
+							return (
+								<View
+									className="gap-2.5 rounded-lg border border-border p-3"
+									// biome-ignore lint/suspicious/noArrayIndexKey: form rows have no stable id
+									key={index}
+								>
+									{items.length > 1 ? (
+										<View className="flex-row justify-end">
+											<Pressable
+												accessibilityLabel="Remove item"
+												accessibilityRole="button"
+												hitSlop={8}
+												onPress={() => removeItem(index)}
+											>
+												<Trash2
+													color={colors.destructive}
+													size={18}
+													strokeWidth={2}
+												/>
+											</Pressable>
+										</View>
+									) : null}
+									<TextField
+										error={
+											showErrors && item.name.trim() === ''
+												? 'Item name is required'
+												: undefined
+										}
+										label="Name"
+										onChangeText={(next) => updateItem(index, { name: next })}
+										placeholder="Item name"
+										value={item.name}
+									/>
+									<TextField
+										label="Description (optional)"
+										onChangeText={(next) =>
+											updateItem(index, { description: next })
+										}
+										placeholder="Short description"
+										value={item.description}
+									/>
+									<TextField
+										error={
+											quantityInvalid ? 'Enter a positive quantity' : undefined
+										}
+										keyboardType="decimal-pad"
+										label="Quantity"
+										onChangeText={(next) =>
+											updateItem(index, { quantity: next })
+										}
+										placeholder="0"
+										value={item.quantity}
+									/>
+									<View className="gap-1.5">
+										<Text className="font-sans-medium text-foreground text-sm">
+											Unit
+										</Text>
+										<Select
+											onChange={(next) => updateItem(index, { unit: next })}
+											options={unitOptions}
+											placeholder={
+												units === undefined ? 'Loading…' : 'Select a unit'
+											}
+											title="Select unit"
+											value={item.unit}
+										/>
+										{showErrors && item.unit.trim() === '' ? (
+											<Text className="font-sans text-destructive text-xs">
+												A unit is required
+											</Text>
+										) : null}
+									</View>
+									<TextField
+										error={
+											priceInvalid
+												? 'Enter a valid amount (up to 2 decimals)'
+												: undefined
+										}
+										keyboardType="decimal-pad"
+										label="Price per unit (optional)"
+										onChangeText={(next) => updateItem(index, { price: next })}
+										placeholder="0.00"
+										value={item.price}
+									/>
+									<TextField
+										label="SKU (optional)"
+										onChangeText={(next) => updateItem(index, { sku: next })}
+										placeholder="e.g. ABC-123"
+										value={item.sku}
+									/>
+									<TextField
+										autoCapitalize="none"
+										keyboardType="url"
+										label="Link (optional)"
+										onChangeText={(next) => updateItem(index, { link: next })}
+										placeholder="https://"
+										value={item.link}
+									/>
+								</View>
+							);
+						})}
+						<Button
+							icon={
+								<Plus color={colors.foreground} size={18} strokeWidth={2} />
+							}
+							onPress={addItem}
+						>
+							Add item
+						</Button>
+					</View>
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Status
+						</Text>
+						<Select
+							onChange={(next) => setStatus(next as OrderStatus)}
+							options={STATUS_OPTIONS}
+							title="Select status"
+							value={status}
+						/>
+					</View>
+
+					<Button
+						className="mt-1"
+						icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
+						loading={saving}
+						onPress={handleSave}
+					>
+						{editingId ? 'Save changes' : 'Save order'}
+					</Button>
+				</BottomSheetInputProvider>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
 	);

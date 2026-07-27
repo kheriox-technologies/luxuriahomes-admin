@@ -15,6 +15,7 @@ import {
 	ChevronRight,
 	File,
 	FileImage,
+	FilePen,
 	FileText,
 	FileUp,
 	Folder,
@@ -296,6 +297,20 @@ export default function CompanyDocumentsScreen() {
 						);
 					})}
 				</ScrollView>
+				<Pressable
+					accessibilityLabel="Add letter"
+					accessibilityRole="button"
+					className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
+					hitSlop={4}
+					onPress={() =>
+						router.push({
+							pathname: '/(app)/letters/new',
+							params: { scope: 'company', folderPath },
+						})
+					}
+				>
+					<FilePen color={colors.foreground} size={20} strokeWidth={2} />
+				</Pressable>
 				<Pressable
 					accessibilityLabel="New folder"
 					accessibilityRole="button"

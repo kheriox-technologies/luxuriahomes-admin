@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ServiceProviderSelectField } from '@/components/service-providers/service-provider-select-field';
 import { useThemeColors } from '@/components/theme';
 import { TradeSelectField } from '@/components/trades/trade-select-field';
+import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { TextField } from '@/components/ui/text-field';
@@ -222,146 +223,155 @@ export function QuotationFormSheet({
 				contentContainerStyle={{ paddingBottom: insets.bottom + 16, gap: 12 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					{editingId ? 'Edit quotation' : 'Add quotation'}
-				</Text>
-
-				<TextField
-					error={
-						showErrors && title.trim() === '' ? 'Title is required' : undefined
-					}
-					label="Title"
-					onChangeText={setTitle}
-					placeholder="Quotation title"
-					value={title}
-				/>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Trade
+				<BottomSheetInputProvider>
+					<Text className="px-1 font-sans-semibold text-base text-foreground">
+						{editingId ? 'Edit quotation' : 'Add quotation'}
 					</Text>
-					<TradeSelectField
-						allowCreate
-						invalid={showErrors && tradeId === ''}
-						onValueChange={(next) => {
-							setTradeId(next);
-							// Clear the provider when the trade changes so it stays consistent.
-							setServiceProviderId('');
-						}}
-						value={tradeId}
-					/>
-					{showErrors && tradeId === '' ? (
-						<Text className="font-sans text-destructive text-xs">
-							A trade is required
-						</Text>
-					) : null}
-				</View>
 
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Service provider
-					</Text>
-					<ServiceProviderSelectField
-						allowCreate
-						emptyMessage={
-							tradeId
-								? 'No service providers for this trade.'
-								: 'Select a trade to filter providers.'
+					<TextField
+						error={
+							showErrors && title.trim() === ''
+								? 'Title is required'
+								: undefined
 						}
-						filterTradeId={tradeId}
-						invalid={showErrors && serviceProviderId === ''}
-						onProviderTradesChange={(tradeIds) => {
-							// Keep the trade field in sync when a provider (or a newly created
-							// one) brings its own trades — mirrors the portal behavior.
-							if (tradeIds.length === 0) {
-								return;
-							}
-							if (tradeId && tradeIds.includes(tradeId)) {
-								return;
-							}
-							setTradeId(tradeIds[0]);
-						}}
-						onValueChange={setServiceProviderId}
-						placeholder={
-							tradeId ? 'Select a service provider' : 'Select a trade first'
-						}
-						value={serviceProviderId}
+						label="Title"
+						onChangeText={setTitle}
+						placeholder="Quotation title"
+						value={title}
 					/>
-					{showErrors && serviceProviderId === '' ? (
-						<Text className="font-sans text-destructive text-xs">
-							Service provider is required
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Trade
 						</Text>
-					) : null}
-				</View>
-
-				<TextField
-					error={
-						priceInvalid ? 'Enter a valid amount (up to 2 decimals)' : undefined
-					}
-					keyboardType="decimal-pad"
-					label="Price (AUD)"
-					onChangeText={setPrice}
-					placeholder="0.00"
-					value={price}
-				/>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Status
-					</Text>
-					<Select
-						onChange={(next) => setStatus(next as QuotationStatus)}
-						options={STATUS_OPTIONS}
-						title="Select status"
-						value={status}
-					/>
-				</View>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Quotation document
-					</Text>
-					<View className="flex-row items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-						<Text
-							className="flex-1 font-sans text-muted-foreground text-xs"
-							numberOfLines={1}
-						>
-							{documentLabel()}
-						</Text>
-						{uploading ? (
-							<ActivityIndicator color={colors.mutedForeground} size="small" />
-						) : null}
-						{!uploading && (s3Key || hasExistingDoc) ? (
-							<Pressable
-								accessibilityLabel="Remove document"
-								accessibilityRole="button"
-								hitSlop={8}
-								onPress={clearDocument}
-							>
-								<X color={colors.mutedForeground} size={18} strokeWidth={2} />
-							</Pressable>
+						<TradeSelectField
+							allowCreate
+							invalid={showErrors && tradeId === ''}
+							onValueChange={(next) => {
+								setTradeId(next);
+								// Clear the provider when the trade changes so it stays consistent.
+								setServiceProviderId('');
+							}}
+							value={tradeId}
+						/>
+						{showErrors && tradeId === '' ? (
+							<Text className="font-sans text-destructive text-xs">
+								A trade is required
+							</Text>
 						) : null}
 					</View>
-					<Button
-						disabled={uploading}
-						icon={
-							<FileUp color={colors.foreground} size={18} strokeWidth={2} />
-						}
-						onPress={pickDocument}
-					>
-						{s3Key || hasExistingDoc ? 'Replace document' : 'Attach document'}
-					</Button>
-				</View>
 
-				<Button
-					className="mt-1"
-					disabled={uploading}
-					icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
-					loading={saving}
-					onPress={handleSave}
-				>
-					{editingId ? 'Save changes' : 'Save quotation'}
-				</Button>
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Service provider
+						</Text>
+						<ServiceProviderSelectField
+							allowCreate
+							emptyMessage={
+								tradeId
+									? 'No service providers for this trade.'
+									: 'Select a trade to filter providers.'
+							}
+							filterTradeId={tradeId}
+							invalid={showErrors && serviceProviderId === ''}
+							onProviderTradesChange={(tradeIds) => {
+								// Keep the trade field in sync when a provider (or a newly created
+								// one) brings its own trades — mirrors the portal behavior.
+								if (tradeIds.length === 0) {
+									return;
+								}
+								if (tradeId && tradeIds.includes(tradeId)) {
+									return;
+								}
+								setTradeId(tradeIds[0]);
+							}}
+							onValueChange={setServiceProviderId}
+							placeholder={
+								tradeId ? 'Select a service provider' : 'Select a trade first'
+							}
+							value={serviceProviderId}
+						/>
+						{showErrors && serviceProviderId === '' ? (
+							<Text className="font-sans text-destructive text-xs">
+								Service provider is required
+							</Text>
+						) : null}
+					</View>
+
+					<TextField
+						error={
+							priceInvalid
+								? 'Enter a valid amount (up to 2 decimals)'
+								: undefined
+						}
+						keyboardType="decimal-pad"
+						label="Price (AUD)"
+						onChangeText={setPrice}
+						placeholder="0.00"
+						value={price}
+					/>
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Status
+						</Text>
+						<Select
+							onChange={(next) => setStatus(next as QuotationStatus)}
+							options={STATUS_OPTIONS}
+							title="Select status"
+							value={status}
+						/>
+					</View>
+
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Quotation document
+						</Text>
+						<View className="flex-row items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+							<Text
+								className="flex-1 font-sans text-muted-foreground text-xs"
+								numberOfLines={1}
+							>
+								{documentLabel()}
+							</Text>
+							{uploading ? (
+								<ActivityIndicator
+									color={colors.mutedForeground}
+									size="small"
+								/>
+							) : null}
+							{!uploading && (s3Key || hasExistingDoc) ? (
+								<Pressable
+									accessibilityLabel="Remove document"
+									accessibilityRole="button"
+									hitSlop={8}
+									onPress={clearDocument}
+								>
+									<X color={colors.mutedForeground} size={18} strokeWidth={2} />
+								</Pressable>
+							) : null}
+						</View>
+						<Button
+							disabled={uploading}
+							icon={
+								<FileUp color={colors.foreground} size={18} strokeWidth={2} />
+							}
+							onPress={pickDocument}
+						>
+							{s3Key || hasExistingDoc ? 'Replace document' : 'Attach document'}
+						</Button>
+					</View>
+
+					<Button
+						className="mt-1"
+						disabled={uploading}
+						icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
+						loading={saving}
+						onPress={handleSave}
+					>
+						{editingId ? 'Save changes' : 'Save quotation'}
+					</Button>
+				</BottomSheetInputProvider>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
 	);

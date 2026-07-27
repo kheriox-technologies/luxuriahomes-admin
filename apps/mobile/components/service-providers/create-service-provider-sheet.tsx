@@ -19,6 +19,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { TradeMultiSelectField } from '@/components/trades/trade-multi-select-field';
+import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { TextField } from '@/components/ui/text-field';
@@ -265,206 +266,216 @@ export function CreateServiceProviderSheet({
 				contentContainerStyle={{ paddingBottom: insets.bottom + 16, gap: 12 }}
 				keyboardShouldPersistTaps="handled"
 			>
-				<Text className="px-1 font-sans-semibold text-base text-foreground">
-					{isEditing ? 'Edit service provider' : 'New service provider'}
-				</Text>
-
-				<TextField
-					error={
-						showErrors && company.trim() === ''
-							? 'Company is required'
-							: undefined
-					}
-					label="Company"
-					onChangeText={setCompany}
-					placeholder="Company name"
-					value={company}
-				/>
-				<TextField
-					error={
-						showErrors && name.trim() === ''
-							? 'Contact name is required'
-							: undefined
-					}
-					label="Main contact name"
-					onChangeText={setName}
-					placeholder="Contact name"
-					value={name}
-				/>
-
-				<View className="gap-1.5">
-					<Text className="font-sans-medium text-foreground text-sm">
-						Trades
+				<BottomSheetInputProvider>
+					<Text className="px-1 font-sans-semibold text-base text-foreground">
+						{isEditing ? 'Edit service provider' : 'New service provider'}
 					</Text>
-					<TradeMultiSelectField
-						allowCreate
-						onValuesChange={setTradeIds}
-						values={tradeIds}
+
+					<TextField
+						error={
+							showErrors && company.trim() === ''
+								? 'Company is required'
+								: undefined
+						}
+						label="Company"
+						onChangeText={setCompany}
+						placeholder="Company name"
+						value={company}
 					/>
-				</View>
+					<TextField
+						error={
+							showErrors && name.trim() === ''
+								? 'Contact name is required'
+								: undefined
+						}
+						label="Main contact name"
+						onChangeText={setName}
+						placeholder="Contact name"
+						value={name}
+					/>
 
-				<TextField
-					autoCapitalize="none"
-					keyboardType="email-address"
-					label="Email"
-					onChangeText={setEmail}
-					placeholder="Email (optional)"
-					value={email}
-				/>
-				<TextField
-					keyboardType="phone-pad"
-					label="Phone"
-					onChangeText={setPhone}
-					placeholder="Phone (optional)"
-					value={phone}
-				/>
-				<TextField
-					keyboardType="phone-pad"
-					label="Landline"
-					onChangeText={setLandline}
-					placeholder="Landline (optional)"
-					value={landline}
-				/>
-				<TextField
-					label="Position"
-					onChangeText={setPosition}
-					placeholder="Position (optional)"
-					value={position}
-				/>
-				<TextField
-					label="QBCC license"
-					onChangeText={setQbccLicense}
-					placeholder="QBCC license (optional)"
-					value={qbccLicense}
-				/>
-				<TextField
-					autoCapitalize="none"
-					label="Website"
-					onChangeText={setWebsite}
-					placeholder="Website (optional)"
-					value={website}
-				/>
-				<TextField
-					label="Address"
-					onChangeText={setAddress}
-					placeholder="Address (optional)"
-					value={address}
-				/>
+					<View className="gap-1.5">
+						<Text className="font-sans-medium text-foreground text-sm">
+							Trades
+						</Text>
+						<TradeMultiSelectField
+							allowCreate
+							onValuesChange={setTradeIds}
+							values={tradeIds}
+						/>
+					</View>
 
-				<View className="mt-1 gap-2.5">
-					<Text className="px-1 font-sans-semibold text-foreground text-sm">
-						Additional contacts
-					</Text>
+					<TextField
+						autoCapitalize="none"
+						keyboardType="email-address"
+						label="Email"
+						onChangeText={setEmail}
+						placeholder="Email (optional)"
+						value={email}
+					/>
+					<TextField
+						keyboardType="phone-pad"
+						label="Phone"
+						onChangeText={setPhone}
+						placeholder="Phone (optional)"
+						value={phone}
+					/>
+					<TextField
+						keyboardType="phone-pad"
+						label="Landline"
+						onChangeText={setLandline}
+						placeholder="Landline (optional)"
+						value={landline}
+					/>
+					<TextField
+						label="Position"
+						onChangeText={setPosition}
+						placeholder="Position (optional)"
+						value={position}
+					/>
+					<TextField
+						label="QBCC license"
+						onChangeText={setQbccLicense}
+						placeholder="QBCC license (optional)"
+						value={qbccLicense}
+					/>
+					<TextField
+						autoCapitalize="none"
+						label="Website"
+						onChangeText={setWebsite}
+						placeholder="Website (optional)"
+						value={website}
+					/>
+					<TextField
+						label="Address"
+						onChangeText={setAddress}
+						placeholder="Address (optional)"
+						value={address}
+					/>
 
-					{contacts.map((contact, index) => (
-						<Card
-							className="flex-row items-start gap-2 p-3"
-							key={`${contact.name}-${index}`}
-						>
-							<View className="flex-1 gap-0.5">
-								<Text className="font-sans-semibold text-foreground text-sm">
-									{contact.name}
-								</Text>
-								{contact.position ? (
-									<Text className="font-sans text-muted-foreground text-xs">
-										{contact.position}
-									</Text>
-								) : null}
-								{contact.email ? (
-									<Text className="font-sans text-muted-foreground text-xs">
-										{contact.email}
-									</Text>
-								) : null}
-								{[contact.phone, contact.landline].filter(Boolean).length >
-								0 ? (
-									<Text className="font-sans text-muted-foreground text-xs">
-										{[contact.phone, contact.landline]
-											.filter(Boolean)
-											.join(' | ')}
-									</Text>
-								) : null}
-							</View>
-							<Pressable
-								accessibilityLabel={`Edit contact ${contact.name}`}
-								accessibilityRole="button"
-								className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
-								hitSlop={4}
-								onPress={() => handleEditContact(index)}
+					<View className="mt-1 gap-2.5">
+						<Text className="px-1 font-sans-semibold text-foreground text-sm">
+							Additional contacts
+						</Text>
+
+						{contacts.map((contact, index) => (
+							<Card
+								className="flex-row items-start gap-2 p-3"
+								key={`${contact.name}-${index}`}
 							>
-								<Pencil color={colors.foreground} size={16} strokeWidth={2} />
-							</Pressable>
-							<Pressable
-								accessibilityLabel={`Delete contact ${contact.name}`}
-								accessibilityRole="button"
-								className="h-9 w-9 items-center justify-center rounded-lg border border-destructive/40 bg-card active:bg-muted"
-								hitSlop={4}
-								onPress={() => handleDeleteContact(index)}
+								<View className="flex-1 gap-0.5">
+									<Text className="font-sans-semibold text-foreground text-sm">
+										{contact.name}
+									</Text>
+									{contact.position ? (
+										<Text className="font-sans text-muted-foreground text-xs">
+											{contact.position}
+										</Text>
+									) : null}
+									{contact.email ? (
+										<Text className="font-sans text-muted-foreground text-xs">
+											{contact.email}
+										</Text>
+									) : null}
+									{[contact.phone, contact.landline].filter(Boolean).length >
+									0 ? (
+										<Text className="font-sans text-muted-foreground text-xs">
+											{[contact.phone, contact.landline]
+												.filter(Boolean)
+												.join(' | ')}
+										</Text>
+									) : null}
+								</View>
+								<Pressable
+									accessibilityLabel={`Edit contact ${contact.name}`}
+									accessibilityRole="button"
+									className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
+									hitSlop={4}
+									onPress={() => handleEditContact(index)}
+								>
+									<Pencil color={colors.foreground} size={16} strokeWidth={2} />
+								</Pressable>
+								<Pressable
+									accessibilityLabel={`Delete contact ${contact.name}`}
+									accessibilityRole="button"
+									className="h-9 w-9 items-center justify-center rounded-lg border border-destructive/40 bg-card active:bg-muted"
+									hitSlop={4}
+									onPress={() => handleDeleteContact(index)}
+								>
+									<Trash2
+										color={colors.destructive}
+										size={16}
+										strokeWidth={2}
+									/>
+								</Pressable>
+							</Card>
+						))}
+
+						<Card className="gap-2.5 p-3">
+							<TextField
+								label="Name"
+								onChangeText={(value) => updateDraft('name', value)}
+								placeholder="Contact name"
+								value={draft.name}
+							/>
+							<TextField
+								label="Position"
+								onChangeText={(value) => updateDraft('position', value)}
+								placeholder="Position (optional)"
+								value={draft.position}
+							/>
+							<TextField
+								autoCapitalize="none"
+								keyboardType="email-address"
+								label="Email"
+								onChangeText={(value) => updateDraft('email', value)}
+								placeholder="Email (optional)"
+								value={draft.email}
+							/>
+							<TextField
+								keyboardType="phone-pad"
+								label="Phone"
+								onChangeText={(value) => updateDraft('phone', value)}
+								placeholder="Phone (optional)"
+								value={draft.phone}
+							/>
+							<TextField
+								keyboardType="phone-pad"
+								label="Landline"
+								onChangeText={(value) => updateDraft('landline', value)}
+								placeholder="Landline (optional)"
+								value={draft.landline}
+							/>
+							<Button
+								disabled={draft.name.trim() === ''}
+								icon={
+									editingIndex === null ? (
+										<Plus color={colors.foreground} size={18} strokeWidth={2} />
+									) : (
+										<Check
+											color={colors.foreground}
+											size={18}
+											strokeWidth={2}
+										/>
+									)
+								}
+								onPress={handleAddOrSaveContact}
+								variant="outline"
 							>
-								<Trash2 color={colors.destructive} size={16} strokeWidth={2} />
-							</Pressable>
+								{editingIndex === null ? 'Add contact' : 'Save contact'}
+							</Button>
 						</Card>
-					))}
+					</View>
 
-					<Card className="gap-2.5 p-3">
-						<TextField
-							label="Name"
-							onChangeText={(value) => updateDraft('name', value)}
-							placeholder="Contact name"
-							value={draft.name}
-						/>
-						<TextField
-							label="Position"
-							onChangeText={(value) => updateDraft('position', value)}
-							placeholder="Position (optional)"
-							value={draft.position}
-						/>
-						<TextField
-							autoCapitalize="none"
-							keyboardType="email-address"
-							label="Email"
-							onChangeText={(value) => updateDraft('email', value)}
-							placeholder="Email (optional)"
-							value={draft.email}
-						/>
-						<TextField
-							keyboardType="phone-pad"
-							label="Phone"
-							onChangeText={(value) => updateDraft('phone', value)}
-							placeholder="Phone (optional)"
-							value={draft.phone}
-						/>
-						<TextField
-							keyboardType="phone-pad"
-							label="Landline"
-							onChangeText={(value) => updateDraft('landline', value)}
-							placeholder="Landline (optional)"
-							value={draft.landline}
-						/>
-						<Button
-							disabled={draft.name.trim() === ''}
-							icon={
-								editingIndex === null ? (
-									<Plus color={colors.foreground} size={18} strokeWidth={2} />
-								) : (
-									<Check color={colors.foreground} size={18} strokeWidth={2} />
-								)
-							}
-							onPress={handleAddOrSaveContact}
-							variant="outline"
-						>
-							{editingIndex === null ? 'Add contact' : 'Save contact'}
-						</Button>
-					</Card>
-				</View>
-
-				<Button
-					className="mt-1"
-					icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
-					loading={saving}
-					onPress={handleSave}
-				>
-					{isEditing ? 'Save changes' : 'Create service provider'}
-				</Button>
+					<Button
+						className="mt-1"
+						icon={<Check color={colors.foreground} size={18} strokeWidth={2} />}
+						loading={saving}
+						onPress={handleSave}
+					>
+						{isEditing ? 'Save changes' : 'Create service provider'}
+					</Button>
+				</BottomSheetInputProvider>
 			</BottomSheetScrollView>
 		</BottomSheetModal>
 	);

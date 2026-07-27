@@ -28,6 +28,7 @@ import {
 	Text,
 	View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
 	AddTemplateItemSheet,
@@ -569,38 +570,41 @@ function BudgetTemplateBody({
 					<Badge variant="purple">Total {formatCurrency(total)}</Badge>
 				</View>
 			</View>
-			<FlatList
-				contentContainerClassName="pb-6"
-				data={groups}
-				keyExtractor={(item) => item.key}
-				ListEmptyComponent={
-					<EmptyState
-						description="Add a trade to start building this template."
-						icon={Wallet}
-						title="No trades"
-					/>
-				}
-				renderItem={({ item }) => (
-					<BudgetTemplateStageAccordion
-						editing={isEditing}
-						editingRowIds={editing.editingRows}
-						expanded={isSearching || expandedKeys.has(item.key)}
-						group={item}
-						nameDrafts={editing.nameDrafts}
-						onChangeName={editing.setNameDraft}
-						onChangePrice={editing.setPriceDraft}
-						onOpenTradeMenu={openTradeMenu}
-						onSaveRow={(trade) => {
-							saveRow(trade).catch(() => {
-								/* Error handled in saveRow */
-							});
-						}}
-						onToggle={() => toggleKey(item.key)}
-						priceDrafts={editing.priceDrafts}
-						savingTradeId={savingRowId}
-					/>
-				)}
-			/>
+			<KeyboardAvoidingView behavior="padding" className="flex-1">
+				<FlatList
+					contentContainerClassName="pb-6"
+					data={groups}
+					keyboardShouldPersistTaps="handled"
+					keyExtractor={(item) => item.key}
+					ListEmptyComponent={
+						<EmptyState
+							description="Add a trade to start building this template."
+							icon={Wallet}
+							title="No trades"
+						/>
+					}
+					renderItem={({ item }) => (
+						<BudgetTemplateStageAccordion
+							editing={isEditing}
+							editingRowIds={editing.editingRows}
+							expanded={isSearching || expandedKeys.has(item.key)}
+							group={item}
+							nameDrafts={editing.nameDrafts}
+							onChangeName={editing.setNameDraft}
+							onChangePrice={editing.setPriceDraft}
+							onOpenTradeMenu={openTradeMenu}
+							onSaveRow={(trade) => {
+								saveRow(trade).catch(() => {
+									/* Error handled in saveRow */
+								});
+							}}
+							onToggle={() => toggleKey(item.key)}
+							priceDrafts={editing.priceDrafts}
+							savingTradeId={savingRowId}
+						/>
+					)}
+				/>
+			</KeyboardAvoidingView>
 
 			<ActionSheet items={menuItems} ref={menuRef} title="Template actions" />
 			<ActionSheet

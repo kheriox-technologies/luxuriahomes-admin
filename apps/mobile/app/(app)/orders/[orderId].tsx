@@ -18,10 +18,10 @@ import {
 	Alert,
 	Modal,
 	Pressable,
-	ScrollView,
 	Text,
 	View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AddToTaskSheetHandle } from '@/components/orders/add-to-task-sheet';
 import { AddToTaskSheet } from '@/components/orders/add-to-task-sheet';
@@ -229,9 +229,13 @@ export default function OrderDetailsScreen() {
 			{order === undefined ? (
 				<ListSkeleton />
 			) : (
-				<ScrollView
-					contentContainerClassName="gap-4 px-4 pb-6"
-					contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+				<KeyboardAwareScrollView
+					bottomOffset={24}
+					contentContainerStyle={{
+						gap: 16,
+						paddingHorizontal: 16,
+						paddingBottom: insets.bottom + 24,
+					}}
 				>
 					<View className="flex-row items-center gap-2">
 						<Select<OrderStatus>
@@ -282,7 +286,7 @@ export default function OrderDetailsScreen() {
 					<Card className="p-3.5">
 						<OrderStatusHistorySection order={order} />
 					</Card>
-				</ScrollView>
+				</KeyboardAwareScrollView>
 			)}
 
 			{order ? (

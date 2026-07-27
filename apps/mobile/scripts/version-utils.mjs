@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { syncBuildLine } from './release-notes.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const appJsonPath = resolve(rootDir, 'app.json');
@@ -35,6 +36,17 @@ export function bump(platform) {
 	}
 
 	writeFileSync(appJsonPath, `${JSON.stringify(config, null, 2)}\n`);
+
+	// Keep the current version's build line in RELEASE_NOTES.md in sync.
+	// A notes failure must never break a build, so it is best-effort.
+	try {
+		syncBuildLine(expo);
+	} catch (error) {
+		process.stderr.write(
+			`Warning: could not sync RELEASE_NOTES.md build line: ${error.message}\n`
+		);
+	}
+
 	return { version: expo.version, build };
 }
 

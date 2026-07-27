@@ -3,6 +3,7 @@ import {
 	type BottomSheetBackdropProps,
 	BottomSheetModal,
 	BottomSheetScrollView,
+	BottomSheetTextInput,
 } from '@gorhom/bottom-sheet';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
@@ -15,14 +16,7 @@ import {
 } from 'expo-image-picker';
 import { ImagePlus, Trash2, X } from 'lucide-react-native';
 import { type Ref, useImperativeHandle, useRef, useState } from 'react';
-import {
-	ActivityIndicator,
-	Alert,
-	Pressable,
-	Text,
-	TextInput,
-	View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { Button } from '@/components/ui/button';
@@ -206,6 +200,7 @@ export function QuotationNotesSheet({
 				backgroundStyle={{ backgroundColor: colors.card }}
 				enableDynamicSizing
 				handleIndicatorStyle={{ backgroundColor: colors.mutedForeground }}
+				keyboardBehavior="interactive"
 				maxDynamicContentSize={640}
 				ref={sheetRef}
 			>
@@ -221,7 +216,7 @@ export function QuotationNotesSheet({
 					</Text>
 
 					<View className="gap-2">
-						<TextInput
+						<BottomSheetTextInput
 							className="min-h-[72px] rounded-lg border border-border bg-background px-3 py-2.5 font-sans text-base text-foreground"
 							multiline
 							onChangeText={setDraft}

@@ -1,3 +1,4 @@
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import {
 	Platform,
 	Text,
@@ -6,6 +7,7 @@ import {
 	View,
 } from 'react-native';
 import { useThemeColors } from '@/components/theme';
+import { useIsInBottomSheet } from '@/components/ui/bottom-sheet-input-context';
 import { cn } from '@/lib/cn';
 
 const androidText =
@@ -33,9 +35,12 @@ export function CenteredTextInput({
 	containerClassName?: string;
 } & Omit<TextInputProps, 'value' | 'onChangeText' | 'placeholder' | 'style'>) {
 	const colors = useThemeColors();
+	// Inside a bottom sheet, use gorhom's BottomSheetTextInput so the sheet's
+	// interactive keyboard behavior tracks focus and lifts to the field.
+	const Input = useIsInBottomSheet() ? BottomSheetTextInput : TextInput;
 	return (
 		<View className={cn('flex-1 justify-center', containerClassName)}>
-			<TextInput
+			<Input
 				className="font-sans"
 				onChangeText={onChangeText}
 				placeholder=""
