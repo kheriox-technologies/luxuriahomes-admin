@@ -32,10 +32,15 @@ App Store Connect, paste the bullet list from that version's section into the
 
 ## 1.0.1 — In review
 
-_iOS build 23 · Android versionCode 6_
+_iOS build 24 · Android versionCode 6_
 
 - Add a location picker when composing letters
 - Bug fixes and performance improvements
+
+<!-- draft: commit subjects since the last build — rewrite the useful ones into bullets above, then delete this block:
+  • Fix keyboard covering text fields on mobile
+  • Draft release notes from commit messages on each mobile build
+-->
 
 ---
 
