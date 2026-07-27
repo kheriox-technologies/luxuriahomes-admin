@@ -1,22 +1,28 @@
-# Mobile App — EAS Cloud Build & Store Submission (`apps/mobile`)
+# Mobile App — Local Build & Store Submission (`apps/mobile`)
 
-How to build the Luxuria Homes mobile app on **Expo's cloud (EAS Build)** and submit it to
-both the **App Store** and **Google Play**.
+How to build the Luxuria Homes mobile app **locally on your Mac** (`eas build --local`)
+and submit it to both the **App Store** and **Google Play**.
 
-- Build compute: **EAS cloud** (`eas build`) — runs on Expo's released-Xcode macOS workers
-- Signing credentials: **local** (`credentials.json` + `credentialsSource: "local"`) — EAS
-  securely uploads the referenced cert/keystore files per build
+- Build compute: **your machine** (`eas build --local`) — no EAS cloud subscription, no
+  build credits consumed
+- Signing credentials: **local** (`credentials.json` + `credentialsSource: "local"`) — the
+  cert/keystore files in `credentials/` are used directly during the local build
 - Production env: **`eas.json` → `build.production.env`** (the `EXPO_PUBLIC_*` vars) — Metro
-  reads these on the cloud worker
+  inlines these during the local build
 - Sole developer — you own the certs, keystore, and store API keys
 
-> **Why cloud, not `--local`?** This machine runs a **beta macOS (Tahoe / Darwin 27)**. Local
-> `eas build --local` hit an EAS keychain bug (needed a runtime patch) and, more importantly,
-> **Apple rejects binaries built with a beta toolchain**. EAS cloud workers use a released
-> Xcode, so the resulting build is App-Store-acceptable.
+> **Why local, not EAS cloud?** EAS cloud builds now require a paid subscription. Local
+> builds run for free on your Mac and reuse the exact same `eas.json` profile and
+> `credentials.json`, so the produced binaries are identical in configuration. The
+> submit step (`eas submit`) is free and still used to upload.
 
-> The app uses **CNG** (`ios/` and `android/` are gitignored). EAS runs `expo prebuild` on the
-> cloud worker, so native folders are never committed.
+> **Toolchain must be released, not beta.** Apple rejects binaries built with a beta
+> Xcode. This machine currently has a **released Xcode 26.6**, so local iOS builds are
+> App-Store-acceptable. If you ever move to a beta macOS/Xcode, build on EAS cloud (or a
+> machine with a released toolchain) for iOS releases instead.
+
+> The app uses **CNG** (`ios/` and `android/` are gitignored). `eas build --local` runs
+> `expo prebuild` before compiling, so native folders are never committed.
 
 ---
 
@@ -29,18 +35,28 @@ both the **App Store** and **Google Play**.
 | iOS `bundleIdentifier` | `au.com.luxuriahomes` |
 | Android `package` | `au.com.luxuriahomes` |
 
-Use these exact IDs when you register the app in App Store Connect and Google Play Console.
+Use these exact IDs when you register the app in App Store Connect and Google Play.
 
 ---
 
 ## Prerequisites
 
+Local builds compile on your machine, so the full native toolchain must be installed:
+
 - **eas-cli** (installed globally: `eas --version`). Update with `npm i -g eas-cli` if needed.
-- An **Expo account** (`eas login`) — the project is linked via `extra.eas.projectId` in
-  `app.json` (owner `pdomala-kheriox`). Cloud builds run under this account.
-- Paid **Apple Developer Program** membership and a **Google Play Console** account.
-- Local signing files present in `apps/mobile/credentials/` (see §3) — EAS uploads these to
-  the cloud build. No Xcode/Android SDK/fastlane needed locally anymore (the cloud worker has them).
+- A **free Expo account** (`eas login`) — the project is linked via `extra.eas.projectId`
+  in `app.json` (owner `pdomala-kheriox`). Local builds don't consume cloud credits.
+- **iOS** (macOS only):
+  - **Released Xcode** + Command Line Tools (`xcodebuild -version`).
+  - **CocoaPods** (`pod --version`).
+  - **fastlane** — EAS uses it under the hood for local iOS builds
+    (`brew install fastlane`, or `gem install fastlane`).
+- **Android**:
+  - **JDK 17** (`java -version`).
+  - **Android SDK** (via Android Studio) with `ANDROID_HOME` / `ANDROID_SDK_ROOT` set.
+- Local signing files present in `apps/mobile/credentials/` (see §3).
+
+> iOS builds require macOS. Android builds run on macOS/Linux/Windows.
 
 ---
 
@@ -58,11 +74,11 @@ eas init            # writes extra.eas.projectId into app.json — commit it
 
 ## 2. `eas.json`
 
-`apps/mobile/eas.json` is already configured for cloud builds with local credentials. Key lines:
+`apps/mobile/eas.json` is already configured. The same `production` profile drives local
+builds — `--local` only changes *where* the build runs. Key lines:
 
-- `"credentialsSource": "local"` — sign with the local `credentials.json` files (EAS uploads
-  them securely per build) instead of EAS-hosted credentials.
-- `build.production.env` — the `EXPO_PUBLIC_*` vars, inlined by Metro on the cloud worker.
+- `"credentialsSource": "local"` — sign with the local `credentials.json` files (§3).
+- `build.production.env` — the `EXPO_PUBLIC_*` vars, inlined by Metro during the build.
 - `appVersionSource: "local"` — version/build numbers come from `app.json` (bumped by the
   build script — see §6).
 - Android `buildType: "app-bundle"` → produces a Play-ready `.aab`.
@@ -103,8 +119,8 @@ eas init            # writes extra.eas.projectId into app.json — commit it
 ## 3. Local signing credentials (`credentials.json`)
 
 `apps/mobile/credentials.json` references the cert/keystore files in `apps/mobile/credentials/`.
-**Do not commit** `credentials.json` or `credentials/` (both gitignored — see §9). EAS reads
-these locally at build time and uploads them to the cloud worker as encrypted build credentials.
+**Do not commit** `credentials.json` or `credentials/` (both gitignored — see §9). The local
+build reads these directly to sign the binary.
 
 ```json
 {
@@ -158,33 +174,35 @@ profile for `au.com.luxuriahomes`:
 
 ## 4. Production env vars
 
-Cloud builds read `EXPO_PUBLIC_*` from `eas.json` → `build.production.env` (§2). There is **no**
-`.env.prod` step anymore — the local `build:*` scripts no longer export a shell env file.
+Local builds read `EXPO_PUBLIC_*` from `eas.json` → `build.production.env` (§2). There is **no**
+`.env.prod` step — the `build:*` scripts do not export a shell env file.
 
 > If you add/rotate an `EXPO_PUBLIC_*` var, update it in `eas.json`, not a local dotenv file.
 
 ---
 
-## 5. Build on EAS cloud
+## 5. Build locally
 
 Run from `apps/mobile`. Each build first bumps the platform build number in `app.json`
-(via `scripts/build.mjs`), then submits the job to EAS and streams progress. The finished
-artifact is stored on EAS (an `expo.dev` build URL) — nothing is written to a local `build/` dir.
+(via `scripts/build.mjs`), then compiles on this machine and writes the artifact to
+`apps/mobile/build/luxuria-<platform>.<ext>` (`.ipa` for iOS, `.aab` for Android).
 
 ```bash
 cd apps/mobile
-pnpm build:ios       # → eas build --profile production --platform ios
-pnpm build:android   # → eas build --profile production --platform android
+pnpm build:ios       # → eas build --profile production --platform ios     --local --output build/luxuria-ios.ipa
+pnpm build:android   # → eas build --profile production --platform android --local --output build/luxuria-android.aab
 ```
 
 Equivalent raw commands:
 
 ```bash
-eas build --profile production --platform ios
-eas build --profile production --platform android
+eas build --profile production --platform ios     --local --output build/luxuria-ios.ipa
+eas build --profile production --platform android --local --output build/luxuria-android.aab
 ```
 
-The first cloud build may prompt to confirm credential upload. Later builds run unattended.
+> The **first** build is slow — it runs `expo prebuild` and downloads CocoaPods (iOS) /
+> Gradle dependencies (Android). Later builds are faster. iOS builds require macOS with a
+> released Xcode (§Prerequisites).
 
 ---
 
@@ -193,8 +211,8 @@ The first cloud build may prompt to confirm credential upload. Later builds run 
 `appVersionSource: "local"` means version data comes from `app.json`. The `build:*` scripts
 **auto-increment the platform build number** before each build:
 
-- `expo.ios.buildNumber` (string) — bumped for every iOS cloud build.
-- `expo.android.versionCode` (integer) — bumped for every Android cloud build.
+- `expo.ios.buildNumber` (string) — bumped for every iOS build.
+- `expo.android.versionCode` (integer) — bumped for every Android build.
 
 The user-facing `expo.version` (e.g. `1.0.1`) is still edited **manually** in `app.json` when
 you cut a new marketing version. Commit the bumped `app.json` after a release build.
@@ -231,21 +249,24 @@ you cut a new marketing version. Commit the bumped `app.json` after a release bu
 
 ## 8. Submit to the stores
 
-Cloud builds have no local artifact, so submit the **latest finished EAS build** for the platform:
+Submit uploads the **local artifact** produced in §5 (`--path`). Run the build first, then:
 
 ```bash
 cd apps/mobile
-pnpm submit:ios      # → eas submit --profile production --platform ios     --latest
-pnpm submit:android  # → eas submit --profile production --platform android --latest
+pnpm submit:ios      # → eas submit --profile production --platform ios     --path build/luxuria-ios.ipa
+pnpm submit:android  # → eas submit --profile production --platform android --path build/luxuria-android.aab
 ```
 
 Equivalent raw commands:
 
 ```bash
-eas submit --profile production --platform ios     --latest
-eas submit --profile production --platform android --latest
+eas submit --profile production --platform ios     --path build/luxuria-ios.ipa
+eas submit --profile production --platform android --path build/luxuria-android.aab
 ```
 
+- If the artifact is missing, the script errors with
+  `No artifact at build/luxuria-<platform>.<ext> — run \`pnpm build:<platform>\` first`.
+- **EAS Submit is free** (only cloud *builds* require a subscription).
 - iOS submit uses the App Store Connect API key (`.p8`, Key ID, Issuer ID); it'll prompt
   unless configured. After upload, the build appears in TestFlight, then submit for review
   from App Store Connect.
@@ -255,7 +276,7 @@ eas submit --profile production --platform android --latest
 
 ## 9. `.gitignore`
 
-`apps/mobile/.gitignore` keeps secrets and native output out of git:
+`apps/mobile/.gitignore` keeps secrets and build output out of git:
 
 ```
 credentials.json
@@ -265,7 +286,8 @@ ios/
 android/
 ```
 
-`eas.json` **should** be committed; `credentials.json` and the `credentials/` folder **must not**.
+`eas.json` **should** be committed; `credentials.json`, the `credentials/` folder, and the
+local `.ipa`/`.aab` under `build/` **must not**.
 
 ---
 

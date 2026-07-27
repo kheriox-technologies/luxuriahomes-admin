@@ -5,14 +5,31 @@ const platform = process.argv[2];
 
 try {
 	const { version, build } = bump(platform);
+	const ext = platform === 'ios' ? 'ipa' : 'aab';
+	const output = `build/luxuria-${platform}.${ext}`;
 
-	process.stdout.write(`Building ${platform} v${version} (${build}) on EAS\n`);
+	process.stdout.write(
+		`Building ${platform} v${version} (${build}) locally → ${output}\n`
+	);
 
 	const result = spawnSync(
 		'eas',
-		['build', '--profile', 'production', '--platform', platform],
+		[
+			'build',
+			'--profile',
+			'production',
+			'--platform',
+			platform,
+			'--local',
+			'--output',
+			output,
+		],
 		{ stdio: 'inherit' }
 	);
+
+	if (result.status === 0) {
+		process.stdout.write(`Build ready: ${output}\n`);
+	}
 
 	process.exit(result.status ?? 1);
 } catch (error) {
