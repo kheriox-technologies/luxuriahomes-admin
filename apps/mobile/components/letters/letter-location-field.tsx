@@ -29,9 +29,7 @@ export type LetterDestination =
 
 const COMPANY_KEY = 'company';
 
-type DocFolder =
-	| Doc<'companyDocumentFolders'>
-	| Doc<'projectDocumentFolders'>;
+type DocFolder = Doc<'companyDocumentFolders'> | Doc<'projectDocumentFolders'>;
 
 function folderLabel(folderPath: string): string {
 	return folderPath === '' ? 'Root' : folderPath;
@@ -68,11 +66,10 @@ export function LetterLocationField({
 	) as { folders: DocFolder[] } | undefined;
 	const projectContents = useQuery(
 		api.projectDocuments.listContents.listContents,
-		isCompany
-			? 'skip'
-			: { projectId: scopeKey as Id<'projects'>, folderPath }
+		isCompany ? 'skip' : { projectId: scopeKey as Id<'projects'>, folderPath }
 	) as { folders: DocFolder[] } | undefined;
-	const folders = (isCompany ? companyContents : projectContents)?.folders ?? [];
+	const folders =
+		(isCompany ? companyContents : projectContents)?.folders ?? [];
 
 	const projectNameById = useMemo(() => {
 		const map = new Map<string, string>();
@@ -113,7 +110,11 @@ export function LetterLocationField({
 		onChange(
 			isCompany
 				? { scope: 'company', folderPath }
-				: { scope: 'project', projectId: scopeKey as Id<'projects'>, folderPath }
+				: {
+						scope: 'project',
+						projectId: scopeKey as Id<'projects'>,
+						folderPath,
+					}
 		);
 		sheetRef.current?.dismiss();
 	};
@@ -255,7 +256,11 @@ export function LetterLocationField({
 
 					<Button
 						icon={
-							<FolderInput color={colors.foreground} size={18} strokeWidth={2} />
+							<FolderInput
+								color={colors.foreground}
+								size={18}
+								strokeWidth={2}
+							/>
 						}
 						onPress={confirm}
 					>
