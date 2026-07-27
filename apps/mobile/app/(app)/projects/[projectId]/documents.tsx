@@ -8,12 +8,13 @@ import {
 	launchImageLibraryAsync,
 	requestMediaLibraryPermissionsAsync,
 } from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
 import {
 	ChevronRight,
 	File,
 	FileImage,
+	FilePen,
 	FileText,
 	FileUp,
 	Folder,
@@ -79,6 +80,7 @@ function fileIcon(mimeType: string | undefined) {
 }
 
 export default function DocumentsScreen() {
+	const router = useRouter();
 	const { projectId } = useLocalSearchParams<{ projectId: string }>();
 	const [folderPath, setFolderPath] = useState('');
 	const [openingId, setOpeningId] = useState<string | null>(null);
@@ -290,6 +292,20 @@ export default function DocumentsScreen() {
 						);
 					})}
 				</ScrollView>
+				<Pressable
+					accessibilityLabel="Add letter"
+					accessibilityRole="button"
+					className="h-9 w-9 items-center justify-center rounded-lg active:bg-muted"
+					hitSlop={4}
+					onPress={() =>
+						router.push({
+							pathname: '/(app)/letters/new',
+							params: { scope: 'project', projectId, folderPath },
+						})
+					}
+				>
+					<FilePen color={colors.foreground} size={20} strokeWidth={2} />
+				</Pressable>
 				<Pressable
 					accessibilityLabel="New folder"
 					accessibilityRole="button"
