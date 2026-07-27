@@ -2,14 +2,14 @@
   "expo": {
     "name": "Luxuria Homes",
     "slug": "luxuria-homes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "luxuriahomes",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "au.com.luxuriahomes",
-      "buildNumber": "22",
+      "buildNumber": "23",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
