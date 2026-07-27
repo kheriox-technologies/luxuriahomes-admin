@@ -16,6 +16,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+	type LetterDestination,
+	LetterLocationField,
+} from '@/components/letters/letter-location-field';
+import {
 	type LetterRecipient,
 	LetterRecipientsField,
 } from '@/components/letters/letter-recipients-field';
@@ -61,11 +65,19 @@ export default function NewLetterScreen() {
 		folderPath?: string;
 	}>();
 
-	const scope: 'company' | 'project' =
-		params.scope === 'project' ? 'project' : 'company';
+	const [destination, setDestination] = useState<LetterDestination>(() =>
+		params.scope === 'project' && params.projectId
+			? {
+					scope: 'project',
+					projectId: params.projectId as Id<'projects'>,
+					folderPath: params.folderPath ?? '',
+				}
+			: { scope: 'company', folderPath: params.folderPath ?? '' }
+	);
+	const scope = destination.scope;
 	const projectId =
-		scope === 'project' ? (params.projectId as Id<'projects'>) : undefined;
-	const folderPath = params.folderPath ?? '';
+		destination.scope === 'project' ? destination.projectId : undefined;
+	const folderPath = destination.folderPath;
 
 	const saveLetter = useAction(api.letters.save.save);
 	const sendEmail = useAction(api.email.send.send);
@@ -82,10 +94,6 @@ export default function NewLetterScreen() {
 	const dateLabel = useMemo(() => formatDateLabel(date), [date]);
 	const nameEmpty = name.trim() === '';
 	const canSave = !(nameEmpty || isContentEmpty(contentHtml) || saving);
-	const locationLabel =
-		scope === 'company'
-			? `Company Documents${folderPath ? ` / ${folderPath}` : ''}`
-			: `Project Documents${folderPath ? ` / ${folderPath}` : ''}`;
 
 	// Email the just-saved letter (attached by its S3 key) to recipients that
 	// have a valid email. The letter is already saved, so email issues never fail
@@ -211,11 +219,7 @@ export default function NewLetterScreen() {
 					<Text className="font-sans-medium text-foreground text-sm">
 						Location
 					</Text>
-					<View className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
-						<Text className="font-sans text-muted-foreground text-sm">
-							{locationLabel}
-						</Text>
-					</View>
+					<LetterLocationField onChange={setDestination} value={destination} />
 				</View>
 
 				<View className="gap-1.5">
