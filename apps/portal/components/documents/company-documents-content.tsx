@@ -4,10 +4,15 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { useAction, useMutation } from 'convex/react';
 import { FileText } from 'lucide-react';
+import type { Route } from 'next';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PageHeading from '@/components/page-heading';
 import { ProjectFileManagerTabContent } from '../projects/project-file-manager-tab-content';
+import { LETTER_PREFILL_STORAGE_KEY } from './letter-composer';
 
 export default function CompanyDocumentsContent() {
+	const router = useRouter();
+	const searchParams = useSearchParams();
 	const generateUploadUrl = useAction(
 		api.companyDocuments.generateUploadUrl.generateUploadUrl
 	);
@@ -34,12 +39,28 @@ export default function CompanyDocumentsContent() {
 			<ProjectFileManagerTabContent
 				buildQueryArgs={(folderPath) => ({ folderPath })}
 				emptyTitle="No documents yet"
+				initialFolderPath={searchParams.get('folder') ?? ''}
 				listContentsQuery={api.companyDocuments.listContents.listContents}
+				onAddLetter={(currentPath) =>
+					router.push(
+						(currentPath
+							? `/documents/letters/new?folder=${encodeURIComponent(currentPath)}`
+							: '/documents/letters/new') as Route
+					)
+				}
 				onCreateFile={async (args) => {
 					await createDocument(args);
 				}}
 				onCreateFolder={async ({ name, parentPath }) => {
 					await createFolder({ name, parentPath });
+				}}
+				onCreateNewLetter={({ folderPath, contentHtml }) => {
+					sessionStorage.setItem(LETTER_PREFILL_STORAGE_KEY, contentHtml);
+					const params = new URLSearchParams({ prefill: '1' });
+					if (folderPath) {
+						params.set('folder', folderPath);
+					}
+					router.push(`/documents/letters/new?${params.toString()}` as Route);
 				}}
 				onDeleteFolder={async (folderId) => {
 					await deleteFolderAction({

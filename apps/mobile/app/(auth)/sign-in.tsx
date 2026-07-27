@@ -57,6 +57,17 @@ function isSessionExistsError(err: unknown): boolean {
 	);
 }
 
+// Clerk throws this code in Restricted sign-up mode when an unprovisioned account
+// (e.g. a reviewer's own Apple ID) tries to sign in. It's intended access control,
+// not a failure — show the "no access" copy, never Clerk's raw message. Mirrors the
+// portal's `not_allowed_access` override in components/providers.tsx.
+function isNoAccessError(err: unknown): boolean {
+	return (
+		isClerkAPIResponseError(err) &&
+		err.errors.some((e) => e.code === 'not_allowed_access')
+	);
+}
+
 function useWarmUpBrowser() {
 	useEffect(() => {
 		if (Platform.OS !== 'android') {
@@ -152,6 +163,10 @@ export default function SignInScreen() {
 			if (isSessionExistsError(err)) {
 				await signOut();
 				setError('Please tap Continue with Google again.');
+			} else if (isNoAccessError(err)) {
+				// Unprovisioned account blocked by Restricted mode — intended access
+				// control, not a failure. Show the hard "no access" copy.
+				setError(NO_ACCESS_MESSAGE);
 			} else {
 				setError('Google sign-in failed. Please try again.');
 			}
@@ -195,6 +210,10 @@ export default function SignInScreen() {
 			if (isSessionExistsError(err)) {
 				await signOut();
 				setError('Please tap Continue with Apple again.');
+			} else if (isNoAccessError(err)) {
+				// Unprovisioned account blocked by Restricted mode — intended access
+				// control, not a failure. Show the hard "no access" copy.
+				setError(NO_ACCESS_MESSAGE);
 			} else if (isClerkAPIResponseError(err)) {
 				// Surface Clerk's real reason (e.g. missing Apple SSO connection or bad
 				// credentials on the production instance) instead of a generic message —

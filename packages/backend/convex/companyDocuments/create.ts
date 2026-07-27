@@ -10,6 +10,7 @@ export const create = mutation({
 		folderPath: v.string(),
 		size: v.optional(v.number()),
 		mimeType: v.optional(v.string()),
+		letterContentHtml: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -23,6 +24,7 @@ export const create = mutation({
 			mimeType: args.mimeType,
 			uploadedBy: identity.name ?? identity.email ?? 'Unknown',
 			uploadedAt: Date.now(),
+			letterContentHtml: args.letterContentHtml,
 		});
 	},
 });
