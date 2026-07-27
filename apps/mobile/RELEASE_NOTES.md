@@ -10,11 +10,17 @@ App Store Connect, paste the bullet list from that version's section into the
   EAS builds can go under one version — keep adding bullets to the current version's
   section as you make new builds toward it.
 - **Status** moves `In development` → `In review` → `Published` as the version progresses
-  through App Store Connect.
-- The `_iOS build N · Android versionCode M_` line records the build the version shipped
-  with — mirror it from `app.json` (`ios.buildNumber` / `android.versionCode`).
+  through App Store Connect. Update it by hand.
 - Keep bullets **user-facing** (what a customer sees in the store), not commit messages.
-  Short and plain.
+  Short and plain. These are the only part you write by hand each build.
+
+**What's automated (scripts in `scripts/`):**
+
+- `pnpm version:set 1.0.2` bumps `expo.version` in `app.json` **and** inserts a fresh
+  `## 1.0.2 — In development` stub at the top of this file for you to fill in.
+- `pnpm build:ios` / `pnpm build:android` auto-bump the build number in `app.json` and
+  rewrite the `_iOS build N · Android versionCode M_` line of the top section to match —
+  so the build line always reflects the latest build.
 
 ---
 
