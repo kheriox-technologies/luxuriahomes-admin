@@ -333,6 +333,7 @@ export default function LetterComposer({
 						<Field>
 							<FieldLabel>To</FieldLabel>
 							<LetterRecipientsField
+								destination={destination}
 								onChange={setRecipients}
 								value={recipients}
 							/>

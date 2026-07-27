@@ -18,7 +18,8 @@ import {
 import { Input } from '@workspace/ui/components/input';
 import { useQuery } from 'convex/react';
 import { Plus, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { LetterDestination } from './letter-location-field';
 
 export interface LetterRecipientValue {
 	company?: string;
@@ -42,12 +43,31 @@ function recipientLabel(recipient: LetterRecipientValue): string {
 export default function LetterRecipientsField({
 	value,
 	onChange,
+	destination,
 }: {
+	destination: LetterDestination;
 	onChange: (next: LetterRecipientValue[]) => void;
 	value: LetterRecipientValue[];
 }) {
-	const serviceProviders = useQuery(api.serviceProviders.list.list, {});
-	const projects = useQuery(api.projects.list.list, {});
+	const isProject = destination.scope === 'project';
+	const projectId =
+		destination.scope === 'project' ? destination.projectId : undefined;
+
+	// Company scope: all projects' clients + all service providers.
+	const allProjects = useQuery(api.projects.list.list, isProject ? 'skip' : {});
+	const allProviders = useQuery(
+		api.serviceProviders.list.list,
+		isProject ? 'skip' : {}
+	);
+	// Project scope: just the selected project's clients + its linked providers.
+	const project = useQuery(
+		api.projects.get.get,
+		projectId ? { projectId } : 'skip'
+	);
+	const projectProviders = useQuery(
+		api.projectServiceProviders.listByProject.list,
+		projectId ? { projectId } : 'skip'
+	);
 
 	const [manualName, setManualName] = useState('');
 	const [manualCompany, setManualCompany] = useState('');
@@ -59,19 +79,25 @@ export default function LetterRecipientsField({
 		const clientIds: string[] = [];
 		const providerIds: string[] = [];
 
-		for (const project of projects ?? []) {
-			project.clients.forEach((client, index) => {
+		const scopedProject = project ? [project] : [];
+		const clientProjects = isProject ? scopedProject : (allProjects ?? []);
+		const providers = isProject
+			? (projectProviders ?? [])
+			: (allProviders ?? []);
+
+		for (const clientProject of clientProjects) {
+			clientProject.clients.forEach((client, index) => {
 				const name = `${client.firstName} ${client.lastName}`.trim();
 				if (!name) {
 					return;
 				}
-				const id = `client:${project._id}:${index}`;
+				const id = `client:${clientProject._id}:${index}`;
 				byId.set(id, { id, name, company: client.company });
 				clientIds.push(id);
 			});
 		}
 
-		for (const provider of serviceProviders ?? []) {
+		for (const provider of providers) {
 			const id = `sp:${provider._id}`;
 			byId.set(id, { id, name: provider.name, company: provider.company });
 			providerIds.push(id);
@@ -89,7 +115,7 @@ export default function LetterRecipientsField({
 			});
 		}
 		return { optionById: byId, groups: nextGroups };
-	}, [projects, serviceProviders]);
+	}, [isProject, project, allProjects, projectProviders, allProviders]);
 
 	const selectedKnownIds = value
 		.filter((recipient) => !recipient.id.startsWith(MANUAL_PREFIX))
@@ -98,7 +124,25 @@ export default function LetterRecipientsField({
 		recipient.id.startsWith(MANUAL_PREFIX)
 	);
 
-	const busy = projects === undefined || serviceProviders === undefined;
+	const busy = isProject
+		? project === undefined || projectProviders === undefined
+		: allProjects === undefined || allProviders === undefined;
+
+	// When the location changes, drop any selected client/provider that isn't
+	// part of the newly scoped options. Manual recipients are always kept. Guard
+	// on `busy` so we don't wipe valid selections while the new data loads.
+	useEffect(() => {
+		if (busy) {
+			return;
+		}
+		const kept = value.filter(
+			(recipient) =>
+				recipient.id.startsWith(MANUAL_PREFIX) || optionById.has(recipient.id)
+		);
+		if (kept.length !== value.length) {
+			onChange(kept);
+		}
+	}, [busy, optionById, value, onChange]);
 
 	const handleKnownChange = (nextIds: string[]) => {
 		const known = nextIds
