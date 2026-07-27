@@ -21,6 +21,8 @@ App Store Connect, paste the bullet list from that version's section into the
 - `pnpm build:ios` / `pnpm build:android` auto-bump the build number in `app.json` and
   rewrite the `_iOS build N · Android versionCode M_` line of the top section to match —
   so the build line always reflects the latest build.
+- After a successful build, the script formats and **commits** the bump (only `app.json`
+  and this file) so the repo is clean before you `pnpm submit:*`.
 
 ---
 
