@@ -97,3 +97,80 @@ export function syncBuildLine(expo) {
 
 	return false;
 }
+
+// Marks the start of the auto-generated draft block inside a version section.
+const DRAFT_OPEN =
+	'<!-- draft: commit subjects since the last build — rewrite the useful ones into bullets above, then delete this block:';
+const DRAFT_CLOSE = '-->';
+
+function sectionBounds(lines, headingIdx) {
+	let end = lines.length;
+	for (let i = headingIdx + 1; i < lines.length; i++) {
+		if (lines[i].trim() === '---' || VERSION_HEADING.test(lines[i])) {
+			end = i;
+			break;
+		}
+	}
+	return end;
+}
+
+/**
+ * Append commit subjects as a commented-out draft inside the top (current)
+ * version section, for the author to rewrite into user-facing bullets. New
+ * subjects are added to the existing draft block if one is present; subjects
+ * already anywhere in the section are skipped. Returns true if the file changed.
+ */
+export function appendCommitDraft(subjects) {
+	if (!existsSync(releaseNotesPath)) {
+		process.stderr.write(
+			'RELEASE_NOTES.md not found; skipping commit draft.\n'
+		);
+		return false;
+	}
+	if (subjects.length === 0) {
+		return false;
+	}
+
+	const lines = readLines();
+	const headingIdx = firstVersionHeadingIndex(lines);
+	if (headingIdx === -1) {
+		return false;
+	}
+
+	const sectionEnd = sectionBounds(lines, headingIdx);
+	const sectionText = lines.slice(headingIdx, sectionEnd).join('\n');
+	const fresh = subjects.filter((subject) => !sectionText.includes(subject));
+	if (fresh.length === 0) {
+		return false;
+	}
+
+	const bulletLines = fresh.map((subject) => `  • ${subject}`);
+	const openIdx = lines
+		.slice(headingIdx, sectionEnd)
+		.findIndex((line) => line.startsWith('<!-- draft:'));
+
+	if (openIdx === -1) {
+		const needsLeadingBlank = lines[sectionEnd - 1]?.trim() !== '';
+		const block = [
+			...(needsLeadingBlank ? [''] : []),
+			DRAFT_OPEN,
+			...bulletLines,
+			DRAFT_CLOSE,
+			'',
+		];
+		lines.splice(sectionEnd, 0, ...block);
+	} else {
+		const absOpen = headingIdx + openIdx;
+		let closeIdx = sectionEnd;
+		for (let i = absOpen; i < sectionEnd; i++) {
+			if (lines[i].trim() === DRAFT_CLOSE) {
+				closeIdx = i;
+				break;
+			}
+		}
+		lines.splice(closeIdx, 0, ...bulletLines);
+	}
+
+	writeFileSync(releaseNotesPath, lines.join('\n'));
+	return true;
+}
