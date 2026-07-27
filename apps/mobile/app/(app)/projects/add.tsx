@@ -2,7 +2,7 @@ import { api } from '@workspace/backend/api';
 import { useMutation } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { ProjectForm } from '@/components/projects/project-form';
 import { ScreenFormHeader } from '@/components/screen-form-header';
 import {
@@ -39,18 +39,13 @@ export default function AddProjectScreen() {
 	return (
 		<View className="flex-1 bg-background">
 			<ScreenFormHeader title="Add project" />
-			<KeyboardAvoidingView
-				behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-				className="flex-1"
-			>
-				<ProjectForm
-					initialClients={[]}
-					initialValues={emptyProjectFormValues}
-					mode="create"
-					onSubmit={handleSubmit}
-					submitting={submitting}
-				/>
-			</KeyboardAvoidingView>
+			<ProjectForm
+				initialClients={[]}
+				initialValues={emptyProjectFormValues}
+				mode="create"
+				onSubmit={handleSubmit}
+				submitting={submitting}
+			/>
 		</View>
 	);
 }

@@ -2,7 +2,8 @@ import { api } from '@workspace/backend/api';
 import { useAction } from 'convex/react';
 import { Check, Pencil, Plus, Trash2 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, Switch, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useThemeColors } from '@/components/theme';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
@@ -299,8 +300,14 @@ export function ProjectForm({
 	};
 
 	return (
-		<ScrollView
-			contentContainerClassName="gap-6 px-4 pt-2 pb-10"
+		<KeyboardAwareScrollView
+			bottomOffset={24}
+			contentContainerStyle={{
+				gap: 24,
+				paddingHorizontal: 16,
+				paddingTop: 8,
+				paddingBottom: 40,
+			}}
 			keyboardShouldPersistTaps="handled"
 		>
 			{/* Project details */}
@@ -563,6 +570,6 @@ export function ProjectForm({
 					</Button>
 				) : null}
 			</View>
-		</ScrollView>
+		</KeyboardAwareScrollView>
 	);
 }

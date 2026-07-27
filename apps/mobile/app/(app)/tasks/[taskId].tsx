@@ -11,7 +11,8 @@ import {
 	Trash2,
 } from 'lucide-react-native';
 import { useRef } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
 	TaskFormSheet,
@@ -168,9 +169,13 @@ export default function TaskDetailsScreen() {
 			{task === undefined ? (
 				<ListSkeleton />
 			) : (
-				<ScrollView
-					contentContainerClassName="gap-4 px-4 pb-6"
-					contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+				<KeyboardAwareScrollView
+					bottomOffset={24}
+					contentContainerStyle={{
+						gap: 16,
+						paddingHorizontal: 16,
+						paddingBottom: insets.bottom + 24,
+					}}
 				>
 					<View className="flex-row items-center gap-2">
 						<Select<KanbanStatus>
@@ -252,7 +257,7 @@ export default function TaskDetailsScreen() {
 					<Card className="p-3.5">
 						<TaskNotesSection taskId={task._id} />
 					</Card>
-				</ScrollView>
+				</KeyboardAwareScrollView>
 			)}
 
 			{task ? (

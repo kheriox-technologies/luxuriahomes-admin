@@ -24,6 +24,7 @@ import {
 	Pressable,
 	View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import {
 	AddBudgetItemSheet,
 	type AddBudgetItemSheetHandle,
@@ -547,39 +548,42 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 					</Badge>
 				</View>
 			</View>
-			<FlatList
-				contentContainerClassName="pb-6"
-				data={groups}
-				keyExtractor={(item) => item.key}
-				ListEmptyComponent={
-					<EmptyState
-						description="Add a trade to start building this project's budget."
-						icon={Wallet}
-						title="No budgets"
-					/>
-				}
-				renderItem={({ item }) => (
-					<BudgetStageAccordion
-						editing={editing.isEditing}
-						editingRowIds={editing.editingRows}
-						expanded={isSearching || expandedKeys.has(item.key)}
-						group={item}
-						nameDrafts={editing.nameDrafts}
-						onChangeName={editing.setNameDraft}
-						onChangePrice={editing.setPriceDraft}
-						onOpenTradeMenu={openTradeMenu}
-						onSaveRow={(trade) => {
-							saveRow(trade).catch(() => {
-								/* Error handled in saveRow */
-							});
-						}}
-						onToggle={() => toggleKey(item.key)}
-						priceDrafts={editing.priceDrafts}
-						savingTradeId={savingRowId}
-						xeroLabelsById={xeroLabelsById}
-					/>
-				)}
-			/>
+			<KeyboardAvoidingView behavior="padding" className="flex-1">
+				<FlatList
+					contentContainerClassName="pb-6"
+					data={groups}
+					keyboardShouldPersistTaps="handled"
+					keyExtractor={(item) => item.key}
+					ListEmptyComponent={
+						<EmptyState
+							description="Add a trade to start building this project's budget."
+							icon={Wallet}
+							title="No budgets"
+						/>
+					}
+					renderItem={({ item }) => (
+						<BudgetStageAccordion
+							editing={editing.isEditing}
+							editingRowIds={editing.editingRows}
+							expanded={isSearching || expandedKeys.has(item.key)}
+							group={item}
+							nameDrafts={editing.nameDrafts}
+							onChangeName={editing.setNameDraft}
+							onChangePrice={editing.setPriceDraft}
+							onOpenTradeMenu={openTradeMenu}
+							onSaveRow={(trade) => {
+								saveRow(trade).catch(() => {
+									/* Error handled in saveRow */
+								});
+							}}
+							onToggle={() => toggleKey(item.key)}
+							priceDrafts={editing.priceDrafts}
+							savingTradeId={savingRowId}
+							xeroLabelsById={xeroLabelsById}
+						/>
+					)}
+				/>
+			</KeyboardAvoidingView>
 
 			<ActionSheet items={menuItems} ref={menuRef} title="Budget actions" />
 			<ActionSheet

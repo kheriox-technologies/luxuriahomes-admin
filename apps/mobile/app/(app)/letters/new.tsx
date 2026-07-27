@@ -9,11 +9,11 @@ import {
 	Alert,
 	Modal,
 	Pressable,
-	ScrollView,
 	Switch,
 	Text,
 	View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
 	type LetterDestination,
@@ -188,10 +188,14 @@ export default function NewLetterScreen() {
 				</Button>
 			</View>
 
-			<ScrollView
+			<KeyboardAwareScrollView
+				bottomOffset={24}
 				className="flex-1"
-				contentContainerClassName="gap-4 px-4"
-				contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+				contentContainerStyle={{
+					gap: 16,
+					paddingHorizontal: 16,
+					paddingBottom: insets.bottom + 32,
+				}}
 				keyboardShouldPersistTaps="handled"
 			>
 				<TextField
@@ -254,7 +258,7 @@ export default function NewLetterScreen() {
 					minHeight={120}
 					onChange={setFromHtml}
 				/>
-			</ScrollView>
+			</KeyboardAwareScrollView>
 
 			<Modal animationType="fade" transparent visible={saving}>
 				<View className="flex-1 items-center justify-center bg-black/50">

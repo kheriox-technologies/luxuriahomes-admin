@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ThemeProvider } from '@/components/theme';
 import { env } from '@/lib/env';
 import { palette } from '@/lib/theme';
@@ -71,9 +72,11 @@ export default function RootLayout() {
 			<ConvexProviderWithClerk client={convex} useAuth={useAuth}>
 				<ThemeProvider>
 					<GestureHandlerRootView className="flex-1">
-						<BottomSheetModalProvider>
-							<AppNavigator />
-						</BottomSheetModalProvider>
+						<KeyboardProvider>
+							<BottomSheetModalProvider>
+								<AppNavigator />
+							</BottomSheetModalProvider>
+						</KeyboardProvider>
 					</GestureHandlerRootView>
 				</ThemeProvider>
 			</ConvexProviderWithClerk>
