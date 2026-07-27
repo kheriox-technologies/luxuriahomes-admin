@@ -3,7 +3,9 @@
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { useAction, useMutation } from 'convex/react';
+import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { LETTER_PREFILL_STORAGE_KEY } from '@/components/documents/letter-composer';
 import { ProjectFileManagerTabContent } from './project-file-manager-tab-content';
 
 export default function ProjectDocumentsTabContent({
@@ -46,7 +48,15 @@ export default function ProjectDocumentsTabContent({
 		<ProjectFileManagerTabContent
 			buildQueryArgs={(folderPath) => ({ projectId, folderPath })}
 			emptyTitle="No documents yet"
+			initialFolderPath={searchParams.get('folder') ?? ''}
 			listContentsQuery={api.projectDocuments.listContents.listContents}
+			onAddLetter={(currentPath) =>
+				router.push(
+					(currentPath
+						? `/projects/${projectId}/letters/new?folder=${encodeURIComponent(currentPath)}`
+						: `/projects/${projectId}/letters/new`) as Route
+				)
+			}
 			onAddToTakeoffs={async (fileId, title) => {
 				await addToTakeoffs({
 					documentId: fileId as Id<'projectDocuments'>,
@@ -61,6 +71,16 @@ export default function ProjectDocumentsTabContent({
 			}}
 			onCreateFolder={async ({ name, parentPath }) => {
 				await createFolder({ projectId, name, parentPath });
+			}}
+			onCreateNewLetter={({ folderPath, contentHtml }) => {
+				sessionStorage.setItem(LETTER_PREFILL_STORAGE_KEY, contentHtml);
+				const params = new URLSearchParams({ prefill: '1' });
+				if (folderPath) {
+					params.set('folder', folderPath);
+				}
+				router.push(
+					`/projects/${projectId}/letters/new?${params.toString()}` as Route
+				);
 			}}
 			onDeleteFolder={async (folderId) => {
 				await deleteFolderAction({

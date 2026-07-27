@@ -12,6 +12,7 @@ export const create = mutation({
 		folderPath: v.string(),
 		size: v.optional(v.number()),
 		mimeType: v.optional(v.string()),
+		letterContentHtml: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);

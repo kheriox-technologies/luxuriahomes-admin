@@ -60,6 +60,7 @@ import {
 	Download,
 	EllipsisVertical,
 	File,
+	FilePen,
 	FileSpreadsheet,
 	FileText,
 	Folder,
@@ -103,6 +104,8 @@ interface FileItem {
 	clientPortalVisible?: boolean;
 	folderPath: string;
 	kebabName: string;
+	// Present on letter documents: the rich-text source used to compose the PDF.
+	letterContentHtml?: string;
 	mimeType?: string;
 	name: string;
 	s3Key: string;
@@ -133,20 +136,38 @@ export interface FileManagerUploadArgs {
 export interface FileManagerCreateArgs {
 	folderPath: string;
 	kebabName: string;
+	// Set when the document is a composed letter; stores its rich-text source.
+	letterContentHtml?: string;
 	mimeType?: string;
 	name: string;
 	s3Key: string;
 	size?: number;
 }
 
+// Passed to `onCreateNewLetter` so the caller can open the composer prefilled
+// with an existing letter's content.
+export interface LetterSource {
+	contentHtml: string;
+	folderPath: string;
+}
+
 export interface ProjectFileManagerTabContentProps {
 	buildQueryArgs: (folderPath: string) => Record<string, unknown>;
 	emptyTitle?: string;
+	// When provided, the folder to open on mount (used to restore the user's
+	// folder after returning from the "Add Letter" page).
+	initialFolderPath?: string;
 	listContentsQuery: ListContentsQuery;
+	// When provided, an "Add Letter" toolbar button appears; called with the
+	// current folder path so the caller can navigate to the letter composer.
+	onAddLetter?: (currentPath: string) => void;
 	// When provided, PDF files gain an "Add to take-offs" action.
 	onAddToTakeoffs?: (fileId: string, title: string) => Promise<void>;
 	onCreateFile: (args: FileManagerCreateArgs) => Promise<void>;
 	onCreateFolder: (args: { name: string; parentPath: string }) => Promise<void>;
+	// When provided, letter documents gain a "Create New Letter" action that
+	// opens the composer prefilled with the letter's content.
+	onCreateNewLetter?: (source: LetterSource) => void;
 	onDeleteFolder: (folderId: string) => Promise<void>;
 	// Idempotently creates a nested folder path under `parentPath`, returning the
 	// resulting kebab-slugged folderPath. Used by folder uploads.
@@ -869,7 +890,7 @@ function AddToTakeoffsDialog({
 
 // ---------- Move Dialog ----------
 
-function MoveFolderPicker({
+export function MoveFolderPicker({
 	buildQueryArgs,
 	selected,
 	onSelect,
@@ -1125,6 +1146,7 @@ function FileRowActions({
 	onAddToTakeoffs,
 	onSetClientPortalVisibility,
 	onSendBillToXero,
+	onCreateNewLetter,
 }: {
 	item: FileItem;
 	buildQueryArgs: ProjectFileManagerTabContentProps['buildQueryArgs'];
@@ -1135,6 +1157,7 @@ function FileRowActions({
 	onAddToTakeoffs?: ProjectFileManagerTabContentProps['onAddToTakeoffs'];
 	onSetClientPortalVisibility?: ProjectFileManagerTabContentProps['onSetClientPortalVisibility'];
 	onSendBillToXero?: ProjectFileManagerTabContentProps['onSendBillToXero'];
+	onCreateNewLetter?: ProjectFileManagerTabContentProps['onCreateNewLetter'];
 }) {
 	const [renameOpen, setRenameOpen] = useState(false);
 	const [moveOpen, setMoveOpen] = useState(false);
@@ -1261,6 +1284,19 @@ function FileRowActions({
 						<MoveRight />
 						Move
 					</MenuItem>
+					{onCreateNewLetter && item.letterContentHtml ? (
+						<MenuItem
+							onClick={() =>
+								onCreateNewLetter({
+									folderPath: item.folderPath,
+									contentHtml: item.letterContentHtml ?? '',
+								})
+							}
+						>
+							<FilePen />
+							Create New Letter
+						</MenuItem>
+					) : null}
 					{onAddToTakeoffs && isPdf ? (
 						<MenuItem onClick={() => setAddTakeoffOpen(true)}>
 							<Ruler />
@@ -1514,11 +1550,14 @@ export function ProjectFileManagerTabContent({
 	onSetClientPortalVisibility,
 	onSetFolderClientPortalVisibility,
 	onSendBillToXero,
+	onAddLetter,
+	onCreateNewLetter,
+	initialFolderPath,
 	projectId,
 	rootLabel = 'Files',
 	emptyTitle = 'No files yet',
 }: ProjectFileManagerTabContentProps) {
-	const [currentPath, setCurrentPath] = useState('');
+	const [currentPath, setCurrentPath] = useState(initialFolderPath ?? '');
 	const [createFolderOpen, setCreateFolderOpen] = useState(false);
 	const [uploadOpen, setUploadOpen] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
@@ -1845,6 +1884,12 @@ export function ProjectFileManagerTabContent({
 									<div className="flex flex-wrap items-center gap-2">
 										{getFileIcon(doc.mimeType)}
 										<span>{doc.name}</span>
+										{doc.letterContentHtml ? (
+											<Badge size="lg" variant="secondary">
+												<FilePen />
+												Letter
+											</Badge>
+										) : null}
 										{doc.uploadedByClient ? (
 											<Badge size="lg" variant="secondary">
 												Uploaded by client
@@ -1874,6 +1919,7 @@ export function ProjectFileManagerTabContent({
 											item={doc}
 											listContentsQuery={listContentsQuery}
 											onAddToTakeoffs={onAddToTakeoffs}
+											onCreateNewLetter={onCreateNewLetter}
 											onMoveFile={onMoveFile}
 											onRemoveFile={onRemoveFile}
 											onRenameFile={onRenameFile}
@@ -1917,6 +1963,17 @@ export function ProjectFileManagerTabContent({
 					rootLabel={rootLabel}
 				/>
 				<div className="flex shrink-0 items-center gap-2">
+					{onAddLetter ? (
+						<Button
+							onClick={() => onAddLetter(currentPath)}
+							size="sm"
+							type="button"
+							variant="outline"
+						>
+							<FilePen />
+							Add Letter
+						</Button>
+					) : null}
 					<Button
 						onClick={() => setCreateFolderOpen(true)}
 						size="sm"

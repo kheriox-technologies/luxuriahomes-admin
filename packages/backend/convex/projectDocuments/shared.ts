@@ -32,6 +32,7 @@ export async function insertProjectDocument(
 		size?: number;
 		mimeType?: string;
 		uploadedBy: string;
+		letterContentHtml?: string;
 	}
 ): Promise<Id<'projectDocuments'>> {
 	// PDFs dropped into the Xero/Bills folder (via the portal or the Gmail
@@ -52,6 +53,7 @@ export async function insertProjectDocument(
 		uploadedBy: args.uploadedBy,
 		uploadedAt: Date.now(),
 		xeroBillStatus: forwardToXero ? 'queued' : undefined,
+		letterContentHtml: args.letterContentHtml,
 	});
 
 	if (forwardToXero) {
