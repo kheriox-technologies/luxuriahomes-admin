@@ -16,9 +16,11 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { PALETTES, RATIOS } from './brand.mjs';
 import { contact } from './templates/contact.mjs';
+import { contactBold, contactBoldFacade } from './templates/contact-bold.mjs';
 import { hero } from './templates/hero.mjs';
 import { portfolio } from './templates/portfolio.mjs';
 import { services } from './templates/services.mjs';
+import { signboard } from './templates/signboard.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const TMP = path.join(HERE, '.tmp');
@@ -28,7 +30,15 @@ const SCALE = 2;
 /** Chrome needs time to fetch and apply the webfonts before it captures. */
 const VIRTUAL_TIME_BUDGET_MS = 12_000;
 
-const DESIGNS = { hero, services, portfolio, contact };
+const DESIGNS = {
+	hero,
+	services,
+	portfolio,
+	contact,
+	'contact-bold': contactBold,
+	'contact-bold-facade': contactBoldFacade,
+	signboard,
+};
 
 const flag = (name) => {
 	const hit = process.argv.find((a) => a.startsWith(`--${name}=`));

@@ -102,6 +102,16 @@ export const CONTACT = {
 };
 
 /**
+ * Who to ask for, as the signboard artwork presents them — a name against a
+ * number so a caller knows who picks up. Numbers come from CONTACT so there is
+ * still one source of truth.
+ */
+export const PEOPLE = [
+	{ name: 'Vamsi', phone: CONTACT.phones[0] },
+	{ name: 'Sri', phone: CONTACT.phones[1] },
+];
+
+/**
  * The featured completed project. Mirrors the Convex `websiteProjects` record;
  * fetch-assets.mjs verifies these values still match the deployment.
  */

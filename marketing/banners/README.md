@@ -1,12 +1,12 @@
 # Sponsor banners
 
-Marketing banners to hand to sponsors for display on their screens. Sixteen
+Marketing banners to hand to sponsors for display on their screens. Twenty-six
 export-ready PNGs in `out/`, generated from editable HTML templates so the copy
 can be revised and the set re-rendered at any time.
 
 ## What's in the set
 
-Four designs × two brand palettes × two ratios:
+Six designs × two brand palettes × two ratios (`signboard` is navy only):
 
 | Design | What it says |
 | --- | --- |
@@ -14,6 +14,9 @@ Four designs × two brand palettes × two ratios:
 | `services` | The four offerings — house & land, knock-down rebuild, duplex, town houses |
 | `portfolio` | Recently completed homes — a Camp Hill photo mosaic with the specs |
 | `contact` | *Start building with us* — the full contact block, set large |
+| `contact-bold` | Same world as `contact`, hierarchy inverted: the wordmark leads at ~2× and the details are set at display scale, with the tagline and CTA line dropped to quiet supporting type |
+| `contact-bold-facade` | `contact-bold` over the Camp Hill facade, run full-frame and dissolved into the ground with a gradient rather than cut at a hard edge |
+| `signboard` | Flat navy fence sign — the wordmark in brushed gold, the licence, and who to ask for by name. Navy only; the gold graduation has nothing to say on linen |
 
 | Palette | Use it when |
 | --- | --- |
@@ -32,7 +35,8 @@ address.
 cd marketing/banners
 
 node fetch-assets.mjs     # download the project photography (first run only)
-node render.mjs           # render all 16 → out/
+node render.mjs           # render every combination → out/
+node render.mjs --design=signboard --palette=navy   # the sign, as shipped
 ```
 
 Filters, for when you only want to re-check one thing:
@@ -54,6 +58,9 @@ rules crisp. Both are already available; nothing needs installing.
   detail change.
 - **Layout** — one file per design in `templates/`, plus `templates/layout.mjs`
   for the shared shell (fonts, wordmark, contact strip, photo scrim).
+- **Logo** — every design uses the one wordmark, `assets/logo.svg`, drawn as a
+  CSS mask so it takes either a flat palette colour or the brushed-gold
+  gradient the `signboard` fills it with.
 - Fonts (Cinzel + Inter) are pulled from Google Fonts at render time, matching
   `apps/web/app/layout.tsx`, so rendering needs a network connection.
 
