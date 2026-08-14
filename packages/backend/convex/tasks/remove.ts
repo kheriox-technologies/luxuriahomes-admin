@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { requireAdmin } from '../lib/checkIdentity';
-import { getTaskOrThrow } from './shared';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
+import { getVisibleTaskOrThrow } from './shared';
 
 export const remove = mutation({
 	args: {
@@ -9,7 +9,8 @@ export const remove = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getTaskOrThrow(ctx, args.taskId);
+		const identity = await checkIdentity(ctx);
+		await getVisibleTaskOrThrow(ctx, args.taskId, identity.subject);
 		// Remove the task's notes first to avoid orphaned rows.
 		const notes = await ctx.db
 			.query('taskNotes')

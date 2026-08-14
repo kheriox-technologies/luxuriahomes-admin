@@ -1,10 +1,10 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { requireAdmin } from '../lib/checkIdentity';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { taskStatusValidator } from '../schema';
 import {
 	buildTaskSearchText,
-	getTaskOrThrow,
+	getVisibleTaskOrThrow,
 	nextOrderForStatus,
 } from './shared';
 
@@ -17,10 +17,16 @@ export const update = mutation({
 		dueDate: v.optional(v.number()),
 		projectId: v.optional(v.id('projects')),
 		assigneeUserId: v.optional(v.string()),
+		isPrivate: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		const existing = await getTaskOrThrow(ctx, args.taskId);
+		const identity = await checkIdentity(ctx);
+		const existing = await getVisibleTaskOrThrow(
+			ctx,
+			args.taskId,
+			identity.subject
+		);
 		const title = args.title.trim();
 		if (title === '') {
 			throw new ConvexError({
@@ -29,7 +35,12 @@ export const update = mutation({
 			});
 		}
 		const description = args.description?.trim() || undefined;
-		const assigneeUserId = args.assigneeUserId?.trim() || undefined;
+		// See add.ts: a private task is always assigned to the caller. Unchecking
+		// private simply makes it public, keeping the assignee the form supplied.
+		const isPrivate = args.isPrivate === true;
+		const assigneeUserId = isPrivate
+			? identity.subject
+			: args.assigneeUserId?.trim() || undefined;
 		const searchText = await buildTaskSearchText(ctx, {
 			title,
 			description,
@@ -49,6 +60,7 @@ export const update = mutation({
 			dueDate: args.dueDate,
 			projectId: args.projectId,
 			assigneeUserId,
+			isPrivate,
 			order,
 			searchText,
 		});

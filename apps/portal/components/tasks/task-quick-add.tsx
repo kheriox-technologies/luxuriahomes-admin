@@ -5,6 +5,8 @@ import { api } from '@workspace/backend/api';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
 import { Calendar } from '@workspace/ui/components/calendar';
+import { Checkbox } from '@workspace/ui/components/checkbox';
+import { Label } from '@workspace/ui/components/label';
 import {
 	Popover,
 	PopoverPopup,
@@ -24,9 +26,13 @@ import { getConvexErrorMessage } from '@/lib/convex-errors';
 export default function TaskQuickAdd({
 	status,
 	onClose,
+	defaultPrivate = false,
 }: {
 	status: TaskStatus;
 	onClose: () => void;
+	/** Pre-ticks Private, so a task added while the board is filtered to private
+	 * tasks does not immediately disappear from view. */
+	defaultPrivate?: boolean;
 }) {
 	const { user } = useUser();
 	const addTask = useMutation(api.tasks.add.add);
@@ -35,6 +41,7 @@ export default function TaskQuickAdd({
 	const [title, setTitle] = useState('');
 	const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
 	const [assigneeUserId, setAssigneeUserId] = useState(() => user?.id ?? '');
+	const [isPrivate, setIsPrivate] = useState(defaultPrivate);
 	const [submitting, setSubmitting] = useState(false);
 	const [dueDateOpen, setDueDateOpen] = useState(false);
 	const [assigneeOpen, setAssigneeOpen] = useState(false);
@@ -64,10 +71,12 @@ export default function TaskQuickAdd({
 				status,
 				dueDate: dueDate ? dueDate.getTime() : undefined,
 				assigneeUserId: assigneeUserId || undefined,
+				isPrivate,
 			});
 			toastManager.add({ title: 'Task created', type: 'success' });
 			// Keep the composer open so several tasks can be added in a row;
-			// clear the title but retain the due date / assignee selections.
+			// clear the title but retain the due date / assignee / private
+			// selections.
 			setTitle('');
 			setSubmitting(false);
 			titleInputRef.current?.focus();
@@ -153,6 +162,7 @@ export default function TaskQuickAdd({
 								aria-label={
 									assigneeName ? `Assignee: ${assigneeName}` : 'Set assignee'
 								}
+								disabled={isPrivate}
 								size="icon-sm"
 								title={assigneeName ?? 'Assignee'}
 								type="button"
@@ -204,6 +214,25 @@ export default function TaskQuickAdd({
 						</div>
 					</PopoverPopup>
 				</Popover>
+
+				<Label
+					className="flex items-center gap-1.5 px-1 text-muted-foreground text-xs"
+					htmlFor={`quick-add-private-${status}`}
+				>
+					<Checkbox
+						checked={isPrivate}
+						id={`quick-add-private-${status}`}
+						onCheckedChange={(next) => {
+							const checked = next === true;
+							setIsPrivate(checked);
+							if (checked) {
+								// Private tasks always belong to their creator.
+								setAssigneeUserId(user?.id ?? '');
+							}
+						}}
+					/>
+					Private
+				</Label>
 
 				<Button
 					aria-label="Add task"

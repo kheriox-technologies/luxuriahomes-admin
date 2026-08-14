@@ -1,5 +1,6 @@
 'use client';
 
+import { useUser } from '@clerk/nextjs';
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
@@ -13,7 +14,13 @@ import {
 	CardPanel,
 	CardTitle,
 } from '@workspace/ui/components/card';
-import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
+import { CheckboxCard } from '@workspace/ui/components/checkbox-card';
+import {
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+} from '@workspace/ui/components/field';
 import {
 	Frame,
 	FrameHeader,
@@ -235,6 +242,7 @@ export default function EditTask({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
+	const { user } = useUser();
 	const updateTask = useMutation(api.tasks.update.update);
 	const removeTask = useMutation(api.tasks.remove.remove);
 
@@ -256,6 +264,7 @@ export default function EditTask({
 						? (parsed.projectId as Id<'projects'>)
 						: undefined,
 					assigneeUserId: parsed.assigneeUserId || undefined,
+					isPrivate: parsed.isPrivate,
 				});
 				toastManager.add({ title: 'Task updated', type: 'success' });
 				onOpenChange(false);
@@ -282,6 +291,7 @@ export default function EditTask({
 					dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
 					projectId: task.projectId ?? '',
 					assigneeUserId: task.assigneeUserId ?? '',
+					isPrivate: task.isPrivate ?? false,
 				},
 				{ keepDefaultValues: true }
 			);
@@ -411,19 +421,45 @@ export default function EditTask({
 							)}
 						</form.Field>
 
-						<form.Field name="assigneeUserId">
+						<form.Field name="isPrivate">
 							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Assignee</FieldLabel>
-									<TaskAssigneeCombobox
-										id={field.name}
-										onBlur={field.handleBlur}
-										onChange={(next) => field.handleChange(next)}
-										value={field.state.value ?? ''}
-									/>
-								</Field>
+								<CheckboxCard
+									checked={field.state.value}
+									description="Only you can see this task. It stays off everyone else's board."
+									onCheckedChange={(checked) => {
+										field.handleChange(checked);
+										if (checked) {
+											form.setFieldValue('assigneeUserId', user?.id ?? '');
+										}
+									}}
+									title="Private"
+								/>
 							)}
 						</form.Field>
+
+						<form.Subscribe selector={(state) => state.values.isPrivate}>
+							{(isPrivate) => (
+								<form.Field name="assigneeUserId">
+									{(field) => (
+										<Field>
+											<FieldLabel htmlFor={field.name}>Assignee</FieldLabel>
+											<TaskAssigneeCombobox
+												disabled={isPrivate}
+												id={field.name}
+												onBlur={field.handleBlur}
+												onChange={(next) => field.handleChange(next)}
+												value={field.state.value ?? ''}
+											/>
+											{isPrivate ? (
+												<FieldDescription>
+													Private tasks are always assigned to you.
+												</FieldDescription>
+											) : null}
+										</Field>
+									)}
+								</form.Field>
+							)}
+						</form.Subscribe>
 					</form>
 
 					<TaskNotesSection taskId={task._id} />

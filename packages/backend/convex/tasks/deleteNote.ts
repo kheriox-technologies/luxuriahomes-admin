@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { requireAdmin } from '../lib/checkIdentity';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
+import { getVisibleTaskOrThrow } from './shared';
 
 export const deleteNote = mutation({
 	args: {
@@ -8,6 +9,7 @@ export const deleteNote = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
+		const identity = await checkIdentity(ctx);
 		const note = await ctx.db.get(args.noteId);
 		if (!note) {
 			throw new ConvexError({
@@ -15,6 +17,8 @@ export const deleteNote = mutation({
 				message: 'Note not found',
 			});
 		}
+		// Notes inherit their task's visibility.
+		await getVisibleTaskOrThrow(ctx, note.taskId, identity.subject);
 		await ctx.db.delete(args.noteId);
 	},
 });

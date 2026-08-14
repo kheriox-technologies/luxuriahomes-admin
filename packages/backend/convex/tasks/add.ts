@@ -16,6 +16,7 @@ export const add = mutation({
 		dueDate: v.optional(v.number()),
 		projectId: v.optional(v.id('projects')),
 		assigneeUserId: v.optional(v.string()),
+		isPrivate: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -29,7 +30,13 @@ export const add = mutation({
 		}
 		const status = args.status ?? 'planned';
 		const description = args.description?.trim() || undefined;
-		const assigneeUserId = args.assigneeUserId?.trim() || undefined;
+		// A private task always belongs to its creator, so the client's assignee
+		// choice is ignored: otherwise the task would be invisible to the person
+		// it was assigned to.
+		const isPrivate = args.isPrivate === true;
+		const assigneeUserId = isPrivate
+			? identity.subject
+			: args.assigneeUserId?.trim() || undefined;
 		const searchText = await buildTaskSearchText(ctx, {
 			title,
 			description,
@@ -43,6 +50,7 @@ export const add = mutation({
 			dueDate: args.dueDate,
 			projectId: args.projectId,
 			assigneeUserId,
+			isPrivate,
 			order: await nextOrderForStatus(ctx, status),
 			createdBy: addedByFromIdentity(identity),
 			searchText,

@@ -21,6 +21,7 @@ export default function TaskAssigneeCombobox({
 	onBlur,
 	placeholder = 'Unassigned',
 	invalid,
+	disabled,
 }: {
 	id: string;
 	value: string;
@@ -28,6 +29,7 @@ export default function TaskAssigneeCombobox({
 	onBlur?: () => void;
 	placeholder?: string;
 	invalid?: boolean;
+	disabled?: boolean;
 }) {
 	const admins = useQuery(api.adminUsers.list.list, {});
 
@@ -46,7 +48,7 @@ export default function TaskAssigneeCombobox({
 
 	return (
 		<Combobox<string>
-			disabled={busy || items.length === 0}
+			disabled={disabled || busy || items.length === 0}
 			items={items}
 			itemToStringLabel={(item) => nameByUserId.get(item) ?? ''}
 			onValueChange={(next) => onChange(next ?? '')}

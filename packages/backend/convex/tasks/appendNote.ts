@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
-import { addedByFromIdentity, getTaskOrThrow } from './shared';
+import { addedByFromIdentity, getVisibleTaskOrThrow } from './shared';
 
 export const appendNote = mutation({
 	args: {
@@ -12,7 +12,7 @@ export const appendNote = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
-		await getTaskOrThrow(ctx, args.taskId);
+		await getVisibleTaskOrThrow(ctx, args.taskId, identity.subject);
 		const trimmed = args.note.trim();
 		if (trimmed === '') {
 			throw new ConvexError({

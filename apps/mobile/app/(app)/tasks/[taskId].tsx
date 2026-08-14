@@ -7,6 +7,7 @@ import {
 	ArrowLeft,
 	CalendarClock,
 	EllipsisVertical,
+	Lock,
 	Pencil,
 	Trash2,
 } from 'lucide-react-native';
@@ -80,6 +81,7 @@ export default function TaskDetailsScreen() {
 			dueDate: task.dueDate,
 			projectId: task.projectId,
 			assigneeUserId: task.assigneeUserId,
+			isPrivate: task.isPrivate,
 		}).catch(() => {
 			Alert.alert('Unable to update', 'Please try again.');
 		});
@@ -201,9 +203,23 @@ export default function TaskDetailsScreen() {
 					</View>
 
 					<Card className="gap-3 p-3.5">
-						<Text className="font-sans-semibold text-base text-foreground">
-							Details
-						</Text>
+						<View className="flex-row items-center gap-2">
+							<Text className="flex-1 font-sans-semibold text-base text-foreground">
+								Details
+							</Text>
+							{task.isPrivate ? (
+								<View className="flex-row items-center gap-1">
+									<Lock
+										color={colors.mutedForeground}
+										size={13}
+										strokeWidth={2}
+									/>
+									<Text className="font-sans text-muted-foreground text-xs">
+										Private
+									</Text>
+								</View>
+							) : null}
+						</View>
 						{task.description ? (
 							<Text className="font-sans text-foreground text-sm">
 								{task.description}

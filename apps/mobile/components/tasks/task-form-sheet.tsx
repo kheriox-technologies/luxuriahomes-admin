@@ -17,7 +17,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { BottomSheetInputProvider } from '@/components/ui/bottom-sheet-input-context';
@@ -39,7 +39,9 @@ const NONE = 'none';
 type Task = Doc<'tasks'>;
 
 export interface TaskFormSheetHandle {
-	present: (task?: Task) => void;
+	/** `defaultPrivate` pre-ticks Private in create mode, so a task added while
+	 * the list is filtered to private tasks does not immediately disappear. */
+	present: (task?: Task, defaultPrivate?: boolean) => void;
 }
 
 /**
@@ -87,12 +89,13 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 	const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
 	const [projectId, setProjectId] = useState<string>(NONE);
 	const [assigneeId, setAssigneeId] = useState<string>(NONE);
+	const [isPrivate, setIsPrivate] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [showErrors, setShowErrors] = useState(false);
 	const [editingId, setEditingId] = useState<Id<'tasks'> | null>(null);
 
 	useImperativeHandle(ref, () => ({
-		present: (task) => {
+		present: (task, defaultPrivate) => {
 			setEditingId(task?._id ?? null);
 			setTitle(task?.title ?? '');
 			setDescription(task?.description ?? '');
@@ -100,6 +103,7 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 			setDueDate(task?.dueDate ? new Date(task.dueDate) : undefined);
 			setProjectId(task?.projectId ?? NONE);
 			setAssigneeId(task?.assigneeUserId ?? (task ? NONE : (user?.id ?? NONE)));
+			setIsPrivate(task?.isPrivate ?? defaultPrivate ?? false);
 			setSaving(false);
 			setShowErrors(false);
 			sheetRef.current?.present();
@@ -131,6 +135,7 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 			dueDate: dueDate?.getTime(),
 			projectId: projectId === NONE ? undefined : (projectId as Id<'projects'>),
 			assigneeUserId: assigneeId === NONE ? undefined : assigneeId,
+			isPrivate,
 		};
 		try {
 			if (editingId) {
@@ -219,17 +224,44 @@ export function TaskFormSheet({ ref }: { ref?: Ref<TaskFormSheetHandle> }) {
 						/>
 					</View>
 
+					<View className="flex-row items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
+						<View className="min-w-0 flex-1 gap-0.5">
+							<Text className="font-sans-medium text-foreground text-sm">
+								Private
+							</Text>
+							<Text className="font-sans text-muted-foreground text-xs">
+								Only you can see this task.
+							</Text>
+						</View>
+						<Switch
+							onValueChange={(next) => {
+								setIsPrivate(next);
+								if (next) {
+									// Private tasks always belong to their creator.
+									setAssigneeId(user?.id ?? NONE);
+								}
+							}}
+							value={isPrivate}
+						/>
+					</View>
+
 					<View className="gap-1.5">
 						<Text className="font-sans-medium text-foreground text-sm">
 							Assignee (optional)
 						</Text>
 						<Select
+							disabled={isPrivate}
 							onChange={setAssigneeId}
 							options={assigneeOptions}
 							placeholder={admins === undefined ? 'Loading…' : 'Unassigned'}
 							title="Select assignee"
 							value={assigneeId}
 						/>
+						{isPrivate ? (
+							<Text className="font-sans text-muted-foreground text-xs">
+								Private tasks are always assigned to you.
+							</Text>
+						) : null}
 					</View>
 
 					<Button

@@ -717,6 +717,10 @@ export default defineSchema({
 		projectId: v.optional(v.id('projects')),
 		// Clerk user id of the assigned admin (see adminUsers table).
 		assigneeUserId: v.optional(v.string()),
+		// When true the task is personal: only the assignee can see it, and the
+		// assignee is forced to the caller on add/update. Absent or false means a
+		// normal task that every admin can see.
+		isPrivate: v.optional(v.boolean()),
 		// Position of the card within its status lane (ascending).
 		order: v.number(),
 		createdBy: v.string(),

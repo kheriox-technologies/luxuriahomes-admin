@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { requireAdmin } from '../lib/checkIdentity';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import { taskStatusValidator } from '../schema';
-import { getTaskOrThrow } from './shared';
+import { getVisibleTaskOrThrow } from './shared';
 
 /**
  * Lightweight mutation used by the Kanban board's drag-and-drop to move a card
@@ -16,7 +16,8 @@ export const updateStatus = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getTaskOrThrow(ctx, args.taskId);
+		const identity = await checkIdentity(ctx);
+		await getVisibleTaskOrThrow(ctx, args.taskId, identity.subject);
 		await ctx.db.patch(args.taskId, {
 			status: args.status,
 			order: args.order,

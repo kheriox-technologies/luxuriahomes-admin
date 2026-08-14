@@ -2,7 +2,7 @@ import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
-import { CalendarClock, Plus, SquareKanban } from 'lucide-react-native';
+import { CalendarClock, Lock, Plus, SquareKanban } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -15,6 +15,7 @@ import { useThemeColors } from '@/components/theme';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { PressableCard } from '@/components/ui/card';
+import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Select, type SelectOption } from '@/components/ui/select';
@@ -40,6 +41,7 @@ export default function TasksScreen() {
 	const [projectId, setProjectId] = useState<string>(ALL);
 	const [assigneeId, setAssigneeId] = useState<string>(ALL);
 	const [status, setStatus] = useState<string>(ALL);
+	const [privateOnly, setPrivateOnly] = useState(false);
 	const formRef = useRef<TaskFormSheetHandle>(null);
 	const colors = useThemeColors();
 
@@ -111,6 +113,9 @@ export default function TasksScreen() {
 		const term = search.trim().toLowerCase();
 		return (tasks ?? [])
 			.filter((task) => {
+				if (privateOnly && task.isPrivate !== true) {
+					return false;
+				}
 				if (status !== ALL && task.status !== status) {
 					return false;
 				}
@@ -126,14 +131,15 @@ export default function TasksScreen() {
 				return true;
 			})
 			.sort((a, b) => a.order - b.order);
-	}, [tasks, status, projectId, assigneeId, search]);
+	}, [tasks, status, projectId, assigneeId, search, privateOnly]);
 
 	const now = Date.now();
 	const isFiltering =
 		search.trim() !== '' ||
 		projectId !== ALL ||
 		assigneeId !== ALL ||
-		status !== ALL;
+		status !== ALL ||
+		privateOnly;
 
 	return (
 		<View className="flex-1 bg-background">
@@ -156,13 +162,18 @@ export default function TasksScreen() {
 					accessibilityRole="button"
 					className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
 					hitSlop={4}
-					onPress={() => formRef.current?.present()}
+					onPress={() => formRef.current?.present(undefined, privateOnly)}
 				>
 					<Plus color={colors.foreground} size={18} strokeWidth={2} />
 				</Pressable>
 			</View>
 
 			<View className="flex-row items-center gap-2 px-4 pb-3">
+				<Chip
+					label="Private"
+					onPress={() => setPrivateOnly((previous) => !previous)}
+					selected={privateOnly}
+				/>
 				<Select
 					className="flex-1"
 					onChange={setProjectId}
@@ -226,9 +237,19 @@ export default function TasksScreen() {
 									})
 								}
 							>
-								<Text className="font-sans-semibold text-foreground text-sm">
-									{item.title}
-								</Text>
+								<View className="flex-row items-start gap-1.5">
+									{item.isPrivate ? (
+										<Lock
+											color={colors.mutedForeground}
+											size={13}
+											strokeWidth={2}
+											style={{ marginTop: 2 }}
+										/>
+									) : null}
+									<Text className="flex-1 font-sans-semibold text-foreground text-sm">
+										{item.title}
+									</Text>
+								</View>
 								{item.description ? (
 									<Text
 										className="font-sans text-muted-foreground text-xs"
