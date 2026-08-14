@@ -60,3 +60,7 @@ temp
 credentials.json
 # Apps Script (gmail-addon) — created by clasp create, machine-specific
 apps/gmail-addon/.clasp.json
+
+# Marketing banners — source photography is refetched by fetch-assets.mjs
+marketing/banners/assets/photos/
+marketing/banners/.tmp/

@@ -14,9 +14,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
+import { contingencyAmount } from './budget-form-shared';
 
 export interface BudgetTemplateTrade {
 	budgetTemplateItemId: Id<'budgetTemplateItems'>;
+	// Contingency allowance as a percent of `price`; 0 when unset.
+	contingencyPercent: number;
 	price: number;
 	stageId: Id<'tradeStages'> | null;
 	tradeDescription: string | null;
@@ -25,6 +28,7 @@ export interface BudgetTemplateTrade {
 }
 
 export interface BudgetTemplateStageGroup {
+	contingencySubtotal: number;
 	key: string;
 	name: string;
 	subtotal: number;
@@ -39,8 +43,10 @@ function TradeRow({
 	saving,
 	nameDraft,
 	priceDraft,
+	contingencyDraft,
 	onChangeName,
 	onChangePrice,
+	onChangeContingency,
 	onOpenMenu,
 	onSaveRow,
 }: {
@@ -51,8 +57,10 @@ function TradeRow({
 	saving: boolean;
 	nameDraft: string;
 	priceDraft: string;
+	contingencyDraft: string;
 	onChangeName: (tradeId: Id<'trades'>, value: string) => void;
 	onChangePrice: (tradeId: Id<'trades'>, value: string) => void;
+	onChangeContingency: (tradeId: Id<'trades'>, value: string) => void;
 	onOpenMenu: (trade: BudgetTemplateTrade) => void;
 	onSaveRow: (trade: BudgetTemplateTrade) => void;
 }) {
@@ -65,41 +73,63 @@ function TradeRow({
 	);
 
 	if (editing || rowEditing) {
+		// Name gets its own line: price and contingency together are too wide to
+		// share a row with it on a phone.
 		return (
-			<View className={rowClass}>
+			<View
+				className={cn(
+					'gap-2 px-3.5 py-2.5',
+					!isFirst && 'border-border border-t'
+				)}
+			>
 				<TextInput
-					className="h-9 flex-1 rounded-lg border border-border bg-background px-3 font-sans text-foreground text-sm"
+					className="h-9 rounded-lg border border-border bg-background px-3 font-sans text-foreground text-sm"
 					onChangeText={(value) => onChangeName(trade.tradeId, value)}
 					placeholder="Trade name"
 					placeholderTextColor={colors.mutedForeground}
 					value={nameDraft}
 				/>
-				<View className="h-9 w-28 flex-row items-center gap-1 rounded-lg border border-border bg-background px-2.5">
-					<Text className="font-sans text-muted-foreground text-sm">$</Text>
-					<TextInput
-						className="flex-1 font-sans text-foreground text-sm"
-						keyboardType="decimal-pad"
-						onChangeText={(value) => onChangePrice(trade.tradeId, value)}
-						placeholder="0.00"
-						placeholderTextColor={colors.mutedForeground}
-						value={priceDraft}
-					/>
+				<View className="flex-row items-center gap-2">
+					<View className="h-9 flex-1 flex-row items-center gap-1 rounded-lg border border-border bg-background px-2.5">
+						<Text className="font-sans text-muted-foreground text-sm">$</Text>
+						<TextInput
+							className="flex-1 font-sans text-foreground text-sm"
+							keyboardType="decimal-pad"
+							onChangeText={(value) => onChangePrice(trade.tradeId, value)}
+							placeholder="0.00"
+							placeholderTextColor={colors.mutedForeground}
+							value={priceDraft}
+						/>
+					</View>
+					<View className="h-9 w-24 flex-row items-center gap-1 rounded-lg border border-border bg-background px-2.5">
+						<TextInput
+							className="flex-1 font-sans text-foreground text-sm"
+							keyboardType="decimal-pad"
+							onChangeText={(value) =>
+								onChangeContingency(trade.tradeId, value)
+							}
+							placeholder="0"
+							placeholderTextColor={colors.mutedForeground}
+							value={contingencyDraft}
+						/>
+						<Text className="font-sans text-muted-foreground text-sm">%</Text>
+					</View>
+					{rowEditing ? (
+						<Pressable
+							accessibilityLabel={`Save ${trade.tradeName}`}
+							accessibilityRole="button"
+							disabled={saving}
+							hitSlop={8}
+							onPress={() => onSaveRow(trade)}
+						>
+							{saving ? (
+								<ActivityIndicator color={colors.foreground} size="small" />
+							) : (
+								<Check color={colors.foreground} size={18} strokeWidth={2} />
+							)}
+						</Pressable>
+					) : null}
 				</View>
-				{rowEditing ? (
-					<Pressable
-						accessibilityLabel={`Save ${trade.tradeName}`}
-						accessibilityRole="button"
-						disabled={saving}
-						hitSlop={8}
-						onPress={() => onSaveRow(trade)}
-					>
-						{saving ? (
-							<ActivityIndicator color={colors.foreground} size="small" />
-						) : (
-							<Check color={colors.foreground} size={18} strokeWidth={2} />
-						)}
-					</Pressable>
-				) : null}
 			</View>
 		);
 	}
@@ -110,6 +140,14 @@ function TradeRow({
 				{trade.tradeName}
 			</Text>
 			<Badge variant="purple">{formatCurrency(trade.price)}</Badge>
+			{trade.contingencyPercent > 0 ? (
+				<Badge variant="yellow">
+					{trade.contingencyPercent}%{' '}
+					{formatCurrency(
+						contingencyAmount(trade.price, trade.contingencyPercent)
+					)}
+				</Badge>
+			) : null}
 			<Pressable
 				accessibilityLabel={`Actions for ${trade.tradeName}`}
 				accessibilityRole="button"
@@ -136,8 +174,10 @@ export const BudgetTemplateStageAccordion = memo(
 		savingTradeId,
 		nameDrafts,
 		priceDrafts,
+		contingencyDrafts,
 		onChangeName,
 		onChangePrice,
+		onChangeContingency,
 		onOpenTradeMenu,
 		onSaveRow,
 	}: {
@@ -149,8 +189,10 @@ export const BudgetTemplateStageAccordion = memo(
 		savingTradeId: string | null;
 		nameDrafts: Record<string, string>;
 		priceDrafts: Record<string, string>;
+		contingencyDrafts: Record<string, string>;
 		onChangeName: (tradeId: Id<'trades'>, value: string) => void;
 		onChangePrice: (tradeId: Id<'trades'>, value: string) => void;
+		onChangeContingency: (tradeId: Id<'trades'>, value: string) => void;
 		onOpenTradeMenu: (trade: BudgetTemplateTrade) => void;
 		onSaveRow: (trade: BudgetTemplateTrade) => void;
 	}) {
@@ -170,7 +212,14 @@ export const BudgetTemplateStageAccordion = memo(
 							<Text className="flex-1 font-sans-semibold text-foreground text-sm">
 								{group.name}
 							</Text>
-							<Badge variant="purple">{formatCurrency(group.subtotal)}</Badge>
+							<View className="flex-row flex-wrap items-center justify-end gap-1.5">
+								<Badge variant="purple">
+									B {formatCurrency(group.subtotal)}
+								</Badge>
+								<Badge variant="yellow">
+									C {formatCurrency(group.contingencySubtotal)}
+								</Badge>
+							</View>
 							<View className={cn('rotate-0', expanded && 'rotate-180')}>
 								<ChevronDown
 									color={colors.mutedForeground}
@@ -185,10 +234,15 @@ export const BudgetTemplateStageAccordion = memo(
 						<View className="border-border border-t pb-1.5">
 							{group.trades.map((trade, index) => (
 								<TradeRow
+									contingencyDraft={
+										contingencyDrafts[trade.tradeId] ??
+										String(trade.contingencyPercent)
+									}
 									editing={editing}
 									isFirst={index === 0}
 									key={trade.tradeId}
 									nameDraft={nameDrafts[trade.tradeId] ?? trade.tradeName}
+									onChangeContingency={onChangeContingency}
 									onChangeName={onChangeName}
 									onChangePrice={onChangePrice}
 									onOpenMenu={onOpenTradeMenu}

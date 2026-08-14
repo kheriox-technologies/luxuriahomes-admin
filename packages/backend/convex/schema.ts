@@ -402,12 +402,20 @@ export default defineSchema({
 		description: v.optional(v.string()),
 		// Auto-computed sum of this template's budgetTemplateItems prices.
 		totalPrice: v.number(),
+		// Auto-computed sum of this template's item contingency amounts. Optional so
+		// templates created before contingency existed stay valid; absent = 0.
+		totalContingency: v.optional(v.number()),
+		// Contingency percent applied to new items, and pushed onto every existing
+		// item whenever it changes. Absent = 0%.
+		defaultContingencyPercent: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_budget_templates', { searchField: 'searchText' }),
 	budgetTemplateItems: defineTable({
 		budgetTemplateId: v.id('budgetTemplates'),
 		tradeId: v.id('trades'),
 		price: v.number(),
+		// Contingency allowance as a percent of `price` (0–100). Absent = 0%.
+		contingencyPercent: v.optional(v.number()),
 	})
 		.index('by_template', ['budgetTemplateId'])
 		.index('by_template_and_trade', ['budgetTemplateId', 'tradeId']),
@@ -418,6 +426,8 @@ export default defineSchema({
 		price: v.optional(v.number()),
 		// Ad-hoc payments for this trade, not tied to a quotation or order.
 		payments: v.optional(v.number()),
+		// Contingency allowance as a percent of `price` (0–100). Absent = 0%.
+		contingencyPercent: v.optional(v.number()),
 	})
 		.index('by_project', ['projectId'])
 		.index('by_project_and_trade', ['projectId', 'tradeId'])

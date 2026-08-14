@@ -43,9 +43,13 @@ import { getConvexErrorMessage } from '@/lib/convex-errors';
 import AddBudgetItemDialog from './add-budget-item-dialog';
 import AddBudgetTemplateToProject from './add-budget-template-to-project';
 import {
+	contingencyAmount,
 	formatBudgetPrice,
+	formatContingency,
 	isValidMoneyString,
+	isValidPercentString,
 	parseMoneyString,
+	parsePercentString,
 } from './budget-form-shared';
 import BudgetRowActions from './budget-row-actions';
 import CopyBudgetTemplate from './copy-budget-template';
@@ -62,9 +66,9 @@ type TemplateItem = Doc<'budgetTemplateItems'> & {
 const MAX_ORDER = Number.MAX_SAFE_INTEGER;
 
 // Shared grid so rows and the stage-header subtotal line up column-for-column.
-// Templates only have a Budget column (no Payments/Actual).
+// Templates have Budget and Contingency columns (no Payments/Actual).
 const ROW_GRID =
-	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
+	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_5rem] items-center gap-3';
 
 /**
  * A template holds only a subset of trades, so the new order of the shown items
@@ -201,12 +205,14 @@ export default function BudgetTemplateDetailView({
 		isEditing,
 		editingRows,
 		drafts,
+		contingencyDrafts,
 		nameDrafts,
 		begin,
 		beginRow,
 		endRow,
 		isRowEditing,
 		setDraft,
+		setContingencyDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
@@ -259,6 +265,7 @@ export default function BudgetTemplateDetailView({
 			(items ?? []).map((item) => ({
 				tradeId: item.tradeId,
 				price: item.price,
+				contingencyPercent: item.contingencyPercent ?? 0,
 				name: item.tradeName ?? '',
 			}))
 		);
@@ -280,6 +287,7 @@ export default function BudgetTemplateDetailView({
 							items: changes.map((change) => ({
 								tradeId: change.tradeId as Id<'trades'>,
 								price: change.price,
+								contingencyPercent: change.contingencyPercent,
 							})),
 						})
 					: Promise.resolve(),
@@ -308,18 +316,28 @@ export default function BudgetTemplateDetailView({
 
 	const saveRow = async (item: TemplateItem) => {
 		const changes = getRowChanges(item.tradeId);
-		if (changes.price === undefined && changes.name === undefined) {
+		if (
+			changes.price === undefined &&
+			changes.contingencyPercent === undefined &&
+			changes.name === undefined
+		) {
 			endRow(item.tradeId);
 			return;
 		}
 		setSavingRowId(item.tradeId);
 		try {
 			await Promise.all([
-				changes.price === undefined
+				changes.price === undefined && changes.contingencyPercent === undefined
 					? Promise.resolve()
 					: setPrices({
 							budgetTemplateId,
-							items: [{ tradeId: item.tradeId, price: changes.price }],
+							items: [
+								{
+									tradeId: item.tradeId,
+									price: changes.price,
+									contingencyPercent: changes.contingencyPercent,
+								},
+							],
 						}),
 				changes.name === undefined
 					? Promise.resolve()
@@ -363,11 +381,33 @@ export default function BudgetTemplateDetailView({
 		return item.price ?? 0;
 	};
 
+	// Draft-aware contingency percent, so the amount, the stage badges and the
+	// title badges all move while the percentage is being typed.
+	const livePercent = (item: TemplateItem) => {
+		if (isEditing || isRowEditing(item.tradeId)) {
+			const raw = (contingencyDrafts[item.tradeId] ?? '').trim();
+			if (raw.length === 0) {
+				return 0;
+			}
+			if (isValidPercentString(raw)) {
+				return parsePercentString(raw);
+			}
+		}
+		return item.contingencyPercent ?? 0;
+	};
+
+	const liveContingency = (item: TemplateItem) =>
+		contingencyAmount(liveBudget(item), livePercent(item));
+
 	const anyEditing = isEditing || editingRows.size > 0;
 	const displayTotal =
 		anyEditing && items
 			? items.reduce((sum, item) => sum + liveBudget(item), 0)
 			: template.totalPrice;
+	const displayContingency =
+		anyEditing && items
+			? items.reduce((sum, item) => sum + liveContingency(item), 0)
+			: (template.totalContingency ?? 0);
 
 	const renderRowContent = (item: TemplateItem) => {
 		const tradeName = item.tradeName ?? 'Unknown trade';
@@ -411,11 +451,34 @@ export default function BudgetTemplateDetailView({
 				) : (
 					<span className="tabular-nums">{formatBudgetPrice(item.price)}</span>
 				)}
+				{rowEditing ? (
+					<InputGroup>
+						<InputGroupInput
+							aria-label={`Contingency percent for ${tradeName}`}
+							inputMode="decimal"
+							nativeInput
+							onChange={(e) =>
+								setContingencyDraft(item.tradeId, e.target.value)
+							}
+							placeholder="0"
+							type="text"
+							value={contingencyDrafts[item.tradeId] ?? ''}
+						/>
+						<InputGroupAddon align="inline-end">
+							<InputGroupText>%</InputGroupText>
+						</InputGroupAddon>
+					</InputGroup>
+				) : (
+					<span className="tabular-nums">
+						{formatContingency(item.price, item.contingencyPercent)}
+					</span>
+				)}
 				<BudgetRowActions
 					onEditBudget={() =>
 						beginRow({
 							tradeId: item.tradeId,
 							price: item.price,
+							contingencyPercent: item.contingencyPercent ?? 0,
 							name: item.tradeName ?? '',
 						})
 					}
@@ -452,21 +515,38 @@ export default function BudgetTemplateDetailView({
 		</Badge>
 	);
 
-	// Budget subtotal cell, aligned under the Budget column.
+	// Subtotal cells, one per column so they align under Budget / Contingency.
+	// Empty stages still emit the cells to keep the grid tracks.
 	const renderStageColumns = (group: StageGroup<TemplateItem>) => {
 		if (group.items.length === 0) {
-			return <span />;
+			return (
+				<>
+					<span />
+					<span />
+				</>
+			);
 		}
 		const subtotal = group.items.reduce(
 			(sum, item) => sum + liveBudget(item),
 			0
 		);
+		const contingencySubtotal = group.items.reduce(
+			(sum, item) => sum + liveContingency(item),
+			0
+		);
 		return (
-			<span className="flex items-center">
-				<Badge size="lg" variant="purple">
-					B {formatBudgetPrice(subtotal)}
-				</Badge>
-			</span>
+			<>
+				<span className="flex items-center">
+					<Badge size="lg" variant="purple">
+						B {formatBudgetPrice(subtotal)}
+					</Badge>
+				</span>
+				<span className="flex items-center">
+					<Badge size="lg" variant="yellow">
+						C {formatBudgetPrice(contingencySubtotal)}
+					</Badge>
+				</span>
+			</>
 		);
 	};
 
@@ -553,7 +633,7 @@ export default function BudgetTemplateDetailView({
 				}
 				titleTrailing={
 					<Badge size="lg" variant="purple">
-						Total {formatBudgetPrice(displayTotal)}
+						B {formatBudgetPrice(displayTotal + displayContingency)}
 					</Badge>
 				}
 			/>

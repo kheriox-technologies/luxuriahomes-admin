@@ -43,8 +43,11 @@ import {
 	type ApplyTemplateToProjectSheetHandle,
 } from '@/components/budgets/apply-template-to-project-sheet';
 import {
+	contingencyAmount,
 	isValidMoneyString,
+	isValidPercentString,
 	parseMoneyString,
+	parsePercentString,
 } from '@/components/budgets/budget-form-shared';
 import {
 	BudgetTemplateFormSheet,
@@ -81,6 +84,7 @@ const UNKNOWN_TRADE = 'Unknown trade';
 
 interface TemplateItemRow {
 	_id: Id<'budgetTemplateItems'>;
+	contingencyPercent?: number;
 	price: number;
 	stageId: Id<'tradeStages'> | null;
 	tradeDescription: string | null;
@@ -124,10 +128,12 @@ function BudgetTemplateBody({
 	budgetTemplateId,
 	title,
 	description,
+	defaultContingencyPercent,
 }: {
 	budgetTemplateId: Id<'budgetTemplates'>;
 	title: string;
 	description: string | null;
+	defaultContingencyPercent: number | null;
 }) {
 	const router = useRouter();
 	const colors = useThemeColors();
@@ -163,11 +169,15 @@ function BudgetTemplateBody({
 	const applySheetRef = useRef<ApplyTemplateToProjectSheetHandle>(null);
 
 	const trimmedSearch = search.trim().toLowerCase();
-	const { isEditing, editingRows, priceDrafts } = editing;
+	const { isEditing, editingRows, priceDrafts, contingencyDrafts } = editing;
 
-	const { groups, total } = useMemo(() => {
+	const { groups, total, totalContingency } = useMemo(() => {
 		if (!(items && stages)) {
-			return { groups: [] as BudgetTemplateStageGroup[], total: 0 };
+			return {
+				groups: [] as BudgetTemplateStageGroup[],
+				total: 0,
+				totalContingency: 0,
+			};
 		}
 
 		// While editing (bulk or a single row), a valid draft overrides the saved
@@ -180,6 +190,20 @@ function BudgetTemplateBody({
 				}
 			}
 			return item.price;
+		};
+
+		// Same for the contingency percent; a blank draft means 0%.
+		const percentOf = (item: TemplateItemRow) => {
+			if (isEditing || editingRows.has(item.tradeId)) {
+				const raw = (contingencyDrafts[item.tradeId] ?? '').trim();
+				if (raw.length === 0) {
+					return 0;
+				}
+				if (isValidPercentString(raw)) {
+					return parsePercentString(raw);
+				}
+			}
+			return item.contingencyPercent ?? 0;
 		};
 
 		const stageNameById = new Map(
@@ -231,18 +255,24 @@ function BudgetTemplateBody({
 			bucket: TemplateItemRow[]
 		): BudgetTemplateStageGroup => {
 			let subtotal = 0;
+			let contingencySubtotal = 0;
 			const trades = bucket.map((item) => {
 				subtotal += priceOf(item);
+				contingencySubtotal += contingencyAmount(
+					priceOf(item),
+					percentOf(item)
+				);
 				return {
 					budgetTemplateItemId: item._id,
 					tradeId: item.tradeId,
 					tradeName: item.tradeName ?? UNKNOWN_TRADE,
 					price: item.price,
+					contingencyPercent: item.contingencyPercent ?? 0,
 					stageId: item.stageId,
 					tradeDescription: item.tradeDescription,
 				};
 			});
-			return { key, name, trades, subtotal };
+			return { key, name, trades, subtotal, contingencySubtotal };
 		};
 
 		// Stage order follows tradeStages.list (already sorted by order); Ungrouped last.
@@ -259,9 +289,25 @@ function BudgetTemplateBody({
 		}
 
 		const grandTotal = orderedGroups.reduce((sum, g) => sum + g.subtotal, 0);
+		const grandContingency = orderedGroups.reduce(
+			(sum, g) => sum + g.contingencySubtotal,
+			0
+		);
 
-		return { groups: orderedGroups, total: grandTotal };
-	}, [items, stages, trimmedSearch, isEditing, editingRows, priceDrafts]);
+		return {
+			groups: orderedGroups,
+			total: grandTotal,
+			totalContingency: grandContingency,
+		};
+	}, [
+		items,
+		stages,
+		trimmedSearch,
+		isEditing,
+		editingRows,
+		priceDrafts,
+		contingencyDrafts,
+	]);
 
 	const usedTradeIds = useMemo(
 		() => (items ?? []).map((item) => item.tradeId),
@@ -293,6 +339,7 @@ function BudgetTemplateBody({
 					tradeId: trade.tradeId,
 					name: trade.tradeName,
 					price: trade.price,
+					contingencyPercent: trade.contingencyPercent,
 				}))
 			)
 		);
@@ -311,6 +358,7 @@ function BudgetTemplateBody({
 					items: priceChanges.map((change) => ({
 						tradeId: change.tradeId as Id<'trades'>,
 						price: change.price,
+						contingencyPercent: change.contingencyPercent,
 					})),
 				});
 			}
@@ -333,6 +381,7 @@ function BudgetTemplateBody({
 			tradeId: trade.tradeId,
 			name: trade.tradeName,
 			price: trade.price,
+			contingencyPercent: trade.contingencyPercent,
 		});
 		// Keep the row's stage open so the inline inputs stay visible.
 		setExpandedKeys((prev) =>
@@ -342,16 +391,29 @@ function BudgetTemplateBody({
 
 	const saveRow = async (trade: BudgetTemplateTrade) => {
 		const changes = editing.getRowChanges(trade.tradeId);
-		if (changes.price === undefined && changes.name === undefined) {
+		if (
+			changes.price === undefined &&
+			changes.contingencyPercent === undefined &&
+			changes.name === undefined
+		) {
 			editing.endRow(trade.tradeId);
 			return;
 		}
 		setSavingRowId(trade.tradeId);
 		try {
-			if (changes.price !== undefined) {
+			if (
+				changes.price !== undefined ||
+				changes.contingencyPercent !== undefined
+			) {
 				await setPrices({
 					budgetTemplateId,
-					items: [{ tradeId: trade.tradeId, price: changes.price }],
+					items: [
+						{
+							tradeId: trade.tradeId,
+							price: changes.price,
+							contingencyPercent: changes.contingencyPercent,
+						},
+					],
 				});
 			}
 			if (changes.name !== undefined) {
@@ -462,7 +524,12 @@ function BudgetTemplateBody({
 			icon: SquarePen,
 			onPress: () => {
 				menuRef.current?.dismiss();
-				formSheetRef.current?.present({ budgetTemplateId, title, description });
+				formSheetRef.current?.present({
+					budgetTemplateId,
+					title,
+					description,
+					defaultContingencyPercent,
+				});
 			},
 		},
 		{
@@ -567,7 +634,9 @@ function BudgetTemplateBody({
 					)}
 				</View>
 				<View className="flex-row flex-wrap items-center gap-2">
-					<Badge variant="purple">Total {formatCurrency(total)}</Badge>
+					<Badge variant="purple">
+						B {formatCurrency(total + totalContingency)}
+					</Badge>
 				</View>
 			</View>
 			<KeyboardAvoidingView behavior="padding" className="flex-1">
@@ -585,11 +654,13 @@ function BudgetTemplateBody({
 					}
 					renderItem={({ item }) => (
 						<BudgetTemplateStageAccordion
+							contingencyDrafts={editing.contingencyDrafts}
 							editing={isEditing}
 							editingRowIds={editing.editingRows}
 							expanded={isSearching || expandedKeys.has(item.key)}
 							group={item}
 							nameDrafts={editing.nameDrafts}
+							onChangeContingency={editing.setContingencyDraft}
 							onChangeName={editing.setNameDraft}
 							onChangePrice={editing.setPriceDraft}
 							onOpenTradeMenu={openTradeMenu}
@@ -674,6 +745,7 @@ export default function BudgetTemplateDetailScreen() {
 			{template ? (
 				<BudgetTemplateBody
 					budgetTemplateId={templateId}
+					defaultContingencyPercent={template.defaultContingencyPercent ?? null}
 					description={template.description ?? null}
 					title={template.title}
 				/>

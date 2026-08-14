@@ -3,6 +3,7 @@ import type { Id } from '../_generated/dataModel';
 import { mutation } from '../_generated/server';
 import {
 	getTemplateOrThrow,
+	parseContingencyPercent,
 	parseItemPrice,
 	recomputeTemplateTotal,
 } from '../budgetTemplates/shared';
@@ -19,11 +20,17 @@ export const addItem = mutation({
 		newTradeStageId: v.optional(v.id('tradeStages')),
 		newTradeStageName: v.optional(v.string()),
 		price: v.number(),
+		contingencyPercent: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getTemplateOrThrow(ctx, args.budgetTemplateId);
+		const template = await getTemplateOrThrow(ctx, args.budgetTemplateId);
 		const price = parseItemPrice(args.price);
+		// Fall back to the template's default rate when none is supplied.
+		const contingencyPercent =
+			args.contingencyPercent === undefined
+				? template.defaultContingencyPercent
+				: parseContingencyPercent(args.contingencyPercent);
 
 		// Resolve the trade: create a new one when a name is supplied, otherwise
 		// use the selected existing trade.
@@ -61,6 +68,7 @@ export const addItem = mutation({
 			budgetTemplateId: args.budgetTemplateId,
 			tradeId,
 			price,
+			contingencyPercent,
 		});
 		await recomputeTemplateTotal(ctx, args.budgetTemplateId);
 		return itemId;

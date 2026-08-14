@@ -1,5 +1,6 @@
 import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
+import { budgetTotalsByProject } from './shared';
 
 export const list = query({
 	args: {},
@@ -11,17 +12,7 @@ export const list = query({
 			ctx.db.query('trades').collect(),
 		]);
 
-		// Mirror the Budgets tab total: only count budget rows whose trade still
-		// exists, so orphaned rows left by a deleted trade don't inflate the total.
-		const existingTradeIds = new Set(trades.map((trade) => trade._id));
-		const budgetTotalByProject = new Map<string, number>();
-		for (const budget of budgets) {
-			if (!existingTradeIds.has(budget.tradeId)) {
-				continue;
-			}
-			const current = budgetTotalByProject.get(budget.projectId) ?? 0;
-			budgetTotalByProject.set(budget.projectId, current + (budget.price ?? 0));
-		}
+		const budgetTotalByProject = budgetTotalsByProject(budgets, trades);
 
 		return projects
 			.map((project) => ({

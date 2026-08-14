@@ -5,6 +5,7 @@ import { requireAdmin } from '../lib/checkIdentity';
 
 interface BudgetRow {
 	budgetPrice: number | null;
+	contingencyPercent: number;
 	projectBudgetId: Id<'projectBudgets'>;
 	stageId: Id<'tradeStages'> | null;
 	tradeDescription: string | null;
@@ -70,6 +71,7 @@ export const projectSummary = query({
 				tradeOrder: trade.order ?? null,
 				projectBudgetId: pb._id,
 				budgetPrice: pb.price ?? null,
+				contingencyPercent: pb.contingencyPercent ?? 0,
 				xeroAccountId: accountId,
 				xeroActual: amount ?? null,
 			});

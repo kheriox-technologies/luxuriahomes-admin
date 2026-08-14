@@ -42,3 +42,43 @@ const budgetPriceFormatter = new Intl.NumberFormat('en-AU', {
 export function formatBudgetPrice(price: number): string {
 	return budgetPriceFormatter.format(price);
 }
+
+const PERCENT_PATTERN = /^\d{1,3}(\.\d{1,2})?$/;
+const MAX_PERCENT = 100;
+const CENTS = 100;
+
+export function isValidPercentString(value: string): boolean {
+	const trimmed = value.trim();
+	return PERCENT_PATTERN.test(trimmed) && Number(trimmed) <= MAX_PERCENT;
+}
+
+export function parsePercentString(value: string): number {
+	if (!isValidPercentString(value)) {
+		throw new Error('Invalid percent value');
+	}
+	return Number(value.trim());
+}
+
+/** Dollar contingency for a line — mirrors the server's rounding. */
+export function contingencyAmount(
+	price: number | null | undefined,
+	percent: number | null | undefined
+): number {
+	if (!(price && percent)) {
+		return 0;
+	}
+	return Math.round(price * (percent / MAX_PERCENT) * CENTS) / CENTS;
+}
+
+/** `10% ($2,300.00)`, or just `0%` when there is nothing to add. */
+export function formatContingency(
+	price: number | null | undefined,
+	percent: number | null | undefined
+): string {
+	const pct = percent ?? 0;
+	const amount = contingencyAmount(price, pct);
+	if (amount === 0) {
+		return `${pct}%`;
+	}
+	return `${pct}% (${formatBudgetPrice(amount)})`;
+}

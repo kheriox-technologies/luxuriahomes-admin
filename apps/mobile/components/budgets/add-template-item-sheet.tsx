@@ -20,7 +20,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { TradeSelectField } from '@/components/trades/trade-select-field';
 import { Button } from '@/components/ui/button';
-import { isValidMoneyString, parseMoneyString } from './budget-form-shared';
+import {
+	isValidMoneyString,
+	isValidPercentString,
+	parseMoneyString,
+	parsePercentString,
+} from './budget-form-shared';
 
 export interface AddTemplateItemSheetHandle {
 	present: () => void;
@@ -44,12 +49,14 @@ export function AddTemplateItemSheet({
 
 	const [tradeId, setTradeId] = useState<Id<'trades'> | ''>('');
 	const [price, setPrice] = useState('');
+	const [contingency, setContingency] = useState('0');
 	const [saving, setSaving] = useState(false);
 
 	useImperativeHandle(ref, () => ({
 		present: () => {
 			setTradeId('');
 			setPrice('');
+			setContingency('0');
 			sheetRef.current?.present();
 		},
 	}));
@@ -72,6 +79,14 @@ export function AddTemplateItemSheet({
 			Alert.alert('Enter a valid price');
 			return;
 		}
+		const trimmedContingency = contingency.trim();
+		if (
+			trimmedContingency !== '' &&
+			!isValidPercentString(trimmedContingency)
+		) {
+			Alert.alert('Enter a contingency between 0 and 100');
+			return;
+		}
 		if (!tradeId) {
 			Alert.alert('Select a trade');
 			return;
@@ -82,6 +97,10 @@ export function AddTemplateItemSheet({
 				budgetTemplateId,
 				tradeId,
 				price: parseMoneyString(trimmedPrice),
+				contingencyPercent:
+					trimmedContingency === ''
+						? 0
+						: parsePercentString(trimmedContingency),
 			});
 			sheetRef.current?.dismiss();
 		} catch {
@@ -136,6 +155,23 @@ export function AddTemplateItemSheet({
 							value={price}
 						/>
 						<Text className="font-sans text-muted-foreground text-sm">AUD</Text>
+					</View>
+				</View>
+
+				<View className="gap-1.5">
+					<Text className="font-sans-medium text-foreground text-sm">
+						Contingency
+					</Text>
+					<View className="h-9 flex-row items-center gap-2 rounded-lg border border-border bg-card px-3">
+						<BottomSheetTextInput
+							className="flex-1 font-sans text-foreground text-sm"
+							keyboardType="decimal-pad"
+							onChangeText={setContingency}
+							placeholder="0"
+							placeholderTextColor={colors.mutedForeground}
+							value={contingency}
+						/>
+						<Text className="font-sans text-muted-foreground text-sm">%</Text>
 					</View>
 				</View>
 

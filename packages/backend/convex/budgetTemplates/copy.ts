@@ -52,6 +52,7 @@ export const copy = mutation({
 			title,
 			description,
 			totalPrice: 0,
+			defaultContingencyPercent: source.defaultContingencyPercent,
 			searchText,
 		});
 
@@ -67,6 +68,9 @@ export const copy = mutation({
 				budgetTemplateId: newBudgetTemplateId,
 				tradeId: item.tradeId,
 				price: Math.round(item.price * factor * CENTS) / CENTS,
+				// The ± adjustment applies to the price only; the contingency rate
+				// carries across unchanged (its amount re-derives from the new price).
+				contingencyPercent: item.contingencyPercent,
 			});
 		}
 

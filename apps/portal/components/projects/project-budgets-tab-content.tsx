@@ -34,9 +34,13 @@ import {
 import { useRef, useState } from 'react';
 import AddBudgetItemDialog from '@/components/budgets/add-budget-item-dialog';
 import {
+	contingencyAmount,
 	formatBudgetPrice,
+	formatContingency,
 	isValidMoneyString,
+	isValidPercentString,
 	parseMoneyString,
+	parsePercentString,
 } from '@/components/budgets/budget-form-shared';
 import BudgetRowActions from '@/components/budgets/budget-row-actions';
 import { usePriceEditing } from '@/components/budgets/use-price-editing';
@@ -56,6 +60,7 @@ import DeleteProjectBudget from './delete-project-budget';
 // trade's mapped code's Xero amount for this project; null shows "—".
 interface TradeBudgetRow {
 	budgetPrice: number | null;
+	contingencyPercent: number;
 	projectBudgetId: Id<'projectBudgets'>;
 	stageId: Id<'tradeStages'> | null;
 	tradeDescription: string | null;
@@ -75,7 +80,7 @@ interface BudgetsSummary {
 // The actions track is a fixed width (not `auto`) so the header — whose actions
 // cell is empty — keeps the same column boundaries as the data rows.
 const ROW_GRID =
-	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
+	'grid grid-cols-[minmax(0,2.5fr)_minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1.3fr)_5rem] items-center gap-3';
 
 function actualColorClass(actual: number, budgetPrice: number | null): string {
 	if (budgetPrice === null) {
@@ -179,12 +184,14 @@ export default function ProjectBudgetsTabContent({
 	const {
 		isEditing,
 		drafts,
+		contingencyDrafts,
 		nameDrafts,
 		begin,
 		beginRow,
 		endRow,
 		isRowEditing,
 		setDraft,
+		setContingencyDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
@@ -298,7 +305,30 @@ export default function ProjectBudgetsTabContent({
 		return row.budgetPrice ?? 0;
 	};
 
+	// Same for the contingency percent; a blank draft means 0%.
+	const livePercent = (row: TradeBudgetRow) => {
+		if (isEditing || isRowEditing(row.tradeId)) {
+			const raw = (contingencyDrafts[row.tradeId] ?? '').trim();
+			if (raw.length === 0) {
+				return 0;
+			}
+			if (isValidPercentString(raw)) {
+				return parsePercentString(raw);
+			}
+		}
+		return row.contingencyPercent;
+	};
+
+	const liveContingency = (row: TradeBudgetRow) =>
+		contingencyAmount(liveBudget(row), livePercent(row));
+
 	const totalBudget = rows.reduce((sum, row) => sum + liveBudget(row), 0);
+	const totalContingency = rows.reduce(
+		(sum, row) => sum + liveContingency(row),
+		0
+	);
+	// The header "B" badge is the full commitment: budget plus contingency.
+	const totalWithContingency = totalBudget + totalContingency;
 	const totalActual = rows.reduce((sum, row) => sum + (row.xeroActual ?? 0), 0);
 
 	const persistItems = (
@@ -331,6 +361,7 @@ export default function ProjectBudgetsTabContent({
 			rows.map((row) => ({
 				tradeId: row.tradeId,
 				price: row.budgetPrice,
+				contingencyPercent: row.contingencyPercent,
 				name: row.tradeName,
 			}))
 		);
@@ -342,6 +373,7 @@ export default function ProjectBudgetsTabContent({
 		const items = changes.map((change) => ({
 			tradeId: change.tradeId as Id<'trades'>,
 			price: change.price,
+			contingencyPercent: change.contingencyPercent,
 		}));
 		if (items.length === 0 && nameChanges.length === 0) {
 			cancel();
@@ -376,18 +408,28 @@ export default function ProjectBudgetsTabContent({
 
 	const saveRow = async (row: TradeBudgetRow) => {
 		const changes = getRowChanges(row.tradeId);
-		if (changes.price === undefined && changes.name === undefined) {
+		if (
+			changes.price === undefined &&
+			changes.contingencyPercent === undefined &&
+			changes.name === undefined
+		) {
 			endRow(row.tradeId);
 			return;
 		}
 		setSavingRowId(row.tradeId);
 		try {
 			await Promise.all([
-				changes.price === undefined
+				changes.price === undefined && changes.contingencyPercent === undefined
 					? Promise.resolve()
 					: setPrices({
 							projectId,
-							items: [{ tradeId: row.tradeId, price: changes.price }],
+							items: [
+								{
+									tradeId: row.tradeId,
+									price: changes.price,
+									contingencyPercent: changes.contingencyPercent,
+								},
+							],
 						}),
 				changes.name === undefined
 					? Promise.resolve()
@@ -452,12 +494,33 @@ export default function ProjectBudgetsTabContent({
 				) : (
 					<BudgetValue price={row.budgetPrice} />
 				)}
+				{rowEditing ? (
+					<InputGroup>
+						<InputGroupInput
+							aria-label={`Contingency percent for ${row.tradeName}`}
+							inputMode="decimal"
+							nativeInput
+							onChange={(e) => setContingencyDraft(row.tradeId, e.target.value)}
+							placeholder="0"
+							type="text"
+							value={contingencyDrafts[row.tradeId] ?? ''}
+						/>
+						<InputGroupAddon align="inline-end">
+							<InputGroupText>%</InputGroupText>
+						</InputGroupAddon>
+					</InputGroup>
+				) : (
+					<span className="tabular-nums">
+						{formatContingency(row.budgetPrice, row.contingencyPercent)}
+					</span>
+				)}
 				<ActualCell actual={row.xeroActual} budget={liveBudget(row)} />
 				<BudgetRowActions
 					onEditBudget={() =>
 						beginRow({
 							tradeId: row.tradeId,
 							price: row.budgetPrice,
+							contingencyPercent: row.contingencyPercent,
 							name: row.tradeName,
 						})
 					}
@@ -495,11 +558,12 @@ export default function ProjectBudgetsTabContent({
 	);
 
 	// Per-stage subtotals, one cell per column so they align under Budget /
-	// Actual. Empty stages still emit the cells to keep the grid tracks.
+	// Contingency / Actual. Empty stages still emit the cells to keep the tracks.
 	const renderStageColumns = (group: StageGroup<TradeBudgetRow>) => {
 		if (group.items.length === 0) {
 			return (
 				<>
+					<span />
 					<span />
 					<span />
 				</>
@@ -507,6 +571,10 @@ export default function ProjectBudgetsTabContent({
 		}
 		const budgetSubtotal = group.items.reduce(
 			(sum, row) => sum + liveBudget(row),
+			0
+		);
+		const contingencySubtotal = group.items.reduce(
+			(sum, row) => sum + liveContingency(row),
 			0
 		);
 		const actualSubtotal = group.items.reduce(
@@ -518,6 +586,11 @@ export default function ProjectBudgetsTabContent({
 				<span className="flex items-center">
 					<Badge size="lg" variant="purple">
 						B {formatBudgetPrice(budgetSubtotal)}
+					</Badge>
+				</span>
+				<span className="flex items-center">
+					<Badge size="lg" variant="yellow">
+						C {formatBudgetPrice(contingencySubtotal)}
 					</Badge>
 				</span>
 				<span className="flex items-center">
@@ -555,7 +628,7 @@ export default function ProjectBudgetsTabContent({
 					{rows.length > 0 ? (
 						<>
 							<Badge size="lg" variant="purple">
-								B {formatBudgetPrice(totalBudget)}
+								B {formatBudgetPrice(totalWithContingency)}
 							</Badge>
 							<Badge size="lg" variant="info">
 								Q {formatBudgetPrice(project?.quotePrice ?? 0)}
@@ -563,7 +636,7 @@ export default function ProjectBudgetsTabContent({
 							<Badge
 								size="lg"
 								variant={
-									totalActual <= totalBudget
+									totalActual <= totalWithContingency
 										? 'success-outline'
 										: 'destructive-outline'
 								}

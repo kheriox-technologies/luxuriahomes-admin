@@ -34,6 +34,13 @@ import {
 	type AddTradeStageSheetHandle,
 } from '@/components/budgets/add-trade-stage-sheet';
 import {
+	contingencyAmount,
+	isValidMoneyString,
+	isValidPercentString,
+	parseMoneyString,
+	parsePercentString,
+} from '@/components/budgets/budget-form-shared';
+import {
 	BudgetStageAccordion,
 	type BudgetStageGroup,
 	type BudgetTrade,
@@ -60,6 +67,7 @@ const NO_ORDER = Number.MAX_SAFE_INTEGER;
 
 interface TradeBudgetRow {
 	budgetPrice: number | null;
+	contingencyPercent: number;
 	projectBudgetId: Id<'projectBudgets'> | null;
 	stageId: Id<'tradeStages'> | null;
 	tradeDescription: string | null;
@@ -159,15 +167,43 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 	const editSheetRef = useRef<EditTradeSheetHandle>(null);
 
 	const trimmedSearch = search.trim().toLowerCase();
+	const { isEditing, editingRows, priceDrafts, contingencyDrafts } = editing;
 
-	const { groups, totalBudget, totalActual } = useMemo(() => {
+	const { groups, totalBudget, totalContingency, totalActual } = useMemo(() => {
 		if (!(rows && stages)) {
 			return {
 				groups: [] as BudgetStageGroup[],
 				totalBudget: 0,
+				totalContingency: 0,
 				totalActual: 0,
 			};
 		}
+
+		// While editing (bulk or a single row), a valid draft overrides the saved
+		// value so subtotals and the totals update live as the user types.
+		const priceOf = (row: TradeBudgetRow) => {
+			if (isEditing || editingRows.has(row.tradeId)) {
+				const raw = (priceDrafts[row.tradeId] ?? '').trim();
+				if (raw.length > 0 && isValidMoneyString(raw)) {
+					return parseMoneyString(raw);
+				}
+			}
+			return row.budgetPrice ?? 0;
+		};
+
+		// A blank contingency draft means 0%.
+		const percentOf = (row: TradeBudgetRow) => {
+			if (isEditing || editingRows.has(row.tradeId)) {
+				const raw = (contingencyDrafts[row.tradeId] ?? '').trim();
+				if (raw.length === 0) {
+					return 0;
+				}
+				if (isValidPercentString(raw)) {
+					return parsePercentString(raw);
+				}
+			}
+			return row.contingencyPercent ?? 0;
+		};
 
 		const stageNameById = new Map(
 			stages.map((stage) => [stage._id, stage.name])
@@ -220,14 +256,17 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 			bucket: TradeBudgetRow[]
 		): BudgetStageGroup => {
 			let budgetSubtotal = 0;
+			let contingencySubtotal = 0;
 			let actualSubtotal = 0;
 			const trades = bucket.map((row) => {
-				budgetSubtotal += row.budgetPrice ?? 0;
+				budgetSubtotal += priceOf(row);
+				contingencySubtotal += contingencyAmount(priceOf(row), percentOf(row));
 				actualSubtotal += row.xeroActual ?? 0;
 				return {
 					tradeId: row.tradeId,
 					tradeName: row.tradeName,
 					budgetPrice: row.budgetPrice,
+					contingencyPercent: row.contingencyPercent ?? 0,
 					actual: row.xeroActual,
 					projectBudgetId: row.projectBudgetId,
 					stageId: row.stageId,
@@ -240,6 +279,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 				name,
 				trades,
 				budgetSubtotal,
+				contingencySubtotal,
 				actualSubtotal,
 			};
 		};
@@ -261,6 +301,10 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 			(sum, g) => sum + g.budgetSubtotal,
 			0
 		);
+		const grandContingency = orderedGroups.reduce(
+			(sum, g) => sum + g.contingencySubtotal,
+			0
+		);
 		const grandActual = orderedGroups.reduce(
 			(sum, g) => sum + g.actualSubtotal,
 			0
@@ -269,11 +313,23 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 		return {
 			groups: orderedGroups,
 			totalBudget: grandBudget,
+			totalContingency: grandContingency,
 			totalActual: grandActual,
 		};
-	}, [rows, stages, trimmedSearch]);
+	}, [
+		rows,
+		stages,
+		trimmedSearch,
+		isEditing,
+		editingRows,
+		priceDrafts,
+		contingencyDrafts,
+	]);
 
 	// Trades that already have a budget on this project — excluded from Add Trade.
+	// The header "B" badge is the full commitment: budget plus contingency.
+	const totalWithContingency = totalBudget + totalContingency;
+
 	const budgetedTradeIds = useMemo(
 		() =>
 			(rows ?? [])
@@ -307,6 +363,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 					tradeId: trade.tradeId,
 					name: trade.tradeName,
 					price: trade.budgetPrice,
+					contingencyPercent: trade.contingencyPercent,
 				}))
 			)
 		);
@@ -325,6 +382,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 					items: priceChanges.map((change) => ({
 						tradeId: change.tradeId as Id<'trades'>,
 						price: change.price,
+						contingencyPercent: change.contingencyPercent,
 					})),
 				});
 			}
@@ -364,6 +422,7 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 			tradeId: trade.tradeId,
 			name: trade.tradeName,
 			price: trade.budgetPrice,
+			contingencyPercent: trade.contingencyPercent,
 		});
 		// Keep the row's stage open so the inline inputs stay visible.
 		setExpandedKeys((prev) =>
@@ -373,16 +432,29 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 
 	const saveRow = async (trade: BudgetTrade) => {
 		const changes = editing.getRowChanges(trade.tradeId);
-		if (changes.price === undefined && changes.name === undefined) {
+		if (
+			changes.price === undefined &&
+			changes.contingencyPercent === undefined &&
+			changes.name === undefined
+		) {
 			editing.endRow(trade.tradeId);
 			return;
 		}
 		setSavingRowId(trade.tradeId);
 		try {
-			if (changes.price !== undefined) {
+			if (
+				changes.price !== undefined ||
+				changes.contingencyPercent !== undefined
+			) {
 				await setPrices({
 					projectId,
-					items: [{ tradeId: trade.tradeId, price: changes.price }],
+					items: [
+						{
+							tradeId: trade.tradeId,
+							price: changes.price,
+							contingencyPercent: changes.contingencyPercent,
+						},
+					],
 				});
 			}
 			if (changes.name !== undefined) {
@@ -537,12 +609,16 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 					)}
 				</View>
 				<View className="flex-row flex-wrap items-center gap-2">
-					<Badge variant="purple">B {formatCurrency(totalBudget)}</Badge>
+					<Badge variant="purple">
+						B {formatCurrency(totalWithContingency)}
+					</Badge>
 					<Badge variant="info">
 						Q {formatCurrency(project?.quotePrice ?? 0)}
 					</Badge>
 					<Badge
-						variant={totalActual <= totalBudget ? 'success' : 'destructive'}
+						variant={
+							totalActual <= totalWithContingency ? 'success' : 'destructive'
+						}
 					>
 						A {formatCurrency(totalActual)}
 					</Badge>
@@ -563,11 +639,13 @@ function BudgetsBody({ projectId }: { projectId: Id<'projects'> }) {
 					}
 					renderItem={({ item }) => (
 						<BudgetStageAccordion
+							contingencyDrafts={editing.contingencyDrafts}
 							editing={editing.isEditing}
 							editingRowIds={editing.editingRows}
 							expanded={isSearching || expandedKeys.has(item.key)}
 							group={item}
 							nameDrafts={editing.nameDrafts}
+							onChangeContingency={editing.setContingencyDraft}
 							onChangeName={editing.setNameDraft}
 							onChangePrice={editing.setPriceDraft}
 							onOpenTradeMenu={openTradeMenu}

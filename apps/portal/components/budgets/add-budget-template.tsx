@@ -12,8 +12,18 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
-import { Field, FieldLabel } from '@workspace/ui/components/field';
+import {
+	Field,
+	FieldDescription,
+	FieldLabel,
+} from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
@@ -25,6 +35,8 @@ import {
 	budgetTemplateDraftErrorMessage,
 	budgetTemplateDraftSchema,
 	emptyBudgetTemplateDraft,
+	isValidPercentString,
+	parsePercentString,
 } from './budget-form-shared';
 
 export default function AddBudgetTemplate({
@@ -36,6 +48,7 @@ export default function AddBudgetTemplate({
 	const [draft, setDraft] = useState<BudgetTemplateDraftValues>(
 		emptyBudgetTemplateDraft
 	);
+	const [contingency, setContingency] = useState('0');
 
 	const addTemplate = useMutation(api.budgetTemplates.add.add);
 
@@ -49,14 +62,30 @@ export default function AddBudgetTemplate({
 			});
 			return;
 		}
+		const trimmedContingency = contingency.trim();
+		if (
+			trimmedContingency !== '' &&
+			!isValidPercentString(trimmedContingency)
+		) {
+			toastManager.add({
+				title: 'Enter a contingency between 0 and 100',
+				type: 'error',
+			});
+			return;
+		}
 		try {
 			const { data } = parsed;
 			await addTemplate({
 				title: data.title,
 				description: data.description?.trim() || undefined,
+				defaultContingencyPercent:
+					trimmedContingency === ''
+						? 0
+						: parsePercentString(trimmedContingency),
 			});
 			toastManager.add({ title: 'Budget template added', type: 'success' });
 			setDraft(emptyBudgetTemplateDraft);
+			setContingency('0');
 			setOpen(false);
 		} catch (error) {
 			setOpen(false);
@@ -77,6 +106,7 @@ export default function AddBudgetTemplate({
 				setOpen(next);
 				if (!next) {
 					setDraft(emptyBudgetTemplateDraft);
+					setContingency('0');
 				}
 			}}
 			open={open}
@@ -123,6 +153,28 @@ export default function AddBudgetTemplate({
 							rows={3}
 							value={draft.description ?? ''}
 						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="add-budget-template-contingency">
+							Default contingency
+						</FieldLabel>
+						<InputGroup>
+							<InputGroupInput
+								id="add-budget-template-contingency"
+								inputMode="decimal"
+								nativeInput
+								onChange={(e) => setContingency(e.target.value)}
+								placeholder="0"
+								type="text"
+								value={contingency}
+							/>
+							<InputGroupAddon align="inline-end">
+								<InputGroupText>%</InputGroupText>
+							</InputGroupAddon>
+						</InputGroup>
+						<FieldDescription>
+							Applied to every trade added to this template.
+						</FieldDescription>
 					</Field>
 				</DialogPanel>
 				<DialogFooter>

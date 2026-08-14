@@ -12,8 +12,18 @@ import {
 	DialogPanel,
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
-import { Field, FieldLabel } from '@workspace/ui/components/field';
+import {
+	Field,
+	FieldDescription,
+	FieldLabel,
+} from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '@workspace/ui/components/input-group';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
@@ -25,24 +35,29 @@ import {
 	budgetTemplateDraftErrorMessage,
 	budgetTemplateDraftSchema,
 	emptyBudgetTemplateDraft,
+	isValidPercentString,
+	parsePercentString,
 } from './budget-form-shared';
 
 export default function EditBudgetTemplate({
 	budgetTemplateId,
 	initialTitle,
 	initialDescription,
+	initialDefaultContingencyPercent,
 	open,
 	onOpenChange,
 }: {
 	budgetTemplateId: Id<'budgetTemplates'>;
 	initialTitle: string;
 	initialDescription?: string;
+	initialDefaultContingencyPercent?: number;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
 	const [draft, setDraft] = useState<BudgetTemplateDraftValues>(
 		emptyBudgetTemplateDraft
 	);
+	const [contingency, setContingency] = useState('0');
 
 	const updateTemplate = useMutation(api.budgetTemplates.update.update);
 
@@ -52,8 +67,14 @@ export default function EditBudgetTemplate({
 				title: initialTitle,
 				description: initialDescription ?? '',
 			});
+			setContingency(String(initialDefaultContingencyPercent ?? 0));
 		}
-	}, [open, initialTitle, initialDescription]);
+	}, [
+		open,
+		initialTitle,
+		initialDescription,
+		initialDefaultContingencyPercent,
+	]);
 
 	const handleSubmit = async () => {
 		const parsed = budgetTemplateDraftSchema.safeParse(draft);
@@ -65,12 +86,27 @@ export default function EditBudgetTemplate({
 			});
 			return;
 		}
+		const trimmedContingency = contingency.trim();
+		if (
+			trimmedContingency !== '' &&
+			!isValidPercentString(trimmedContingency)
+		) {
+			toastManager.add({
+				title: 'Enter a contingency between 0 and 100',
+				type: 'error',
+			});
+			return;
+		}
 		try {
 			const { data } = parsed;
 			await updateTemplate({
 				budgetTemplateId,
 				title: data.title,
 				description: data.description?.trim() || undefined,
+				defaultContingencyPercent:
+					trimmedContingency === ''
+						? 0
+						: parsePercentString(trimmedContingency),
 			});
 			toastManager.add({ title: 'Budget template updated', type: 'success' });
 			onOpenChange(false);
@@ -121,6 +157,29 @@ export default function EditBudgetTemplate({
 							rows={3}
 							value={draft.description ?? ''}
 						/>
+					</Field>
+					<Field>
+						<FieldLabel htmlFor="edit-budget-template-contingency">
+							Default contingency
+						</FieldLabel>
+						<InputGroup>
+							<InputGroupInput
+								id="edit-budget-template-contingency"
+								inputMode="decimal"
+								nativeInput
+								onChange={(e) => setContingency(e.target.value)}
+								placeholder="0"
+								type="text"
+								value={contingency}
+							/>
+							<InputGroupAddon align="inline-end">
+								<InputGroupText>%</InputGroupText>
+							</InputGroupAddon>
+						</InputGroup>
+						<FieldDescription>
+							Changing this applies the percentage to every trade in this
+							template.
+						</FieldDescription>
 					</Field>
 				</DialogPanel>
 				<DialogFooter>

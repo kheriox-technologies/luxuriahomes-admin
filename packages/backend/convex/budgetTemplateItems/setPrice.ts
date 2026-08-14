@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import {
 	getTemplateOrThrow,
+	parseContingencyPercent,
 	parseItemPrice,
 	recomputeTemplateTotal,
 } from '../budgetTemplates/shared';
@@ -18,12 +19,17 @@ export const setPrice = mutation({
 		budgetTemplateId: v.id('budgetTemplates'),
 		tradeId: v.id('trades'),
 		price: v.number(),
+		contingencyPercent: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		await getTemplateOrThrow(ctx, args.budgetTemplateId);
 		await getTradeOrThrow(ctx, args.tradeId);
 		const price = parseItemPrice(args.price);
+		const contingencyPercent =
+			args.contingencyPercent === undefined
+				? undefined
+				: parseContingencyPercent(args.contingencyPercent);
 
 		const existing = await ctx.db
 			.query('budgetTemplateItems')
@@ -36,12 +42,16 @@ export const setPrice = mutation({
 
 		let itemId = existing?._id;
 		if (existing) {
-			await ctx.db.patch(existing._id, { price });
+			await ctx.db.patch(existing._id, {
+				price,
+				...(contingencyPercent === undefined ? {} : { contingencyPercent }),
+			});
 		} else {
 			itemId = await ctx.db.insert('budgetTemplateItems', {
 				budgetTemplateId: args.budgetTemplateId,
 				tradeId: args.tradeId,
 				price,
+				contingencyPercent,
 			});
 		}
 

@@ -77,6 +77,7 @@ function TemplateActionsCell({ row }: { row: BudgetTemplateRow }) {
 			</Menu>
 			<EditBudgetTemplate
 				budgetTemplateId={row._id}
+				initialDefaultContingencyPercent={row.defaultContingencyPercent}
 				initialDescription={row.description}
 				initialTitle={row.title}
 				onOpenChange={setEditOpen}
@@ -119,9 +120,12 @@ const columns: ColumnDef<BudgetTemplateRow>[] = [
 	{
 		accessorKey: 'totalPrice',
 		header: 'Total',
+		// Budget plus contingency — the figure the template is worth in full.
 		cell: ({ row }) => (
 			<span className="tabular-nums">
-				{formatBudgetPrice(row.original.totalPrice)}
+				{formatBudgetPrice(
+					row.original.totalPrice + (row.original.totalContingency ?? 0)
+				)}
 			</span>
 		),
 	},
