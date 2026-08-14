@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireAdmin } from '../lib/checkIdentity';
-import { getTaskOrThrow } from './shared';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
+import { getVisibleTaskOrThrow } from './shared';
 
 export const get = query({
 	args: {
@@ -9,6 +9,7 @@ export const get = query({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		return await getTaskOrThrow(ctx, args.taskId);
+		const identity = await checkIdentity(ctx);
+		return await getVisibleTaskOrThrow(ctx, args.taskId, identity.subject);
 	},
 });

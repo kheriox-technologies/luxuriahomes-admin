@@ -42,6 +42,7 @@ export const taskFormSchema = z.object({
 	dueDate: z.date().optional(),
 	projectId: z.string().optional(),
 	assigneeUserId: z.string().optional(),
+	isPrivate: z.boolean(),
 });
 
 export type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -53,6 +54,7 @@ export const emptyTaskFormValues: TaskFormValues = {
 	dueDate: undefined,
 	projectId: '',
 	assigneeUserId: '',
+	isPrivate: false,
 };
 
 export function taskFormFieldError(

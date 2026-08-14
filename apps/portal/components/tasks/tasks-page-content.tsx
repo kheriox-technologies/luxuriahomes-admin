@@ -1,6 +1,8 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
+import { Checkbox } from '@workspace/ui/components/checkbox';
+import { Label } from '@workspace/ui/components/label';
 import { SearchInput } from '@workspace/ui/components/search-input';
 import { cn } from '@workspace/ui/lib/utils';
 import { useQuery } from 'convex/react';
@@ -16,6 +18,7 @@ export default function TasksPageContent() {
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const [projectIds, setProjectIds] = useState<string[]>([]);
 	const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+	const [privateOnly, setPrivateOnly] = useState(false);
 
 	const projects = useQuery(api.projects.list.list, {});
 	const admins = useQuery(api.adminUsers.list.list, {});
@@ -36,7 +39,26 @@ export default function TasksPageContent() {
 
 	return (
 		<div className={cn('flex h-full min-h-0 w-full flex-col gap-4')}>
-			<PageHeading heading="Tasks" icon={ListTodo} rightSlot={<AddTask />} />
+			<PageHeading
+				heading="Tasks"
+				icon={ListTodo}
+				rightSlot={
+					<div className="flex items-center gap-3">
+						<Label
+							className="flex items-center gap-2 text-sm"
+							htmlFor="tasks-private-only"
+						>
+							<Checkbox
+								checked={privateOnly}
+								id="tasks-private-only"
+								onCheckedChange={(next) => setPrivateOnly(next === true)}
+							/>
+							Show private only
+						</Label>
+						<AddTask defaultPrivate={privateOnly} />
+					</div>
+				}
+			/>
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-start">
 				<SearchInput
 					aria-label="Search tasks"
@@ -66,6 +88,7 @@ export default function TasksPageContent() {
 			<div className="flex min-h-0 flex-1 flex-col">
 				<TasksBoard
 					assigneeIds={assigneeIds}
+					privateOnly={privateOnly}
 					projectIds={projectIds}
 					searchQuery={debouncedSearch}
 				/>

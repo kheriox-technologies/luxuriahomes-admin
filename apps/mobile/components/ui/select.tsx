@@ -22,6 +22,7 @@ export function Select<T extends string>({
 	title,
 	placeholder = 'Select',
 	className,
+	disabled,
 }: {
 	value: T;
 	options: readonly SelectOption<T>[];
@@ -29,6 +30,7 @@ export function Select<T extends string>({
 	title?: string;
 	placeholder?: string;
 	className?: string;
+	disabled?: boolean;
 }) {
 	const colors = useThemeColors();
 	const sheetRef = useRef<BottomSheetModal>(null);
@@ -39,11 +41,13 @@ export function Select<T extends string>({
 		<>
 			<Pressable
 				accessibilityRole="button"
-				accessibilityState={{ expanded: false }}
+				accessibilityState={{ disabled: disabled === true, expanded: false }}
 				className={cn(
 					'h-9 flex-row items-center justify-between gap-1.5 rounded-lg border border-border bg-card px-3 active:bg-muted',
+					disabled && 'opacity-60',
 					className
 				)}
+				disabled={disabled}
 				hitSlop={4}
 				onPress={() => sheetRef.current?.present()}
 			>

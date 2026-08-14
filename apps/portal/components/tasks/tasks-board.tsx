@@ -49,6 +49,7 @@ function Lane({
 	status,
 	tasks,
 	composing,
+	defaultPrivate,
 	onStartAdd,
 	onCloseAdd,
 	children,
@@ -56,6 +57,7 @@ function Lane({
 	status: TaskStatus;
 	tasks: Task[];
 	composing: boolean;
+	defaultPrivate: boolean;
 	onStartAdd: () => void;
 	onCloseAdd: () => void;
 	children: React.ReactNode;
@@ -82,7 +84,11 @@ function Lane({
 				ref={setNodeRef}
 			>
 				{composing ? (
-					<TaskQuickAdd onClose={onCloseAdd} status={status} />
+					<TaskQuickAdd
+						defaultPrivate={defaultPrivate}
+						onClose={onCloseAdd}
+						status={status}
+					/>
 				) : (
 					<button
 						className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed bg-background p-3 text-muted-foreground text-sm transition-colors hover:border-ring/60 hover:text-foreground"
@@ -103,10 +109,12 @@ export default function TasksBoard({
 	searchQuery,
 	projectIds,
 	assigneeIds,
+	privateOnly,
 }: {
 	searchQuery: string;
 	projectIds: string[];
 	assigneeIds: string[];
+	privateOnly: boolean;
 }) {
 	const tasks = useQuery(api.tasks.list.list, {});
 	const projects = useQuery(api.projects.list.list, {});
@@ -168,6 +176,9 @@ export default function TasksBoard({
 		const projectSet = new Set(projectIds);
 		const assigneeSet = new Set(assigneeIds);
 		return all.filter((t) => {
+			if (privateOnly && t.isPrivate !== true) {
+				return false;
+			}
 			if (q && !t.searchText.toLowerCase().includes(q)) {
 				return false;
 			}
@@ -185,7 +196,7 @@ export default function TasksBoard({
 			}
 			return true;
 		});
-	}, [tasks, searchQuery, projectIds, assigneeIds]);
+	}, [tasks, searchQuery, projectIds, assigneeIds, privateOnly]);
 
 	const tasksByStatus = useMemo(() => {
 		const grouped: Record<TaskStatus, Task[]> = {
@@ -306,6 +317,7 @@ export default function TasksBoard({
 						return (
 							<Lane
 								composing={composingStatus === status}
+								defaultPrivate={privateOnly}
 								key={status}
 								onCloseAdd={() => setComposingStatus(null)}
 								onStartAdd={() => setComposingStatus(status)}

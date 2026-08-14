@@ -34,6 +34,33 @@ export async function getTaskOrThrow(
 	return task;
 }
 
+/**
+ * A task is visible when it is public, or when it is private and belongs to the
+ * caller. Private ownership is the assignee: `add` and `update` force
+ * `assigneeUserId` to the caller whenever `isPrivate` is set, so a private task
+ * can never be assigned to someone who cannot see it.
+ */
+export function canViewTask(task: Doc<'tasks'>, userId: string): boolean {
+	return task.isPrivate !== true || task.assigneeUserId === userId;
+}
+
+/**
+ * Fetches a task by id and throws NOT_FOUND unless the caller may see it.
+ * Deliberately reports NOT_FOUND rather than FORBIDDEN so probing an id cannot
+ * confirm that someone else's private task exists.
+ */
+export async function getVisibleTaskOrThrow(
+	ctx: QueryCtx | MutationCtx,
+	taskId: Id<'tasks'>,
+	userId: string
+): Promise<Doc<'tasks'>> {
+	const task = await getTaskOrThrow(ctx, taskId);
+	if (!canViewTask(task, userId)) {
+		throw new ConvexError({ code: 'NOT_FOUND', message: 'Task not found' });
+	}
+	return task;
+}
+
 /** Builds the denormalized search blob for a task. */
 export async function buildTaskSearchText(
 	ctx: QueryCtx | MutationCtx,

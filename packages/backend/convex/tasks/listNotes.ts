@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireAdmin } from '../lib/checkIdentity';
-import { getTaskOrThrow } from './shared';
+import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
+import { getVisibleTaskOrThrow } from './shared';
 
 export const listNotes = query({
 	args: {
@@ -9,7 +9,8 @@ export const listNotes = query({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getTaskOrThrow(ctx, args.taskId);
+		const identity = await checkIdentity(ctx);
+		await getVisibleTaskOrThrow(ctx, args.taskId, identity.subject);
 		const rows = await ctx.db
 			.query('taskNotes')
 			.withIndex('by_task', (q) => q.eq('taskId', args.taskId))

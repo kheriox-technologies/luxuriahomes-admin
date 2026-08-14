@@ -6,7 +6,7 @@ import type { Doc } from '@workspace/backend/dataModel';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Badge } from '@workspace/ui/components/badge';
 import { cn } from '@workspace/ui/lib/utils';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Lock } from 'lucide-react';
 import {
 	formatDueDate,
 	initialsFromName,
@@ -37,6 +37,12 @@ export function TaskCardContent({
 			)}
 		>
 			<div className="flex items-start gap-2">
+				{task.isPrivate ? (
+					<Lock
+						aria-label="Private"
+						className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+					/>
+				) : null}
 				<p className="line-clamp-2 min-w-0 flex-1 font-medium text-sm leading-snug">
 					{task.title}
 				</p>
