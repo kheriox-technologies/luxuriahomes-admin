@@ -1,7 +1,10 @@
 import { ConvexError, v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 import { mutation } from '../_generated/server';
-import { parseItemPrice } from '../budgetTemplates/shared';
+import {
+	parseContingencyPercent,
+	parseItemPrice,
+} from '../budgetTemplates/shared';
 import { requireAdmin } from '../lib/checkIdentity';
 import { createTradeStage } from '../tradeStages/shared';
 import { createTrade, getTradeOrThrow } from '../trades/shared';
@@ -15,6 +18,7 @@ export const addItem = mutation({
 		newTradeStageId: v.optional(v.id('tradeStages')),
 		newTradeStageName: v.optional(v.string()),
 		price: v.number(),
+		contingencyPercent: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -27,6 +31,10 @@ export const addItem = mutation({
 			});
 		}
 		const price = parseItemPrice(args.price);
+		const contingencyPercent =
+			args.contingencyPercent === undefined
+				? undefined
+				: parseContingencyPercent(args.contingencyPercent);
 
 		// Resolve the trade: create a new one when a name is supplied, otherwise
 		// use the selected existing trade.
@@ -64,6 +72,7 @@ export const addItem = mutation({
 			projectId: args.projectId,
 			tradeId,
 			price,
+			contingencyPercent,
 		});
 		return budgetId;
 	},

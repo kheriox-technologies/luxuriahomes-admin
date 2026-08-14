@@ -49,6 +49,7 @@ export const tradeSummary = query({
 				tradeOrder: trade.order ?? null,
 				projectBudgetId: projectBudget?._id ?? null,
 				budgetPrice: projectBudget?.price ?? null,
+				contingencyPercent: projectBudget?.contingencyPercent ?? 0,
 				xeroActual: amount ?? null,
 				xeroAccountId: accountId,
 				// Single-element list kept for the mobile app's badge rendering.

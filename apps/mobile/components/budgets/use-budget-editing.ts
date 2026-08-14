@@ -1,14 +1,21 @@
 import { useCallback, useRef, useState } from 'react';
-import { isValidMoneyString, parseMoneyString } from './budget-form-shared';
+import {
+	isValidMoneyString,
+	isValidPercentString,
+	parseMoneyString,
+	parsePercentString,
+} from './budget-form-shared';
 
 export interface BudgetEditEntry {
+	contingencyPercent: number | null;
 	name: string;
 	price: number | null;
 	tradeId: string;
 }
 
 export interface PriceChange {
-	price: number;
+	contingencyPercent?: number;
+	price?: number;
 	tradeId: string;
 }
 
@@ -18,8 +25,18 @@ export interface NameChange {
 }
 
 export interface RowChanges {
+	contingencyPercent?: number;
 	name?: string;
 	price?: number;
+}
+
+// A blank percent field means 0% — unlike price, where blank is a no-op.
+function draftToPercent(raw: string): number | null {
+	const trimmed = raw.trim();
+	if (trimmed.length === 0) {
+		return 0;
+	}
+	return isValidPercentString(trimmed) ? parsePercentString(trimmed) : null;
 }
 
 /**
@@ -35,25 +52,36 @@ export function useBudgetEditing() {
 	// `isEditing` flag: a row is editable when either is active for it.
 	const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
 	const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+	const [contingencyDrafts, setContingencyDrafts] = useState<
+		Record<string, string>
+	>({});
 	const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
 	const priceOriginalsRef = useRef<Record<string, number | null>>({});
+	const contingencyOriginalsRef = useRef<Record<string, number>>({});
 	const nameOriginalsRef = useRef<Record<string, string>>({});
 
 	const begin = useCallback((entries: BudgetEditEntry[]) => {
 		const nextPrices: Record<string, string> = {};
+		const nextContingencies: Record<string, string> = {};
 		const nextNames: Record<string, string> = {};
 		const nextPriceOriginals: Record<string, number | null> = {};
+		const nextContingencyOriginals: Record<string, number> = {};
 		const nextNameOriginals: Record<string, string> = {};
 		for (const entry of entries) {
+			const percent = entry.contingencyPercent ?? 0;
 			nextPrices[entry.tradeId] =
 				entry.price === null ? '' : String(entry.price);
 			nextPriceOriginals[entry.tradeId] = entry.price;
+			nextContingencies[entry.tradeId] = String(percent);
+			nextContingencyOriginals[entry.tradeId] = percent;
 			nextNames[entry.tradeId] = entry.name;
 			nextNameOriginals[entry.tradeId] = entry.name;
 		}
 		setPriceDrafts(nextPrices);
+		setContingencyDrafts(nextContingencies);
 		setNameDrafts(nextNames);
 		priceOriginalsRef.current = nextPriceOriginals;
+		contingencyOriginalsRef.current = nextContingencyOriginals;
 		nameOriginalsRef.current = nextNameOriginals;
 		setIsEditing(true);
 	}, []);
@@ -61,12 +89,18 @@ export function useBudgetEditing() {
 	// Seed a single row's draft + original without touching the bulk `isEditing`
 	// flag, so "Edit budget" makes just that row's name + price editable.
 	const beginRow = useCallback((entry: BudgetEditEntry) => {
+		const percent = entry.contingencyPercent ?? 0;
 		setPriceDrafts((prev) => ({
 			...prev,
 			[entry.tradeId]: entry.price === null ? '' : String(entry.price),
 		}));
+		setContingencyDrafts((prev) => ({
+			...prev,
+			[entry.tradeId]: String(percent),
+		}));
 		setNameDrafts((prev) => ({ ...prev, [entry.tradeId]: entry.name }));
 		priceOriginalsRef.current[entry.tradeId] = entry.price;
+		contingencyOriginalsRef.current[entry.tradeId] = percent;
 		nameOriginalsRef.current[entry.tradeId] = entry.name;
 		setEditingRows((prev) => {
 			const next = new Set(prev);
@@ -86,12 +120,18 @@ export function useBudgetEditing() {
 			delete next[tradeId];
 			return next;
 		});
+		setContingencyDrafts((prev) => {
+			const next = { ...prev };
+			delete next[tradeId];
+			return next;
+		});
 		setNameDrafts((prev) => {
 			const next = { ...prev };
 			delete next[tradeId];
 			return next;
 		});
 		delete priceOriginalsRef.current[tradeId];
+		delete contingencyOriginalsRef.current[tradeId];
 		delete nameOriginalsRef.current[tradeId];
 	}, []);
 
@@ -104,6 +144,10 @@ export function useBudgetEditing() {
 		setPriceDrafts((prev) => ({ ...prev, [tradeId]: value }));
 	}, []);
 
+	const setContingencyDraft = useCallback((tradeId: string, value: string) => {
+		setContingencyDrafts((prev) => ({ ...prev, [tradeId]: value }));
+	}, []);
+
 	const setNameDraft = useCallback((tradeId: string, value: string) => {
 		setNameDrafts((prev) => ({ ...prev, [tradeId]: value }));
 	}, []);
@@ -112,13 +156,26 @@ export function useBudgetEditing() {
 		setIsEditing(false);
 		setEditingRows(new Set());
 		setPriceDrafts({});
+		setContingencyDrafts({});
 		setNameDrafts({});
 		priceOriginalsRef.current = {};
+		contingencyOriginalsRef.current = {};
 		nameOriginalsRef.current = {};
 	}, []);
 
+	// Changed price and/or contingency per trade, merged into one entry so the
+	// caller can send a single `setPrices` payload.
 	const getPriceChanges = useCallback((): PriceChange[] => {
-		const changes: PriceChange[] = [];
+		const byTrade = new Map<string, PriceChange>();
+		const changeFor = (tradeId: string): PriceChange => {
+			const existing = byTrade.get(tradeId);
+			if (existing) {
+				return existing;
+			}
+			const created: PriceChange = { tradeId };
+			byTrade.set(tradeId, created);
+			return created;
+		};
 		for (const [tradeId, raw] of Object.entries(priceDrafts)) {
 			const trimmed = raw.trim();
 			const original = priceOriginalsRef.current[tradeId] ?? null;
@@ -129,11 +186,20 @@ export function useBudgetEditing() {
 			}
 			const price = parseMoneyString(trimmed);
 			if (original === null || price !== original) {
-				changes.push({ tradeId, price });
+				changeFor(tradeId).price = price;
 			}
 		}
-		return changes;
-	}, [priceDrafts]);
+		for (const [tradeId, raw] of Object.entries(contingencyDrafts)) {
+			const percent = draftToPercent(raw);
+			if (percent === null) {
+				continue;
+			}
+			if (percent !== (contingencyOriginalsRef.current[tradeId] ?? 0)) {
+				changeFor(tradeId).contingencyPercent = percent;
+			}
+		}
+		return [...byTrade.values()];
+	}, [contingencyDrafts, priceDrafts]);
 
 	const getNameChanges = useCallback((): NameChange[] => {
 		const changes: NameChange[] = [];
@@ -162,6 +228,13 @@ export function useBudgetEditing() {
 					changes.price = price;
 				}
 			}
+			const percent = draftToPercent(contingencyDrafts[tradeId] ?? '');
+			if (
+				percent !== null &&
+				percent !== (contingencyOriginalsRef.current[tradeId] ?? 0)
+			) {
+				changes.contingencyPercent = percent;
+			}
 			const rawName = (nameDrafts[tradeId] ?? '').trim();
 			const originalName = (nameOriginalsRef.current[tradeId] ?? '').trim();
 			if (rawName.length > 0 && rawName !== originalName) {
@@ -169,19 +242,21 @@ export function useBudgetEditing() {
 			}
 			return changes;
 		},
-		[priceDrafts, nameDrafts]
+		[contingencyDrafts, priceDrafts, nameDrafts]
 	);
 
 	return {
 		isEditing,
 		editingRows,
 		priceDrafts,
+		contingencyDrafts,
 		nameDrafts,
 		begin,
 		beginRow,
 		endRow,
 		isRowEditing,
 		setPriceDraft,
+		setContingencyDraft,
 		setNameDraft,
 		cancel,
 		getPriceChanges,

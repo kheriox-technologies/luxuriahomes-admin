@@ -1,12 +1,16 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { parseItemPrice } from '../budgetTemplates/shared';
+import {
+	parseContingencyPercent,
+	parseItemPrice,
+} from '../budgetTemplates/shared';
 import { requireAdmin } from '../lib/checkIdentity';
 
 export const updatePrice = mutation({
 	args: {
 		projectBudgetId: v.id('projectBudgets'),
 		price: v.number(),
+		contingencyPercent: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
@@ -18,7 +22,16 @@ export const updatePrice = mutation({
 			});
 		}
 		const price = parseItemPrice(args.price);
-		await ctx.db.patch(args.projectBudgetId, { price });
+		await ctx.db.patch(args.projectBudgetId, {
+			price,
+			...(args.contingencyPercent === undefined
+				? {}
+				: {
+						contingencyPercent: parseContingencyPercent(
+							args.contingencyPercent
+						),
+					}),
+		});
 		return args.projectBudgetId;
 	},
 });

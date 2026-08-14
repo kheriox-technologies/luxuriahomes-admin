@@ -1,6 +1,34 @@
 import { ConvexError, v } from 'convex/values';
+import type { Doc } from '../_generated/dataModel';
+import { contingencyAmount } from '../budgetTemplates/shared';
 
 const AUSTRALIAN_POSTCODE_REGEX = /^\d{4}$/;
+
+/**
+ * Budget total per project id: each trade's price plus its contingency amount,
+ * mirroring the Budgets tab "T" badge. Only counts budget rows whose trade still
+ * exists, so orphaned rows left by a deleted trade don't inflate the total.
+ */
+export function budgetTotalsByProject(
+	budgets: Doc<'projectBudgets'>[],
+	trades: Doc<'trades'>[]
+): Map<string, number> {
+	const existingTradeIds = new Set(trades.map((trade) => trade._id));
+	const totals = new Map<string, number>();
+	for (const budget of budgets) {
+		if (!existingTradeIds.has(budget.tradeId)) {
+			continue;
+		}
+		const current = totals.get(budget.projectId) ?? 0;
+		totals.set(
+			budget.projectId,
+			current +
+				(budget.price ?? 0) +
+				contingencyAmount(budget.price, budget.contingencyPercent)
+		);
+	}
+	return totals;
+}
 
 export const australianStateValidator = v.union(
 	v.literal('ACT'),

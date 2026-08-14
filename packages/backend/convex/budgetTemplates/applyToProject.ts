@@ -38,12 +38,16 @@ export const applyToProject = mutation({
 				)
 				.first();
 			if (existing) {
-				await ctx.db.patch(existing._id, { price: item.price });
+				await ctx.db.patch(existing._id, {
+					price: item.price,
+					contingencyPercent: item.contingencyPercent,
+				});
 			} else {
 				await ctx.db.insert('projectBudgets', {
 					projectId: args.projectId,
 					tradeId: item.tradeId,
 					price: item.price,
+					contingencyPercent: item.contingencyPercent,
 				});
 			}
 		}

@@ -49,7 +49,12 @@ export const BudgetTemplateCard = memo(
 							</Text>
 						) : null}
 					</View>
-					<Badge variant="purple">{formatCurrency(template.totalPrice)}</Badge>
+					{/* Budget plus contingency — the template's full value. */}
+					<Badge variant="purple">
+						{formatCurrency(
+							template.totalPrice + (template.totalContingency ?? 0)
+						)}
+					</Badge>
 					<Pressable
 						accessibilityLabel={`Actions for ${template.title}`}
 						accessibilityRole="button"

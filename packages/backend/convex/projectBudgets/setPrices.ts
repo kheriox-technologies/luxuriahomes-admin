@@ -1,6 +1,9 @@
 import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { parseItemPrice } from '../budgetTemplates/shared';
+import {
+	parseContingencyPercent,
+	parseItemPrice,
+} from '../budgetTemplates/shared';
 import { requireAdmin } from '../lib/checkIdentity';
 
 export const setPrices = mutation({
@@ -10,6 +13,7 @@ export const setPrices = mutation({
 			v.object({
 				tradeId: v.id('trades'),
 				price: v.optional(v.number()),
+				contingencyPercent: v.optional(v.number()),
 			})
 		),
 	},
@@ -24,12 +28,21 @@ export const setPrices = mutation({
 			});
 		}
 
-		// Upsert the budget price per trade, skipping items with nothing to set.
+		// Upsert the budget price/contingency per trade, skipping items with
+		// nothing to set.
 		for (const item of args.items) {
-			if (item.price === undefined) {
+			if (item.price === undefined && item.contingencyPercent === undefined) {
 				continue;
 			}
-			const fields = { price: parseItemPrice(item.price) };
+			const fields: { price?: number; contingencyPercent?: number } = {};
+			if (item.price !== undefined) {
+				fields.price = parseItemPrice(item.price);
+			}
+			if (item.contingencyPercent !== undefined) {
+				fields.contingencyPercent = parseContingencyPercent(
+					item.contingencyPercent
+				);
+			}
 			const existing = await ctx.db
 				.query('projectBudgets')
 				.withIndex('by_project_and_trade', (q) =>

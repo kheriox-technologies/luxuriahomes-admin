@@ -24,9 +24,15 @@ import { Check, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import TradeSelect from '@/components/trades/trade-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
-import { isValidMoneyString, parseMoneyString } from './budget-form-shared';
+import {
+	isValidMoneyString,
+	isValidPercentString,
+	parseMoneyString,
+	parsePercentString,
+} from './budget-form-shared';
 
 export interface AddBudgetItemArgs {
+	contingencyPercent: number;
 	price: number;
 	tradeId: Id<'trades'>;
 }
@@ -43,12 +49,14 @@ export default function AddBudgetItemDialog({
 	const [open, setOpen] = useState(false);
 	const [tradeId, setTradeId] = useState<Id<'trades'> | ''>('');
 	const [price, setPrice] = useState('0');
+	const [contingency, setContingency] = useState('0');
 	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		if (open) {
 			setTradeId('');
 			setPrice('0');
+			setContingency('0');
 		}
 	}, [open]);
 
@@ -56,6 +64,17 @@ export default function AddBudgetItemDialog({
 		const trimmedPrice = price.trim();
 		if (!isValidMoneyString(trimmedPrice)) {
 			toastManager.add({ title: 'Enter a valid price', type: 'error' });
+			return;
+		}
+		const trimmedContingency = contingency.trim();
+		if (
+			trimmedContingency !== '' &&
+			!isValidPercentString(trimmedContingency)
+		) {
+			toastManager.add({
+				title: 'Enter a contingency between 0 and 100',
+				type: 'error',
+			});
 			return;
 		}
 		if (!tradeId) {
@@ -67,6 +86,10 @@ export default function AddBudgetItemDialog({
 		try {
 			await onSubmit({
 				price: parseMoneyString(trimmedPrice),
+				contingencyPercent:
+					trimmedContingency === ''
+						? 0
+						: parsePercentString(trimmedContingency),
 				tradeId: tradeId as Id<'trades'>,
 			});
 			toastManager.add({ title: 'Item added', type: 'success' });
@@ -128,6 +151,26 @@ export default function AddBudgetItemDialog({
 							/>
 							<InputGroupAddon align="inline-end">
 								<InputGroupText>AUD</InputGroupText>
+							</InputGroupAddon>
+						</InputGroup>
+					</Field>
+
+					<Field>
+						<FieldLabel htmlFor="add-budget-item-contingency">
+							Contingency
+						</FieldLabel>
+						<InputGroup>
+							<InputGroupInput
+								id="add-budget-item-contingency"
+								inputMode="decimal"
+								nativeInput
+								onChange={(e) => setContingency(e.target.value)}
+								placeholder="0"
+								type="text"
+								value={contingency}
+							/>
+							<InputGroupAddon align="inline-end">
+								<InputGroupText>%</InputGroupText>
 							</InputGroupAddon>
 						</InputGroup>
 					</Field>

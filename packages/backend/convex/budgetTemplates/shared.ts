@@ -23,6 +23,39 @@ export function parseItemPrice(price: number): number {
 	return price;
 }
 
+const CENTS = 100;
+const MAX_CONTINGENCY_PERCENT = 100;
+
+export function parseContingencyPercent(percent: number): number {
+	if (
+		!Number.isFinite(percent) ||
+		percent < 0 ||
+		percent > MAX_CONTINGENCY_PERCENT
+	) {
+		throw new ConvexError({
+			code: 'INVALID_PERCENTAGE',
+			message: 'Contingency must be between 0 and 100',
+		});
+	}
+	return percent;
+}
+
+/**
+ * The dollar contingency for a line: a percent of its price, rounded to cents.
+ * A missing price or percent means no contingency.
+ */
+export function contingencyAmount(
+	price: number | undefined | null,
+	percent: number | undefined | null
+): number {
+	if (!(price && percent)) {
+		return 0;
+	}
+	return (
+		Math.round(price * (percent / MAX_CONTINGENCY_PERCENT) * CENTS) / CENTS
+	);
+}
+
 export async function getTemplateOrThrow(
 	ctx: MutationCtx,
 	budgetTemplateId: Id<'budgetTemplates'>
@@ -71,8 +104,8 @@ export async function seedMissingTradeItems(
 }
 
 /**
- * Recomputes a budget template's totalPrice from its items and patches the row.
- * Call after any add/update/remove of a budgetTemplateItem.
+ * Recomputes a budget template's totalPrice and totalContingency from its items
+ * and patches the row. Call after any add/update/remove of a budgetTemplateItem.
  */
 export async function recomputeTemplateTotal(
 	ctx: MutationCtx,
@@ -83,6 +116,10 @@ export async function recomputeTemplateTotal(
 		.withIndex('by_template', (q) => q.eq('budgetTemplateId', budgetTemplateId))
 		.collect();
 	const totalPrice = items.reduce((sum, item) => sum + item.price, 0);
-	await ctx.db.patch(budgetTemplateId, { totalPrice });
+	const totalContingency = items.reduce(
+		(sum, item) => sum + contingencyAmount(item.price, item.contingencyPercent),
+		0
+	);
+	await ctx.db.patch(budgetTemplateId, { totalPrice, totalContingency });
 	return totalPrice;
 }

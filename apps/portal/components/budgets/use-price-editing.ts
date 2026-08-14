@@ -1,16 +1,23 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { isValidMoneyString, parseMoneyString } from './budget-form-shared';
+import {
+	isValidMoneyString,
+	isValidPercentString,
+	parseMoneyString,
+	parsePercentString,
+} from './budget-form-shared';
 
 export interface PriceEntry {
+	contingencyPercent: number | null;
 	name: string;
 	price: number | null;
 	tradeId: string;
 }
 
 export interface PriceChange {
-	price: number;
+	contingencyPercent?: number;
+	price?: number;
 	tradeId: string;
 }
 
@@ -20,16 +27,27 @@ export interface NameChange {
 }
 
 export interface RowChanges {
+	contingencyPercent?: number;
 	name?: string;
 	price?: number;
+}
+
+// A blank percent field means 0% — unlike price, where blank is a no-op.
+function draftToPercent(raw: string): number | null {
+	const trimmed = raw.trim();
+	if (trimmed.length === 0) {
+		return 0;
+	}
+	return isValidPercentString(trimmed) ? parsePercentString(trimmed) : null;
 }
 
 /**
  * Shared edit-mode + draft state for budget price tables. Keyed by trade id so
  * both the budget template page and the project budgets tab behave identically:
- * clicking "Edit" seeds drafts for every row, the price and trade-name columns
- * become editable, and "Done" saves changed prices via `getChanges()` and
- * changed trade names via `getNameChanges()`.
+ * clicking "Edit" seeds drafts for every row, the price, contingency and
+ * trade-name columns become editable, and "Done" saves changed prices and
+ * contingency percentages via `getChanges()` and changed trade names via
+ * `getNameChanges()`.
  */
 export function usePriceEditing() {
 	const [isEditing, setIsEditing] = useState(false);
@@ -37,25 +55,36 @@ export function usePriceEditing() {
 	// `isEditing` flag: a row is editable when either is active for it.
 	const [editingRows, setEditingRows] = useState<Set<string>>(new Set());
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
+	const [contingencyDrafts, setContingencyDrafts] = useState<
+		Record<string, string>
+	>({});
 	const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
 	const originalsRef = useRef<Record<string, number | null>>({});
+	const contingencyOriginalsRef = useRef<Record<string, number>>({});
 	const nameOriginalsRef = useRef<Record<string, string>>({});
 
 	const begin = useCallback((entries: PriceEntry[]) => {
 		const nextDrafts: Record<string, string> = {};
+		const nextContingencyDrafts: Record<string, string> = {};
 		const nextNameDrafts: Record<string, string> = {};
 		const nextOriginals: Record<string, number | null> = {};
+		const nextContingencyOriginals: Record<string, number> = {};
 		const nextNameOriginals: Record<string, string> = {};
 		for (const entry of entries) {
+			const percent = entry.contingencyPercent ?? 0;
 			nextDrafts[entry.tradeId] =
 				entry.price === null ? '' : String(entry.price);
 			nextOriginals[entry.tradeId] = entry.price;
+			nextContingencyDrafts[entry.tradeId] = String(percent);
+			nextContingencyOriginals[entry.tradeId] = percent;
 			nextNameDrafts[entry.tradeId] = entry.name;
 			nextNameOriginals[entry.tradeId] = entry.name;
 		}
 		setDrafts(nextDrafts);
+		setContingencyDrafts(nextContingencyDrafts);
 		setNameDrafts(nextNameDrafts);
 		originalsRef.current = nextOriginals;
+		contingencyOriginalsRef.current = nextContingencyOriginals;
 		nameOriginalsRef.current = nextNameOriginals;
 		setIsEditing(true);
 	}, []);
@@ -63,12 +92,18 @@ export function usePriceEditing() {
 	// Seed a single row's draft + original without touching the bulk `isEditing`
 	// flag, so "Edit Budget" makes just that row's name + price editable.
 	const beginRow = useCallback((entry: PriceEntry) => {
+		const percent = entry.contingencyPercent ?? 0;
 		setDrafts((prev) => ({
 			...prev,
 			[entry.tradeId]: entry.price === null ? '' : String(entry.price),
 		}));
+		setContingencyDrafts((prev) => ({
+			...prev,
+			[entry.tradeId]: String(percent),
+		}));
 		setNameDrafts((prev) => ({ ...prev, [entry.tradeId]: entry.name }));
 		originalsRef.current[entry.tradeId] = entry.price;
+		contingencyOriginalsRef.current[entry.tradeId] = percent;
 		nameOriginalsRef.current[entry.tradeId] = entry.name;
 		setEditingRows((prev) => {
 			const next = new Set(prev);
@@ -88,12 +123,18 @@ export function usePriceEditing() {
 			delete next[tradeId];
 			return next;
 		});
+		setContingencyDrafts((prev) => {
+			const next = { ...prev };
+			delete next[tradeId];
+			return next;
+		});
 		setNameDrafts((prev) => {
 			const next = { ...prev };
 			delete next[tradeId];
 			return next;
 		});
 		delete originalsRef.current[tradeId];
+		delete contingencyOriginalsRef.current[tradeId];
 		delete nameOriginalsRef.current[tradeId];
 	}, []);
 
@@ -106,6 +147,10 @@ export function usePriceEditing() {
 		setDrafts((prev) => ({ ...prev, [tradeId]: value }));
 	}, []);
 
+	const setContingencyDraft = useCallback((tradeId: string, value: string) => {
+		setContingencyDrafts((prev) => ({ ...prev, [tradeId]: value }));
+	}, []);
+
 	const setNameDraft = useCallback((tradeId: string, value: string) => {
 		setNameDrafts((prev) => ({ ...prev, [tradeId]: value }));
 	}, []);
@@ -114,13 +159,26 @@ export function usePriceEditing() {
 		setIsEditing(false);
 		setEditingRows(new Set());
 		setDrafts({});
+		setContingencyDrafts({});
 		setNameDrafts({});
 		originalsRef.current = {};
+		contingencyOriginalsRef.current = {};
 		nameOriginalsRef.current = {};
 	}, []);
 
+	// Changed price and/or contingency per trade, merged into one entry so the
+	// caller can send a single `setPrices` payload.
 	const getChanges = useCallback((): PriceChange[] => {
-		const changes: PriceChange[] = [];
+		const byTrade = new Map<string, PriceChange>();
+		const changeFor = (tradeId: string): PriceChange => {
+			const existing = byTrade.get(tradeId);
+			if (existing) {
+				return existing;
+			}
+			const created: PriceChange = { tradeId };
+			byTrade.set(tradeId, created);
+			return created;
+		};
 		for (const [tradeId, raw] of Object.entries(drafts)) {
 			const trimmed = raw.trim();
 			const original = originalsRef.current[tradeId] ?? null;
@@ -131,11 +189,21 @@ export function usePriceEditing() {
 			}
 			const price = parseMoneyString(trimmed);
 			if (original === null || price !== original) {
-				changes.push({ tradeId, price });
+				changeFor(tradeId).price = price;
 			}
 		}
-		return changes;
-	}, [drafts]);
+		for (const [tradeId, raw] of Object.entries(contingencyDrafts)) {
+			const percent = draftToPercent(raw);
+			if (percent === null) {
+				continue;
+			}
+			const original = contingencyOriginalsRef.current[tradeId] ?? 0;
+			if (percent !== original) {
+				changeFor(tradeId).contingencyPercent = percent;
+			}
+		}
+		return [...byTrade.values()];
+	}, [contingencyDrafts, drafts]);
 
 	const getNameChanges = useCallback((): NameChange[] => {
 		const changes: NameChange[] = [];
@@ -151,8 +219,8 @@ export function usePriceEditing() {
 		return changes;
 	}, [nameDrafts]);
 
-	// Changed price and/or name for a single row, using the same trim/validate/
-	// diff-vs-original rules as the bulk getters.
+	// Changed price, contingency and/or name for a single row, using the same
+	// trim/validate/diff-vs-original rules as the bulk getters.
 	const getRowChanges = useCallback(
 		(tradeId: string): RowChanges => {
 			const changes: RowChanges = {};
@@ -164,6 +232,13 @@ export function usePriceEditing() {
 					changes.price = price;
 				}
 			}
+			const percent = draftToPercent(contingencyDrafts[tradeId] ?? '');
+			if (
+				percent !== null &&
+				percent !== (contingencyOriginalsRef.current[tradeId] ?? 0)
+			) {
+				changes.contingencyPercent = percent;
+			}
 			const rawName = (nameDrafts[tradeId] ?? '').trim();
 			const originalName = (nameOriginalsRef.current[tradeId] ?? '').trim();
 			if (rawName.length > 0 && rawName !== originalName) {
@@ -171,19 +246,21 @@ export function usePriceEditing() {
 			}
 			return changes;
 		},
-		[drafts, nameDrafts]
+		[contingencyDrafts, drafts, nameDrafts]
 	);
 
 	return {
 		isEditing,
 		editingRows,
 		drafts,
+		contingencyDrafts,
 		nameDrafts,
 		begin,
 		beginRow,
 		endRow,
 		isRowEditing,
 		setDraft,
+		setContingencyDraft,
 		setNameDraft,
 		cancel,
 		getChanges,
