@@ -98,6 +98,8 @@ export default function BudgetsScreen() {
 							budgetTemplateId: selected._id,
 							title: selected.title,
 							description: selected.description ?? null,
+							defaultContingencyPercent:
+								selected.defaultContingencyPercent ?? null,
 						});
 					},
 				},

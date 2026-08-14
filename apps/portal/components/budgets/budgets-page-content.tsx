@@ -77,6 +77,7 @@ function TemplateActionsCell({ row }: { row: BudgetTemplateRow }) {
 			</Menu>
 			<EditBudgetTemplate
 				budgetTemplateId={row._id}
+				initialDefaultContingencyPercent={row.defaultContingencyPercent}
 				initialDescription={row.description}
 				initialTitle={row.title}
 				onOpenChange={setEditOpen}

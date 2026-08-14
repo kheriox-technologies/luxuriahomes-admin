@@ -52,6 +52,7 @@ export const copy = mutation({
 			title,
 			description,
 			totalPrice: 0,
+			defaultContingencyPercent: source.defaultContingencyPercent,
 			searchText,
 		});
 

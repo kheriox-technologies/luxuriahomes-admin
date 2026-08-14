@@ -128,10 +128,12 @@ function BudgetTemplateBody({
 	budgetTemplateId,
 	title,
 	description,
+	defaultContingencyPercent,
 }: {
 	budgetTemplateId: Id<'budgetTemplates'>;
 	title: string;
 	description: string | null;
+	defaultContingencyPercent: number | null;
 }) {
 	const router = useRouter();
 	const colors = useThemeColors();
@@ -522,7 +524,12 @@ function BudgetTemplateBody({
 			icon: SquarePen,
 			onPress: () => {
 				menuRef.current?.dismiss();
-				formSheetRef.current?.present({ budgetTemplateId, title, description });
+				formSheetRef.current?.present({
+					budgetTemplateId,
+					title,
+					description,
+					defaultContingencyPercent,
+				});
 			},
 		},
 		{
@@ -738,6 +745,7 @@ export default function BudgetTemplateDetailScreen() {
 			{template ? (
 				<BudgetTemplateBody
 					budgetTemplateId={templateId}
+					defaultContingencyPercent={template.defaultContingencyPercent ?? null}
 					description={template.description ?? null}
 					title={template.title}
 				/>

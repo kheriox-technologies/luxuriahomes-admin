@@ -405,6 +405,9 @@ export default defineSchema({
 		// Auto-computed sum of this template's item contingency amounts. Optional so
 		// templates created before contingency existed stay valid; absent = 0.
 		totalContingency: v.optional(v.number()),
+		// Contingency percent applied to new items, and pushed onto every existing
+		// item whenever it changes. Absent = 0%.
+		defaultContingencyPercent: v.optional(v.number()),
 		searchText: v.string(),
 	}).searchIndex('search_budget_templates', { searchField: 'searchText' }),
 	budgetTemplateItems: defineTable({

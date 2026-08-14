@@ -19,9 +19,11 @@ import { Alert, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/components/theme';
 import { Button } from '@/components/ui/button';
+import { isValidPercentString, parsePercentString } from './budget-form-shared';
 
 export interface BudgetTemplateFormPayload {
 	budgetTemplateId: Id<'budgetTemplates'>;
+	defaultContingencyPercent: number | null;
 	description: string | null;
 	title: string;
 }
@@ -48,6 +50,7 @@ export function BudgetTemplateFormSheet({
 	);
 	const [title, setTitle] = useState('');
 	const [description, setDescription] = useState('');
+	const [contingency, setContingency] = useState('0');
 	const [saving, setSaving] = useState(false);
 
 	useImperativeHandle(ref, () => ({
@@ -55,6 +58,7 @@ export function BudgetTemplateFormSheet({
 			setEditingId(template?.budgetTemplateId ?? null);
 			setTitle(template?.title ?? '');
 			setDescription(template?.description ?? '');
+			setContingency(String(template?.defaultContingencyPercent ?? 0));
 			sheetRef.current?.present();
 		},
 	}));
@@ -78,6 +82,16 @@ export function BudgetTemplateFormSheet({
 			return;
 		}
 		const trimmedDescription = description.trim() || undefined;
+		const trimmedContingency = contingency.trim();
+		if (
+			trimmedContingency !== '' &&
+			!isValidPercentString(trimmedContingency)
+		) {
+			Alert.alert('Enter a contingency between 0 and 100');
+			return;
+		}
+		const defaultContingencyPercent =
+			trimmedContingency === '' ? 0 : parsePercentString(trimmedContingency);
 		setSaving(true);
 		try {
 			if (editingId) {
@@ -85,11 +99,13 @@ export function BudgetTemplateFormSheet({
 					budgetTemplateId: editingId,
 					title: trimmedTitle,
 					description: trimmedDescription,
+					defaultContingencyPercent,
 				});
 			} else {
 				await addTemplate({
 					title: trimmedTitle,
 					description: trimmedDescription,
+					defaultContingencyPercent,
 				});
 			}
 			sheetRef.current?.dismiss();
@@ -144,6 +160,27 @@ export function BudgetTemplateFormSheet({
 						textAlignVertical="top"
 						value={description}
 					/>
+				</View>
+
+				<View className="gap-1.5">
+					<Text className="font-sans-medium text-foreground text-sm">
+						Default contingency
+					</Text>
+					<View className="h-9 flex-row items-center gap-2 rounded-lg border border-border bg-card px-3">
+						<BottomSheetTextInput
+							className="flex-1 font-sans text-foreground text-sm"
+							keyboardType="decimal-pad"
+							onChangeText={setContingency}
+							placeholder="0"
+							placeholderTextColor={colors.mutedForeground}
+							value={contingency}
+						/>
+						<Text className="font-sans text-muted-foreground text-sm">%</Text>
+					</View>
+					<Text className="font-sans text-muted-foreground text-xs">
+						Changing this applies the percentage to every trade in this
+						template.
+					</Text>
 				</View>
 
 				<Button disabled={saving} loading={saving} onPress={handleSave}>

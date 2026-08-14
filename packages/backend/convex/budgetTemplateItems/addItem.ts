@@ -24,11 +24,12 @@ export const addItem = mutation({
 	},
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		await getTemplateOrThrow(ctx, args.budgetTemplateId);
+		const template = await getTemplateOrThrow(ctx, args.budgetTemplateId);
 		const price = parseItemPrice(args.price);
+		// Fall back to the template's default rate when none is supplied.
 		const contingencyPercent =
 			args.contingencyPercent === undefined
-				? undefined
+				? template.defaultContingencyPercent
 				: parseContingencyPercent(args.contingencyPercent);
 
 		// Resolve the trade: create a new one when a name is supplied, otherwise

@@ -73,13 +73,15 @@ export async function getTemplateOrThrow(
 /**
  * Ensures the template has a budgetTemplateItem for every trade, inserting a
  * $0 item for any trade not yet present. Newly inserted items are $0 so the
- * template total is unaffected. Returns the number of items added.
+ * template total is unaffected, and carry the template's default contingency so
+ * the rate applies once a price is set. Returns the number of items added.
  */
 export async function seedMissingTradeItems(
 	ctx: MutationCtx,
 	budgetTemplateId: Id<'budgetTemplates'>
 ): Promise<number> {
-	const [trades, items] = await Promise.all([
+	const [template, trades, items] = await Promise.all([
+		ctx.db.get(budgetTemplateId),
 		ctx.db.query('trades').collect(),
 		ctx.db
 			.query('budgetTemplateItems')
@@ -88,6 +90,7 @@ export async function seedMissingTradeItems(
 			)
 			.collect(),
 	]);
+	const contingencyPercent = template?.defaultContingencyPercent;
 	const existing = new Set(items.map((item) => item.tradeId));
 	let added = 0;
 	for (const trade of trades) {
@@ -96,11 +99,34 @@ export async function seedMissingTradeItems(
 				budgetTemplateId,
 				tradeId: trade._id,
 				price: 0,
+				contingencyPercent,
 			});
 			added += 1;
 		}
 	}
 	return added;
+}
+
+/**
+ * Pushes a template's default contingency percent onto every one of its items,
+ * replacing any per-trade override, then recomputes the template totals. Called
+ * when the default changes so the whole template moves together.
+ */
+export async function applyDefaultContingency(
+	ctx: MutationCtx,
+	budgetTemplateId: Id<'budgetTemplates'>,
+	contingencyPercent: number
+): Promise<number> {
+	const items = await ctx.db
+		.query('budgetTemplateItems')
+		.withIndex('by_template', (q) => q.eq('budgetTemplateId', budgetTemplateId))
+		.collect();
+	for (const item of items) {
+		if (item.contingencyPercent !== contingencyPercent) {
+			await ctx.db.patch(item._id, { contingencyPercent });
+		}
+	}
+	return items.length;
 }
 
 /**
