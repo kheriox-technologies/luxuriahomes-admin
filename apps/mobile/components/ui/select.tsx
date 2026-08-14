@@ -1,7 +1,7 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Check, ChevronDown } from 'lucide-react-native';
 import { useRef } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useThemeColors } from '@/components/theme';
 import { cn } from '@/lib/cn';
 import { ActionSheet } from './action-sheet';
@@ -53,14 +53,20 @@ export function Select<T extends string>({
 			>
 				<Text
 					className={cn(
-						'font-sans text-xs',
+						'flex-1 font-sans text-xs',
 						selectedOption ? 'text-foreground' : 'text-muted-foreground'
 					)}
 					numberOfLines={1}
 				>
 					{selectedLabel}
 				</Text>
-				<ChevronDown color={colors.mutedForeground} size={16} strokeWidth={2} />
+				<View className="shrink-0">
+					<ChevronDown
+						color={colors.mutedForeground}
+						size={16}
+						strokeWidth={2}
+					/>
+				</View>
 			</Pressable>
 			<ActionSheet
 				items={options.map((option) => ({
