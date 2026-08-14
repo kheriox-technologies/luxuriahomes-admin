@@ -32,7 +32,7 @@ App Store Connect, paste the bullet list from that version's section into the
 
 ## 1.0.1 — In review
 
-_iOS build 26 · Android versionCode 6_
+_iOS build 26 · Android versionCode 7_
 
 - Add a location picker when composing letters
 - Bug fixes and performance improvements
