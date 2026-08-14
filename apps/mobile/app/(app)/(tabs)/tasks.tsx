@@ -15,7 +15,6 @@ import { useThemeColors } from '@/components/theme';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { PressableCard } from '@/components/ui/card';
-import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Select, type SelectOption } from '@/components/ui/select';
@@ -25,7 +24,9 @@ import {
 	KanbanStatusPill,
 	kanbanLabels,
 } from '@/components/ui/status-pill';
+import { cn } from '@/lib/cn';
 import { formatDate } from '@/lib/format';
+import { brand } from '@/lib/theme';
 
 const STATUSES: KanbanStatus[] = ['planned', 'in_progress', 'blocked', 'done'];
 
@@ -158,6 +159,23 @@ export default function TasksScreen() {
 					/>
 				</View>
 				<Pressable
+					accessibilityLabel="Show private tasks only"
+					accessibilityRole="button"
+					accessibilityState={{ selected: privateOnly }}
+					className={cn(
+						'h-9 w-9 items-center justify-center rounded-lg border active:bg-muted',
+						privateOnly ? 'border-primary bg-primary' : 'border-border bg-card'
+					)}
+					hitSlop={4}
+					onPress={() => setPrivateOnly((previous) => !previous)}
+				>
+					<Lock
+						color={privateOnly ? brand.linen : colors.foreground}
+						size={18}
+						strokeWidth={2}
+					/>
+				</Pressable>
+				<Pressable
 					accessibilityLabel="Add task"
 					accessibilityRole="button"
 					className="h-9 w-9 items-center justify-center rounded-lg border border-border bg-card active:bg-muted"
@@ -169,11 +187,6 @@ export default function TasksScreen() {
 			</View>
 
 			<View className="flex-row items-center gap-2 px-4 pb-3">
-				<Chip
-					label="Private"
-					onPress={() => setPrivateOnly((previous) => !previous)}
-					selected={privateOnly}
-				/>
 				<Select
 					className="flex-1"
 					onChange={setProjectId}
