@@ -1,6 +1,5 @@
 'use client';
 
-import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
 import {
@@ -15,7 +14,13 @@ import {
 } from '@workspace/ui/components/alert-dialog';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import { DataTable } from '@workspace/ui/components/data-table';
+import {
+	Card,
+	CardAction,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from '@workspace/ui/components/card';
 import {
 	Empty,
 	EmptyDescription,
@@ -30,6 +35,7 @@ import { Pencil, PenLine, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import CopySignatureButton from '@/components/settings/copy-signature-button';
+import SignaturePreview from '@/components/settings/signature-preview';
 import SignatureSheet from '@/components/settings/signature-sheet';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
@@ -96,54 +102,52 @@ function DeleteSignature({ signature }: { signature: EmailSignature }) {
 	);
 }
 
-const columns: ColumnDef<EmailSignature>[] = [
-	{
-		accessorKey: 'name',
-		header: 'Name',
-		cell: ({ row }) => (
-			<div className="flex items-center gap-2">
-				<span className="font-medium">{row.original.name}</span>
-				{row.original.isDefault ? (
-					<Badge size="lg" variant="success">
-						Default
-					</Badge>
-				) : null}
-			</div>
-		),
-	},
-	{
-		id: 'actions',
-		header: '',
-		size: 100,
-		cell: ({ row }) => (
-			<div className="flex justify-end">
-				<Group>
-					<CopySignatureButton
-						aria-label="Copy signature"
-						html={row.original.content}
-						iconOnly
-					/>
-					<GroupSeparator />
-					<SignatureSheet
-						signature={row.original}
-						trigger={
-							<Button
-								aria-label="Edit signature"
-								size="icon"
-								type="button"
-								variant="outline"
-							>
-								<Pencil />
-							</Button>
-						}
-					/>
-					<GroupSeparator />
-					<DeleteSignature signature={row.original} />
-				</Group>
-			</div>
-		),
-	},
-];
+function SignatureCard({ signature }: { signature: EmailSignature }) {
+	return (
+		<Card>
+			<CardHeader className="flex flex-row items-center justify-between gap-3">
+				<div className="flex min-w-0 flex-1 items-center gap-2">
+					<CardTitle className="truncate leading-tight">
+						{signature.name}
+					</CardTitle>
+					{signature.isDefault ? (
+						<Badge size="lg" variant="success">
+							Default
+						</Badge>
+					) : null}
+				</div>
+				<CardAction>
+					<Group>
+						<CopySignatureButton
+							aria-label="Copy signature"
+							html={signature.content}
+							iconOnly
+						/>
+						<GroupSeparator />
+						<SignatureSheet
+							signature={signature}
+							trigger={
+								<Button
+									aria-label="Edit signature"
+									size="icon"
+									type="button"
+									variant="outline"
+								>
+									<Pencil />
+								</Button>
+							}
+						/>
+						<GroupSeparator />
+						<DeleteSignature signature={signature} />
+					</Group>
+				</CardAction>
+			</CardHeader>
+			<CardContent>
+				<SignaturePreview html={signature.content} />
+			</CardContent>
+		</Card>
+	);
+}
 
 export default function EmailSignaturesContent() {
 	const signatures = useQuery(api.emailSignatures.list.list, {});
@@ -169,11 +173,11 @@ export default function EmailSignaturesContent() {
 		);
 	} else {
 		content = (
-			<DataTable
-				columns={columns}
-				data={signatures}
-				emptyMessage="No signatures found."
-			/>
+			<div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+				{signatures.map((signature) => (
+					<SignatureCard key={signature._id} signature={signature} />
+				))}
+			</div>
 		);
 	}
 
