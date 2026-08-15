@@ -13,6 +13,8 @@
 
 export const SIGNATURE_WEBSITE = 'https://luxuriahomes.com.au';
 export const SIGNATURE_COMPANY = 'Luxuria Homes';
+/** QBCC licensees must show their licence number on advertising material. */
+export const SIGNATURE_QBCC_LICENCE = '15405403';
 
 /**
  * The ink wordmark on a transparent background — the same logo the sidebar
@@ -45,6 +47,7 @@ export interface EmailSignatureFields {
 	fullName: string;
 	mobile?: string;
 	phone?: string;
+	qbccLicence?: string;
 	tagline?: string;
 	website: string;
 }
@@ -172,12 +175,20 @@ function buildContacts(fields: EmailSignatureFields): string {
 	return `<tr><td style="background:${LINEN};padding:14px 20px;font-family:${FONT_STACK};font-size:13px;line-height:1.6;color:${INK_LIGHT};">${contactsHtml}${addressHtml}</td></tr>`;
 }
 
-function buildDisclaimer(fields: EmailSignatureFields): string {
+/**
+ * The fine-print row: the optional disclaimer plus the QBCC licence, which is a
+ * compliance line and so always renders.
+ */
+function buildFinePrint(fields: EmailSignatureFields): string {
 	const disclaimer = clean(fields.disclaimer);
-	if (!disclaimer) {
-		return '';
-	}
-	return `<tr><td style="background:${LINEN};border-top:1px solid ${DIVIDER};padding:10px 20px 14px;font-family:${FONT_STACK};font-size:11px;line-height:1.5;color:${MUTED};">${escapeHtml(disclaimer)}</td></tr>`;
+	const licence = clean(fields.qbccLicence) || SIGNATURE_QBCC_LICENCE;
+
+	const disclaimerHtml = disclaimer
+		? `<div style="color:${MUTED};">${escapeHtml(disclaimer)}</div>`
+		: '';
+	const licenceHtml = `<div style="color:${INK_LIGHT};${disclaimerHtml ? 'padding-top:6px;' : ''}">QBCC Licence No. ${escapeHtml(licence)}</div>`;
+
+	return `<tr><td style="background:${LINEN};border-top:1px solid ${DIVIDER};padding:10px 20px 14px;font-family:${FONT_STACK};font-size:11px;line-height:1.5;">${disclaimerHtml}${licenceHtml}</td></tr>`;
 }
 
 /** Builds the full signature HTML fragment for a set of structured fields. */
@@ -189,6 +200,6 @@ export function renderSignatureHtml(
 	return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;max-width:520px;width:100%;background:${LINEN};border:1px solid ${DIVIDER};border-radius:6px;overflow:hidden;">
 ${buildBanner(fields, logoUrl)}
 ${buildContacts(fields)}
-${buildDisclaimer(fields)}
+${buildFinePrint(fields)}
 </table>`;
 }

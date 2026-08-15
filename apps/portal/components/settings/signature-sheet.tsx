@@ -308,6 +308,36 @@ export default function SignatureSheet({
 							)}
 						</form.Field>
 
+						<form.Field name="qbccLicence">
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>QBCC licence</FieldLabel>
+										<Input
+											aria-invalid={invalid}
+											id={field.name}
+											name={field.name}
+											nativeInput
+											onBlur={field.handleBlur}
+											onChange={(e) => field.handleChange(e.target.value)}
+											placeholder="15405403"
+											value={field.state.value}
+										/>
+										<FieldDescription>
+											Always shown below the disclaimer.
+										</FieldDescription>
+										{invalid ? (
+											<FieldError>
+												{signatureFormFieldError(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+									</Field>
+								);
+							}}
+						</form.Field>
+
 						<form.Field name="isDefault">
 							{(field) => (
 								<CheckboxCard

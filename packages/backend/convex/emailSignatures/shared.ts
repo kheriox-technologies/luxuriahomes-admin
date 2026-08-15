@@ -5,6 +5,7 @@ import {
 	type EmailSignatureFields,
 	renderSignatureHtml,
 	SIGNATURE_COMPANY,
+	SIGNATURE_QBCC_LICENCE,
 	SIGNATURE_WEBSITE,
 } from '../lib/signatureHtml';
 
@@ -19,6 +20,7 @@ export const signatureFieldsValidator = v.object({
 	address: v.optional(v.string()),
 	tagline: v.optional(v.string()),
 	disclaimer: v.optional(v.string()),
+	qbccLicence: v.optional(v.string()),
 	website: v.string(),
 });
 
@@ -51,6 +53,7 @@ export function parseSignatureFields(
 		address: trimOptional(fields.address),
 		tagline: trimOptional(fields.tagline),
 		disclaimer: trimOptional(fields.disclaimer),
+		qbccLicence: trimOptional(fields.qbccLicence) ?? SIGNATURE_QBCC_LICENCE,
 		website: fields.website.trim() || SIGNATURE_WEBSITE,
 	};
 }
