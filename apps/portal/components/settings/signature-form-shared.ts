@@ -2,6 +2,7 @@ import {
 	type EmailSignatureFields,
 	renderSignatureHtml,
 	SIGNATURE_COMPANY,
+	SIGNATURE_QBCC_LICENCE,
 	SIGNATURE_WEBSITE,
 } from '@workspace/backend/emailSignatureHtml';
 import { z } from 'zod';
@@ -28,6 +29,7 @@ export const signatureFormSchema = z.object({
 	address: z.string().optional(),
 	tagline: z.string().optional(),
 	disclaimer: z.string().optional(),
+	qbccLicence: z.string().trim().min(1, 'QBCC licence number is required'),
 	website: z.string().trim().min(1, 'Website is required'),
 	isDefault: z.boolean(),
 });
@@ -45,6 +47,7 @@ export const emptySignatureFormValues: SignatureFormValues = {
 	address: '',
 	tagline: '',
 	disclaimer: '',
+	qbccLicence: SIGNATURE_QBCC_LICENCE,
 	website: SIGNATURE_WEBSITE,
 	isDefault: false,
 };
@@ -82,6 +85,7 @@ export function toSignatureFields(
 		address: optional(values.address),
 		tagline: optional(values.tagline),
 		disclaimer: optional(values.disclaimer),
+		qbccLicence: values.qbccLicence.trim() || SIGNATURE_QBCC_LICENCE,
 		website: values.website.trim() || SIGNATURE_WEBSITE,
 	};
 }
@@ -104,6 +108,7 @@ export function toSignatureFormValues(signature: {
 		address: fields.address ?? '',
 		tagline: fields.tagline ?? '',
 		disclaimer: fields.disclaimer ?? '',
+		qbccLicence: fields.qbccLicence || SIGNATURE_QBCC_LICENCE,
 		website: fields.website || SIGNATURE_WEBSITE,
 		isDefault: signature.isDefault,
 	};

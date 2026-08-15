@@ -678,6 +678,9 @@ export default defineSchema({
 			address: v.optional(v.string()),
 			tagline: v.optional(v.string()),
 			disclaimer: v.optional(v.string()),
+			// Optional so signatures created before the field stay valid; the
+			// renderer falls back to the company licence number.
+			qbccLicence: v.optional(v.string()),
 			website: v.string(),
 		}),
 		isDefault: v.boolean(),
