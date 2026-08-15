@@ -666,7 +666,20 @@ export default defineSchema({
 		.index('by_stage', ['stageId']),
 	emailSignatures: defineTable({
 		name: v.string(),
+		/** Rendered HTML, derived from `fields` — this is what emails ship. */
 		content: v.string(),
+		fields: v.object({
+			fullName: v.string(),
+			designation: v.optional(v.string()),
+			company: v.optional(v.string()),
+			mobile: v.optional(v.string()),
+			phone: v.optional(v.string()),
+			email: v.optional(v.string()),
+			address: v.optional(v.string()),
+			tagline: v.optional(v.string()),
+			disclaimer: v.optional(v.string()),
+			website: v.string(),
+		}),
 		isDefault: v.boolean(),
 		searchText: v.string(),
 	}).searchIndex('search_email_signatures', { searchField: 'searchText' }),
