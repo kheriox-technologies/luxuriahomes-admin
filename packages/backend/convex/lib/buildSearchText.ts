@@ -147,8 +147,12 @@ export function buildMaterialColorSearchText(
 	return buildSearchText([name, description]);
 }
 
-export function buildEmailSignatureSearchText(name: string): string {
-	return buildSearchText([name]);
+export function buildEmailSignatureSearchText(
+	name: string,
+	fullName?: string,
+	email?: string
+): string {
+	return buildSearchText([name, fullName, email]);
 }
 
 export function buildEmailTemplateSearchText(

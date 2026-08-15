@@ -32,7 +32,7 @@ App Store Connect, paste the bullet list from that version's section into the
 
 ## 1.0.1 — In review
 
-_iOS build 24 · Android versionCode 6_
+_iOS build 26 · Android versionCode 7_
 
 - Add a location picker when composing letters
 - Bug fixes and performance improvements
@@ -40,6 +40,15 @@ _iOS build 24 · Android versionCode 6_
 <!-- draft: commit subjects since the last build — rewrite the useful ones into bullets above, then delete this block:
   • Fix keyboard covering text fields on mobile
   • Draft release notes from commit messages on each mobile build
+  • Add root aliases for mobile build and submit scripts
+  • Move mobile private filter to an icon toggle beside add
+  • Add private tasks visible only to their owner
+  • Add a default contingency percentage per budget template
+  • Add per-trade contingency percentage to budgets
+  • Add contact-bold, facade and signboard sponsor banners
+  • Add sponsor marketing banners in 16:9 and 9:16
+  • Truncate long date-field labels instead of overflowing the pill
+  • Keep select chevron inside the pill on narrow rows
 -->
 
 ---

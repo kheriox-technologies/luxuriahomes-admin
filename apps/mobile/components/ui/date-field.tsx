@@ -57,9 +57,10 @@ export function DateField({
 					/>
 					<Text
 						className={cn(
-							'font-sans text-sm',
+							'flex-1 font-sans text-sm',
 							value ? 'text-foreground' : 'text-muted-foreground'
 						)}
+						numberOfLines={1}
 					>
 						{value ? formatDate(value.getTime()) : placeholder}
 					</Text>

@@ -21,7 +21,8 @@
     "./dataModel": {
       "types": "./convex/_generated/dataModel.d.ts"
     },
-    "./schema": "./convex/schema.ts"
+    "./schema": "./convex/schema.ts",
+    "./emailSignatureHtml": "./convex/lib/signatureHtml.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

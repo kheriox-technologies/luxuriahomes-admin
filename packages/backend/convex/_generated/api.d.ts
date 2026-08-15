@@ -142,6 +142,7 @@ import type * as lib_clerk from "../lib/clerk.js";
 import type * as lib_clientAccess from "../lib/clientAccess.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_signatureHtml from "../lib/signatureHtml.js";
 import type * as lib_toKebabCase from "../lib/toKebabCase.js";
 import type * as locations_add from "../locations/add.js";
 import type * as locations_addMany from "../locations/addMany.js";
@@ -560,6 +561,7 @@ declare const fullApi: ApiFromModules<{
   "lib/clientAccess": typeof lib_clientAccess;
   "lib/logger": typeof lib_logger;
   "lib/permissions": typeof lib_permissions;
+  "lib/signatureHtml": typeof lib_signatureHtml;
   "lib/toKebabCase": typeof lib_toKebabCase;
   "locations/add": typeof locations_add;
   "locations/addMany": typeof locations_addMany;
