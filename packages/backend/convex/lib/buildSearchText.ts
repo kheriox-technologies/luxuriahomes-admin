@@ -118,6 +118,26 @@ export function buildTradeStageSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
+export function buildQuoteStageSearchText(name: string): string {
+	return buildSearchText([name]);
+}
+
+export function buildQuoteSectionSearchText(
+	name: string,
+	stageName: string
+): string {
+	return buildSearchText([name, stageName]);
+}
+
+export function buildQuoteItemSearchText(
+	name: string,
+	description: string | undefined,
+	sectionName: string,
+	stageName: string
+): string {
+	return buildSearchText([name, description, sectionName, stageName]);
+}
+
 export function buildBudgetTemplateSearchText(
 	title: string,
 	description?: string

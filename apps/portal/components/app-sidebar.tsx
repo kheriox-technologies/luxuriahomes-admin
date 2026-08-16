@@ -153,6 +153,11 @@ const items: SidebarItem[] = [
 				url: '/takeoff-categories',
 				path: '/takeoff-categories',
 			},
+			{
+				title: 'Quote Items',
+				url: '/quote-items',
+				path: '/quote-items',
+			},
 		],
 	},
 	{
