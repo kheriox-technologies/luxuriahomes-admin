@@ -35,7 +35,8 @@
       "!**/wrangler.jsonc",
       "!**/.source",
       "!**/convex/_generated",
-      "!**/temp"
+      "!**/temp",
+      "!docs"
     ]
   },
   "overrides": [

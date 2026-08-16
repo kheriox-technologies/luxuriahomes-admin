@@ -397,6 +397,38 @@ export default defineSchema({
 		.index('by_stage', ['stageId'])
 		.index('by_xero_account', ['xeroAccountId'])
 		.searchIndex('search_trades', { searchField: 'searchText' }),
+	// Master catalogue of quotation line items, three levels deep:
+	// quoteStages > quoteSections > quoteItems. Every section belongs to exactly
+	// one stage and every item to exactly one section — there is no Ungrouped
+	// bucket, so the parent ids and `order` are required.
+	quoteStages: defineTable({
+		name: v.string(),
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_stages', { searchField: 'searchText' }),
+	quoteSections: defineTable({
+		name: v.string(),
+		stageId: v.id('quoteStages'),
+		// Sort position within the section's stage.
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_stage_order', ['stageId', 'order'])
+		.searchIndex('search_quote_sections', { searchField: 'searchText' }),
+	quoteItems: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		sectionId: v.id('quoteSections'),
+		// Pre-selected when a new quotation is built from the catalogue.
+		isDefault: v.boolean(),
+		// Sort position within the item's section.
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_section_order', ['sectionId', 'order'])
+		.searchIndex('search_quote_items', { searchField: 'searchText' }),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),
