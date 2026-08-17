@@ -29,6 +29,7 @@ import {
 	type QuotationPdfVersion,
 } from '@/lib/client/pdf/client-quotation-pdf';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import { formatAudWhole } from '@/lib/currency';
 import {
 	applyMargin,
 	COVER_DESCRIPTION_MAX_LENGTH,
@@ -216,7 +217,13 @@ export default function ClientQuotationComposer({
 		? currentVersion + (amending ? 0 : 1)
 		: FIRST_VERSION;
 
-	const totalInclGst = parseMoney(values.totalInclGst);
+	// The budget is what gets entered; the quoted total is the budget plus margin,
+	// derived on every render rather than held as its own field.
+	const budgetAmount = parseMoney(values.budgetAmount);
+	const totalInclGst = applyMargin(
+		budgetAmount,
+		parseMoney(values.marginPercent)
+	);
 
 	/**
 	 * Where each stage's percentage starts: the figure the quotation was issued
@@ -552,6 +559,7 @@ export default function ClientQuotationComposer({
 				budgetTemplateTotal:
 					selectedTemplate?.totalPrice ??
 					(templateUnchanged ? quotation?.budgetTemplateTotal : undefined),
+				budgetAmount,
 				marginPercent: parsed.data.marginPercent
 					? Number(parsed.data.marginPercent)
 					: undefined,
@@ -655,22 +663,19 @@ export default function ClientQuotationComposer({
 			? fieldMeta.marginPercent.errors
 			: undefined
 	);
-	const totalError = quotationFieldError(
-		fieldMeta.totalInclGst?.isTouched
-			? fieldMeta.totalInclGst.errors
+	const budgetError = quotationFieldError(
+		fieldMeta.budgetAmount?.isTouched
+			? fieldMeta.budgetAmount.errors
 			: undefined
 	);
 
-	const applyTemplatePrice = (templateId: string, margin: string) => {
+	/** Picking a template seeds the budget; it stays editable afterwards. */
+	const applyTemplateBudget = (templateId: string) => {
 		const template = budgetTemplates?.find((item) => item._id === templateId);
 		if (!template) {
 			return;
 		}
-		const marginValue = margin === '' ? 0 : Number(margin);
-		form.setFieldValue(
-			'totalInclGst',
-			String(applyMargin(template.totalPrice, marginValue || 0))
-		);
+		form.setFieldValue('budgetAmount', String(template.totalPrice));
 	};
 
 	return (
@@ -797,18 +802,34 @@ export default function ClientQuotationComposer({
 							</Frame>
 
 							<Frame className="h-full">
-								<FrameHeader>
+								<FrameHeader className="flex-row items-center justify-between gap-3">
 									<FrameTitle>Price</FrameTitle>
+									<Badge
+										className="shrink-0 tabular-nums"
+										size="lg"
+										variant="purple"
+									>
+										{formatAudWhole(totalInclGst)}
+									</Badge>
 								</FrameHeader>
 								<FramePanel className="flex-1">
 									<QuotationPricingField
+										budgetAmount={values.budgetAmount}
+										budgetError={budgetError}
 										budgetTemplateId={values.budgetTemplateId}
 										budgetTemplates={budgetTemplates}
 										marginError={marginError}
 										marginPercent={values.marginPercent}
+										onBudgetAmountChange={(budget) => {
+											form.setFieldValue('budgetAmount', budget);
+											form.setFieldMeta('budgetAmount', (meta) => ({
+												...meta,
+												isTouched: true,
+											}));
+										}}
 										onBudgetTemplateChange={(templateId) => {
 											form.setFieldValue('budgetTemplateId', templateId);
-											applyTemplatePrice(templateId, values.marginPercent);
+											applyTemplateBudget(templateId);
 										}}
 										onMarginChange={(margin) => {
 											form.setFieldValue('marginPercent', margin);
@@ -816,17 +837,8 @@ export default function ClientQuotationComposer({
 												...meta,
 												isTouched: true,
 											}));
-											applyTemplatePrice(values.budgetTemplateId, margin);
 										}}
-										onTotalChange={(total) => {
-											form.setFieldValue('totalInclGst', total);
-											form.setFieldMeta('totalInclGst', (meta) => ({
-												...meta,
-												isTouched: true,
-											}));
-										}}
-										totalError={totalError}
-										totalInclGst={values.totalInclGst}
+										totalInclGst={totalInclGst}
 									/>
 								</FramePanel>
 							</Frame>
@@ -873,6 +885,7 @@ export default function ClientQuotationComposer({
 									}
 									percentTotal={percentTotal}
 									rows={stageRows}
+									totalAmount={totalInclGst}
 									valid={percentsValid}
 								/>
 							</FramePanel>

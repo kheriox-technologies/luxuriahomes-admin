@@ -27,11 +27,13 @@ export default function QuotationStagePercentages({
 	onPercentChange,
 	percentTotal,
 	rows,
+	totalAmount,
 	valid,
 }: {
 	onPercentChange: (stageKey: string, percent: string) => void;
 	percentTotal: number;
 	rows: QuotationStageRow[];
+	totalAmount: number;
 	valid: boolean;
 }) {
 	if (rows.length === 0) {
@@ -88,7 +90,9 @@ export default function QuotationStagePercentages({
 				>
 					{percentTotal}%
 				</span>
-				<span className="w-24 shrink-0" />
+				<span className="w-24 shrink-0 text-right font-medium text-sm tabular-nums">
+					{formatAudWhole(totalAmount)}
+				</span>
 			</div>
 
 			{valid ? null : (

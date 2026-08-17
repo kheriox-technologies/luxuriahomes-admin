@@ -26,42 +26,41 @@ import { formatAud } from '@/lib/currency';
 import { splitGst } from './client-quotation-form-shared';
 
 /**
- * Price for the quotation. A budget template seeds the figure — template total
- * plus margin — after which the number is the user's to adjust: every project
- * carries client- or site-specific movement the template can't know about.
+ * Price for the quotation. A budget template seeds the project budget, which can
+ * equally be typed by hand; the quoted total is the budget plus margin and is
+ * derived rather than entered.
  */
 export default function QuotationPricingField({
+	budgetAmount,
+	budgetError,
 	budgetTemplateId,
 	budgetTemplates,
 	marginPercent,
 	marginError,
+	onBudgetAmountChange,
 	onBudgetTemplateChange,
 	onMarginChange,
-	onTotalChange,
-	totalError,
 	totalInclGst,
 }: {
+	budgetAmount: string;
+	budgetError?: string;
 	budgetTemplateId: string;
 	budgetTemplates: Doc<'budgetTemplates'>[] | undefined;
 	marginError?: string;
 	marginPercent: string;
+	onBudgetAmountChange: (budget: string) => void;
 	onBudgetTemplateChange: (templateId: string) => void;
 	onMarginChange: (margin: string) => void;
-	onTotalChange: (total: string) => void;
-	totalError?: string;
-	totalInclGst: string;
+	totalInclGst: number;
 }) {
 	const selected =
 		budgetTemplates?.find((template) => template._id === budgetTemplateId) ??
 		null;
-	const total = Number(totalInclGst);
-	const { contractSumExclGst, gstAmount } = splitGst(
-		Number.isFinite(total) ? total : 0
-	);
+	const { contractSumExclGst, gstAmount } = splitGst(totalInclGst);
 
 	return (
 		<div className="flex flex-col gap-3">
-			{/* Template on its own row, margin and total sharing the one below. */}
+			{/* Template on its own row, budget and margin sharing the one below. */}
 			<div className="grid items-start gap-3 sm:grid-cols-2">
 				<Field className="sm:col-span-2">
 					<FieldLabel htmlFor="quotation-budget-template">
@@ -75,7 +74,7 @@ export default function QuotationPricingField({
 					>
 						<ComboboxInput
 							id="quotation-budget-template"
-							placeholder="Select a template to seed the price"
+							placeholder="Select a template to seed the budget"
 						/>
 						<ComboboxPopup>
 							<ComboboxEmpty>No budget templates found.</ComboboxEmpty>
@@ -100,6 +99,26 @@ export default function QuotationPricingField({
 					) : null}
 				</Field>
 
+				<Field data-invalid={Boolean(budgetError)}>
+					<FieldLabel htmlFor="quotation-budget">Budget</FieldLabel>
+					<InputGroup>
+						<InputGroupAddon align="inline-start">
+							<InputGroupText>$</InputGroupText>
+						</InputGroupAddon>
+						<InputGroupInput
+							aria-invalid={Boolean(budgetError) || undefined}
+							id="quotation-budget"
+							inputMode="decimal"
+							nativeInput
+							onChange={(event) => onBudgetAmountChange(event.target.value)}
+							placeholder="0.00"
+							type="text"
+							value={budgetAmount}
+						/>
+					</InputGroup>
+					{budgetError ? <FieldError>{budgetError}</FieldError> : null}
+				</Field>
+
 				<Field data-invalid={Boolean(marginError)}>
 					<FieldLabel htmlFor="quotation-margin">Margin</FieldLabel>
 					<InputGroup>
@@ -118,26 +137,6 @@ export default function QuotationPricingField({
 						</InputGroupAddon>
 					</InputGroup>
 					{marginError ? <FieldError>{marginError}</FieldError> : null}
-				</Field>
-
-				<Field data-invalid={Boolean(totalError)}>
-					<FieldLabel htmlFor="quotation-total">Total (incl. GST)</FieldLabel>
-					<InputGroup>
-						<InputGroupAddon align="inline-start">
-							<InputGroupText>$</InputGroupText>
-						</InputGroupAddon>
-						<InputGroupInput
-							aria-invalid={Boolean(totalError) || undefined}
-							id="quotation-total"
-							inputMode="decimal"
-							nativeInput
-							onChange={(event) => onTotalChange(event.target.value)}
-							placeholder="0.00"
-							type="text"
-							value={totalInclGst}
-						/>
-					</InputGroup>
-					{totalError ? <FieldError>{totalError}</FieldError> : null}
 				</Field>
 			</div>
 

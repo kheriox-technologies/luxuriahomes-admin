@@ -506,13 +506,16 @@ export default defineSchema({
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
 		issuedAt: v.number(),
-		// Pricing provenance. All optional — the total can be typed free-hand
-		// without picking a budget template at all.
+		// Pricing provenance. The template fields are optional — the budget can be
+		// typed free-hand without picking a budget template at all.
 		budgetTemplateId: v.optional(v.id('budgetTemplates')),
 		budgetTemplateTitle: v.optional(v.string()),
 		budgetTemplateTotal: v.optional(v.number()),
+		// The project budget, seeded from the template or typed by hand.
+		budgetAmount: v.number(),
 		marginPercent: v.optional(v.number()),
-		// All prices are inclusive of GST; the other two are derived from this.
+		// The quoted price: budget plus margin. All prices are inclusive of GST;
+		// the other two are derived from this.
 		totalInclGst: v.number(),
 		contractSumExclGst: v.number(),
 		gstAmount: v.number(),

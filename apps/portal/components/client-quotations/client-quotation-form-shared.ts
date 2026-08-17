@@ -58,11 +58,11 @@ export const clientQuotationFormSchema = z.object({
 			(value) => value === '' || PERCENT_PATTERN.test(value),
 			'Enter a valid margin'
 		),
-	totalInclGst: z
+	budgetAmount: z
 		.string()
 		.trim()
 		.regex(MONEY_PATTERN, 'Enter a valid amount')
-		.refine((value) => Number(value) > 0, 'Total must be greater than zero'),
+		.refine((value) => Number(value) > 0, 'Budget must be greater than zero'),
 });
 
 export type ClientQuotationFormValues = z.infer<
@@ -83,7 +83,7 @@ export const emptyClientQuotationFormValues: ClientQuotationFormValues = {
 	address: { street: '', suburb: '', state: 'QLD', postcode: '' },
 	budgetTemplateId: '',
 	marginPercent: '',
-	totalInclGst: '',
+	budgetAmount: '',
 };
 
 /**
@@ -113,7 +113,7 @@ export function formValuesFromQuotation(
 			quotation.marginPercent === undefined
 				? ''
 				: String(quotation.marginPercent),
-		totalInclGst: String(quotation.totalInclGst),
+		budgetAmount: String(quotation.budgetAmount),
 	};
 }
 
@@ -140,12 +140,9 @@ export function parseMoney(value: string): number {
 	return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** Template total plus margin — the starting point for the quoted price. */
-export function applyMargin(
-	templateTotal: number,
-	marginPercent: number
-): number {
-	return round2(templateTotal * (1 + marginPercent / 100));
+/** Budget plus margin — the total the quotation is priced and printed at. */
+export function applyMargin(budget: number, marginPercent: number): number {
+	return round2(budget * (1 + marginPercent / 100));
 }
 
 /**
