@@ -502,7 +502,7 @@ export default defineSchema({
 		referenceSeq: v.optional(v.number()),
 		projectName: v.string(),
 		description: v.optional(v.string()),
-		// One or two clients; the count is enforced on write.
+		// At least one client; the upper bound is enforced on write.
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
 		issuedAt: v.number(),

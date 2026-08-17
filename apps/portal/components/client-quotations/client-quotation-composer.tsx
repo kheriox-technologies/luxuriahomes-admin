@@ -17,7 +17,7 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { FileText, Save } from 'lucide-react';
+import { FileText, Plus, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
@@ -32,7 +32,9 @@ import {
 	clientQuotationFormSchema,
 	computeStageAmounts,
 	emptyClientQuotationFormValues,
+	emptyQuotationClient,
 	formatIssueDate,
+	MAX_QUOTATION_CLIENTS,
 	PERCENT_EPSILON,
 	parseMoney,
 	QUOTATION_FOLDER_NAME,
@@ -451,68 +453,97 @@ export default function ClientQuotationComposer() {
 
 			<div className="flex min-h-0 flex-1 flex-col">
 				<ScrollArea className="min-h-0">
-					<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pe-3 pb-4">
-						<Frame>
-							<FrameHeader>
-								<FrameTitle>Project</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="flex flex-col gap-4">
-								<Field data-invalid={Boolean(projectNameError)}>
-									<FieldLabel htmlFor="quotation-project-name">
-										Project name
-									</FieldLabel>
-									<Input
-										aria-invalid={Boolean(projectNameError)}
-										id="quotation-project-name"
-										nativeInput
-										onBlur={() =>
-											form.setFieldMeta('projectName', (meta) => ({
-												...meta,
-												isTouched: true,
-											}))
-										}
-										onChange={(event) =>
-											form.setFieldValue('projectName', event.target.value)
-										}
-										placeholder="e.g. A residence at Hamilton Hill"
-										value={values.projectName}
-									/>
-									{projectNameError ? (
-										<FieldError>{projectNameError}</FieldError>
-									) : null}
-								</Field>
+					<div className="flex w-full flex-col gap-5 pe-3 pb-4">
+						<div className="grid items-stretch gap-5 lg:grid-cols-2">
+							<Frame className="h-full">
+								<FrameHeader>
+									<FrameTitle>Project</FrameTitle>
+								</FrameHeader>
+								<FramePanel className="flex flex-1 flex-col gap-4">
+									<Field data-invalid={Boolean(projectNameError)}>
+										<FieldLabel htmlFor="quotation-project-name">
+											Project name
+										</FieldLabel>
+										<Input
+											aria-invalid={Boolean(projectNameError)}
+											id="quotation-project-name"
+											nativeInput
+											onBlur={() =>
+												form.setFieldMeta('projectName', (meta) => ({
+													...meta,
+													isTouched: true,
+												}))
+											}
+											onChange={(event) =>
+												form.setFieldValue('projectName', event.target.value)
+											}
+											placeholder="e.g. A residence at Hamilton Hill"
+											value={values.projectName}
+										/>
+										{projectNameError ? (
+											<FieldError>{projectNameError}</FieldError>
+										) : null}
+									</Field>
 
-								<Field data-invalid={Boolean(descriptionError)}>
-									<FieldLabel htmlFor="quotation-description">
-										Description
-									</FieldLabel>
-									<Textarea
-										aria-invalid={Boolean(descriptionError)}
-										id="quotation-description"
-										maxLength={COVER_DESCRIPTION_MAX_LENGTH}
-										onBlur={() =>
-											form.setFieldMeta('description', (meta) => ({
-												...meta,
-												isTouched: true,
-											}))
-										}
-										onChange={(event) =>
-											form.setFieldValue('description', event.target.value)
-										}
-										placeholder="Prepared for the construction of a new two-storey custom residence…"
-										rows={3}
-										value={values.description}
+									<Field data-invalid={Boolean(descriptionError)}>
+										<FieldLabel htmlFor="quotation-description">
+											Description
+										</FieldLabel>
+										<Textarea
+											aria-invalid={Boolean(descriptionError)}
+											id="quotation-description"
+											maxLength={COVER_DESCRIPTION_MAX_LENGTH}
+											onBlur={() =>
+												form.setFieldMeta('description', (meta) => ({
+													...meta,
+													isTouched: true,
+												}))
+											}
+											onChange={(event) =>
+												form.setFieldValue('description', event.target.value)
+											}
+											placeholder="Prepared for the construction of a new two-storey custom residence…"
+											rows={3}
+											value={values.description}
+										/>
+										{descriptionError ? (
+											<FieldError>{descriptionError}</FieldError>
+										) : null}
+									</Field>
+								</FramePanel>
+							</Frame>
+
+							<Frame className="h-full">
+								<FrameHeader>
+									<FrameTitle>Project address</FrameTitle>
+								</FrameHeader>
+								<FramePanel className="flex-1">
+									<QuotationAddressField
+										onChange={(next) => form.setFieldValue('address', next)}
+										value={values.address}
 									/>
-									{descriptionError ? (
-										<FieldError>{descriptionError}</FieldError>
-									) : null}
-								</Field>
-							</FramePanel>
-						</Frame>
+								</FramePanel>
+							</Frame>
+						</div>
 
 						<Frame>
-							<FrameHeader>
+							<FrameHeader className="flex-row items-center justify-between">
 								<FrameTitle>Clients</FrameTitle>
+								{values.clients.length < MAX_QUOTATION_CLIENTS ? (
+									<Button
+										onClick={() =>
+											form.setFieldValue('clients', [
+												...values.clients,
+												{ ...emptyQuotationClient },
+											])
+										}
+										size="sm"
+										type="button"
+										variant="outline"
+									>
+										<Plus aria-hidden /> Add client
+									</Button>
+								) : null}
 							</FrameHeader>
 							<FramePanel>
 								<QuotationClientsField
@@ -522,92 +553,82 @@ export default function ClientQuotationComposer() {
 							</FramePanel>
 						</Frame>
 
-						<Frame>
-							<FrameHeader>
-								<FrameTitle>Project address</FrameTitle>
-							</FrameHeader>
-							<FramePanel>
-								<QuotationAddressField
-									onChange={(next) => form.setFieldValue('address', next)}
-									value={values.address}
-								/>
-							</FramePanel>
-						</Frame>
+						<div className="grid items-stretch gap-5 lg:grid-cols-2">
+							<Frame className="h-full">
+								<FrameHeader>
+									<FrameTitle>Quote reference</FrameTitle>
+								</FrameHeader>
+								<FramePanel className="flex flex-1 flex-col gap-4">
+									<div className="grid gap-4 sm:grid-cols-2">
+										<Field>
+											<FieldLabel htmlFor="quotation-reference">
+												Reference
+											</FieldLabel>
+											<Input
+												disabled
+												id="quotation-reference"
+												nativeInput
+												readOnly
+												value={candidateReference}
+											/>
+										</Field>
+										<Field data-invalid={Boolean(validityError)}>
+											<FieldLabel htmlFor="quotation-validity">
+												Valid for (days)
+											</FieldLabel>
+											<Input
+												aria-invalid={Boolean(validityError)}
+												id="quotation-validity"
+												inputMode="numeric"
+												nativeInput
+												onBlur={() =>
+													form.setFieldMeta('validityDays', (meta) => ({
+														...meta,
+														isTouched: true,
+													}))
+												}
+												onChange={(event) =>
+													form.setFieldValue('validityDays', event.target.value)
+												}
+												value={values.validityDays}
+											/>
+											{validityError ? (
+												<FieldError>{validityError}</FieldError>
+											) : null}
+										</Field>
+									</div>
+									<p className="mt-auto text-muted-foreground text-sm">
+										Issued {formatIssueDate(issuedAt)}. The reference is
+										confirmed when you save.
+									</p>
+								</FramePanel>
+							</Frame>
 
-						<Frame>
-							<FrameHeader>
-								<FrameTitle>Quote reference</FrameTitle>
-							</FrameHeader>
-							<FramePanel className="flex flex-col gap-4">
-								<div className="grid gap-4 sm:grid-cols-2">
-									<Field>
-										<FieldLabel htmlFor="quotation-reference">
-											Reference
-										</FieldLabel>
-										<Input
-											disabled
-											id="quotation-reference"
-											nativeInput
-											readOnly
-											value={candidateReference}
-										/>
-									</Field>
-									<Field data-invalid={Boolean(validityError)}>
-										<FieldLabel htmlFor="quotation-validity">
-											Valid for (days)
-										</FieldLabel>
-										<Input
-											aria-invalid={Boolean(validityError)}
-											id="quotation-validity"
-											inputMode="numeric"
-											nativeInput
-											onBlur={() =>
-												form.setFieldMeta('validityDays', (meta) => ({
-													...meta,
-													isTouched: true,
-												}))
-											}
-											onChange={(event) =>
-												form.setFieldValue('validityDays', event.target.value)
-											}
-											value={values.validityDays}
-										/>
-										{validityError ? (
-											<FieldError>{validityError}</FieldError>
-										) : null}
-									</Field>
-								</div>
-								<p className="text-muted-foreground text-sm">
-									Issued {formatIssueDate(issuedAt)}. The reference is confirmed
-									when you save.
-								</p>
-							</FramePanel>
-						</Frame>
-
-						<Frame>
-							<FrameHeader>
-								<FrameTitle>Price</FrameTitle>
-							</FrameHeader>
-							<FramePanel>
-								<QuotationPricingField
-									budgetTemplateId={values.budgetTemplateId}
-									budgetTemplates={budgetTemplates}
-									marginPercent={values.marginPercent}
-									onBudgetTemplateChange={(templateId) => {
-										form.setFieldValue('budgetTemplateId', templateId);
-										applyTemplatePrice(templateId, values.marginPercent);
-									}}
-									onMarginChange={(margin) => {
-										form.setFieldValue('marginPercent', margin);
-										applyTemplatePrice(values.budgetTemplateId, margin);
-									}}
-									onTotalChange={(total) =>
-										form.setFieldValue('totalInclGst', total)
-									}
-									totalInclGst={values.totalInclGst}
-								/>
-							</FramePanel>
-						</Frame>
+							<Frame className="h-full">
+								<FrameHeader>
+									<FrameTitle>Price</FrameTitle>
+								</FrameHeader>
+								<FramePanel className="flex-1">
+									<QuotationPricingField
+										budgetTemplateId={values.budgetTemplateId}
+										budgetTemplates={budgetTemplates}
+										marginPercent={values.marginPercent}
+										onBudgetTemplateChange={(templateId) => {
+											form.setFieldValue('budgetTemplateId', templateId);
+											applyTemplatePrice(templateId, values.marginPercent);
+										}}
+										onMarginChange={(margin) => {
+											form.setFieldValue('marginPercent', margin);
+											applyTemplatePrice(values.budgetTemplateId, margin);
+										}}
+										onTotalChange={(total) =>
+											form.setFieldValue('totalInclGst', total)
+										}
+										totalInclGst={values.totalInclGst}
+									/>
+								</FramePanel>
+							</Frame>
+						</div>
 
 						<Frame>
 							<FrameHeader>

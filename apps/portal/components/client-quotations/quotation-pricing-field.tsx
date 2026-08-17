@@ -61,44 +61,45 @@ export default function QuotationPricingField({
 
 	return (
 		<div className="flex flex-col gap-3">
-			<Field>
-				<FieldLabel htmlFor="quotation-budget-template">
-					Budget template
-				</FieldLabel>
-				<Combobox<Doc<'budgetTemplates'>>
-					items={budgetTemplates ?? []}
-					itemToStringLabel={(template) => template.title}
-					onValueChange={(next) => onBudgetTemplateChange(next?._id ?? '')}
-					value={selected}
-				>
-					<ComboboxInput
-						id="quotation-budget-template"
-						placeholder="Select a template to seed the price"
-					/>
-					<ComboboxPopup>
-						<ComboboxEmpty>No budget templates found.</ComboboxEmpty>
-						<ComboboxList>
-							{(template: Doc<'budgetTemplates'>) => (
-								<ComboboxItem key={template._id} value={template}>
-									<span className="flex w-full items-center justify-between gap-4">
-										<span>{template.title}</span>
-										<span className="text-muted-foreground tabular-nums">
-											{formatAud(template.totalPrice)}
+			{/* Template at half the row, margin and total at a quarter each. */}
+			<div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+				<Field className="lg:col-span-2">
+					<FieldLabel htmlFor="quotation-budget-template">
+						Budget template
+					</FieldLabel>
+					<Combobox<Doc<'budgetTemplates'>>
+						items={budgetTemplates ?? []}
+						itemToStringLabel={(template) => template.title}
+						onValueChange={(next) => onBudgetTemplateChange(next?._id ?? '')}
+						value={selected}
+					>
+						<ComboboxInput
+							id="quotation-budget-template"
+							placeholder="Select a template to seed the price"
+						/>
+						<ComboboxPopup>
+							<ComboboxEmpty>No budget templates found.</ComboboxEmpty>
+							<ComboboxList>
+								{(template: Doc<'budgetTemplates'>) => (
+									<ComboboxItem key={template._id} value={template}>
+										<span className="flex w-full items-center justify-between gap-4">
+											<span>{template.title}</span>
+											<span className="text-muted-foreground tabular-nums">
+												{formatAud(template.totalPrice)}
+											</span>
 										</span>
-									</span>
-								</ComboboxItem>
-							)}
-						</ComboboxList>
-					</ComboboxPopup>
-				</Combobox>
-				{selected ? (
-					<FieldDescription>
-						Template total {formatAud(selected.totalPrice)}.
-					</FieldDescription>
-				) : null}
-			</Field>
+									</ComboboxItem>
+								)}
+							</ComboboxList>
+						</ComboboxPopup>
+					</Combobox>
+					{selected ? (
+						<FieldDescription>
+							Template total {formatAud(selected.totalPrice)}.
+						</FieldDescription>
+					) : null}
+				</Field>
 
-			<div className="grid gap-3 sm:grid-cols-2">
 				<Field data-invalid={Boolean(marginError)}>
 					<FieldLabel htmlFor="quotation-margin">Margin</FieldLabel>
 					<InputGroup>

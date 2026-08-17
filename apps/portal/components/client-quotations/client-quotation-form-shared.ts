@@ -8,7 +8,7 @@ const PERCENT_PATTERN = /^\d{1,3}(\.\d{1,2})?$/;
 const POSTCODE_PATTERN = /^\d{4}$/;
 const VALIDITY_PATTERN = /^\d{1,3}$/;
 
-export const MAX_QUOTATION_CLIENTS = 2;
+export const MAX_QUOTATION_CLIENTS = 4;
 export const COVER_DESCRIPTION_MAX_LENGTH = 400;
 export const DEFAULT_VALIDITY_DAYS = '30';
 export const QUOTATION_FOLDER_NAME = 'Client Quotations';
@@ -38,7 +38,10 @@ export const clientQuotationFormSchema = z.object({
 	clients: z
 		.array(quotationClientSchema)
 		.min(1)
-		.max(MAX_QUOTATION_CLIENTS, 'A quotation can list at most two clients'),
+		.max(
+			MAX_QUOTATION_CLIENTS,
+			`A quotation can list at most ${MAX_QUOTATION_CLIENTS} clients`
+		),
 	address: z.object({
 		street: z.string().trim().min(1, 'Street is required'),
 		suburb: z.string().trim().min(1, 'Suburb is required'),

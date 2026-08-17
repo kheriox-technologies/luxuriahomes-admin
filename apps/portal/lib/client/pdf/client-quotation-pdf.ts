@@ -109,6 +109,8 @@ const LABEL_MARGIN_BOTTOM = 5;
 const FONT_LINE_BOX = 1.25;
 /** Slack on predicted heights, so a rounding error never costs a page break. */
 const COVER_DETAILS_SAFETY_PAD = 8;
+/** Clients per "Prepared for" column on the cover before they wrap. */
+const COVER_CLIENTS_PER_COLUMN = 2;
 
 function textBlockHeight(
 	fontSize: number,
@@ -434,21 +436,39 @@ function detailsColumnHeight(lineCount: number): number {
 }
 
 /**
+ * The prepared-for lines, split into columns. Stacking every client in one
+ * column runs the details bank up into the cover title once there are more than
+ * two, so past that point they wrap into a second column.
+ */
+function clientLineGroups(clients: QuotationPdfClient[]): string[][] {
+	const linesFor = (client: QuotationPdfClient) =>
+		[client.name, client.phone, client.email].filter(Boolean);
+	const group = (members: QuotationPdfClient[]) =>
+		members.flatMap((client, index) =>
+			index === 0 ? linesFor(client) : ['', ...linesFor(client)]
+		);
+
+	if (clients.length <= COVER_CLIENTS_PER_COLUMN) {
+		return [group(clients)];
+	}
+	const split = Math.ceil(clients.length / 2);
+	return [group(clients.slice(0, split)), group(clients.slice(split))];
+}
+
+/**
  * Prepared-for / address / reference / total, banked along the bottom of the ink
  * cover. These sit on the dark background, so they take the inverted palette.
  */
 function coverDetails(input: QuotationPdfInput): Node {
 	const onInk = { labelColor: C.linenMuted, valueColor: C.linen };
-	const clientLines = input.clients.flatMap((client, index) => {
-		const lines = [client.name, client.phone, client.email].filter(Boolean);
-		return index === 0 ? lines : ['', ...lines];
-	});
 
 	return {
 		stack: [
 			{
 				columns: [
-					detailsColumn('Prepared for', clientLines, onInk),
+					...clientLineGroups(input.clients).map((lines, index) =>
+						detailsColumn(index === 0 ? 'Prepared for' : ' ', lines, onInk)
+					),
 					detailsColumn('Project address', addressLines(input.address), onInk),
 				],
 				columnGap: 28,
@@ -497,7 +517,9 @@ function coverDetails(input: QuotationPdfInput): Node {
  * than a fixed y that only happens to fit one client.
  */
 function coverDetailsTop(input: QuotationPdfInput): number {
-	const clientLineCount = input.clients.length * 3 + (input.clients.length - 1);
+	const clientLineCount = Math.max(
+		...clientLineGroups(input.clients).map((lines) => lines.length)
+	);
 	const firstRow = Math.max(
 		detailsColumnHeight(clientLineCount),
 		detailsColumnHeight(addressLines(input.address).length)

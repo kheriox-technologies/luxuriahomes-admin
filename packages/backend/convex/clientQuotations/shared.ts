@@ -3,7 +3,7 @@ import type { Id } from '../_generated/dataModel';
 import type { QueryCtx } from '../_generated/server';
 
 const AUSTRALIAN_POSTCODE_REGEX = /^\d{4}$/;
-const MAX_CLIENTS = 2;
+const MAX_CLIENTS = 4;
 const PERCENT_TOTAL = 100;
 // Percentages are entered to two decimals, so anything inside half a cent of
 // 100 is a rounding artefact rather than a real imbalance.
