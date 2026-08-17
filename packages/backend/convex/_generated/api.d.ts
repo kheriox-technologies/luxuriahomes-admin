@@ -55,7 +55,7 @@ import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js
 import type * as clientQuotations_create from "../clientQuotations/create.js";
 import type * as clientQuotations_get from "../clientQuotations/get.js";
 import type * as clientQuotations_list from "../clientQuotations/list.js";
-import type * as clientQuotations_nextReference from "../clientQuotations/nextReference.js";
+import type * as clientQuotations_reference from "../clientQuotations/reference.js";
 import type * as clientQuotations_remove from "../clientQuotations/remove.js";
 import type * as clientQuotations_reserveReference from "../clientQuotations/reserveReference.js";
 import type * as clientQuotations_search from "../clientQuotations/search.js";
@@ -530,7 +530,7 @@ declare const fullApi: ApiFromModules<{
   "clientQuotations/create": typeof clientQuotations_create;
   "clientQuotations/get": typeof clientQuotations_get;
   "clientQuotations/list": typeof clientQuotations_list;
-  "clientQuotations/nextReference": typeof clientQuotations_nextReference;
+  "clientQuotations/reference": typeof clientQuotations_reference;
   "clientQuotations/remove": typeof clientQuotations_remove;
   "clientQuotations/reserveReference": typeof clientQuotations_reserveReference;
   "clientQuotations/search": typeof clientQuotations_search;

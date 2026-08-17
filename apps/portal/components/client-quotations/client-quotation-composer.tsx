@@ -3,6 +3,7 @@
 import { useForm, useStore } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import { generateQuotationReference } from '@workspace/backend/quotationReference';
 import { Button } from '@workspace/ui/components/button';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import {
@@ -16,10 +17,9 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { Save } from 'lucide-react';
+import { FileText, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import PdfBlobPreview from '@/components/documents/pdf-blob-preview';
 import PageHeading from '@/components/page-heading';
 import {
 	buildClientQuotationPdfBlob,
@@ -43,13 +43,18 @@ import {
 } from './client-quotation-form-shared';
 import QuotationAddressField from './quotation-address-field';
 import QuotationClientsField from './quotation-clients-field';
-import QuotationInclusionsPicker from './quotation-inclusions-picker';
+import QuotationEntriesEditor from './quotation-entries-editor';
+import QuotationInclusionsEditor from './quotation-inclusions-editor';
 import QuotationPricingField from './quotation-pricing-field';
+import QuotationResetButton from './quotation-reset-button';
 import QuotationStagePercentages, {
 	type QuotationStageRow,
 } from './quotation-stage-percentages';
+import QuotationTermsEditor from './quotation-terms-editor';
+import { useQuotationDraft } from './use-quotation-draft';
 
-const PREVIEW_DEBOUNCE_MS = 500;
+// Long enough for the new tab to fetch the blob before the URL is released.
+const PREVIEW_URL_TTL_MS = 60_000;
 const PDF_CONTENT_TYPE = 'application/pdf';
 const LIST_HREF = '/client-quotations';
 
@@ -58,11 +63,14 @@ export default function ClientQuotationComposer() {
 
 	const tree = useQuery(api.quoteCatalogue.tree.tree, {});
 	const terms = useQuery(api.quoteTerms.get.get, {});
+	const catalogueExclusions = useQuery(api.quoteExclusions.list.list, {});
+	const catalogueNotes = useQuery(api.quoteNotes.list.list, {});
 	const budgetTemplates = useQuery(api.budgetTemplates.list.list, {});
-	const provisionalReference = useQuery(
-		api.clientQuotations.nextReference.nextReference,
-		{}
-	);
+
+	// References are opaque codes rather than a running number, so there is
+	// nothing to look up — generate the candidate here so the form and any
+	// preview show the real code, and confirm it against the index on save.
+	const [candidateReference] = useState(generateQuotationReference);
 
 	const reserveReference = useMutation(
 		api.clientQuotations.reserveReference.reserveReference
@@ -76,18 +84,21 @@ export default function ClientQuotationComposer() {
 	const createDocument = useMutation(api.companyDocuments.create.create);
 	const createQuotation = useMutation(api.clientQuotations.create.create);
 
-	// Stage percentages and item selection are seeded from the catalogue once it
-	// loads, so they live outside the form — a three-level TanStack array field
-	// would re-render (and re-render the preview) on every checkbox tick.
+	// Stage percentages and the editable body of the quotation are seeded from the
+	// catalogue once it loads, so they live outside the form — a three-level
+	// TanStack array field would re-render the whole page on every keystroke.
 	const [percents, setPercents] = useState<Record<string, string>>({});
-	const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 	const [seededKey, setSeededKey] = useState<string | null>(null);
+	const draft = useQuotationDraft({
+		exclusions: catalogueExclusions,
+		notes: catalogueNotes,
+		terms,
+		tree,
+	});
 
 	const [issuedAt] = useState(() => new Date());
 	const [saving, setSaving] = useState(false);
-	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-	const [previewError, setPreviewError] = useState<string | null>(null);
-	const [previewLoading, setPreviewLoading] = useState(false);
+	const [previewing, setPreviewing] = useState(false);
 
 	const form = useForm({
 		defaultValues: emptyClientQuotationFormValues,
@@ -121,17 +132,6 @@ export default function ClientQuotationComposer() {
 				])
 			)
 		);
-		setSelectedItems(
-			new Set(
-				tree.flatMap((node) =>
-					node.sections.flatMap((section) =>
-						section.items
-							.filter((item) => item.isDefault)
-							.map((item) => item._id as string)
-					)
-				)
-			)
-		);
 	}, [tree, treeKey, seededKey]);
 
 	const totalInclGst = parseMoney(values.totalInclGst);
@@ -152,6 +152,13 @@ export default function ClientQuotationComposer() {
 			stageId: node.stage._id,
 		}));
 	}, [tree, percents, totalInclGst]);
+
+	// The draft seeds from the same tree, but look rows up by stage id rather than
+	// position so the two can never silently drift apart.
+	const stageRowById = useMemo(
+		() => new Map(stageRows.map((row) => [row.stageId, row])),
+		[stageRows]
+	);
 
 	const percentTotal = round2(
 		stageRows.reduce((sum, row) => {
@@ -175,28 +182,26 @@ export default function ClientQuotationComposer() {
 			contractSumExclGst,
 			description: values.description || undefined,
 			disclaimerHtml: terms.settings.disclaimerHtml,
+			exclusions: draft.exclusions.map((entry) => entry.text),
 			gstAmount,
 			issuedAtLabel: formatIssueDate(issuedAt),
+			notes: draft.notes.map((entry) => entry.text),
 			projectName: values.projectName || 'Untitled project',
-			reference: provisionalReference?.reference ?? '',
-			stages: tree.map((node, index) => ({
-				amount: stageRows[index]?.amount ?? 0,
-				name: node.stage.name,
-				percent: Number(stageRows[index]?.percent ?? '0') || 0,
-				scopeSummary: node.stage.scopeSummary,
-				sections: node.sections
+			reference: candidateReference,
+			stages: draft.stages.map((stage) => ({
+				amount: stageRowById.get(stage.stageId)?.amount ?? 0,
+				name: stage.name,
+				percent: Number(stageRowById.get(stage.stageId)?.percent ?? '0') || 0,
+				scopeSummary: stage.scopeSummary,
+				sections: stage.sections
+					.filter((section) => section.items.length > 0)
 					.map((section) => ({
-						name: section.section.name,
-						items: section.items
-							.filter((item) => selectedItems.has(item._id))
-							.map((item) => ({
-								name: item.name,
-							})),
-					}))
-					.filter((section) => section.items.length > 0),
+						name: section.name,
+						items: section.items.map((item) => ({ name: item.name })),
+					})),
 			})),
-			termSections: terms.sections.map((section) => ({
-				name: section.section.name,
+			termSections: draft.termSections.map((section) => ({
+				name: section.name,
 				items: section.items.map((item) => item.text),
 			})),
 			totalInclGst,
@@ -207,59 +212,51 @@ export default function ClientQuotationComposer() {
 		terms,
 		values,
 		issuedAt,
-		provisionalReference,
-		stageRows,
-		selectedItems,
+		candidateReference,
+		stageRowById,
+		draft.exclusions,
+		draft.notes,
+		draft.stages,
+		draft.termSections,
 		totalInclGst,
 	]);
 
-	// Rebuild the preview (debounced) whenever the document's inputs change.
-	useEffect(() => {
+	const canSave =
+		formIsValid && percentsValid && draft.itemCount > 0 && !saving;
+
+	const handlePreview = async () => {
 		if (!pdfInput) {
 			return;
 		}
-		let cancelled = false;
-		const handle = setTimeout(() => {
-			setPreviewLoading(true);
-			buildClientQuotationPdfBlob(pdfInput)
-				.then((blob) => {
-					if (cancelled) {
-						return;
-					}
-					setPreviewUrl(URL.createObjectURL(blob));
-					setPreviewError(null);
-				})
-				.catch((error: unknown) => {
-					if (cancelled) {
-						return;
-					}
-					setPreviewError(
-						error instanceof Error ? error.message : 'Could not render preview.'
-					);
-				})
-				.finally(() => {
-					if (!cancelled) {
-						setPreviewLoading(false);
-					}
-				});
-		}, PREVIEW_DEBOUNCE_MS);
-		return () => {
-			cancelled = true;
-			clearTimeout(handle);
-		};
-	}, [pdfInput]);
-
-	// Revoke the previous blob URL when it is replaced or on unmount.
-	useEffect(() => {
-		if (!previewUrl) {
-			return;
+		// Open the tab synchronously — popup blockers reject a `window.open` that
+		// happens after an await, however short the render takes.
+		const tab = window.open('', '_blank');
+		setPreviewing(true);
+		try {
+			const blob = await buildClientQuotationPdfBlob(pdfInput);
+			const url = URL.createObjectURL(blob);
+			if (tab) {
+				tab.location.href = url;
+			} else {
+				window.open(url, '_blank', 'noopener');
+			}
+			// The tab holds its own reference to the blob, so the object URL can be
+			// released once it has had a chance to load.
+			setTimeout(() => URL.revokeObjectURL(url), PREVIEW_URL_TTL_MS);
+		} catch (error) {
+			tab?.close();
+			toastManager.add({
+				description:
+					error instanceof Error
+						? error.message
+						: 'Could not render the preview. Please try again in a moment.',
+				title: 'Could not open preview',
+				type: 'error',
+			});
+		} finally {
+			setPreviewing(false);
 		}
-		return () => URL.revokeObjectURL(previewUrl);
-	}, [previewUrl]);
-
-	const selectedItemCount = selectedItems.size;
-	const canSave =
-		formIsValid && percentsValid && selectedItemCount > 0 && !saving;
+	};
 
 	const handleSave = async () => {
 		const parsed = clientQuotationFormSchema.safeParse(values);
@@ -268,8 +265,11 @@ export default function ClientQuotationComposer() {
 		}
 		setSaving(true);
 		try {
-			// Reserve first so the number printed on the PDF is the number stored.
-			const reserved = await reserveReference({});
+			// Confirm the code first so the reference printed on the PDF is the one
+			// stored. Only a collision changes it, and the blob is built afterwards.
+			const reserved = await reserveReference({
+				preferred: candidateReference,
+			});
 			const folderPath = await ensureFolder({
 				parentPath: '',
 				segments: [QUOTATION_FOLDER_NAME],
@@ -308,8 +308,6 @@ export default function ClientQuotationComposer() {
 
 			await createQuotation({
 				reference: reserved.reference,
-				referenceYear: reserved.year,
-				referenceSeq: reserved.seq,
 				projectName: parsed.data.projectName,
 				description: parsed.data.description || undefined,
 				clients: parsed.data.clients,
@@ -330,37 +328,45 @@ export default function ClientQuotationComposer() {
 					? Number(parsed.data.marginPercent)
 					: undefined,
 				totalInclGst,
-				stages: tree.map((node, index) => ({
-					stageId: node.stage._id,
-					name: node.stage.name,
+				stages: draft.stages.map((stage, index) => ({
+					stageId: stage.stageId,
+					name: stage.name,
 					order: index,
-					percent: Number(stageRows[index]?.percent ?? '0') || 0,
-					amount: stageRows[index]?.amount ?? 0,
-					scopeSummary: node.stage.scopeSummary,
-					sections: node.sections
+					percent: Number(stageRowById.get(stage.stageId)?.percent ?? '0') || 0,
+					amount: stageRowById.get(stage.stageId)?.amount ?? 0,
+					scopeSummary: stage.scopeSummary,
+					sections: stage.sections
+						.filter((section) => section.items.length > 0)
 						.map((section, sectionIndex) => ({
-							sectionId: section.section._id,
-							name: section.section.name,
+							// Provenance where the row came from the catalogue; absent for
+							// sections and items added on this quotation.
+							sectionId: section.sectionId,
+							name: section.name,
 							order: sectionIndex,
-							items: section.items
-								.filter((item) => selectedItems.has(item._id))
-								.map((item, itemIndex) => ({
-									itemId: item._id,
-									name: item.name,
-									order: itemIndex,
-								})),
-						}))
-						.filter((section) => section.items.length > 0),
+							items: section.items.map((item, itemIndex) => ({
+								itemId: item.itemId,
+								name: item.name,
+								order: itemIndex,
+							})),
+						})),
 				})),
 				terms: {
 					disclaimerHtml: terms.settings.disclaimerHtml,
 					acknowledgementHtml: terms.settings.acknowledgementHtml,
-					sections: terms.sections.map((section, index) => ({
-						name: section.section.name,
+					sections: draft.termSections.map((section, index) => ({
+						name: section.name,
 						order: index,
 						items: section.items.map((item) => item.text),
 					})),
 				},
+				exclusions: draft.exclusions.map((entry, index) => ({
+					text: entry.text,
+					order: index,
+				})),
+				notes: draft.notes.map((entry, index) => ({
+					text: entry.text,
+					order: index,
+				})),
 				documentId,
 				s3Key: generated.s3Key,
 				fileName,
@@ -412,25 +418,40 @@ export default function ClientQuotationComposer() {
 				backLink={LIST_HREF}
 				heading="Add Quotation"
 				rightSlot={
-					<Button
-						disabled={!canSave}
-						loading={saving}
-						onClick={() => {
-							handleSave().catch(() => {
-								/* handled in handleSave */
-							});
-						}}
-						type="button"
-						variant="outline"
-					>
-						<Save aria-hidden /> Save quotation
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button
+							disabled={!pdfInput || previewing}
+							loading={previewing}
+							onClick={() => {
+								handlePreview().catch(() => {
+									/* handled in handlePreview */
+								});
+							}}
+							type="button"
+							variant="outline"
+						>
+							<FileText aria-hidden /> Preview
+						</Button>
+						<Button
+							disabled={!canSave}
+							loading={saving}
+							onClick={() => {
+								handleSave().catch(() => {
+									/* handled in handleSave */
+								});
+							}}
+							type="button"
+							variant="outline"
+						>
+							<Save aria-hidden /> Save
+						</Button>
+					</div>
 				}
 			/>
 
-			<div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
+			<div className="flex min-h-0 flex-1 flex-col">
 				<ScrollArea className="min-h-0">
-					<div className="flex flex-col gap-5 pe-3 pb-4">
+					<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 pe-3 pb-4">
 						<Frame>
 							<FrameHeader>
 								<FrameTitle>Project</FrameTitle>
@@ -528,7 +549,7 @@ export default function ClientQuotationComposer() {
 											id="quotation-reference"
 											nativeInput
 											readOnly
-											value={provisionalReference?.reference ?? '—'}
+											value={candidateReference}
 										/>
 									</Field>
 									<Field data-invalid={Boolean(validityError)}>
@@ -557,7 +578,7 @@ export default function ClientQuotationComposer() {
 									</Field>
 								</div>
 								<p className="text-muted-foreground text-sm">
-									Issued {formatIssueDate(issuedAt)}. The reference is assigned
+									Issued {formatIssueDate(issuedAt)}. The reference is confirmed
 									when you save.
 								</p>
 							</FramePanel>
@@ -608,30 +629,105 @@ export default function ClientQuotationComposer() {
 						</Frame>
 
 						<Frame>
-							<FrameHeader>
+							<FrameHeader className="flex-row items-center justify-between">
 								<FrameTitle>What each stage includes</FrameTitle>
+								<QuotationResetButton
+									label="the inclusions"
+									onReset={draft.resetStages}
+								/>
 							</FrameHeader>
 							<FramePanel>
-								<QuotationInclusionsPicker
-									onChange={setSelectedItems}
-									selected={selectedItems}
-									tree={tree}
-								/>
-								{selectedItemCount === 0 ? (
+								{tree === undefined ? (
+									<p className="text-muted-foreground text-sm">
+										Loading quote items…
+									</p>
+								) : (
+									<QuotationInclusionsEditor
+										onAddItem={draft.addItem}
+										onAddSection={draft.addSection}
+										onRemoveItem={draft.removeItem}
+										onRemoveSection={draft.removeSection}
+										onRenameSection={draft.renameSection}
+										onUpdateItem={draft.updateItem}
+										percentOf={(stage) =>
+											stageRowById.get(stage.stageId)?.percent ?? ''
+										}
+										stages={draft.stages}
+									/>
+								)}
+								{tree !== undefined && draft.itemCount === 0 ? (
 									<p className="mt-3 text-destructive text-sm">
-										Select at least one item to include in the quotation.
+										Add at least one item to include in the quotation.
 									</p>
 								) : null}
 							</FramePanel>
 						</Frame>
+
+						<Frame>
+							<FrameHeader className="flex-row items-center justify-between">
+								<FrameTitle>Terms &amp; conditions</FrameTitle>
+								<QuotationResetButton
+									label="the terms"
+									onReset={draft.resetTermSections}
+								/>
+							</FrameHeader>
+							<FramePanel>
+								<QuotationTermsEditor
+									loading={terms === undefined}
+									onAddClause={draft.addTermItem}
+									onAddSection={draft.addTermSection}
+									onRemoveClause={draft.removeTermItem}
+									onRemoveSection={draft.removeTermSection}
+									onRenameSection={draft.renameTermSection}
+									onUpdateClause={draft.updateTermItem}
+									sections={draft.termSections}
+								/>
+							</FramePanel>
+						</Frame>
+
+						<Frame>
+							<FrameHeader className="flex-row items-center justify-between">
+								<FrameTitle>Exclusions</FrameTitle>
+								<QuotationResetButton
+									label="the exclusions"
+									onReset={draft.resetExclusions}
+								/>
+							</FrameHeader>
+							<FramePanel>
+								<QuotationEntriesEditor
+									addPlaceholder="Add an exclusion and press Enter…"
+									entries={draft.exclusions}
+									loading={catalogueExclusions === undefined}
+									noun="exclusion"
+									onAdd={draft.exclusionHandlers.add}
+									onRemove={draft.exclusionHandlers.remove}
+									onUpdate={draft.exclusionHandlers.update}
+								/>
+							</FramePanel>
+						</Frame>
+
+						<Frame>
+							<FrameHeader className="flex-row items-center justify-between">
+								<FrameTitle>Important notes</FrameTitle>
+								<QuotationResetButton
+									label="the notes"
+									onReset={draft.resetNotes}
+								/>
+							</FrameHeader>
+							<FramePanel>
+								<QuotationEntriesEditor
+									addPlaceholder="Add a note and press Enter…"
+									entries={draft.notes}
+									loading={catalogueNotes === undefined}
+									noun="note"
+									onAdd={draft.noteHandlers.add}
+									onRemove={draft.noteHandlers.remove}
+									onUpdate={draft.noteHandlers.update}
+								/>
+							</FramePanel>
+						</Frame>
 					</div>
 				</ScrollArea>
-
-				<PdfBlobPreview
-					error={previewError}
-					loading={previewLoading}
-					url={previewUrl}
-				/>
 			</div>
 		</div>
 	);

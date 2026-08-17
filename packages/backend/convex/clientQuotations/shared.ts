@@ -3,8 +3,6 @@ import type { Id } from '../_generated/dataModel';
 import type { QueryCtx } from '../_generated/server';
 
 const AUSTRALIAN_POSTCODE_REGEX = /^\d{4}$/;
-const REFERENCE_PREFIX = 'LUX';
-const REFERENCE_SEQ_DIGITS = 4;
 const MAX_CLIENTS = 2;
 const PERCENT_TOTAL = 100;
 // Percentages are entered to two decimals, so anything inside half a cent of
@@ -49,6 +47,12 @@ export const quotationStageSnapshotValidator = v.object({
 	sections: v.array(quotationSectionSnapshotValidator),
 });
 
+/** One exclusion or important note, snapshotted in the order it prints. */
+export const quotationEntrySnapshotValidator = v.object({
+	text: v.string(),
+	order: v.number(),
+});
+
 export const quotationTermsSnapshotValidator = v.object({
 	disclaimerHtml: v.string(),
 	acknowledgementHtml: v.string(),
@@ -71,11 +75,6 @@ export interface QuotationStageSnapshot {
 	amount: number;
 	name: string;
 	percent: number;
-}
-
-/** `LUX-2026-0148` — the reference printed on the quotation. */
-export function formatQuotationReference(year: number, seq: number): string {
-	return `${REFERENCE_PREFIX}-${year}-${String(seq).padStart(REFERENCE_SEQ_DIGITS, '0')}`;
 }
 
 function round2(value: number): number {

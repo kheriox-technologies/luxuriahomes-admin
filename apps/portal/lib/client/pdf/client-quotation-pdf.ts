@@ -58,9 +58,13 @@ export interface QuotationPdfInput {
 	contractSumExclGst: number;
 	description?: string;
 	disclaimerHtml: string;
+	// Drafted on the composer from the catalogue lists; either can be empty, in
+	// which case its section is dropped and the rest renumber.
+	exclusions: string[];
 	gstAmount: number;
 	// Human-readable issue date, e.g. "12 August 2026".
 	issuedAtLabel: string;
+	notes: string[];
 	projectName: string;
 	reference: string;
 	stages: QuotationPdfStage[];
@@ -685,7 +689,7 @@ function summaryCard(input: QuotationPdfInput): Node {
 }
 
 // ---------------------------------------------------------------------------
-// Section 01 — progress payments
+// Progress payments
 // ---------------------------------------------------------------------------
 
 function stageScopeText(stage: QuotationPdfStage): string {
@@ -696,7 +700,7 @@ function stageScopeText(stage: QuotationPdfStage): string {
 	return stage.sections.map((section) => section.name).join(' · ');
 }
 
-function sectionOnePage(input: QuotationPdfInput): Node[] {
+function progressPaymentsBody(input: QuotationPdfInput): Node[] {
 	const headerCell = (text: string, alignment?: string): Node => ({
 		text: text.toUpperCase(),
 		fontSize: F.tableHeader,
@@ -764,11 +768,6 @@ function sectionOnePage(input: QuotationPdfInput): Node[] {
 	];
 
 	return [
-		...sectionOpening(
-			'Section 01',
-			'Construction stages & progress payments',
-			'Payments are claimed at the completion of each stage below and are due within five business days of the claim being issued. All amounts are inclusive of GST.'
-		),
 		{
 			// The schedule and the sum it adds up to belong together — splitting
 			// them leaves a total stranded at the top of the next page.
@@ -803,7 +802,7 @@ function sectionOnePage(input: QuotationPdfInput): Node[] {
 }
 
 // ---------------------------------------------------------------------------
-// Section 02 — inclusions
+// Inclusions
 // ---------------------------------------------------------------------------
 
 function stagePill(stage: QuotationPdfStage): Node {
@@ -846,12 +845,34 @@ function stagePill(stage: QuotationPdfStage): Node {
 	});
 }
 
+// Every list in the document uses this dot, so the inclusions, exclusions,
+// notes and terms all read as one family. It is set above the body size and in
+// the accent ink because a small `·` in a muted tone all but disappears in
+// print.
+const BULLET_GLYPH = '•';
+const BULLET_COLUMN_WIDTH = 14;
+const BULLET_SIZE_BOOST = 3;
+
+// Columns share a top edge, not a baseline, so the larger bullet would drop
+// below its line — the glyph's box grows downward from that shared top. Pulling
+// it up by the ascent the extra points add puts the two baselines back level,
+// which is where a `•` sits optically centred on lowercase text.
+const BULLET_ASCENT_RATIO = 0.75;
+
+function bulletColumn(textSize: number): Node {
+	return {
+		width: BULLET_COLUMN_WIDTH,
+		text: BULLET_GLYPH,
+		fontSize: textSize + BULLET_SIZE_BOOST,
+		color: C.accent,
+		margin: [0, -(BULLET_SIZE_BOOST * BULLET_ASCENT_RATIO), 0, 0],
+	};
+}
+
 function inclusionBullet(item: QuotationPdfItem): Node {
 	return {
 		columns: [
-			// An em-dash is nearly a full em wide, so the column has to exceed the
-			// font size or the dash butts straight into the text.
-			{ width: 17, text: '—', color: C.linenMuted },
+			bulletColumn(F.body),
 			{
 				width: '*',
 				text: item.description?.trim() || item.name,
@@ -901,9 +922,9 @@ function inclusionSubsection(
 	};
 }
 
-function sectionTwoPage(input: QuotationPdfInput): Node[] {
-	// A stage with everything deselected still owes a progress payment, so it
-	// keeps its Section 01 row — it just has nothing to list here.
+function inclusionsBody(input: QuotationPdfInput): Node[] {
+	// A stage with everything removed still owes a progress payment, so it keeps
+	// its row in the payment schedule — it just has nothing to list here.
 	const stages = input.stages
 		.map((stage, index) => ({ stage, number: index + 1 }))
 		.filter(({ stage }) =>
@@ -914,12 +935,6 @@ function sectionTwoPage(input: QuotationPdfInput): Node[] {
 	}
 
 	return [
-		{ text: '', pageBreak: 'before' },
-		...sectionOpening(
-			'Section 02',
-			'What each stage includes',
-			'Everything listed below is allowed for within the contract sum. Where an allowance is stated, the figure is a supply-and-install budget confirmed at selections.'
-		),
 		...stages.flatMap(({ stage, number }) => {
 			const subsections = stage.sections
 				.filter((section) => section.items.length > 0)
@@ -946,7 +961,7 @@ function sectionTwoPage(input: QuotationPdfInput): Node[] {
 }
 
 // ---------------------------------------------------------------------------
-// Sections 03–05 — disclaimer, terms, acknowledgement
+// Exclusions, notes, disclaimer, terms, acknowledgement
 // ---------------------------------------------------------------------------
 
 /**
@@ -975,25 +990,38 @@ function restyle(blocks: PdfBlock[]): Node[] {
 	});
 }
 
-function sectionThreePage(input: QuotationPdfInput): Node[] {
-	const content = restyle(htmlToPdfmakeContent(input.disclaimerHtml));
-	if (content.length === 0) {
-		return [];
-	}
-	return [
-		{ text: '', pageBreak: 'before' },
-		...sectionOpening('Section 03', 'Disclaimer'),
-		tintedCard(content),
-	];
+/** A bulleted line, the shape used by terms, exclusions and notes. */
+function textBullet(text: string): Node {
+	return {
+		columns: [
+			bulletColumn(F.bodySmall),
+			{
+				width: '*',
+				text,
+				fontSize: F.bodySmall,
+				color: C.body,
+				lineHeight: LH.body,
+			},
+		],
+		margin: [0, 0, 0, S.bullet],
+	};
 }
 
-function sectionFourPage(input: QuotationPdfInput): Node[] {
-	if (input.termSections.length === 0) {
-		return [];
-	}
+function exclusionsBody(input: QuotationPdfInput): Node[] {
+	return input.exclusions.map(textBullet);
+}
+
+function notesBody(input: QuotationPdfInput): Node[] {
+	return input.notes.map(textBullet);
+}
+
+function disclaimerBody(input: QuotationPdfInput): Node[] {
+	const content = restyle(htmlToPdfmakeContent(input.disclaimerHtml));
+	return content.length === 0 ? [] : [tintedCard(content)];
+}
+
+function termsBody(input: QuotationPdfInput): Node[] {
 	return [
-		{ text: '', pageBreak: 'before' },
-		...sectionOpening('Section 04', 'Terms & conditions'),
 		...input.termSections.map((section, index) => ({
 			unbreakable: true,
 			stack: [
@@ -1005,19 +1033,7 @@ function sectionFourPage(input: QuotationPdfInput): Node[] {
 					color: C.accent,
 					margin: [0, 0, 0, 6],
 				},
-				...section.items.map((clause) => ({
-					columns: [
-						{ width: 12, text: '·', color: C.linenMuted },
-						{
-							width: '*',
-							text: clause,
-							fontSize: F.bodySmall,
-							color: C.body,
-							lineHeight: LH.body,
-						},
-					],
-					margin: [0, 0, 0, S.bullet],
-				})),
+				...section.items.map(textBullet),
 			],
 			margin: [0, 0, 0, S.subsection],
 		})),
@@ -1114,7 +1130,7 @@ function signatureGrid(boxes: Node[]): Node[] {
 	return rows;
 }
 
-function sectionFivePage(input: QuotationPdfInput): Node[] {
+function acknowledgementBody(input: QuotationPdfInput): Node[] {
 	const acknowledgement = restyle(
 		htmlToPdfmakeContent(input.acknowledgementHtml)
 	);
@@ -1128,8 +1144,6 @@ function sectionFivePage(input: QuotationPdfInput): Node[] {
 	);
 
 	return [
-		{ text: '', pageBreak: 'before' },
-		...sectionOpening('Section 05', 'Acknowledgement'),
 		...(acknowledgement.length > 0 ? [tintedCard(acknowledgement)] : []),
 		{
 			columns: [
@@ -1153,6 +1167,67 @@ function sectionFivePage(input: QuotationPdfInput): Node[] {
 // printing error. Stage pills are handled structurally instead — each is bound
 // to its first subsection in an unbreakable stack.
 const MIN_NODES_AFTER_SECTION_OPENING = 2;
+
+/**
+ * The numbered sections, in print order. A quotation with no exclusions (or no
+ * terms, or a blank disclaimer) simply drops that section, so the numbers are
+ * assigned to what actually renders rather than hardcoded per builder — that
+ * would leave gaps like "Section 03" followed by "Section 05".
+ */
+const NUMBERED_SECTIONS: {
+	body: (input: QuotationPdfInput) => Node[];
+	heading: string;
+	lead?: string;
+}[] = [
+	{
+		body: progressPaymentsBody,
+		heading: 'Construction stages & progress payments',
+		lead: 'Payments are claimed at the completion of each stage below and are due within five business days of the claim being issued. All amounts are inclusive of GST.',
+	},
+	{
+		body: inclusionsBody,
+		heading: 'What each stage includes',
+		lead: 'Everything listed below is allowed for within the contract sum. Where an allowance is stated, the figure is a supply-and-install budget confirmed at selections.',
+	},
+	{
+		body: exclusionsBody,
+		heading: 'Exclusions',
+		lead: 'The following are not allowed for in the contract sum. Anything required from this list is quoted separately as a variation.',
+	},
+	{
+		body: notesBody,
+		heading: 'Important notes',
+		lead: 'Please read these alongside the terms & conditions — they set out how allowances, selections and site conditions are handled.',
+	},
+	{ body: disclaimerBody, heading: 'Disclaimer' },
+	{ body: termsBody, heading: 'Terms & conditions' },
+	{ body: acknowledgementBody, heading: 'Acknowledgement' },
+];
+
+function numberedSections(input: QuotationPdfInput): Node[] {
+	const nodes: Node[] = [];
+	let number = 0;
+	for (const section of NUMBERED_SECTIONS) {
+		const body = section.body(input);
+		if (body.length === 0) {
+			continue;
+		}
+		number += 1;
+		// The cover already ends with a page break, so only later sections add one.
+		if (number > 1) {
+			nodes.push({ text: '', pageBreak: 'before' });
+		}
+		nodes.push(
+			...sectionOpening(
+				`Section ${String(number).padStart(2, '0')}`,
+				section.heading,
+				section.lead
+			),
+			...body
+		);
+	}
+	return nodes;
+}
 
 function buildDocDefinition(
 	input: QuotationPdfInput,
@@ -1182,14 +1257,7 @@ function buildDocDefinition(
 		) =>
 			Boolean(currentNode.id?.startsWith(SECTION_OPENING_ID_PREFIX)) &&
 			followingNodesOnPage.length < MIN_NODES_AFTER_SECTION_OPENING,
-		content: [
-			...coverPage(input, logoDataUrl),
-			...sectionOnePage(input),
-			...sectionTwoPage(input),
-			...sectionThreePage(input),
-			...sectionFourPage(input),
-			...sectionFivePage(input),
-		],
+		content: [...coverPage(input, logoDataUrl), ...numberedSections(input)],
 	};
 }
 

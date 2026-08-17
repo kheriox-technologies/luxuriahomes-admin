@@ -1,31 +1,50 @@
+import { ConvexError, v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
-import { formatQuotationReference } from './shared';
+import { generateQuotationReference, isQuotationReference } from './reference';
+
+// 30^6 codes against a few hundred quotations: a single re-roll is already
+// beyond unlikely, so exhausting this many means something else is wrong.
+const MAX_ATTEMPTS = 10;
 
 /**
- * Allocates the next quotation reference for the current year and advances the
- * counter. Being a mutation, two admins saving at the same moment serialize
- * under Convex's OCC and get distinct numbers.
+ * Confirms the quotation reference that will be printed and stored.
  *
- * The composer calls this *before* building the PDF so the reference can be
- * printed on the document. A save that then fails leaves a gap in the series —
- * the same trade-off every invoice numbering scheme makes.
+ * The composer generates a candidate on mount so the code shows in the form and
+ * on the live preview; it passes that back as `preferred` and this keeps it
+ * unless it has since been taken. Being a mutation, two admins saving at the
+ * same moment serialize under Convex's OCC.
  */
 export const reserveReference = mutation({
-	args: {},
-	handler: async (ctx) => {
+	args: { preferred: v.optional(v.string()) },
+	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		const year = new Date().getFullYear();
-		const counter = await ctx.db
-			.query('quotationCounters')
-			.withIndex('by_year', (q) => q.eq('year', year))
-			.first();
-		const seq = (counter?.lastSeq ?? 0) + 1;
-		if (counter) {
-			await ctx.db.patch(counter._id, { lastSeq: seq });
-		} else {
-			await ctx.db.insert('quotationCounters', { year, lastSeq: seq });
+
+		const isTaken = async (reference: string) => {
+			const existing = await ctx.db
+				.query('clientQuotations')
+				.withIndex('by_reference', (q) => q.eq('reference', reference))
+				.first();
+			return existing !== null;
+		};
+
+		if (
+			args.preferred &&
+			isQuotationReference(args.preferred) &&
+			!(await isTaken(args.preferred))
+		) {
+			return { reference: args.preferred };
 		}
-		return { reference: formatQuotationReference(year, seq), year, seq };
+
+		for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+			const reference = generateQuotationReference();
+			if (!(await isTaken(reference))) {
+				return { reference };
+			}
+		}
+		throw new ConvexError({
+			code: 'REFERENCE_UNAVAILABLE',
+			message: 'Could not allocate a quotation reference. Please try again.',
+		});
 	},
 });

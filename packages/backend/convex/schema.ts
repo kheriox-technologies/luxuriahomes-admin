@@ -4,6 +4,7 @@ import { zodToConvex } from 'convex-helpers/server/zod';
 import { z } from 'zod';
 import {
 	quotationClientValidator,
+	quotationEntrySnapshotValidator,
 	quotationStageSnapshotValidator,
 	quotationTermsSnapshotValidator,
 } from './clientQuotations/shared';
@@ -493,10 +494,12 @@ export default defineSchema({
 	// terms edit must never retroactively change a quotation that has already been
 	// issued, and the row has to be able to regenerate the exact same document.
 	clientQuotations: defineTable({
-		// 'LUX-2026-0148', allocated from `quotationCounters` on save.
+		// 'LUX-7K3M9Q', an opaque code confirmed on save. Deliberately not a
+		// running number — that would leak how many quotations we've issued.
 		reference: v.string(),
-		referenceYear: v.number(),
-		referenceSeq: v.number(),
+		// Only on rows created under the old 'LUX-2026-0148' counter scheme.
+		referenceYear: v.optional(v.number()),
+		referenceSeq: v.optional(v.number()),
 		projectName: v.string(),
 		description: v.optional(v.string()),
 		// One or two clients; the count is enforced on write.
@@ -516,6 +519,10 @@ export default defineSchema({
 		gstAmount: v.number(),
 		stages: v.array(quotationStageSnapshotValidator),
 		terms: quotationTermsSnapshotValidator,
+		// Drafted from the catalogue lists on the composer. Optional only so rows
+		// created before these sections existed keep validating.
+		exclusions: v.optional(v.array(quotationEntrySnapshotValidator)),
+		notes: v.optional(v.array(quotationEntrySnapshotValidator)),
 		// The generated PDF, filed under company documents.
 		documentId: v.optional(v.id('companyDocuments')),
 		s3Key: v.optional(v.string()),
@@ -528,13 +535,6 @@ export default defineSchema({
 		.index('by_reference', ['reference'])
 		.index('by_created', ['createdAt'])
 		.searchIndex('search_client_quotations', { searchField: 'searchText' }),
-	// One row per calendar year holding the last allocated quotation sequence.
-	// Patched inside a mutation so Convex's OCC hands out collision-free
-	// references without scanning `clientQuotations`.
-	quotationCounters: defineTable({
-		year: v.number(),
-		lastSeq: v.number(),
-	}).index('by_year', ['year']),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

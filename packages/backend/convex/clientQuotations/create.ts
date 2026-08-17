@@ -10,6 +10,7 @@ import {
 	parseQuotationClients,
 	parseValidityDays,
 	quotationClientValidator,
+	quotationEntrySnapshotValidator,
 	quotationStageSnapshotValidator,
 	quotationTermsSnapshotValidator,
 	splitGst,
@@ -18,8 +19,6 @@ import {
 export const create = mutation({
 	args: {
 		reference: v.string(),
-		referenceYear: v.number(),
-		referenceSeq: v.number(),
 		projectName: v.string(),
 		description: v.optional(v.string()),
 		clients: v.array(quotationClientValidator),
@@ -33,6 +32,8 @@ export const create = mutation({
 		totalInclGst: v.number(),
 		stages: v.array(quotationStageSnapshotValidator),
 		terms: quotationTermsSnapshotValidator,
+		exclusions: v.array(quotationEntrySnapshotValidator),
+		notes: v.array(quotationEntrySnapshotValidator),
 		documentId: v.optional(v.id('companyDocuments')),
 		s3Key: v.optional(v.string()),
 		fileName: v.optional(v.string()),
@@ -73,8 +74,6 @@ export const create = mutation({
 
 		return await ctx.db.insert('clientQuotations', {
 			reference: args.reference,
-			referenceYear: args.referenceYear,
-			referenceSeq: args.referenceSeq,
 			projectName,
 			description: args.description?.trim() || undefined,
 			clients,
@@ -90,6 +89,8 @@ export const create = mutation({
 			gstAmount,
 			stages: args.stages,
 			terms: args.terms,
+			exclusions: args.exclusions,
+			notes: args.notes,
 			documentId: args.documentId,
 			s3Key: args.s3Key,
 			fileName: args.fileName,
