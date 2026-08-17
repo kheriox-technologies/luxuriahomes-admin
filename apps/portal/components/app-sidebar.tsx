@@ -161,14 +161,9 @@ const items: SidebarItem[] = [
 				path: '/takeoff-categories',
 			},
 			{
-				title: 'Quote Items',
-				url: '/quote-items',
-				path: '/quote-items',
-			},
-			{
-				title: 'Quote Terms',
-				url: '/quote-terms',
-				path: '/quote-terms',
+				title: 'Quotations',
+				url: '/quotations',
+				path: '/quotations',
 			},
 		],
 	},
