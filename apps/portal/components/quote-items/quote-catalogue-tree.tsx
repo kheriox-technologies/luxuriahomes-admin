@@ -170,7 +170,9 @@ function InlineAddStage() {
 	return (
 		<InlineAddRow
 			noun="stage"
-			onAdd={(name) => addStage({ name })}
+			// Starts at 0% so the stage counts toward the percentage total right away
+			// instead of reading as "not set".
+			onAdd={(name) => addStage({ defaultPercent: 0, name })}
 			placeholder="Add a stage and press Enter…"
 		/>
 	);
@@ -767,6 +769,7 @@ export function QuoteCatalogueTree({
 	loadingLabel = 'Loading catalogue…',
 	noResults,
 	empty,
+	banner,
 	ref,
 }: {
 	tree: StageNode[] | undefined;
@@ -775,6 +778,8 @@ export function QuoteCatalogueTree({
 	noResults?: ReactNode;
 	// Shown below the inline add-stage box when the catalogue has no stages yet.
 	empty?: ReactNode;
+	// Persistent notice rendered directly under the inline add-stage box.
+	banner?: ReactNode;
 	ref?: Ref<QuoteCatalogueTreeHandle>;
 }) {
 	const reorderStages = useMutation(api.quoteStages.reorder.reorder);
@@ -788,7 +793,6 @@ export function QuoteCatalogueTree({
 	const [openStageKeys, setOpenStageKeys] = useState<string[]>([]);
 	const [openSectionKeys, setOpenSectionKeys] = useState<string[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
-	const initializedRef = useRef(false);
 	const scrollerRef = useRef<HTMLDivElement>(null);
 	// Signature of the last cross-container move applied in onDragOver; guards
 	// against re-processing an identical hover and looping at a container boundary.
@@ -801,14 +805,6 @@ export function QuoteCatalogueTree({
 			setTree(serverTree);
 		}
 	}, [serverTree, activeId]);
-
-	// Open every stage (but not every section) the first time data loads.
-	useEffect(() => {
-		if (serverTree && !initializedRef.current) {
-			initializedRef.current = true;
-			setOpenStageKeys(serverTree.map((n) => `${STAGE_PREFIX}${n.stage._id}`));
-		}
-	}, [serverTree]);
 
 	useImperativeHandle(
 		ref,
@@ -1246,6 +1242,7 @@ export function QuoteCatalogueTree({
 					<InlineAddStage />
 				</div>
 			) : null}
+			{banner ? <div className="mb-3">{banner}</div> : null}
 			{displayTree.length === 0 && !trimmedSearch ? empty : null}
 			<DndContext
 				autoScroll={autoScroll}

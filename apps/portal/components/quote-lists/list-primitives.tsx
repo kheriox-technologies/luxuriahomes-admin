@@ -67,7 +67,6 @@ export function InlineAddRow({
 		try {
 			await onAdd(trimmed);
 			setValue('');
-			inputRef.current?.focus();
 		} catch (error) {
 			toastManager.add({
 				description: getConvexErrorMessage(
@@ -78,6 +77,9 @@ export function InlineAddRow({
 				type: 'error',
 			});
 		} finally {
+			// Keep the caret here either way so several records can be typed in a
+			// row, and a failed add can be retried without reaching for the mouse.
+			inputRef.current?.focus();
 			setIsSaving(false);
 		}
 	};
@@ -93,7 +95,8 @@ export function InlineAddRow({
 			<Input
 				aria-label={`New ${noun}`}
 				className="flex-1"
-				disabled={isSaving}
+				// Never disabled while saving: the browser blurs a disabled input, so
+				// the caret would be lost between adds. `submit` no-ops when in flight.
 				nativeInput
 				onChange={(e) => setValue(e.target.value)}
 				onKeyDown={(e) => {

@@ -10,7 +10,7 @@ export default function QuotationsAcknowledgementTab() {
 
 	return (
 		<EditableHtmlCard
-			description="Section 05 of the quotation — the copy printed above the client signature block."
+			description="The copy printed above the client signature block."
 			editorId="quote-terms-acknowledgement"
 			isLoading={terms === undefined}
 			noun="acknowledgement"

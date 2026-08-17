@@ -480,7 +480,6 @@ export function QuoteTermsTree({
 	const [tree, setTree] = useState<TermSectionNode[]>([]);
 	const [openSectionKeys, setOpenSectionKeys] = useState<string[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
-	const initializedRef = useRef(false);
 	const scrollerRef = useRef<HTMLDivElement>(null);
 	// Signature of the last cross-container move applied in onDragOver; guards
 	// against re-processing an identical hover and looping at a container boundary.
@@ -493,14 +492,6 @@ export function QuoteTermsTree({
 			setTree(serverTree);
 		}
 	}, [serverTree, activeId]);
-
-	// Open every section the first time data loads.
-	useEffect(() => {
-		if (serverTree && !initializedRef.current) {
-			initializedRef.current = true;
-			setOpenSectionKeys(allKeys(serverTree));
-		}
-	}, [serverTree]);
 
 	useImperativeHandle(
 		ref,

@@ -1,6 +1,11 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+} from '@workspace/ui/components/alert';
 import { Button } from '@workspace/ui/components/button';
 import {
 	Empty,
@@ -12,11 +17,13 @@ import {
 import { Group, GroupSeparator } from '@workspace/ui/components/group';
 import { SearchInput } from '@workspace/ui/components/search-input';
 import { useQuery } from 'convex/react';
-import { ChevronsDownIcon, ChevronsUpIcon, ListTree } from 'lucide-react';
+import {
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	ListTree,
+	TriangleAlert,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
-import AddQuoteItem from '@/components/quote-items/add-quote-item';
-import AddQuoteSection from '@/components/quote-items/add-quote-section';
-import AddQuoteStage from '@/components/quote-items/add-quote-stage';
 import {
 	QuoteCatalogueTree,
 	type QuoteCatalogueTreeHandle,
@@ -72,19 +79,21 @@ export default function QuotationsItemsTab() {
 							<ChevronsUpIcon />
 						</Button>
 					</Group>
-					<AddQuoteStage />
-					<AddQuoteSection />
-					<AddQuoteItem />
 				</div>
 			</div>
-			{showPercentWarning ? (
-				<p className="text-muted-foreground text-sm">
-					Stage progress payments total {percentTotal}%. A quotation needs
-					exactly 100%, so adjust the stage percentages or set them on the
-					quotation itself.
-				</p>
-			) : null}
 			<QuoteCatalogueTree
+				banner={
+					showPercentWarning ? (
+						<Alert variant="warning">
+							<TriangleAlert />
+							<AlertTitle>Stage percentages total {percentTotal}%</AlertTitle>
+							<AlertDescription>
+								A quotation needs exactly 100%. Edit each stage to adjust its
+								progress-payment share, or set them on the quotation itself.
+							</AlertDescription>
+						</Alert>
+					) : null
+				}
 				empty={
 					<Empty>
 						<EmptyHeader>

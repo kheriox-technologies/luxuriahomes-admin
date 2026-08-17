@@ -14,8 +14,6 @@ import { SearchInput } from '@workspace/ui/components/search-input';
 import { useQuery } from 'convex/react';
 import { ChevronsDownIcon, ChevronsUpIcon, ScrollText } from 'lucide-react';
 import { useRef, useState } from 'react';
-import AddQuoteTermItem from '@/components/quote-terms/add-quote-term-item';
-import AddQuoteTermSection from '@/components/quote-terms/add-quote-term-section';
 import {
 	QuoteTermsTree,
 	type QuoteTermsTreeHandle,
@@ -57,8 +55,6 @@ export default function QuotationsTermsTab() {
 							<ChevronsUpIcon />
 						</Button>
 					</Group>
-					<AddQuoteTermSection />
-					<AddQuoteTermItem />
 				</div>
 			</div>
 			<QuoteTermsTree

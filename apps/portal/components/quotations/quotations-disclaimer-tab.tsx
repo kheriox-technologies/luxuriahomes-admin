@@ -10,7 +10,7 @@ export default function QuotationsDisclaimerTab() {
 
 	return (
 		<EditableHtmlCard
-			description="Section 03 of the quotation — what the estimate does and does not commit to."
+			description="What the estimate does and does not commit to."
 			editorId="quote-terms-disclaimer"
 			isLoading={terms === undefined}
 			noun="disclaimer"
