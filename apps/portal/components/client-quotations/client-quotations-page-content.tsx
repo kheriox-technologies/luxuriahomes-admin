@@ -251,7 +251,7 @@ export default function ClientQuotationsPageContent() {
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<PageHeading
-				heading="Client Quotations"
+				heading="Quotations"
 				icon={FileSignature}
 				rightSlot={
 					<>
