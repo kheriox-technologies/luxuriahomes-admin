@@ -14,6 +14,7 @@ import {
 	useState,
 } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import { isImageFile, toWebSafeImage } from '@/lib/note-image-file';
 
 interface PendingImage {
 	key: string;
@@ -74,9 +75,11 @@ export function NoteImageUploader({
 		[]
 	);
 
-	const uploadOne = async (file: File): Promise<PendingImage | null> => {
-		const previewUrl = URL.createObjectURL(file);
+	const uploadOne = async (picked: File): Promise<PendingImage | null> => {
+		let previewUrl = '';
 		try {
+			const file = await toWebSafeImage(picked);
+			previewUrl = URL.createObjectURL(file);
 			const ext = file.name.split('.').pop() ?? 'jpg';
 			const { uploadUrl, s3Key } = await generateUploadUrl({
 				projectId,
@@ -93,7 +96,9 @@ export function NoteImageUploader({
 			}
 			return { key: s3Key, previewUrl };
 		} catch (error) {
-			URL.revokeObjectURL(previewUrl);
+			if (previewUrl) {
+				URL.revokeObjectURL(previewUrl);
+			}
 			toastManager.add({
 				description: getConvexErrorMessage(
 					error,
@@ -107,9 +112,7 @@ export function NoteImageUploader({
 	};
 
 	const onFilesSelected = async (files: FileList) => {
-		const picked = Array.from(files).filter((file) =>
-			file.type.startsWith('image/')
-		);
+		const picked = Array.from(files).filter(isImageFile);
 		if (picked.length === 0) {
 			return;
 		}
@@ -146,7 +149,7 @@ export function NoteImageUploader({
 	return (
 		<>
 			<input
-				accept="image/*"
+				accept="image/*,.heic,.heif"
 				className="hidden"
 				disabled={disabled}
 				multiple
