@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
+import { withNoteCounts } from './shared';
 
 export const search = query({
 	args: {
@@ -17,11 +18,12 @@ export const search = query({
 			});
 		}
 		const limit = args.limit ?? 100;
-		return await ctx.db
+		const rows = await ctx.db
 			.query('clientQuotations')
 			.withSearchIndex('search_client_quotations', (q) =>
 				q.search('searchText', trimmed)
 			)
 			.take(limit);
+		return await withNoteCounts(ctx, rows);
 	},
 });

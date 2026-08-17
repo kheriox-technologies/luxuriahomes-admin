@@ -562,6 +562,14 @@ export default defineSchema({
 	})
 		.index('by_quotation', ['quotationId'])
 		.index('by_quotation_version', ['quotationId', 'version']),
+	// An append-only commentary log against a client quotation. Notes hang off the
+	// quotation rather than a version, so the history survives every revision.
+	clientQuotationNotes: defineTable({
+		quotationId: v.id('clientQuotations'),
+		timestamp: v.number(),
+		addedBy: v.string(),
+		note: v.string(),
+	}).index('by_quotation', ['quotationId']),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

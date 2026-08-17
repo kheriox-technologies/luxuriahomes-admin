@@ -337,3 +337,38 @@ export async function getClientQuotationOrThrow(
 	}
 	return quotation;
 }
+
+/**
+ * Attaches a note count to each row so the list can flag which quotations carry
+ * commentary without fanning out a query per row on the client.
+ */
+export async function withNoteCounts(
+	ctx: QueryCtx,
+	rows: Doc<'clientQuotations'>[]
+) {
+	return await Promise.all(
+		rows.map(async (row) => {
+			const notes = await ctx.db
+				.query('clientQuotationNotes')
+				.withIndex('by_quotation', (q) => q.eq('quotationId', row._id))
+				.collect();
+			return { ...row, noteCount: notes.length };
+		})
+	);
+}
+
+/** The display name stored on a note — the identity's name, else its email. */
+export function addedByFromIdentity(identity: {
+	email?: string;
+	name?: string;
+}): string {
+	const name = identity.name?.trim();
+	if (name) {
+		return name;
+	}
+	const email = identity.email?.trim();
+	if (email) {
+		return email;
+	}
+	return 'Unknown user';
+}

@@ -1,7 +1,6 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
-import type { Doc } from '@workspace/backend/dataModel';
 import {
 	Accordion,
 	AccordionItem,
@@ -26,6 +25,7 @@ import {
 } from '@workspace/ui/components/menu';
 import { SearchInput } from '@workspace/ui/components/search-input';
 import { useQuery } from 'convex/react';
+import type { FunctionReturnType } from 'convex/server';
 import {
 	ChevronDownIcon,
 	EllipsisVertical,
@@ -33,6 +33,7 @@ import {
 	FileSignature,
 	Pencil,
 	Plus,
+	StickyNote,
 	Trash2,
 } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
@@ -41,11 +42,15 @@ import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import { formatAudWhole } from '@/lib/currency';
 import { formatIssueDate } from './client-quotation-form-shared';
+import ClientQuotationNotesSheet from './client-quotation-notes-sheet';
 import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
 import DeleteClientQuotation from './delete-client-quotation';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
-type QuotationRow = Doc<'clientQuotations'>;
+// The list and search queries both return the quotation plus its note count.
+type QuotationRow = FunctionReturnType<
+	typeof api.clientQuotations.list.list
+>[number];
 
 const NEW_HREF = '/quotations/new';
 const FIRST_VERSION = 1;
@@ -55,7 +60,7 @@ const FIRST_VERSION = 1;
 // wide enough for a reference and its version badge on one line, and the issued
 // column for a spelled-out month.
 const ROW_GRID =
-	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_4.5rem] items-center gap-3 px-3 text-left';
+	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_7rem] items-center gap-3 px-3 text-left';
 
 // Routes are typed, and a template literal can't be proved to be one of them.
 function editHref(row: QuotationRow): LinkProps<string>['href'] {
@@ -64,10 +69,25 @@ function editHref(row: QuotationRow): LinkProps<string>['href'] {
 
 function QuotationRowActions({ row }: { row: QuotationRow }) {
 	const [deleteOpen, setDeleteOpen] = useState(false);
+	const [notesOpen, setNotesOpen] = useState(false);
 	const openPdf = useOpenQuotationPdf();
 
 	return (
 		<>
+			{/* A marker that this quotation has commentary, and a shortcut past the
+			    menu to read it. */}
+			{row.noteCount > 0 ? (
+				<Button
+					aria-label={`Notes for ${row.reference}`}
+					className="text-muted-foreground"
+					onClick={() => setNotesOpen(true)}
+					size="icon-sm"
+					type="button"
+					variant="ghost"
+				>
+					<StickyNote className="size-4" />
+				</Button>
+			) : null}
 			<Menu>
 				<MenuTrigger
 					render={
@@ -97,6 +117,10 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 						<ExternalLink />
 						Open latest PDF
 					</MenuItem>
+					<MenuItem onClick={() => setNotesOpen(true)}>
+						<StickyNote />
+						Notes
+					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
@@ -107,6 +131,13 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 			<DeleteClientQuotation
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}
+				quotationId={row._id}
+				reference={row.reference}
+			/>
+			<ClientQuotationNotesSheet
+				onOpenChange={setNotesOpen}
+				open={notesOpen}
+				projectName={row.projectName}
 				quotationId={row._id}
 				reference={row.reference}
 			/>
@@ -151,7 +182,7 @@ function QuotationAccordionItem({
 				<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
 					{formatIssueDate(new Date(row.issuedAt))}
 				</span>
-				<span className="relative flex items-center justify-end">
+				<span className="relative flex items-center justify-end gap-1">
 					<QuotationRowActions row={row} />
 					<AccordionPrimitive.Trigger
 						aria-label={`Toggle version history for ${row.reference}`}
