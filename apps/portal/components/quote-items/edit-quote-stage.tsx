@@ -23,9 +23,11 @@ import { type ReactElement, useEffect } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyQuoteStageFormValues,
+	parseOptionalPercent,
 	quoteFormFieldError,
 	quoteStageFormSchema,
 } from './quote-form-shared';
+import QuoteStageDefaultsFields from './quote-stage-defaults-fields';
 import { type ControllableDialogProps, useDialogOpen } from './use-dialog-open';
 
 const FORM_ID = 'edit-quote-stage-form';
@@ -33,11 +35,15 @@ const FORM_ID = 'edit-quote-stage-form';
 export default function EditQuoteStage({
 	stageId,
 	initialName,
+	initialDefaultPercent,
+	initialScopeSummary,
 	trigger,
 	...openProps
 }: {
 	stageId: Id<'quoteStages'>;
 	initialName: string;
+	initialDefaultPercent?: number;
+	initialScopeSummary?: string;
 	trigger?: ReactElement;
 } & ControllableDialogProps) {
 	const { open, setOpen } = useDialogOpen(openProps);
@@ -51,7 +57,12 @@ export default function EditQuoteStage({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = quoteStageFormSchema.parse(value);
-				await updateStage({ stageId, name: parsed.name });
+				await updateStage({
+					stageId,
+					name: parsed.name,
+					defaultPercent: parseOptionalPercent(parsed.defaultPercent),
+					scopeSummary: parsed.scopeSummary || undefined,
+				});
 				toastManager.add({ title: 'Stage updated', type: 'success' });
 				setOpen(false);
 			} catch (error) {
@@ -71,11 +82,21 @@ export default function EditQuoteStage({
 
 	useEffect(() => {
 		if (open) {
-			form.reset({ name: initialName }, { keepDefaultValues: true });
+			form.reset(
+				{
+					name: initialName,
+					defaultPercent:
+						initialDefaultPercent === undefined
+							? ''
+							: String(initialDefaultPercent),
+					scopeSummary: initialScopeSummary ?? '',
+				},
+				{ keepDefaultValues: true }
+			);
 			return;
 		}
 		form.reset();
-	}, [form, initialName, open]);
+	}, [form, initialDefaultPercent, initialName, initialScopeSummary, open]);
 
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
@@ -119,6 +140,39 @@ export default function EditQuoteStage({
 									</Field>
 								);
 							}}
+						</form.Field>
+
+						<form.Field name="defaultPercent">
+							{(percentField) => (
+								<form.Field name="scopeSummary">
+									{(scopeField) => (
+										<QuoteStageDefaultsFields
+											defaultPercent={{
+												error: quoteFormFieldError(
+													percentField.state.meta.errors
+												),
+												invalid:
+													percentField.state.meta.isTouched &&
+													!percentField.state.meta.isValid,
+												onBlur: percentField.handleBlur,
+												onChange: percentField.handleChange,
+												value: percentField.state.value,
+											}}
+											scopeSummary={{
+												error: quoteFormFieldError(
+													scopeField.state.meta.errors
+												),
+												invalid:
+													scopeField.state.meta.isTouched &&
+													!scopeField.state.meta.isValid,
+												onBlur: scopeField.handleBlur,
+												onChange: scopeField.handleChange,
+												value: scopeField.state.value,
+											}}
+										/>
+									)}
+								</form.Field>
+							)}
 						</form.Field>
 					</DialogPanel>
 				</form>

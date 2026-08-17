@@ -26,6 +26,7 @@ import {
 	Building2,
 	CalendarDays,
 	ChevronDown,
+	FileSignature,
 	FileText,
 	Globe,
 	LayoutDashboard,
@@ -110,6 +111,12 @@ const items: SidebarItem[] = [
 		url: '/documents',
 		path: '/documents',
 		icon: FileText,
+	},
+	{
+		title: 'Client Quotations',
+		url: '/client-quotations',
+		path: '/client-quotations',
+		icon: FileSignature,
 	},
 	{
 		title: 'Notifications',

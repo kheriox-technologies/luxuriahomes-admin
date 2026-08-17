@@ -4,6 +4,7 @@ import {
 	buildQuoteSectionSearchText,
 	buildQuoteStageSearchText,
 } from '../lib/buildSearchText';
+import { QUOTE_STAGE_DEFAULTS } from '../quoteStages/shared';
 
 interface SeedItem {
 	description: string;
@@ -342,9 +343,12 @@ export const populate = internalMutation({
 		let itemCount = 0;
 
 		for (const [stageIndex, stage] of QUOTE_CATALOGUE_DATA.entries()) {
+			const defaults = QUOTE_STAGE_DEFAULTS[stage.name.toLowerCase()];
 			const stageId = await ctx.db.insert('quoteStages', {
 				name: stage.name,
 				order: stageIndex,
+				defaultPercent: defaults?.defaultPercent,
+				scopeSummary: defaults?.scopeSummary,
 				searchText: buildQuoteStageSearchText(stage.name),
 			});
 

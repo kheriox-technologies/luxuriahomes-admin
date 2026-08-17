@@ -22,9 +22,11 @@ import { type ReactElement, useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyQuoteStageFormValues,
+	parseOptionalPercent,
 	quoteFormFieldError,
 	quoteStageFormSchema,
 } from './quote-form-shared';
+import QuoteStageDefaultsFields from './quote-stage-defaults-fields';
 
 const FORM_ID = 'add-quote-stage-form';
 
@@ -44,7 +46,11 @@ export default function AddQuoteStage({
 		onSubmit: async ({ value }) => {
 			try {
 				const parsed = quoteStageFormSchema.parse(value);
-				await addStage({ name: parsed.name });
+				await addStage({
+					name: parsed.name,
+					defaultPercent: parseOptionalPercent(parsed.defaultPercent),
+					scopeSummary: parsed.scopeSummary || undefined,
+				});
 				toastManager.add({ title: 'Stage added', type: 'success' });
 				form.reset();
 				setOpen(false);
@@ -120,6 +126,39 @@ export default function AddQuoteStage({
 									</Field>
 								);
 							}}
+						</form.Field>
+
+						<form.Field name="defaultPercent">
+							{(percentField) => (
+								<form.Field name="scopeSummary">
+									{(scopeField) => (
+										<QuoteStageDefaultsFields
+											defaultPercent={{
+												error: quoteFormFieldError(
+													percentField.state.meta.errors
+												),
+												invalid:
+													percentField.state.meta.isTouched &&
+													!percentField.state.meta.isValid,
+												onBlur: percentField.handleBlur,
+												onChange: percentField.handleChange,
+												value: percentField.state.value,
+											}}
+											scopeSummary={{
+												error: quoteFormFieldError(
+													scopeField.state.meta.errors
+												),
+												invalid:
+													scopeField.state.meta.isTouched &&
+													!scopeField.state.meta.isValid,
+												onBlur: scopeField.handleBlur,
+												onChange: scopeField.handleChange,
+												value: scopeField.state.value,
+											}}
+										/>
+									)}
+								</form.Field>
+							)}
 						</form.Field>
 					</DialogPanel>
 				</form>

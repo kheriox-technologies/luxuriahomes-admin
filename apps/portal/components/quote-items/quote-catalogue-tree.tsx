@@ -691,6 +691,11 @@ function StageAccordionItem({
 						<Badge size="lg" variant="secondary">
 							{itemCount} items
 						</Badge>
+						{node.stage.defaultPercent === undefined ? null : (
+							<Badge size="lg" variant="outline">
+								{node.stage.defaultPercent}%
+							</Badge>
+						)}
 					</AccordionPrimitive.Trigger>
 					<Menu>
 						<MenuTrigger
@@ -742,7 +747,9 @@ function StageAccordionItem({
 				open={addSectionOpen}
 			/>
 			<EditQuoteStage
+				initialDefaultPercent={node.stage.defaultPercent}
 				initialName={node.stage.name}
+				initialScopeSummary={node.stage.scopeSummary}
 				onOpenChange={setEditOpen}
 				open={editOpen}
 				stageId={node.stage._id}

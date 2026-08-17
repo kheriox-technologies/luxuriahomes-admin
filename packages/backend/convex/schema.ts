@@ -3,6 +3,11 @@ import { v } from 'convex/values';
 import { zodToConvex } from 'convex-helpers/server/zod';
 import { z } from 'zod';
 import {
+	quotationClientValidator,
+	quotationStageSnapshotValidator,
+	quotationTermsSnapshotValidator,
+} from './clientQuotations/shared';
+import {
 	australianAddressValidator,
 	projectClientValidator,
 	projectStatusValidator,
@@ -404,6 +409,13 @@ export default defineSchema({
 	quoteStages: defineTable({
 		name: v.string(),
 		order: v.number(),
+		// Share of the contract sum (0–100) pre-filled on a new client quotation.
+		// Optional so stages created before quotations existed stay valid; absent
+		// reads as 0 and the quotation form still requires the set to total 100.
+		defaultPercent: v.optional(v.number()),
+		// One-line "scope of works" printed beside the stage in a quotation's
+		// progress-payment table. Absent falls back to the stage's section names.
+		scopeSummary: v.optional(v.string()),
 		searchText: v.string(),
 	})
 		.index('by_order', ['order'])
@@ -456,6 +468,55 @@ export default defineSchema({
 	})
 		.index('by_section_order', ['sectionId', 'order'])
 		.searchIndex('search_quote_term_items', { searchField: 'searchText' }),
+	// A client-facing building quotation, composed from the quote catalogue and
+	// the quote terms and rendered to a branded PDF.
+	//
+	// Every value the PDF prints is snapshotted here — a later catalogue rename or
+	// terms edit must never retroactively change a quotation that has already been
+	// issued, and the row has to be able to regenerate the exact same document.
+	clientQuotations: defineTable({
+		// 'LUX-2026-0148', allocated from `quotationCounters` on save.
+		reference: v.string(),
+		referenceYear: v.number(),
+		referenceSeq: v.number(),
+		projectName: v.string(),
+		description: v.optional(v.string()),
+		// One or two clients; the count is enforced on write.
+		clients: v.array(quotationClientValidator),
+		address: australianAddressValidator,
+		issuedAt: v.number(),
+		validityDays: v.number(),
+		// Pricing provenance. All optional — the total can be typed free-hand
+		// without picking a budget template at all.
+		budgetTemplateId: v.optional(v.id('budgetTemplates')),
+		budgetTemplateTitle: v.optional(v.string()),
+		budgetTemplateTotal: v.optional(v.number()),
+		marginPercent: v.optional(v.number()),
+		// All prices are inclusive of GST; the other two are derived from this.
+		totalInclGst: v.number(),
+		contractSumExclGst: v.number(),
+		gstAmount: v.number(),
+		stages: v.array(quotationStageSnapshotValidator),
+		terms: quotationTermsSnapshotValidator,
+		// The generated PDF, filed under company documents.
+		documentId: v.optional(v.id('companyDocuments')),
+		s3Key: v.optional(v.string()),
+		fileName: v.optional(v.string()),
+		folderPath: v.optional(v.string()),
+		createdBy: v.string(),
+		createdAt: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_reference', ['reference'])
+		.index('by_created', ['createdAt'])
+		.searchIndex('search_client_quotations', { searchField: 'searchText' }),
+	// One row per calendar year holding the last allocated quotation sequence.
+	// Patched inside a mutation so Convex's OCC hands out collision-free
+	// references without scanning `clientQuotations`.
+	quotationCounters: defineTable({
+		year: v.number(),
+		lastSeq: v.number(),
+	}).index('by_year', ['year']),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

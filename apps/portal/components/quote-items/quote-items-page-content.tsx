@@ -23,10 +23,24 @@ import {
 	type QuoteCatalogueTreeHandle,
 } from './quote-catalogue-tree';
 
+const REQUIRED_PERCENT_TOTAL = 100;
+
 export default function QuoteItemsPageContent() {
 	const tree = useQuery(api.quoteCatalogue.tree.tree, {});
 	const [search, setSearch] = useState('');
 	const treeRef = useRef<QuoteCatalogueTreeHandle>(null);
+
+	// Quotations pre-fill their progress-payment split from these percentages, so
+	// surface it here when the catalogue's defaults don't add up.
+	const percentTotal = tree?.reduce(
+		(sum, node) => sum + (node.stage.defaultPercent ?? 0),
+		0
+	);
+	const showPercentWarning =
+		percentTotal !== undefined &&
+		tree !== undefined &&
+		tree.length > 0 &&
+		percentTotal !== REQUIRED_PERCENT_TOTAL;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -68,6 +82,13 @@ export default function QuoteItemsPageContent() {
 					</>
 				}
 			/>
+			{showPercentWarning ? (
+				<p className="text-muted-foreground text-sm">
+					Stage progress payments total {percentTotal}%. A quotation needs
+					exactly 100%, so adjust the stage percentages or set them on the
+					quotation itself.
+				</p>
+			) : null}
 			<QuoteCatalogueTree
 				empty={
 					<Empty>
