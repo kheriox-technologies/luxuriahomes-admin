@@ -45,7 +45,7 @@ export default function QuotationsPageContent() {
 		<div className="flex h-full min-h-0 w-full flex-col gap-4">
 			<PageHeading
 				description="The catalogue, terms, exclusions, notes, disclaimer and acknowledgement used to build every client quotation."
-				heading="Quotations"
+				heading="Quotation Catalogue"
 				icon={ScrollText}
 			/>
 			<Tabs

@@ -161,7 +161,7 @@ const items: SidebarItem[] = [
 				path: '/takeoff-categories',
 			},
 			{
-				title: 'Quotation Items',
+				title: 'Quotation Catalogue',
 				url: '/quotation-items',
 				path: '/quotation-items',
 			},
