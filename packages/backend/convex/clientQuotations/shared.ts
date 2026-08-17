@@ -39,6 +39,9 @@ export const APPROVED_QUOTATION_STATUS = 'Approved' as const;
 /** How an approval reads in the version history. */
 export const APPROVAL_VERSION_DESCRIPTION = 'Approved' as const;
 
+/** How issuing a quotation to its clients reads in the version history. */
+export const SENT_VERSION_DESCRIPTION = 'Sent to client' as const;
+
 export const quotationClientValidator = v.object({
 	name: v.string(),
 	email: v.string(),
@@ -353,6 +356,100 @@ export function initialVersionFrom(quotation: Doc<'clientQuotations'>): {
 		updatedBy: quotation.createdBy,
 		version: FIRST_VERSION,
 	};
+}
+
+/**
+ * Records a lifecycle event — an approval, an issue to the clients — against the
+ * quotation's current version.
+ *
+ * A status event changes nothing about what was quoted, so the version is
+ * deliberately left where it is and no new PDF is issued. Quotations issued
+ * before versioning existed have no history rows, so the revision the event
+ * happened against is backfilled first — otherwise the event would be the only
+ * entry in the trail.
+ *
+ * Shared by the admin and client-portal paths so both write an identical row.
+ */
+export async function recordQuotationStatusEvent(
+	ctx: MutationCtx,
+	args: {
+		description: string;
+		quotation: Doc<'clientQuotations'>;
+		updatedAt: number;
+		updatedBy: string;
+	}
+): Promise<number> {
+	const history = await ctx.db
+		.query('clientQuotationVersions')
+		.withIndex('by_quotation', (q) => q.eq('quotationId', args.quotation._id))
+		.collect();
+	if (history.length === 0) {
+		await insertQuotationVersion(ctx, {
+			quotationId: args.quotation._id,
+			...initialVersionFrom(args.quotation),
+		});
+	}
+
+	const currentVersion = args.quotation.version ?? FIRST_VERSION;
+
+	// No document fields: a status event issues no new PDF, so the row points at
+	// nothing to open.
+	await insertQuotationVersion(ctx, {
+		quotationId: args.quotation._id,
+		version: currentVersion,
+		changeType: 'Status',
+		description: args.description,
+		updatedBy: args.updatedBy,
+		updatedAt: args.updatedAt,
+		totalInclGst: args.quotation.totalInclGst,
+	});
+
+	return currentVersion;
+}
+
+/**
+ * The history of one quotation, newest first — its revisions plus the lifecycle
+ * events recorded against them.
+ *
+ * Rows issued before versioning existed have no history, so a version-1 row is
+ * synthesised from the quotation itself — callers never have to special-case
+ * legacy data, and `update` writes the same row when it backfills.
+ */
+export async function readQuotationVersions(
+	ctx: QueryCtx,
+	quotation: Doc<'clientQuotations'>
+) {
+	const rows = await ctx.db
+		.query('clientQuotationVersions')
+		.withIndex('by_quotation', (q) => q.eq('quotationId', quotation._id))
+		.collect();
+
+	const versions =
+		rows.length === 0
+			? [
+					{
+						...initialVersionFrom(quotation),
+						changeType: DEFAULT_VERSION_CHANGE_TYPE,
+					},
+				]
+			: rows.map((row) => ({
+					changeType: row.changeType ?? DEFAULT_VERSION_CHANGE_TYPE,
+					description: row.description,
+					documentId: row.documentId,
+					fileName: row.fileName,
+					folderPath: row.folderPath,
+					s3Key: row.s3Key,
+					totalInclGst: row.totalInclGst,
+					updatedAt: row.updatedAt,
+					updatedBy: row.updatedBy,
+					version: row.version,
+				}));
+
+	// A status event shares its version with the revision it happened against, so
+	// the tiebreak puts the newer entry — the event — on top.
+	return versions.sort(
+		(a, b) => b.version - a.version || b.updatedAt - a.updatedAt
+	);
 }
 
 export async function getClientQuotationOrThrow(

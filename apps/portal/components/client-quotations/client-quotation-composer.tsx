@@ -164,6 +164,9 @@ export default function ClientQuotationComposer({
 		api.clientQuotations.saveVersion.saveVersion
 	);
 	const removeDocument = useAction(api.companyDocuments.remove.remove);
+	const sendVersionToClients = useAction(
+		api.clientQuotations.sendVersionToClients.sendVersionToClients
+	);
 
 	// Stage percentages and the editable body of the quotation are seeded from the
 	// catalogue (or the issued quotation) rather than held in the form — a
@@ -324,6 +327,16 @@ export default function ClientQuotationComposer({
 		: undefined;
 	const amendedVersionDescription = amendedVersion?.description ?? '';
 
+	// Who a new version can be emailed to. A quotation still in Draft has never
+	// been issued, so there is nobody expecting an update — the dialog leaves the
+	// option out entirely rather than offering a send that would surprise them.
+	const versionEmailRecipients =
+		quotation && quotation.status !== 'Draft'
+			? quotation.clients
+					.filter((client) => client.email.trim() !== '')
+					.map((client) => client.name)
+			: [];
+
 	/**
 	 * The trail printed on page 2: the issued versions, then the pending one.
 	 * An amendment has no pending version — it replaces the row for the version
@@ -447,6 +460,35 @@ export default function ClientQuotationComposer({
 	};
 
 	/**
+	 * Emails the version just saved to the quotation's clients.
+	 *
+	 * Reported but never rethrown: the revision is already saved by this point, so
+	 * failing the whole save over the email would be wrong — and misleading. The
+	 * admin can re-send from the quotation list instead.
+	 */
+	const emailVersionToClients = async (id: Id<'clientQuotations'>) => {
+		try {
+			const result = await sendVersionToClients({ quotationId: id });
+			toastManager.add({
+				title:
+					result.sent === 1
+						? 'Version emailed to 1 client'
+						: `Version emailed to ${result.sent} clients`,
+				type: 'success',
+			});
+		} catch (error) {
+			toastManager.add({
+				description: getConvexErrorMessage(
+					error,
+					'The version was saved, but the email could not be sent. You can send it from the quotations list.'
+				),
+				title: 'Could not email the new version',
+				type: 'error',
+			});
+		}
+	};
+
+	/**
 	 * Deletes the PDF an amended version used to point at. Best effort: the save
 	 * has already succeeded by this point, so a stray file is not worth failing on
 	 * — and reporting it would only be noise the user can't act on.
@@ -467,7 +509,10 @@ export default function ClientQuotationComposer({
 	 * — when amending — rewrites the current version in place. Every path but the
 	 * first carries the description the user gave for it.
 	 */
-	const handleSave = async (versionDescription?: string) => {
+	const handleSave = async (
+		versionDescription?: string,
+		emailClients = false
+	) => {
 		const parsed = clientQuotationFormSchema.safeParse(values);
 		if (!(canSave && parsed.success && pdfInput && termsContent)) {
 			return;
@@ -629,6 +674,9 @@ export default function ClientQuotationComposer({
 					title: `Version ${targetVersion} saved`,
 					type: 'success',
 				});
+				if (emailClients) {
+					await emailVersionToClients(quotationId);
+				}
 			} else {
 				await createQuotation({
 					reference: savedReference,
@@ -994,13 +1042,14 @@ export default function ClientQuotationComposer({
 			<QuotationVersionDialog
 				amending={amending}
 				initialDescription={amending ? amendedVersionDescription : ''}
-				onConfirm={(description) => {
-					handleSave(description).catch(() => {
+				onConfirm={(description, emailClients) => {
+					handleSave(description, emailClients).catch(() => {
 						/* handled in handleSave */
 					});
 				}}
 				onOpenChange={setVersionDialogOpen}
 				open={versionDialogOpen}
+				recipients={versionEmailRecipients}
 				saving={saving}
 				version={targetVersion}
 			/>

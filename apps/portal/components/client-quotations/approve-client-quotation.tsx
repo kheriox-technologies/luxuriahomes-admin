@@ -17,20 +17,27 @@ import { useMutation } from 'convex/react';
 import { CircleCheck } from 'lucide-react';
 import { useState } from 'react';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import type { QuotationSurface } from './quotation-surface';
 
 export default function ApproveClientQuotation({
 	onOpenChange,
 	open,
 	quotationId,
 	reference,
+	surface = 'admin',
 }: {
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
 	quotationId: Id<'clientQuotations'>;
 	reference: string;
+	surface?: QuotationSurface;
 }) {
 	const [isApproving, setIsApproving] = useState(false);
-	const approveQuotation = useMutation(api.clientQuotations.approve.approve);
+	const adminApprove = useMutation(api.clientQuotations.approve.approve);
+	const clientApprove = useMutation(
+		api.clientPortal.quotations.approve.approve
+	);
+	const approveQuotation = surface === 'client' ? clientApprove : adminApprove;
 
 	const onApprove = async () => {
 		setIsApproving(true);
@@ -58,9 +65,9 @@ export default function ApproveClientQuotation({
 				<AlertDialogHeader>
 					<AlertDialogTitle>Approve {reference}?</AlertDialogTitle>
 					<AlertDialogDescription>
-						This marks the quotation as Approved. Nothing about what was quoted
-						changes, so the version stays as it is — the approval is recorded in
-						the version history against it.
+						{surface === 'client'
+							? 'This tells Luxuria Homes you are happy with the quotation as it stands. Nothing about what was quoted changes, and your approval is recorded against this version. If you would rather ask about something first, add a note instead.'
+							: 'This marks the quotation as Approved. Nothing about what was quoted changes, so the version stays as it is — the approval is recorded in the version history against it.'}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>

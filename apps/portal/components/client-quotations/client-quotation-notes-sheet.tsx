@@ -1,5 +1,6 @@
 'use client';
 
+import { useUser } from '@clerk/nextjs';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
@@ -21,6 +22,7 @@ import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { NoteTimelineBody } from '@/components/notes/note-timeline';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
+import type { QuotationSurface } from './quotation-surface';
 
 export default function ClientQuotationNotesSheet({
 	quotationId,
@@ -28,26 +30,44 @@ export default function ClientQuotationNotesSheet({
 	projectName,
 	open,
 	onOpenChange,
+	surface = 'admin',
 }: {
 	quotationId: Id<'clientQuotations'>;
 	reference: string;
 	projectName: string;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	surface?: QuotationSurface;
 }) {
 	const [noteText, setNoteText] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	const isClient = surface === 'client';
+	const currentUserId = useUser().user?.id;
 
-	const appendNoteMutation = useMutation(
+	const adminAppendNote = useMutation(
 		api.clientQuotations.appendNote.appendNote
 	);
-	const deleteNoteMutation = useMutation(
+	const clientAppendNote = useMutation(
+		api.clientPortal.quotations.appendNote.appendNote
+	);
+	const adminDeleteNote = useMutation(
 		api.clientQuotations.deleteNote.deleteNote
 	);
-	const notes = useQuery(
-		api.clientQuotations.listNotes.listNotes,
-		open ? { quotationId } : 'skip'
+	const clientDeleteNote = useMutation(
+		api.clientPortal.quotations.deleteNote.deleteNote
 	);
+	const appendNoteMutation = isClient ? clientAppendNote : adminAppendNote;
+	const deleteNoteMutation = isClient ? clientDeleteNote : adminDeleteNote;
+
+	const adminNotes = useQuery(
+		api.clientQuotations.listNotes.listNotes,
+		open && !isClient ? { quotationId } : 'skip'
+	);
+	const clientNotes = useQuery(
+		api.clientPortal.quotations.listNotes.listNotes,
+		open && isClient ? { quotationId } : 'skip'
+	);
+	const notes = isClient ? clientNotes : adminNotes;
 
 	const onSubmit = async () => {
 		if (noteText.trim() === '') {
@@ -117,6 +137,14 @@ export default function ClientQuotationNotesSheet({
 				</SheetHeader>
 				<SheetPanel>
 					<NoteTimelineBody
+						// A client may only remove their own notes; an admin removes any.
+						canDelete={
+							isClient
+								? (note) =>
+										Boolean(currentUserId) &&
+										note.addedByUserId === currentUserId
+								: undefined
+						}
 						emptyDescription="Add the first note using the field below."
 						notes={notes}
 						onDelete={onDelete}

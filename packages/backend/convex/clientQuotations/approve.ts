@@ -4,11 +4,9 @@ import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import {
 	APPROVAL_VERSION_DESCRIPTION,
 	APPROVED_QUOTATION_STATUS,
-	FIRST_VERSION,
 	getClientQuotationOrThrow,
-	initialVersionFrom,
-	insertQuotationVersion,
 	REVIEW_QUOTATION_STATUS,
+	recordQuotationStatusEvent,
 } from './shared';
 
 /**
@@ -37,38 +35,17 @@ export const approve = mutation({
 		const approvedBy = identity.name ?? identity.email ?? 'Unknown';
 		const approvedAt = Date.now();
 
-		// Quotations issued before versioning existed have no history rows, so the
-		// approval would otherwise be the only entry in the trail — the revision it
-		// approved has to be there first.
-		const history = await ctx.db
-			.query('clientQuotationVersions')
-			.withIndex('by_quotation', (q) => q.eq('quotationId', args.quotationId))
-			.collect();
-		if (history.length === 0) {
-			await insertQuotationVersion(ctx, {
-				quotationId: args.quotationId,
-				...initialVersionFrom(existing),
-			});
-		}
-
-		const currentVersion = existing.version ?? FIRST_VERSION;
-
 		await ctx.db.patch(args.quotationId, {
 			status: APPROVED_QUOTATION_STATUS,
 			updatedAt: approvedAt,
 			updatedBy: approvedBy,
 		});
 
-		// No document fields: approving issues no new PDF, so the row points at
-		// nothing to open.
-		await insertQuotationVersion(ctx, {
-			quotationId: args.quotationId,
-			version: currentVersion,
-			changeType: 'Status',
+		const currentVersion = await recordQuotationStatusEvent(ctx, {
 			description: APPROVAL_VERSION_DESCRIPTION,
-			updatedBy: approvedBy,
+			quotation: existing,
 			updatedAt: approvedAt,
-			totalInclGst: existing.totalInclGst,
+			updatedBy: approvedBy,
 		});
 
 		return { status: APPROVED_QUOTATION_STATUS, version: currentVersion };

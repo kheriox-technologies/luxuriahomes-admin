@@ -23,6 +23,7 @@ export const appendNote = mutation({
 			quotationId: args.quotationId,
 			timestamp: Date.now(),
 			addedBy: addedByFromIdentity(identity),
+			addedByUserId: identity.subject,
 			note: trimmed,
 		});
 		return args.quotationId;

@@ -5,7 +5,9 @@ type NotificationType =
 	| 'inclusion_approved'
 	| 'inclusion_unapproved'
 	| 'inclusion_note'
-	| 'document_upload';
+	| 'document_upload'
+	| 'quotation_note'
+	| 'quotation_approved';
 
 interface CreateNotificationArgs {
 	fromEmail?: string;
@@ -44,4 +46,12 @@ export function inclusionsLink(projectId: Id<'projects'>): string {
 /** Deep-link to a project's documents tab in the admin app. */
 export function documentsLink(projectId: Id<'projects'>): string {
 	return `/projects/${projectId}?tab=documents`;
+}
+
+/**
+ * Link to the admin quotations list. Quotations have no detail route — the list
+ * is where every quotation is read, so it is the best landing spot.
+ */
+export function quotationsLink(): string {
+	return '/quotations';
 }

@@ -23,6 +23,7 @@ import { EllipsisVertical, ExternalLink, Pencil } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 import { formatAudWhole } from '@/lib/currency';
 import { formatIssueDate } from './client-quotation-form-shared';
+import type { QuotationSurface } from './quotation-surface';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 // Routes are typed, and a template literal can't be proved to be one of them.
@@ -34,6 +35,37 @@ function editVersionHref(
 }
 
 /**
+ * Only the current version carries a snapshot to load back into the composer, so
+ * earlier ones — and status events, which hold no snapshot at all — can't be
+ * edited. When it isn't editable the link is left out rather than only disabled:
+ * an anchor still navigates when it is clicked.
+ */
+function EditVersionMenuItem({
+	editable,
+	quotationId,
+	version,
+}: {
+	editable: boolean;
+	quotationId: Id<'clientQuotations'>;
+	version: number;
+}) {
+	if (!editable) {
+		return (
+			<MenuItem disabled>
+				<Pencil />
+				Edit
+			</MenuItem>
+		);
+	}
+	return (
+		<MenuItem render={<Link href={editVersionHref(quotationId, version)} />}>
+			<Pencil />
+			Edit
+		</MenuItem>
+	);
+}
+
+/**
  * The history of one quotation, newest first — its revisions and the lifecycle
  * events recorded against them. Mounted only while its accordion row is open, so
  * a long list of quotations doesn't fan out into a query per row.
@@ -41,14 +73,23 @@ function editVersionHref(
 export default function ClientQuotationVersionsPanel({
 	latestVersion,
 	quotationId,
+	surface = 'admin',
 }: {
 	latestVersion: number;
 	quotationId: Id<'clientQuotations'>;
+	surface?: QuotationSurface;
 }) {
-	const versions = useQuery(api.clientQuotations.listVersions.listVersions, {
-		quotationId,
-	});
-	const openPdf = useOpenQuotationPdf();
+	const isClient = surface === 'client';
+	const adminVersions = useQuery(
+		api.clientQuotations.listVersions.listVersions,
+		isClient ? 'skip' : { quotationId }
+	);
+	const clientVersions = useQuery(
+		api.clientPortal.quotations.listVersions.listVersions,
+		isClient ? { quotationId } : 'skip'
+	);
+	const versions = isClient ? clientVersions : adminVersions;
+	const openPdf = useOpenQuotationPdf(surface);
 
 	if (versions === undefined) {
 		return (
@@ -125,35 +166,19 @@ export default function ClientQuotationVersionsPanel({
 											<EllipsisVertical className="size-4" />
 										</MenuTrigger>
 										<MenuPopup align="end">
-											{/* Only the current version carries a snapshot to load back
-											    into the composer, so earlier ones — and status events,
-											    which hold no snapshot at all — can't be edited. The link
-											    is left out rather than only disabled: an anchor still
-											    navigates when it is clicked. */}
-											{isCurrentRevision ? (
-												<MenuItem
-													render={
-														<Link
-															href={editVersionHref(
-																quotationId,
-																version.version
-															)}
-														/>
-													}
-												>
-													<Pencil />
-													Edit
-												</MenuItem>
-											) : (
-												<MenuItem disabled>
-													<Pencil />
-													Edit
-												</MenuItem>
+											{/* Clients never edit a quotation, so on that surface the
+											    item is absent rather than disabled. */}
+											{isClient ? null : (
+												<EditVersionMenuItem
+													editable={isCurrentRevision}
+													quotationId={quotationId}
+													version={version.version}
+												/>
 											)}
 											<MenuItem
 												disabled={!version.s3Key}
 												onClick={() => {
-													openPdf(version.s3Key).catch(() => {
+													openPdf(version.s3Key, quotationId).catch(() => {
 														/* handled in openPdf */
 													});
 												}}

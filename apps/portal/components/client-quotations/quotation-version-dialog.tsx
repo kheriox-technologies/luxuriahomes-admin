@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@workspace/ui/components/button';
+import { Checkbox } from '@workspace/ui/components/checkbox';
 import {
 	Dialog,
 	DialogClose,
@@ -26,6 +27,11 @@ export const MAX_VERSION_DESCRIPTION_LENGTH = 200;
  * When `amending`, the same dialog confirms a correction to a version that has
  * already been saved: the description starts from what that version already
  * says, and can be corrected along with everything else.
+ *
+ * A revision on a quotation the clients already hold also offers to email them
+ * the new version. It is only offered once the quotation has been issued — a
+ * draft has no recipients — and never when amending, because a correction to a
+ * version in place is not new news.
  */
 export default function QuotationVersionDialog({
 	amending = false,
@@ -33,22 +39,28 @@ export default function QuotationVersionDialog({
 	onConfirm,
 	onOpenChange,
 	open,
+	recipients = [],
 	saving,
 	version,
 }: {
 	amending?: boolean;
 	initialDescription?: string;
-	onConfirm: (description: string) => void;
+	onConfirm: (description: string, emailClients: boolean) => void;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
+	/** Client names to email, empty when the quotation has not been issued yet. */
+	recipients?: string[];
 	saving: boolean;
 	version: number;
 }) {
 	const [description, setDescription] = useState('');
+	const [emailClients, setEmailClients] = useState(true);
+	const canEmail = !amending && recipients.length > 0;
 
 	useEffect(() => {
 		if (open) {
 			setDescription(initialDescription);
+			setEmailClients(true);
 		}
 	}, [open, initialDescription]);
 
@@ -84,6 +96,25 @@ export default function QuotationVersionDialog({
 							value={description}
 						/>
 					</Field>
+					{canEmail ? (
+						<label
+							className="mt-4 flex cursor-pointer items-start gap-2 text-sm"
+							htmlFor="quotation-version-email-clients"
+						>
+							<Checkbox
+								checked={emailClients}
+								id="quotation-version-email-clients"
+								onCheckedChange={(checked) => setEmailClients(checked === true)}
+							/>
+							<span className="flex flex-col gap-0.5">
+								<span>Email version {version} to the clients</span>
+								<span className="text-muted-foreground text-xs">
+									{recipients.join(', ')} — each gets the new PDF and what
+									changed.
+								</span>
+							</span>
+						</label>
+					) : null}
 				</DialogPanel>
 				<DialogFooter>
 					<DialogClose render={<Button type="button" variant="outline" />}>
@@ -92,7 +123,7 @@ export default function QuotationVersionDialog({
 					<Button
 						disabled={trimmed.length === 0 || saving}
 						loading={saving}
-						onClick={() => onConfirm(trimmed)}
+						onClick={() => onConfirm(trimmed, canEmail && emailClients)}
 						type="button"
 						variant="outline"
 					>

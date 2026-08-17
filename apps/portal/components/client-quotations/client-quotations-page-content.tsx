@@ -34,6 +34,7 @@ import {
 	FileSignature,
 	Pencil,
 	Plus,
+	Send,
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
@@ -47,6 +48,8 @@ import { formatIssueDate } from './client-quotation-form-shared';
 import ClientQuotationNotesSheet from './client-quotation-notes-sheet';
 import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
 import DeleteClientQuotation from './delete-client-quotation';
+import type { QuotationSurface } from './quotation-surface';
+import SendQuotationToClients from './send-quotation-to-clients';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 // The list and search queries both return the quotation plus its note count.
@@ -58,6 +61,7 @@ const NEW_HREF = '/quotations/new';
 const FIRST_VERSION = 1;
 /** The only status a quotation can be approved from. */
 const REVIEW_STATUS = 'Under Review';
+const DRAFT_STATUS = 'Draft';
 
 // The header labels and every row are the same grid — including the trailing
 // track the actions sit in — so the columns line up exactly. The first column is
@@ -92,11 +96,19 @@ function editHref(row: QuotationRow): LinkProps<string>['href'] {
 	return `/quotations/${row._id}/edit` as LinkProps<string>['href'];
 }
 
-function QuotationRowActions({ row }: { row: QuotationRow }) {
+function QuotationRowActions({
+	row,
+	surface,
+}: {
+	row: QuotationRow;
+	surface: QuotationSurface;
+}) {
 	const [approveOpen, setApproveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
-	const openPdf = useOpenQuotationPdf();
+	const [sendOpen, setSendOpen] = useState(false);
+	const openPdf = useOpenQuotationPdf(surface);
+	const isClient = surface === 'client';
 
 	return (
 		<>
@@ -128,14 +140,16 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 					<EllipsisVertical className="size-4" />
 				</MenuTrigger>
 				<MenuPopup align="end">
-					<MenuItem render={<Link href={editHref(row)} />}>
-						<Pencil />
-						Edit
-					</MenuItem>
+					{isClient ? null : (
+						<MenuItem render={<Link href={editHref(row)} />}>
+							<Pencil />
+							Edit
+						</MenuItem>
+					)}
 					<MenuItem
 						disabled={!row.s3Key}
 						onClick={() => {
-							openPdf(row.s3Key).catch(() => {
+							openPdf(row.s3Key, row._id).catch(() => {
 								/* handled in openPdf */
 							});
 						}}
@@ -147,6 +161,16 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 						<StickyNote />
 						Notes
 					</MenuItem>
+					{/* Also the re-send: a client who has lost the email can be sent
+					    another copy at any status, so only a missing PDF closes it. */}
+					{isClient ? null : (
+						<MenuItem disabled={!row.s3Key} onClick={() => setSendOpen(true)}>
+							<Send />
+							{row.status === DRAFT_STATUS
+								? 'Send to Client/s'
+								: 'Resend to Client/s'}
+						</MenuItem>
+					)}
 					{/* Approval is the outcome of a review, so it only opens once the
 					    quotation is actually under review. */}
 					<MenuItem
@@ -156,11 +180,18 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 						<CircleCheck />
 						Approve
 					</MenuItem>
-					<MenuSeparator />
-					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
-						<Trash2 />
-						Delete
-					</MenuItem>
+					{isClient ? null : (
+						<>
+							<MenuSeparator />
+							<MenuItem
+								onClick={() => setDeleteOpen(true)}
+								variant="destructive"
+							>
+								<Trash2 />
+								Delete
+							</MenuItem>
+						</>
+					)}
 				</MenuPopup>
 			</Menu>
 			<ApproveClientQuotation
@@ -168,19 +199,33 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 				open={approveOpen}
 				quotationId={row._id}
 				reference={row.reference}
+				surface={surface}
 			/>
-			<DeleteClientQuotation
-				onOpenChange={setDeleteOpen}
-				open={deleteOpen}
-				quotationId={row._id}
-				reference={row.reference}
-			/>
+			{isClient ? null : (
+				<>
+					<DeleteClientQuotation
+						onOpenChange={setDeleteOpen}
+						open={deleteOpen}
+						quotationId={row._id}
+						reference={row.reference}
+					/>
+					<SendQuotationToClients
+						clients={row.clients}
+						isDraft={row.status === DRAFT_STATUS}
+						onOpenChange={setSendOpen}
+						open={sendOpen}
+						quotationId={row._id}
+						reference={row.reference}
+					/>
+				</>
+			)}
 			<ClientQuotationNotesSheet
 				onOpenChange={setNotesOpen}
 				open={notesOpen}
 				projectName={row.projectName}
 				quotationId={row._id}
 				reference={row.reference}
+				surface={surface}
 			/>
 		</>
 	);
@@ -189,9 +234,11 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 function QuotationAccordionItem({
 	expanded,
 	row,
+	surface,
 }: {
 	expanded: boolean;
 	row: QuotationRow;
+	surface: QuotationSurface;
 }) {
 	const version = row.version ?? FIRST_VERSION;
 
@@ -227,7 +274,7 @@ function QuotationAccordionItem({
 					{formatIssueDate(new Date(row.issuedAt))}
 				</span>
 				<span className="relative flex items-center justify-end gap-1">
-					<QuotationRowActions row={row} />
+					<QuotationRowActions row={row} surface={surface} />
 					<AccordionPrimitive.Trigger
 						aria-label={`Toggle version history for ${row.reference}`}
 						className="flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring data-panel-open:[&>svg]:rotate-180"
@@ -241,6 +288,7 @@ function QuotationAccordionItem({
 					<ClientQuotationVersionsPanel
 						latestVersion={version}
 						quotationId={row._id}
+						surface={surface}
 					/>
 				) : null}
 			</AccordionPanel>
@@ -248,11 +296,37 @@ function QuotationAccordionItem({
 	);
 }
 
-export default function ClientQuotationsPageContent() {
+function emptyDescription(isClient: boolean, unsearched: boolean): string {
+	if (!unsearched) {
+		return 'Try a different reference, project name or client.';
+	}
+	return isClient
+		? 'Quotations appear here once Luxuria Homes sends one to you.'
+		: 'Create your first client quotation using the Add Quotation button.';
+}
+
+/** Matches a row the way the backend search index does: reference, project, clients. */
+function matchesSearch(row: QuotationRow, query: string): boolean {
+	const haystack = [
+		row.reference,
+		row.projectName,
+		...row.clients.map((client) => client.name),
+	]
+		.join(' ')
+		.toLowerCase();
+	return haystack.includes(query.toLowerCase());
+}
+
+export default function ClientQuotationsPageContent({
+	surface = 'admin',
+}: {
+	surface?: QuotationSurface;
+}) {
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const [openRows, setOpenRows] = useState<string[]>([]);
 	const trimmedSearch = debouncedSearch.trim();
+	const isClient = surface === 'client';
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -261,13 +335,28 @@ export default function ClientQuotationsPageContent() {
 
 	const listResults = useQuery(
 		api.clientQuotations.list.list,
-		trimmedSearch === '' ? {} : 'skip'
+		!isClient && trimmedSearch === '' ? {} : 'skip'
 	);
 	const searchResults = useQuery(
 		api.clientQuotations.search.search,
-		trimmedSearch === '' ? 'skip' : { query: trimmedSearch }
+		isClient || trimmedSearch === '' ? 'skip' : { query: trimmedSearch }
 	);
-	const quotations = trimmedSearch === '' ? listResults : searchResults;
+	// A client only ever holds a handful of quotations, so their list is fetched
+	// whole and filtered here rather than through the search index.
+	const clientResults = useQuery(
+		api.clientPortal.quotations.list.list,
+		isClient ? {} : 'skip'
+	);
+
+	let quotations: QuotationRow[] | undefined;
+	if (isClient) {
+		quotations =
+			trimmedSearch === ''
+				? clientResults
+				: clientResults?.filter((row) => matchesSearch(row, trimmedSearch));
+	} else {
+		quotations = trimmedSearch === '' ? listResults : searchResults;
+	}
 
 	let content: ReactNode;
 	if (quotations === undefined) {
@@ -287,9 +376,7 @@ export default function ClientQuotationsPageContent() {
 							: 'No matching quotations'}
 					</EmptyTitle>
 					<EmptyDescription>
-						{trimmedSearch === ''
-							? 'Create your first client quotation using the Add Quotation button.'
-							: 'Try a different reference, project name or client.'}
+						{emptyDescription(isClient, trimmedSearch === '')}
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
@@ -317,6 +404,7 @@ export default function ClientQuotationsPageContent() {
 							expanded={openRows.includes(row._id)}
 							key={row._id}
 							row={row}
+							surface={surface}
 						/>
 					))}
 				</Accordion>
@@ -337,9 +425,11 @@ export default function ClientQuotationsPageContent() {
 							placeholder="Search by reference, project or client…"
 							value={search}
 						/>
-						<Button render={<Link href={NEW_HREF} />} variant="outline">
-							<Plus aria-hidden /> Add Quotation
-						</Button>
+						{isClient ? null : (
+							<Button render={<Link href={NEW_HREF} />} variant="outline">
+								<Plus aria-hidden /> Add Quotation
+							</Button>
+						)}
 					</>
 				}
 			/>

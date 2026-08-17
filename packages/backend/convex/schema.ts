@@ -577,6 +577,10 @@ export default defineSchema({
 		quotationId: v.id('clientQuotations'),
 		timestamp: v.number(),
 		addedBy: v.string(),
+		// Clerk user id of the author, used to let a portal client delete their own
+		// notes. Optional so notes written before this existed keep validating —
+		// those are not client-deletable.
+		addedByUserId: v.optional(v.string()),
 		note: v.string(),
 	}).index('by_quotation', ['quotationId']),
 	budgetTemplates: defineTable({
@@ -897,7 +901,9 @@ export default defineSchema({
 			v.literal('inclusion_approved'),
 			v.literal('inclusion_unapproved'),
 			v.literal('inclusion_note'),
-			v.literal('document_upload')
+			v.literal('document_upload'),
+			v.literal('quotation_note'),
+			v.literal('quotation_approved')
 		),
 		message: v.string(),
 		fromName: v.string(),
