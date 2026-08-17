@@ -13,14 +13,6 @@ export function parseQuoteItemName(name: string): string {
 	return trimmed;
 }
 
-/** Blank descriptions are stored as absent rather than as an empty string. */
-export function parseQuoteItemDescription(
-	description: string | undefined
-): string | undefined {
-	const trimmed = description?.trim() ?? '';
-	return trimmed.length > 0 ? trimmed : undefined;
-}
-
 export async function getQuoteItemOrThrow(
 	ctx: QueryCtx,
 	itemId: Id<'quoteItems'>

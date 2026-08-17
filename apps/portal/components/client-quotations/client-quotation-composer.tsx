@@ -190,7 +190,6 @@ export default function ClientQuotationComposer() {
 						items: section.items
 							.filter((item) => selectedItems.has(item._id))
 							.map((item) => ({
-								description: item.description,
 								name: item.name,
 							})),
 					}))
@@ -348,7 +347,6 @@ export default function ClientQuotationComposer() {
 								.map((item, itemIndex) => ({
 									itemId: item._id,
 									name: item.name,
-									description: item.description,
 									order: itemIndex,
 								})),
 						}))

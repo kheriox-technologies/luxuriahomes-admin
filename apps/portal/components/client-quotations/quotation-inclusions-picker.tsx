@@ -152,16 +152,7 @@ export default function QuotationInclusionsPicker({
 																setMany([item._id], checked === true)
 															}
 														/>
-														<span className="flex flex-col">
-															<span className="text-foreground">
-																{item.name}
-															</span>
-															{item.description ? (
-																<span className="text-muted-foreground text-xs">
-																	{item.description}
-																</span>
-															) : null}
-														</span>
+														<span className="text-foreground">{item.name}</span>
 													</label>
 												))}
 											</div>

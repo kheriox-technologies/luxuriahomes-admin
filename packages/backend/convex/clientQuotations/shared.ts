@@ -25,7 +25,6 @@ export const quotationItemSnapshotValidator = v.object({
 	// must never change an issued quotation.
 	itemId: v.optional(v.id('quoteItems')),
 	name: v.string(),
-	description: v.optional(v.string()),
 	order: v.number(),
 });
 

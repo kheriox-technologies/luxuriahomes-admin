@@ -430,8 +430,8 @@ export default defineSchema({
 		.index('by_stage_order', ['stageId', 'order'])
 		.searchIndex('search_quote_sections', { searchField: 'searchText' }),
 	quoteItems: defineTable({
+		// The verbatim quotation line as it prints on the quote.
 		name: v.string(),
-		description: v.optional(v.string()),
 		sectionId: v.id('quoteSections'),
 		// Pre-selected when a new quotation is built from the catalogue.
 		isDefault: v.boolean(),

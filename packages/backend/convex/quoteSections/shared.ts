@@ -84,12 +84,7 @@ export async function syncItemSearchTextsForSection(
 		.collect();
 	for (const item of items) {
 		await ctx.db.patch(item._id, {
-			searchText: buildQuoteItemSearchText(
-				item.name,
-				item.description,
-				sectionName,
-				stageName
-			),
+			searchText: buildQuoteItemSearchText(item.name, sectionName, stageName),
 		});
 	}
 }

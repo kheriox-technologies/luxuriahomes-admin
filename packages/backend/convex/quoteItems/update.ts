@@ -8,7 +8,6 @@ import { getQuoteStageOrThrow } from '../quoteStages/shared';
 import {
 	getQuoteItemOrThrow,
 	nextQuoteItemOrder,
-	parseQuoteItemDescription,
 	parseQuoteItemName,
 } from './shared';
 
@@ -16,7 +15,6 @@ export const update = mutation({
 	args: {
 		itemId: v.id('quoteItems'),
 		name: v.string(),
-		description: v.optional(v.string()),
 		isDefault: v.boolean(),
 		// When present and different, the item moves to this section and is appended
 		// to the end of it.
@@ -29,10 +27,8 @@ export const update = mutation({
 		const section = await getQuoteSectionOrThrow(ctx, sectionId);
 		const stage = await getQuoteStageOrThrow(ctx, section.stageId);
 		const name = parseQuoteItemName(args.name);
-		const description = parseQuoteItemDescription(args.description);
 
 		const patch: {
-			description: string | undefined;
 			isDefault: boolean;
 			name: string;
 			order?: number;
@@ -40,14 +36,8 @@ export const update = mutation({
 			sectionId?: Id<'quoteSections'>;
 		} = {
 			name,
-			description,
 			isDefault: args.isDefault,
-			searchText: buildQuoteItemSearchText(
-				name,
-				description,
-				section.name,
-				stage.name
-			),
+			searchText: buildQuoteItemSearchText(name, section.name, stage.name),
 		};
 		if (sectionId !== item.sectionId) {
 			patch.sectionId = sectionId;

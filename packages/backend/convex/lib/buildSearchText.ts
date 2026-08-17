@@ -131,11 +131,10 @@ export function buildQuoteSectionSearchText(
 
 export function buildQuoteItemSearchText(
 	name: string,
-	description: string | undefined,
 	sectionName: string,
 	stageName: string
 ): string {
-	return buildSearchText([name, description, sectionName, stageName]);
+	return buildSearchText([name, sectionName, stageName]);
 }
 
 export function buildQuoteTermSectionSearchText(name: string): string {

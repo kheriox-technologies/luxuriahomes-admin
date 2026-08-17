@@ -50,15 +50,13 @@ export const emptyQuoteSectionFormValues: QuoteSectionFormValues = {
 };
 
 export const quoteItemFormSchema = z.object({
-	name: z.string().trim().min(1, 'Name is required'),
-	description: z.string().optional(),
+	name: z.string().trim().min(1, 'Item text is required'),
 });
 
 export type QuoteItemFormValues = z.infer<typeof quoteItemFormSchema>;
 
 export const emptyQuoteItemFormValues: QuoteItemFormValues = {
 	name: '',
-	description: '',
 };
 
 export function quoteFormFieldError(

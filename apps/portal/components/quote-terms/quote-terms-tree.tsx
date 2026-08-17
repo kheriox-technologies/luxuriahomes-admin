@@ -172,7 +172,7 @@ function ItemRow({
 
 	return (
 		<div
-			className="flex items-start gap-2 bg-card px-3 py-2"
+			className="flex items-center gap-2 bg-card px-3 py-2"
 			ref={setNodeRef}
 			style={{
 				transform: CSS.Translate.toString(transform),
@@ -189,7 +189,7 @@ function ItemRow({
 			) : (
 				<span aria-hidden className="w-4 shrink-0" />
 			)}
-			<span className="shrink-0 pt-0.5 text-muted-foreground text-xs tabular-nums">
+			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 				{number}
 			</span>
 			<p className="min-w-0 flex-1 text-foreground text-sm">{item.text}</p>

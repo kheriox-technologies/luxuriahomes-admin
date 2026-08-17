@@ -229,14 +229,7 @@ function ItemRow({
 			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 				{number}
 			</span>
-			<div className="min-w-0 flex-1">
-				<span className="font-medium text-foreground text-sm">{item.name}</span>
-				{item.description ? (
-					<div className="truncate text-muted-foreground text-xs">
-						{item.description}
-					</div>
-				) : null}
-			</div>
+			<p className="min-w-0 flex-1 text-foreground text-sm">{item.name}</p>
 			<div className="flex shrink-0 items-center gap-2">
 				<Checkbox
 					checked={item.isDefault}
@@ -286,7 +279,6 @@ function ItemRow({
 				</MenuPopup>
 			</Menu>
 			<EditQuoteItem
-				initialDescription={item.description}
 				initialIsDefault={item.isDefault}
 				initialName={item.name}
 				initialSectionId={item.sectionId}
@@ -685,10 +677,8 @@ function filterTree(tree: StageNode[], needle: string): StageNode[] {
 				sections.push(sectionNode);
 				continue;
 			}
-			const items = sectionNode.items.filter(
-				(item) =>
-					matchesText(item.name, needle) ||
-					matchesText(item.description, needle)
+			const items = sectionNode.items.filter((item) =>
+				matchesText(item.name, needle)
 			);
 			if (items.length > 0) {
 				sections.push({ ...sectionNode, items });
