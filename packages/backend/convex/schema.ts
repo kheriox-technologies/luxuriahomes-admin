@@ -468,6 +468,24 @@ export default defineSchema({
 	})
 		.index('by_section_order', ['sectionId', 'order'])
 		.searchIndex('search_quote_term_items', { searchField: 'searchText' }),
+	// The exclusions and important notes printed after the terms. Both are flat,
+	// hand-ordered lists of single sentences — deliberately no section level, so
+	// they are edited as plain text rows rather than through the terms tree.
+	quoteExclusions: defineTable({
+		text: v.string(),
+		// Sort position within the single list.
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_exclusions', { searchField: 'searchText' }),
+	quoteNotes: defineTable({
+		text: v.string(),
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_notes', { searchField: 'searchText' }),
 	// A client-facing building quotation, composed from the quote catalogue and
 	// the quote terms and rendered to a branded PDF.
 	//

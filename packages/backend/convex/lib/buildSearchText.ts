@@ -149,6 +149,14 @@ export function buildQuoteTermItemSearchText(
 	return buildSearchText([text, sectionName]);
 }
 
+export function buildQuoteExclusionSearchText(text: string): string {
+	return buildSearchText([text]);
+}
+
+export function buildQuoteNoteSearchText(text: string): string {
+	return buildSearchText([text]);
+}
+
 export function buildClientQuotationSearchText(fields: {
 	address: { postcode: string; street: string; suburb: string };
 	clients: { email: string; name: string; phone: string }[];

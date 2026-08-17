@@ -6,13 +6,22 @@ import {
 	TabsPanel,
 	TabsTab,
 } from '@workspace/ui/components/tabs';
-import { ListTree, ScrollText, ShieldAlert, Signature } from 'lucide-react';
+import {
+	Ban,
+	ListTree,
+	NotebookPen,
+	ScrollText,
+	ShieldAlert,
+	Signature,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 import PageHeading from '@/components/page-heading';
 import QuotationsAcknowledgementTab from './quotations-acknowledgement-tab';
 import QuotationsDisclaimerTab from './quotations-disclaimer-tab';
+import QuotationsExclusionsTab from './quotations-exclusions-tab';
 import QuotationsItemsTab from './quotations-items-tab';
+import QuotationsNotesTab from './quotations-notes-tab';
 import QuotationsTermsTab from './quotations-terms-tab';
 
 const TAB_CLASSNAME =
@@ -35,7 +44,7 @@ export default function QuotationsPageContent() {
 	return (
 		<div className="flex h-full min-h-0 w-full flex-col gap-4">
 			<PageHeading
-				description="The catalogue, terms, disclaimer and acknowledgement used to build every client quotation."
+				description="The catalogue, terms, exclusions, notes, disclaimer and acknowledgement used to build every client quotation."
 				heading="Quotations"
 				icon={ScrollText}
 			/>
@@ -52,6 +61,14 @@ export default function QuotationsPageContent() {
 					<TabsTab className={TAB_CLASSNAME} value="terms">
 						<ScrollText />
 						Terms
+					</TabsTab>
+					<TabsTab className={TAB_CLASSNAME} value="exclusions">
+						<Ban />
+						Exclusions
+					</TabsTab>
+					<TabsTab className={TAB_CLASSNAME} value="notes">
+						<NotebookPen />
+						Notes
 					</TabsTab>
 					<TabsTab className={TAB_CLASSNAME} value="disclaimer">
 						<ShieldAlert />
@@ -73,6 +90,18 @@ export default function QuotationsPageContent() {
 					value="terms"
 				>
 					<QuotationsTermsTab />
+				</TabsPanel>
+				<TabsPanel
+					className="flex min-h-0 flex-1 flex-col overflow-auto p-4"
+					value="exclusions"
+				>
+					<QuotationsExclusionsTab />
+				</TabsPanel>
+				<TabsPanel
+					className="flex min-h-0 flex-1 flex-col overflow-auto p-4"
+					value="notes"
+				>
+					<QuotationsNotesTab />
 				</TabsPanel>
 				<TabsPanel className="overflow-auto p-4" value="disclaimer">
 					<QuotationsDisclaimerTab />
