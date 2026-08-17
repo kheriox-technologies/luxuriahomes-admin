@@ -55,11 +55,13 @@ import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js
 import type * as clientQuotations_create from "../clientQuotations/create.js";
 import type * as clientQuotations_get from "../clientQuotations/get.js";
 import type * as clientQuotations_list from "../clientQuotations/list.js";
+import type * as clientQuotations_listVersions from "../clientQuotations/listVersions.js";
 import type * as clientQuotations_reference from "../clientQuotations/reference.js";
 import type * as clientQuotations_remove from "../clientQuotations/remove.js";
 import type * as clientQuotations_reserveReference from "../clientQuotations/reserveReference.js";
 import type * as clientQuotations_search from "../clientQuotations/search.js";
 import type * as clientQuotations_shared from "../clientQuotations/shared.js";
+import type * as clientQuotations_update from "../clientQuotations/update.js";
 import type * as companyDocuments_create from "../companyDocuments/create.js";
 import type * as companyDocuments_createFolder from "../companyDocuments/createFolder.js";
 import type * as companyDocuments_deleteFolder from "../companyDocuments/deleteFolder.js";
@@ -530,11 +532,13 @@ declare const fullApi: ApiFromModules<{
   "clientQuotations/create": typeof clientQuotations_create;
   "clientQuotations/get": typeof clientQuotations_get;
   "clientQuotations/list": typeof clientQuotations_list;
+  "clientQuotations/listVersions": typeof clientQuotations_listVersions;
   "clientQuotations/reference": typeof clientQuotations_reference;
   "clientQuotations/remove": typeof clientQuotations_remove;
   "clientQuotations/reserveReference": typeof clientQuotations_reserveReference;
   "clientQuotations/search": typeof clientQuotations_search;
   "clientQuotations/shared": typeof clientQuotations_shared;
+  "clientQuotations/update": typeof clientQuotations_update;
   "companyDocuments/create": typeof companyDocuments_create;
   "companyDocuments/createFolder": typeof companyDocuments_createFolder;
   "companyDocuments/deleteFolder": typeof companyDocuments_deleteFolder;

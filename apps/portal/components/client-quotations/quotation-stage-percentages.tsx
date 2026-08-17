@@ -12,7 +12,9 @@ export interface QuotationStageRow {
 	amount: number;
 	name: string;
 	percent: string;
-	stageId: string;
+	// The draft stage's local key, not the catalogue id — a revised quotation can
+	// carry a stage the catalogue no longer has.
+	stageKey: string;
 }
 
 /**
@@ -27,7 +29,7 @@ export default function QuotationStagePercentages({
 	rows,
 	valid,
 }: {
-	onPercentChange: (stageId: string, percent: string) => void;
+	onPercentChange: (stageKey: string, percent: string) => void;
 	percentTotal: number;
 	rows: QuotationStageRow[];
 	valid: boolean;
@@ -45,21 +47,21 @@ export default function QuotationStagePercentages({
 			{rows.map((row) => (
 				<div
 					className="flex items-center gap-3 border-b py-1.5 last:border-b-0"
-					key={row.stageId}
+					key={row.stageKey}
 				>
 					<label
 						className="min-w-0 flex-1 truncate text-sm"
-						htmlFor={`quotation-stage-${row.stageId}`}
+						htmlFor={`quotation-stage-${row.stageKey}`}
 					>
 						{row.name}
 					</label>
 					<InputGroup className="w-22 shrink-0">
 						<InputGroupInput
-							id={`quotation-stage-${row.stageId}`}
+							id={`quotation-stage-${row.stageKey}`}
 							inputMode="decimal"
 							nativeInput
 							onChange={(event) =>
-								onPercentChange(row.stageId, event.target.value)
+								onPercentChange(row.stageKey, event.target.value)
 							}
 							placeholder="0"
 							type="text"

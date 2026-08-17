@@ -8,10 +8,12 @@ import {
 	assertPositiveTotal,
 	assertStagePercentsTotal,
 	FIRST_VERSION,
-	INITIAL_VERSION_DESCRIPTION,
+	getClientQuotationOrThrow,
+	initialVersionFrom,
 	insertQuotationVersion,
 	parseQuotationClients,
 	parseValidityDays,
+	parseVersionDescription,
 	quotationClientValidator,
 	quotationEntrySnapshotValidator,
 	quotationStageSnapshotValidator,
@@ -19,14 +21,23 @@ import {
 	splitGst,
 } from './shared';
 
-export const create = mutation({
+/**
+ * Saves a revision of an issued quotation as the next version.
+ *
+ * The row always holds the latest snapshot; the previous version's figures are
+ * not kept, but its PDF is — every version has its own document, and the history
+ * row records who changed it, when and why. The reference, the original issue
+ * date and `createdBy`/`createdAt` are never touched: a revision is the same
+ * quotation, not a new one.
+ */
+export const update = mutation({
 	args: {
-		reference: v.string(),
+		quotationId: v.id('clientQuotations'),
+		versionDescription: v.string(),
 		projectName: v.string(),
 		description: v.optional(v.string()),
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
-		issuedAt: v.number(),
 		validityDays: v.number(),
 		budgetTemplateId: v.optional(v.id('budgetTemplates')),
 		budgetTemplateTitle: v.optional(v.string()),
@@ -45,6 +56,7 @@ export const create = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const identity = await checkIdentity(ctx);
+		const existing = await getClientQuotationOrThrow(ctx, args.quotationId);
 
 		const projectName = args.projectName.trim();
 		if (projectName.length === 0) {
@@ -54,37 +66,45 @@ export const create = mutation({
 			});
 		}
 
+		const versionDescription = parseVersionDescription(args.versionDescription);
 		const clients = parseQuotationClients(args.clients);
 		assertAustralianPostcode(args.address.postcode);
 		assertPositiveTotal(args.totalInclGst);
 		assertStagePercentsTotal(args.stages);
 		const validityDays = parseValidityDays(args.validityDays);
 
-		const existing = await ctx.db
-			.query('clientQuotations')
-			.withIndex('by_reference', (q) => q.eq('reference', args.reference))
-			.first();
-		if (existing) {
-			throw new ConvexError({
-				code: 'DUPLICATE_REFERENCE',
-				message: `Quotation ${args.reference} already exists`,
+		const savedBy = identity.name ?? identity.email ?? 'Unknown';
+		const savedAt = Date.now();
+
+		// Quotations issued before versioning existed have no history rows, so the
+		// document they were issued with would otherwise vanish from the trail.
+		// Backfilling here beats a migration — it only runs on first edit.
+		const history = await ctx.db
+			.query('clientQuotationVersions')
+			.withIndex('by_quotation', (q) => q.eq('quotationId', args.quotationId))
+			.collect();
+		if (history.length === 0) {
+			await insertQuotationVersion(ctx, {
+				quotationId: args.quotationId,
+				...initialVersionFrom(existing),
 			});
 		}
+
+		const latestVersion = history.reduce(
+			(highest, row) => Math.max(highest, row.version),
+			existing.version ?? FIRST_VERSION
+		);
+		const nextVersion = latestVersion + 1;
 
 		// Derived server-side rather than trusted from the client, so the stored
 		// figures always agree with the total that was quoted.
 		const { contractSumExclGst, gstAmount } = splitGst(args.totalInclGst);
 
-		const savedBy = identity.name ?? identity.email ?? 'Unknown';
-		const savedAt = Date.now();
-
-		const quotationId = await ctx.db.insert('clientQuotations', {
-			reference: args.reference,
+		await ctx.db.patch(args.quotationId, {
 			projectName,
 			description: args.description?.trim() || undefined,
 			clients,
 			address: args.address,
-			issuedAt: args.issuedAt,
 			validityDays,
 			budgetTemplateId: args.budgetTemplateId,
 			budgetTemplateTitle: args.budgetTemplateTitle,
@@ -101,23 +121,21 @@ export const create = mutation({
 			s3Key: args.s3Key,
 			fileName: args.fileName,
 			folderPath: args.folderPath,
-			createdBy: savedBy,
-			createdAt: savedAt,
-			version: FIRST_VERSION,
+			version: nextVersion,
 			updatedAt: savedAt,
 			updatedBy: savedBy,
 			searchText: buildClientQuotationSearchText({
 				address: args.address,
 				clients,
 				projectName,
-				reference: args.reference,
+				reference: existing.reference,
 			}),
 		});
 
 		await insertQuotationVersion(ctx, {
-			quotationId,
-			version: FIRST_VERSION,
-			description: INITIAL_VERSION_DESCRIPTION,
+			quotationId: args.quotationId,
+			version: nextVersion,
+			description: versionDescription,
 			updatedBy: savedBy,
 			updatedAt: savedAt,
 			totalInclGst: args.totalInclGst,
@@ -127,6 +145,6 @@ export const create = mutation({
 			folderPath: args.folderPath,
 		});
 
-		return quotationId;
+		return { version: nextVersion };
 	},
 });

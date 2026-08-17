@@ -1,5 +1,6 @@
 'use client';
 
+import { useUser } from '@clerk/nextjs';
 import { useForm, useStore } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
@@ -19,11 +20,12 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { FileText, Plus, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import {
 	buildClientQuotationPdfBlob,
 	type QuotationPdfInput,
+	type QuotationPdfVersion,
 } from '@/lib/client/pdf/client-quotation-pdf';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
@@ -34,6 +36,7 @@ import {
 	emptyClientQuotationFormValues,
 	emptyQuotationClient,
 	formatIssueDate,
+	formValuesFromQuotation,
 	MAX_QUOTATION_CLIENTS,
 	PERCENT_EPSILON,
 	parseMoney,
@@ -53,16 +56,41 @@ import QuotationStagePercentages, {
 	type QuotationStageRow,
 } from './quotation-stage-percentages';
 import QuotationTermsEditor from './quotation-terms-editor';
+import QuotationVersionDialog from './quotation-version-dialog';
 import { useQuotationDraft } from './use-quotation-draft';
 
 // Long enough for the new tab to fetch the blob before the URL is released.
 const PREVIEW_URL_TTL_MS = 60_000;
 const PDF_CONTENT_TYPE = 'application/pdf';
 const LIST_HREF = '/client-quotations';
+const FIRST_VERSION = 1;
 
-export default function ClientQuotationComposer() {
+/**
+ * Composes a client quotation — a new one, or the next version of an issued one
+ * when `quotationId` is given.
+ *
+ * Editing keeps the quote reference and the original issue date: a revision is
+ * the same quotation, described by its version. Its body seeds from what was
+ * issued rather than from the catalogue (see `useQuotationDraft`), and saving
+ * uploads a fresh PDF so every version stays viewable.
+ */
+export default function ClientQuotationComposer({
+	quotationId,
+}: {
+	quotationId?: Id<'clientQuotations'>;
+}) {
 	const router = useRouter();
+	const editing = quotationId !== undefined;
+	const { user } = useUser();
 
+	const quotation = useQuery(
+		api.clientQuotations.get.get,
+		quotationId ? { quotationId } : 'skip'
+	);
+	const versionHistory = useQuery(
+		api.clientQuotations.listVersions.listVersions,
+		quotationId ? { quotationId } : 'skip'
+	);
 	const tree = useQuery(api.quoteCatalogue.tree.tree, {});
 	const terms = useQuery(api.quoteTerms.get.get, {});
 	const catalogueExclusions = useQuery(api.quoteExclusions.list.list, {});
@@ -85,22 +113,26 @@ export default function ClientQuotationComposer() {
 	);
 	const createDocument = useMutation(api.companyDocuments.create.create);
 	const createQuotation = useMutation(api.clientQuotations.create.create);
+	const updateQuotation = useMutation(api.clientQuotations.update.update);
 
 	// Stage percentages and the editable body of the quotation are seeded from the
-	// catalogue once it loads, so they live outside the form — a three-level
-	// TanStack array field would re-render the whole page on every keystroke.
+	// catalogue (or the issued quotation) rather than held in the form — a
+	// three-level TanStack array field would re-render the whole page on every
+	// keystroke.
 	const [percents, setPercents] = useState<Record<string, string>>({});
-	const [seededKey, setSeededKey] = useState<string | null>(null);
 	const draft = useQuotationDraft({
+		editing,
 		exclusions: catalogueExclusions,
 		notes: catalogueNotes,
+		snapshot: quotation ?? undefined,
 		terms,
 		tree,
 	});
 
-	const [issuedAt] = useState(() => new Date());
+	const [newIssuedAt] = useState(() => new Date());
 	const [saving, setSaving] = useState(false);
 	const [previewing, setPreviewing] = useState(false);
+	const [versionDialogOpen, setVersionDialogOpen] = useState(false);
 
 	const form = useForm({
 		defaultValues: emptyClientQuotationFormValues,
@@ -110,55 +142,86 @@ export default function ClientQuotationComposer() {
 	const fieldMeta = useStore(form.store, (state) => state.fieldMeta);
 	const formIsValid = useStore(form.store, (state) => state.isValid);
 
-	// Seed once per catalogue shape. Keying on the stage/item ids rather than the
-	// object identity means an unrelated catalogue edit in another tab doesn't
-	// wipe percentages the user has already adjusted.
-	const treeKey = tree
-		?.map(
-			(node) =>
-				`${node.stage._id}:${node.sections.map((s) => s.items.length).join(',')}`
-		)
-		.join('|');
+	// Hydrate the scalar fields from the issued quotation once, keyed on its id so
+	// a live update to the row can't clobber edits in progress.
+	const [hydratedId, setHydratedId] = useState<string | null>(null);
 	useEffect(() => {
-		if (!tree || treeKey === undefined || seededKey === treeKey) {
+		if (!quotation || hydratedId === quotation._id) {
 			return;
 		}
-		setSeededKey(treeKey);
-		setPercents(
-			Object.fromEntries(
-				tree.map((node) => [
-					node.stage._id,
-					node.stage.defaultPercent === undefined
-						? ''
-						: String(node.stage.defaultPercent),
-				])
-			)
-		);
-	}, [tree, treeKey, seededKey]);
+		setHydratedId(quotation._id);
+		// `keepDefaultValues` is load-bearing: without it the reset also replaces the
+		// form's defaults, and the next render's `form.update()` sees defaults that
+		// differ on an untouched form and wipes the values back to empty.
+		form.reset(formValuesFromQuotation(quotation), { keepDefaultValues: true });
+	}, [quotation, hydratedId, form]);
+
+	const reference = quotation?.reference ?? candidateReference;
+	const issuedAt = quotation ? new Date(quotation.issuedAt) : newIssuedAt;
+	const nextVersion = quotation
+		? (quotation.version ?? FIRST_VERSION) + 1
+		: FIRST_VERSION;
 
 	const totalInclGst = parseMoney(values.totalInclGst);
 
-	const stageRows: QuotationStageRow[] = useMemo(() => {
-		if (!tree) {
-			return [];
+	/**
+	 * Where each stage's percentage starts: the figure the quotation was issued
+	 * with, else the catalogue default. `percents` only holds what the user has
+	 * typed over the top, so clearing a field to '' still reads as an override.
+	 */
+	const initialPercents = useMemo(() => {
+		const issued = new Map<string, number>();
+		for (const stage of quotation?.stages ?? []) {
+			if (stage.stageId) {
+				issued.set(stage.stageId, stage.percent);
+			}
 		}
-		const parsed = tree.map((node) => Number(percents[node.stage._id] ?? '0'));
+		const defaults = new Map<string, number | undefined>();
+		for (const node of tree ?? []) {
+			defaults.set(node.stage._id, node.stage.defaultPercent);
+		}
+		return Object.fromEntries(
+			draft.stages.map((stage) => {
+				const issuedPercent = stage.stageId
+					? issued.get(stage.stageId)
+					: undefined;
+				if (issuedPercent !== undefined) {
+					return [stage.key, String(issuedPercent)];
+				}
+				const defaultPercent = stage.stageId
+					? defaults.get(stage.stageId)
+					: undefined;
+				return [
+					stage.key,
+					defaultPercent === undefined ? '' : String(defaultPercent),
+				];
+			})
+		);
+	}, [quotation, tree, draft.stages]);
+
+	const percentOf = useCallback(
+		(stageKey: string) => percents[stageKey] ?? initialPercents[stageKey] ?? '',
+		[percents, initialPercents]
+	);
+
+	// Rows come from the draft, not the catalogue: a revised quotation keeps the
+	// stages it was issued with even if the catalogue has moved on since.
+	const stageRows: QuotationStageRow[] = useMemo(() => {
+		const parsed = draft.stages.map((stage) => Number(percentOf(stage.key)));
 		const safe = parsed.map((percent) =>
 			Number.isFinite(percent) ? percent : 0
 		);
 		const amounts = computeStageAmounts(totalInclGst, safe);
-		return tree.map((node, index) => ({
+		return draft.stages.map((stage, index) => ({
 			amount: amounts[index] ?? 0,
-			name: node.stage.name,
-			percent: percents[node.stage._id] ?? '',
-			stageId: node.stage._id,
+			name: stage.name,
+			percent: percentOf(stage.key),
+			stageKey: stage.key,
 		}));
-	}, [tree, percents, totalInclGst]);
+	}, [draft.stages, percentOf, totalInclGst]);
 
-	// The draft seeds from the same tree, but look rows up by stage id rather than
-	// position so the two can never silently drift apart.
-	const stageRowById = useMemo(
-		() => new Map(stageRows.map((row) => [row.stageId, row])),
+	const stageRowByKey = useMemo(
+		() => new Map(stageRows.map((row) => [row.stageKey, row])),
 		[stageRows]
 	);
 
@@ -172,28 +235,70 @@ export default function ClientQuotationComposer() {
 		stageRows.length > 0 &&
 		Math.abs(percentTotal - REQUIRED_PERCENT_TOTAL) <= PERCENT_EPSILON;
 
+	// A revision keeps the disclaimer and acknowledgement it was issued with; only
+	// a new quotation takes today's from the catalogue.
+	const termsContent = useMemo(() => {
+		if (quotation) {
+			return {
+				acknowledgementHtml: quotation.terms.acknowledgementHtml,
+				disclaimerHtml: quotation.terms.disclaimerHtml,
+			};
+		}
+		if (terms) {
+			return {
+				acknowledgementHtml: terms.settings.acknowledgementHtml,
+				disclaimerHtml: terms.settings.disclaimerHtml,
+			};
+		}
+		return null;
+	}, [quotation, terms]);
+
+	const savedBy =
+		user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
+
+	/** The trail printed on page 2: the issued versions, then the pending one. */
+	const pdfVersionHistory: QuotationPdfVersion[] = useMemo(() => {
+		const issued = (versionHistory ?? [])
+			.map((row) => ({
+				description: row.description,
+				updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
+				updatedBy: row.updatedBy,
+				version: row.version,
+			}))
+			.sort((a, b) => a.version - b.version);
+		return [
+			...issued,
+			{
+				description: editing ? 'This revision' : 'Initial version',
+				updatedAtLabel: formatIssueDate(new Date()),
+				updatedBy: savedBy,
+				version: nextVersion,
+			},
+		];
+	}, [versionHistory, editing, nextVersion, savedBy]);
+
 	const pdfInput: QuotationPdfInput | null = useMemo(() => {
-		if (!(tree && terms)) {
+		if (!(termsContent && draft.hydrated)) {
 			return null;
 		}
 		const { contractSumExclGst, gstAmount } = splitGst(totalInclGst);
 		return {
-			acknowledgementHtml: terms.settings.acknowledgementHtml,
+			acknowledgementHtml: termsContent.acknowledgementHtml,
 			address: values.address,
 			clients: values.clients,
 			contractSumExclGst,
 			description: values.description || undefined,
-			disclaimerHtml: terms.settings.disclaimerHtml,
+			disclaimerHtml: termsContent.disclaimerHtml,
 			exclusions: draft.exclusions.map((entry) => entry.text),
 			gstAmount,
 			issuedAtLabel: formatIssueDate(issuedAt),
 			notes: draft.notes.map((entry) => entry.text),
 			projectName: values.projectName || 'Untitled project',
-			reference: candidateReference,
+			reference,
 			stages: draft.stages.map((stage) => ({
-				amount: stageRowById.get(stage.stageId)?.amount ?? 0,
+				amount: stageRowByKey.get(stage.key)?.amount ?? 0,
 				name: stage.name,
-				percent: Number(stageRowById.get(stage.stageId)?.percent ?? '0') || 0,
+				percent: Number(stageRowByKey.get(stage.key)?.percent ?? '0') || 0,
 				scopeSummary: stage.scopeSummary,
 				sections: stage.sections
 					.filter((section) => section.items.length > 0)
@@ -208,23 +313,31 @@ export default function ClientQuotationComposer() {
 			})),
 			totalInclGst,
 			validityDays: Number(values.validityDays) || 0,
+			version: nextVersion,
+			versionHistory: pdfVersionHistory,
 		};
 	}, [
-		tree,
-		terms,
+		termsContent,
 		values,
 		issuedAt,
-		candidateReference,
-		stageRowById,
+		reference,
+		stageRowByKey,
 		draft.exclusions,
+		draft.hydrated,
 		draft.notes,
 		draft.stages,
 		draft.termSections,
 		totalInclGst,
+		nextVersion,
+		pdfVersionHistory,
 	]);
 
 	const canSave =
-		formIsValid && percentsValid && draft.itemCount > 0 && !saving;
+		formIsValid &&
+		percentsValid &&
+		draft.itemCount > 0 &&
+		draft.hydrated &&
+		!saving;
 
 	const handlePreview = async () => {
 		if (!pdfInput) {
@@ -260,18 +373,28 @@ export default function ClientQuotationComposer() {
 		}
 	};
 
-	const handleSave = async () => {
+	/**
+	 * Saves version 1 of a new quotation, or the next version of an existing one
+	 * with the description the user gave for it.
+	 */
+	const handleSave = async (versionDescription?: string) => {
 		const parsed = clientQuotationFormSchema.safeParse(values);
-		if (!(canSave && parsed.success && pdfInput && tree && terms)) {
+		if (!(canSave && parsed.success && pdfInput && termsContent)) {
+			return;
+		}
+		// A revision is only ever saved through the version dialog — without a
+		// description there is nothing to record it as.
+		if (editing && !(quotation && versionDescription)) {
 			return;
 		}
 		setSaving(true);
 		try {
 			// Confirm the code first so the reference printed on the PDF is the one
 			// stored. Only a collision changes it, and the blob is built afterwards.
-			const reserved = await reserveReference({
-				preferred: candidateReference,
-			});
+			// A revision already has its reference and keeps it.
+			const savedReference = quotation
+				? quotation.reference
+				: (await reserveReference({ preferred: candidateReference })).reference;
 			const folderPath = await ensureFolder({
 				parentPath: '',
 				segments: [QUOTATION_FOLDER_NAME],
@@ -279,9 +402,14 @@ export default function ClientQuotationComposer() {
 
 			const blob = await buildClientQuotationPdfBlob({
 				...pdfInput,
-				reference: reserved.reference,
+				reference: savedReference,
 			});
-			const fileName = `${reserved.reference} - ${parsed.data.projectName}.pdf`;
+			// Every version keeps its own file, so the name carries the version from
+			// the second one on — v1 files stay as they were named when issued.
+			const fileName =
+				nextVersion === FIRST_VERSION
+					? `${savedReference} - ${parsed.data.projectName}.pdf`
+					: `${savedReference} - ${parsed.data.projectName} - v${nextVersion}.pdf`;
 			const generated = await generateUploadUrl({
 				folderPath,
 				fileName,
@@ -307,9 +435,10 @@ export default function ClientQuotationComposer() {
 			const selectedTemplate = budgetTemplates?.find(
 				(template) => template._id === parsed.data.budgetTemplateId
 			);
+			const templateUnchanged =
+				quotation?.budgetTemplateId === parsed.data.budgetTemplateId;
 
-			await createQuotation({
-				reference: reserved.reference,
+			const snapshot = {
 				projectName: parsed.data.projectName,
 				description: parsed.data.description || undefined,
 				clients: parsed.data.clients,
@@ -319,13 +448,18 @@ export default function ClientQuotationComposer() {
 					street: string;
 					suburb: string;
 				},
-				issuedAt: issuedAt.getTime(),
 				validityDays: Number(parsed.data.validityDays),
 				budgetTemplateId: selectedTemplate?._id as
 					| Id<'budgetTemplates'>
 					| undefined,
-				budgetTemplateTitle: selectedTemplate?.title,
-				budgetTemplateTotal: selectedTemplate?.totalPrice,
+				// A template deleted since the quotation was issued must not erase the
+				// provenance it was priced from.
+				budgetTemplateTitle:
+					selectedTemplate?.title ??
+					(templateUnchanged ? quotation?.budgetTemplateTitle : undefined),
+				budgetTemplateTotal:
+					selectedTemplate?.totalPrice ??
+					(templateUnchanged ? quotation?.budgetTemplateTotal : undefined),
 				marginPercent: parsed.data.marginPercent
 					? Number(parsed.data.marginPercent)
 					: undefined,
@@ -334,8 +468,8 @@ export default function ClientQuotationComposer() {
 					stageId: stage.stageId,
 					name: stage.name,
 					order: index,
-					percent: Number(stageRowById.get(stage.stageId)?.percent ?? '0') || 0,
-					amount: stageRowById.get(stage.stageId)?.amount ?? 0,
+					percent: Number(stageRowByKey.get(stage.key)?.percent ?? '0') || 0,
+					amount: stageRowByKey.get(stage.key)?.amount ?? 0,
 					scopeSummary: stage.scopeSummary,
 					sections: stage.sections
 						.filter((section) => section.items.length > 0)
@@ -353,8 +487,8 @@ export default function ClientQuotationComposer() {
 						})),
 				})),
 				terms: {
-					disclaimerHtml: terms.settings.disclaimerHtml,
-					acknowledgementHtml: terms.settings.acknowledgementHtml,
+					disclaimerHtml: termsContent.disclaimerHtml,
+					acknowledgementHtml: termsContent.acknowledgementHtml,
 					sections: draft.termSections.map((section, index) => ({
 						name: section.name,
 						order: index,
@@ -373,9 +507,23 @@ export default function ClientQuotationComposer() {
 				s3Key: generated.s3Key,
 				fileName,
 				folderPath,
-			});
+			};
 
-			toastManager.add({ title: 'Quotation saved', type: 'success' });
+			if (quotationId && versionDescription) {
+				await updateQuotation({ quotationId, versionDescription, ...snapshot });
+				toastManager.add({
+					title: `Version ${nextVersion} saved`,
+					type: 'success',
+				});
+			} else {
+				await createQuotation({
+					reference: savedReference,
+					issuedAt: issuedAt.getTime(),
+					...snapshot,
+				});
+				toastManager.add({ title: 'Quotation saved', type: 'success' });
+			}
+
 			router.push(LIST_HREF);
 		} catch (error) {
 			toastManager.add({
@@ -418,7 +566,7 @@ export default function ClientQuotationComposer() {
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<PageHeading
 				backLink={LIST_HREF}
-				heading="Add Quotation"
+				heading={editing ? 'Edit Quotation' : 'Add Quotation'}
 				rightSlot={
 					<div className="flex items-center gap-2">
 						<Button
@@ -436,8 +584,13 @@ export default function ClientQuotationComposer() {
 						</Button>
 						<Button
 							disabled={!canSave}
-							loading={saving}
+							loading={saving && !editing}
 							onClick={() => {
+								// A revision has to be described before it is saved.
+								if (editing) {
+									setVersionDialogOpen(true);
+									return;
+								}
 								handleSave().catch(() => {
 									/* handled in handleSave */
 								});
@@ -445,7 +598,7 @@ export default function ClientQuotationComposer() {
 							type="button"
 							variant="outline"
 						>
-							<Save aria-hidden /> Save
+							<Save aria-hidden /> {editing ? 'Save version' : 'Save'}
 						</Button>
 					</div>
 				}
@@ -569,7 +722,7 @@ export default function ClientQuotationComposer() {
 												id="quotation-reference"
 												nativeInput
 												readOnly
-												value={candidateReference}
+												value={reference}
 											/>
 										</Field>
 										<Field data-invalid={Boolean(validityError)}>
@@ -598,8 +751,9 @@ export default function ClientQuotationComposer() {
 										</Field>
 									</div>
 									<p className="mt-auto text-muted-foreground text-sm">
-										Issued {formatIssueDate(issuedAt)}. The reference is
-										confirmed when you save.
+										{editing
+											? `Issued ${formatIssueDate(issuedAt)}. Saving issues version ${nextVersion} under the same reference.`
+											: `Issued ${formatIssueDate(issuedAt)}. The reference is confirmed when you save.`}
 									</p>
 								</FramePanel>
 							</Frame>
@@ -636,10 +790,10 @@ export default function ClientQuotationComposer() {
 							</FrameHeader>
 							<FramePanel>
 								<QuotationStagePercentages
-									onPercentChange={(stageId, percent) =>
+									onPercentChange={(stageKey, percent) =>
 										setPercents((current) => ({
 											...current,
-											[stageId]: percent,
+											[stageKey]: percent,
 										}))
 									}
 									percentTotal={percentTotal}
@@ -658,11 +812,7 @@ export default function ClientQuotationComposer() {
 								/>
 							</FrameHeader>
 							<FramePanel>
-								{tree === undefined ? (
-									<p className="text-muted-foreground text-sm">
-										Loading quote items…
-									</p>
-								) : (
+								{draft.hydrated ? (
 									<QuotationInclusionsEditor
 										onAddItem={draft.addItem}
 										onAddSection={draft.addSection}
@@ -670,13 +820,15 @@ export default function ClientQuotationComposer() {
 										onRemoveSection={draft.removeSection}
 										onRenameSection={draft.renameSection}
 										onUpdateItem={draft.updateItem}
-										percentOf={(stage) =>
-											stageRowById.get(stage.stageId)?.percent ?? ''
-										}
+										percentOf={(stage) => percentOf(stage.key)}
 										stages={draft.stages}
 									/>
+								) : (
+									<p className="text-muted-foreground text-sm">
+										Loading quote items…
+									</p>
 								)}
-								{tree !== undefined && draft.itemCount === 0 ? (
+								{draft.hydrated && draft.itemCount === 0 ? (
 									<p className="mt-3 text-destructive text-sm">
 										Add at least one item to include in the quotation.
 									</p>
@@ -694,7 +846,7 @@ export default function ClientQuotationComposer() {
 							</FrameHeader>
 							<FramePanel>
 								<QuotationTermsEditor
-									loading={terms === undefined}
+									loading={!draft.hydrated}
 									onAddClause={draft.addTermItem}
 									onAddSection={draft.addTermSection}
 									onRemoveClause={draft.removeTermItem}
@@ -718,7 +870,7 @@ export default function ClientQuotationComposer() {
 								<QuotationEntriesEditor
 									addPlaceholder="Add an exclusion and press Enter…"
 									entries={draft.exclusions}
-									loading={catalogueExclusions === undefined}
+									loading={!draft.hydrated}
 									noun="exclusion"
 									onAdd={draft.exclusionHandlers.add}
 									onRemove={draft.exclusionHandlers.remove}
@@ -739,7 +891,7 @@ export default function ClientQuotationComposer() {
 								<QuotationEntriesEditor
 									addPlaceholder="Add a note and press Enter…"
 									entries={draft.notes}
-									loading={catalogueNotes === undefined}
+									loading={!draft.hydrated}
 									noun="note"
 									onAdd={draft.noteHandlers.add}
 									onRemove={draft.noteHandlers.remove}
@@ -750,6 +902,18 @@ export default function ClientQuotationComposer() {
 					</div>
 				</ScrollArea>
 			</div>
+
+			<QuotationVersionDialog
+				onConfirm={(description) => {
+					handleSave(description).catch(() => {
+						/* handled in handleSave */
+					});
+				}}
+				onOpenChange={setVersionDialogOpen}
+				open={versionDialogOpen}
+				saving={saving}
+				version={nextVersion}
+			/>
 		</div>
 	);
 }

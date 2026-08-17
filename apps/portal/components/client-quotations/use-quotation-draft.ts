@@ -46,7 +46,9 @@ export interface DraftStage {
 	name: string;
 	scopeSummary?: string;
 	sections: DraftSection[];
-	stageId: Id<'quoteStages'>;
+	// Provenance, and how the stage's percentage is looked up. Absent only on a
+	// snapshot whose catalogue stage predates the id being recorded.
+	stageId?: Id<'quoteStages'>;
 }
 
 export interface DraftTermItem {
@@ -102,6 +104,54 @@ function seedEntries(rows: { text: string }[]): DraftEntry[] {
 	return rows.map((row) => ({ key: nextKey(), text: row.text }));
 }
 
+/** Snapshot rows print in `order`, which is not necessarily the stored order. */
+function byOrder<T extends { order: number }>(rows: readonly T[]): T[] {
+	return [...rows].sort((a, b) => a.order - b.order);
+}
+
+// --- Seeding from an issued quotation ---------------------------------------
+//
+// Editing a quotation has to start from what was issued, never from the current
+// catalogue — a rename or a new default item in the meantime must not silently
+// creep into a revision.
+
+function seedStagesFromSnapshot(
+	stages: Doc<'clientQuotations'>['stages']
+): DraftStage[] {
+	return byOrder(stages).map((stage) => ({
+		key: nextKey(),
+		name: stage.name,
+		scopeSummary: stage.scopeSummary,
+		stageId: stage.stageId,
+		sections: byOrder(stage.sections).map((section) => ({
+			key: nextKey(),
+			name: section.name,
+			sectionId: section.sectionId,
+			items: byOrder(section.items).map((item) => ({
+				key: nextKey(),
+				itemId: item.itemId,
+				name: item.name,
+			})),
+		})),
+	}));
+}
+
+function seedTermSectionsFromSnapshot(
+	sections: Doc<'clientQuotations'>['terms']['sections']
+): DraftTermSection[] {
+	return byOrder(sections).map((section) => ({
+		key: nextKey(),
+		name: section.name,
+		items: section.items.map((text) => ({ key: nextKey(), text })),
+	}));
+}
+
+function seedEntriesFromSnapshot(
+	rows: { order: number; text: string }[] | undefined
+): DraftEntry[] {
+	return seedEntries(byOrder(rows ?? []));
+}
+
 /**
  * Add/update/remove bound to one flat list's setter. Module-level so it is a
  * stable reference the hook can memoise against an empty dependency list.
@@ -133,15 +183,24 @@ function entryHandlers(setEntries: Dispatch<SetStateAction<DraftEntry[]>>): {
  *
  * Stages themselves are fixed: they drive the progress-payment table, so only
  * their sections and items can be added, edited or removed.
+ *
+ * When `editing` is set the draft seeds from `snapshot` — the quotation as it was
+ * issued — instead of the catalogue, so revising it can't pull in catalogue
+ * changes made since. The reset buttons still reseed from the live catalogue;
+ * that is the deliberate way to refresh the boilerplate.
  */
 export function useQuotationDraft({
+	editing = false,
 	exclusions: catalogueExclusions,
 	notes: catalogueNotes,
+	snapshot,
 	terms,
 	tree,
 }: {
+	editing?: boolean;
 	exclusions: { text: string }[] | undefined;
 	notes: { text: string }[] | undefined;
+	snapshot?: Doc<'clientQuotations'> | undefined;
 	terms: QuoteTermsData | undefined;
 	tree: QuoteCatalogueStageNode[] | undefined;
 }) {
@@ -171,25 +230,50 @@ export function useQuotationDraft({
 		null
 	);
 	const [seededNotesKey, setSeededNotesKey] = useState<number | null>(null);
+	const [hydratedId, setHydratedId] = useState<string | null>(null);
+
+	// One pass over the issued quotation, keyed on its id so a live update to the
+	// row (a save from another tab) can't wipe edits in progress here.
+	useEffect(() => {
+		if (!snapshot || hydratedId === snapshot._id) {
+			return;
+		}
+		setHydratedId(snapshot._id);
+		setStages(seedStagesFromSnapshot(snapshot.stages));
+		setTermSections(seedTermSectionsFromSnapshot(snapshot.terms.sections));
+		setExclusions(seedEntriesFromSnapshot(snapshot.exclusions));
+		setNotes(seedEntriesFromSnapshot(snapshot.notes));
+	}, [snapshot, hydratedId]);
 
 	useEffect(() => {
-		if (!tree || treeKey === undefined || seededTreeKey === treeKey) {
+		if (
+			editing ||
+			!tree ||
+			treeKey === undefined ||
+			seededTreeKey === treeKey
+		) {
 			return;
 		}
 		setSeededTreeKey(treeKey);
 		setStages(seedStages(tree));
-	}, [tree, treeKey, seededTreeKey]);
+	}, [editing, tree, treeKey, seededTreeKey]);
 
 	useEffect(() => {
-		if (!terms || termsKey === undefined || seededTermsKey === termsKey) {
+		if (
+			editing ||
+			!terms ||
+			termsKey === undefined ||
+			seededTermsKey === termsKey
+		) {
 			return;
 		}
 		setSeededTermsKey(termsKey);
 		setTermSections(seedTermSections(terms));
-	}, [terms, termsKey, seededTermsKey]);
+	}, [editing, terms, termsKey, seededTermsKey]);
 
 	useEffect(() => {
 		if (
+			editing ||
 			!catalogueExclusions ||
 			exclusionsKey === undefined ||
 			seededExclusionsKey === exclusionsKey
@@ -198,10 +282,11 @@ export function useQuotationDraft({
 		}
 		setSeededExclusionsKey(exclusionsKey);
 		setExclusions(seedEntries(catalogueExclusions));
-	}, [catalogueExclusions, exclusionsKey, seededExclusionsKey]);
+	}, [editing, catalogueExclusions, exclusionsKey, seededExclusionsKey]);
 
 	useEffect(() => {
 		if (
+			editing ||
 			!catalogueNotes ||
 			notesKey === undefined ||
 			seededNotesKey === notesKey
@@ -210,7 +295,7 @@ export function useQuotationDraft({
 		}
 		setSeededNotesKey(notesKey);
 		setNotes(seedEntries(catalogueNotes));
-	}, [catalogueNotes, notesKey, seededNotesKey]);
+	}, [editing, catalogueNotes, notesKey, seededNotesKey]);
 
 	// --- Inclusions -----------------------------------------------------------
 
@@ -452,6 +537,14 @@ export function useQuotationDraft({
 		addTermSection,
 		exclusionHandlers,
 		exclusions,
+		// False while the body is still loading — the issued quotation when editing,
+		// otherwise the catalogue lists it seeds from.
+		hydrated: editing
+			? hydratedId !== null
+			: tree !== undefined &&
+				terms !== undefined &&
+				catalogueExclusions !== undefined &&
+				catalogueNotes !== undefined,
 		itemCount,
 		noteHandlers,
 		notes,

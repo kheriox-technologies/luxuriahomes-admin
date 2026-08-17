@@ -46,6 +46,16 @@ export interface QuotationPdfTermSection {
 	name: string;
 }
 
+/** One row of the revision history page, in the order it was saved. */
+export interface QuotationPdfVersion {
+	description: string;
+	// Human-readable, e.g. "17 August 2026" — formatted by the caller like
+	// `issuedAtLabel`, so the builder never touches locales.
+	updatedAtLabel: string;
+	updatedBy: string;
+	version: number;
+}
+
 export interface QuotationPdfInput {
 	acknowledgementHtml: string;
 	address: {
@@ -71,6 +81,10 @@ export interface QuotationPdfInput {
 	termSections: QuotationPdfTermSection[];
 	totalInclGst: number;
 	validityDays: number;
+	// The revision this document is, and the trail behind it. Oldest first, and
+	// always including the version being issued — version 1 prints a single row.
+	version: number;
+	versionHistory: QuotationPdfVersion[];
 }
 
 // pdfmake's document model has no published types; every builder in this repo
@@ -111,6 +125,12 @@ const FONT_LINE_BOX = 1.25;
 const COVER_DETAILS_SAFETY_PAD = 8;
 /** Clients per "Prepared for" column on the cover before they wrap. */
 const COVER_CLIENTS_PER_COLUMN = 2;
+/**
+ * Reference, version, issued date, validity — the lines of the cover's reference
+ * column. `coverDetailsTop` measures the bank off this, so it has to move with
+ * `coverDetails`.
+ */
+const REFERENCE_COLUMN_LINES = 4;
 
 function textBlockHeight(
 	fontSize: number,
@@ -480,6 +500,7 @@ function coverDetails(input: QuotationPdfInput): Node {
 						'Quote reference',
 						[
 							input.reference,
+							`Version ${input.version}`,
 							`Issued ${input.issuedAtLabel}`,
 							`Valid for ${input.validityDays} days`,
 						],
@@ -530,7 +551,10 @@ function coverDetailsTop(input: QuotationPdfInput): number {
 		textBlockHeight(F.total, LH.body, 1) +
 		4 +
 		textBlockHeight(F.bodySmall, LH.body, 1);
-	const secondRow = Math.max(detailsColumnHeight(3), totalColumnHeight);
+	const secondRow = Math.max(
+		detailsColumnHeight(REFERENCE_COLUMN_LINES),
+		totalColumnHeight
+	);
 	const height = firstRow + S.block * 2 + secondRow;
 	const usableBottom = A4_HEIGHT - (L.footerBandHeight + L.bandClearance);
 	return usableBottom - height - COVER_DETAILS_SAFETY_PAD;
@@ -711,6 +735,104 @@ function summaryCard(input: QuotationPdfInput): Node {
 }
 
 // ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+
+/** The ink header row every table in the document shares. */
+function tableHeaderCell(text: string, alignment?: string): Node {
+	return {
+		text: text.toUpperCase(),
+		fontSize: F.tableHeader,
+		characterSpacing: T.label,
+		bold: true,
+		color: C.linen,
+		fillColor: C.ink,
+		alignment,
+	};
+}
+
+/**
+ * Borderless rows with a hairline under each, and the outer edges of the table
+ * padded wider than the gutters between columns so the ink header row's fill
+ * doesn't crowd the text.
+ */
+function tableLayout(lastColumnIndex: number): Record<string, unknown> {
+	return {
+		defaultBorder: false,
+		hLineWidth: (i: number) => (i === 0 || i === 1 ? 0 : 0.5),
+		vLineWidth: () => 0,
+		hLineColor: () => C.divider,
+		paddingBottom: () => S.tableCell,
+		paddingLeft: (i: number) => (i === 0 ? 10 : 7),
+		paddingRight: (i: number) => (i === lastColumnIndex ? 10 : 7),
+		paddingTop: () => S.tableCell,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Page 2 — revision history
+// ---------------------------------------------------------------------------
+
+const VERSION_TABLE_LAST_COLUMN = 3;
+
+function versionHistoryPage(input: QuotationPdfInput): Node[] {
+	const rows = input.versionHistory;
+	if (rows.length === 0) {
+		return [];
+	}
+
+	const cell = (
+		text: string,
+		fillColor?: string,
+		options: Node = {}
+	): Node => ({
+		text,
+		fontSize: F.tableCell,
+		color: C.body,
+		lineHeight: LH.body,
+		fillColor,
+		...options,
+	});
+
+	const body: Node[][] = [
+		[
+			tableHeaderCell('Version'),
+			tableHeaderCell('Date'),
+			tableHeaderCell('Updated by'),
+			tableHeaderCell('Description'),
+		],
+		...rows.map((row, index) => {
+			const fillColor = index % 2 === 1 ? C.surfaceSubtle : undefined;
+			return [
+				cell(String(row.version), fillColor, { bold: true }),
+				cell(row.updatedAtLabel, fillColor, { color: C.accent }),
+				cell(row.updatedBy, fillColor, { color: C.accent }),
+				cell(row.description, fillColor),
+			];
+		}),
+	];
+
+	return [
+		...sectionOpening(
+			'Version control',
+			'Revision history',
+			'This quotation has been revised as set out below. The version printed on the cover is the one this document reflects; earlier versions are superseded.'
+		),
+		{
+			table: {
+				headerRows: 1,
+				dontBreakRows: true,
+				widths: ['12%', '22%', '24%', '42%'],
+				body,
+			},
+			layout: tableLayout(VERSION_TABLE_LAST_COLUMN),
+		},
+		// The history stands alone, so Section 01 still opens its own page.
+		{ text: '', pageBreak: 'after' },
+	];
+}
+
+// ---------------------------------------------------------------------------
 // Progress payments
 // ---------------------------------------------------------------------------
 
@@ -722,23 +844,15 @@ function stageScopeText(stage: QuotationPdfStage): string {
 	return stage.sections.map((section) => section.name).join(' · ');
 }
 
-function progressPaymentsBody(input: QuotationPdfInput): Node[] {
-	const headerCell = (text: string, alignment?: string): Node => ({
-		text: text.toUpperCase(),
-		fontSize: F.tableHeader,
-		characterSpacing: T.label,
-		bold: true,
-		color: C.linen,
-		fillColor: C.ink,
-		alignment,
-	});
+const STAGE_TABLE_LAST_COLUMN = 3;
 
+function progressPaymentsBody(input: QuotationPdfInput): Node[] {
 	const body: Node[][] = [
 		[
-			headerCell('Stage'),
-			headerCell('Scope of works'),
-			headerCell('%', 'right'),
-			headerCell('Amount', 'right'),
+			tableHeaderCell('Stage'),
+			tableHeaderCell('Scope of works'),
+			tableHeaderCell('%', 'right'),
+			tableHeaderCell('Amount', 'right'),
 		],
 		...input.stages.map((stage, index) => {
 			const fillColor = index % 2 === 1 ? C.surfaceSubtle : undefined;
@@ -803,16 +917,7 @@ function progressPaymentsBody(input: QuotationPdfInput): Node[] {
 						widths: ['24%', '43%', '11%', '22%'],
 						body,
 					},
-					layout: {
-						defaultBorder: false,
-						hLineWidth: (i: number) => (i === 0 || i === 1 ? 0 : 0.5),
-						vLineWidth: () => 0,
-						hLineColor: () => C.divider,
-						paddingBottom: () => S.tableCell,
-						paddingLeft: (i: number) => (i === 0 ? 10 : 7),
-						paddingRight: (i: number) => (i === 3 ? 10 : 7),
-						paddingTop: () => S.tableCell,
-					},
+					layout: tableLayout(STAGE_TABLE_LAST_COLUMN),
 				},
 				{
 					columns: [{ width: '*', text: '' }, summaryCard(input)],
@@ -1170,6 +1275,8 @@ function acknowledgementBody(input: QuotationPdfInput): Node[] {
 		{
 			columns: [
 				detailsColumn('Quote reference', [input.reference]),
+				// Signed copies have to say which revision was accepted.
+				detailsColumn('Version', [String(input.version)]),
 				detailsColumn('Project', [input.projectName]),
 			],
 			columnGap: 24,
@@ -1279,7 +1386,11 @@ function buildDocDefinition(
 		) =>
 			Boolean(currentNode.id?.startsWith(SECTION_OPENING_ID_PREFIX)) &&
 			followingNodesOnPage.length < MIN_NODES_AFTER_SECTION_OPENING,
-		content: [...coverPage(input, logoDataUrl), ...numberedSections(input)],
+		content: [
+			...coverPage(input, logoDataUrl),
+			...versionHistoryPage(input),
+			...numberedSections(input),
+		],
 	};
 }
 

@@ -530,11 +530,36 @@ export default defineSchema({
 		folderPath: v.optional(v.string()),
 		createdBy: v.string(),
 		createdAt: v.number(),
+		// Revision tracking. Optional so rows issued before versioning existed keep
+		// validating — an absent `version` reads as 1.
+		version: v.optional(v.number()),
+		updatedAt: v.optional(v.number()),
+		updatedBy: v.optional(v.string()),
 		searchText: v.string(),
 	})
 		.index('by_reference', ['reference'])
 		.index('by_created', ['createdAt'])
 		.searchIndex('search_client_quotations', { searchField: 'searchText' }),
+	// One row per saved revision of a client quotation. The quotation row always
+	// holds the latest snapshot; these rows carry who revised it, when and why,
+	// plus the PDF that was issued for that version — every version's document
+	// stays viewable.
+	clientQuotationVersions: defineTable({
+		quotationId: v.id('clientQuotations'),
+		version: v.number(),
+		description: v.string(),
+		updatedBy: v.string(),
+		updatedAt: v.number(),
+		// The quoted total at that version, so the history reads as a trail of
+		// price changes without loading each PDF.
+		totalInclGst: v.number(),
+		documentId: v.optional(v.id('companyDocuments')),
+		s3Key: v.optional(v.string()),
+		fileName: v.optional(v.string()),
+		folderPath: v.optional(v.string()),
+	})
+		.index('by_quotation', ['quotationId'])
+		.index('by_quotation_version', ['quotationId', 'version']),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

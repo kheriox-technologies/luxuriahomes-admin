@@ -1,13 +1,15 @@
 'use client';
-// React Compiler can't track mutations on the TanStack Table instance.
-'use no memo';
 
-import type { ColumnDef } from '@tanstack/react-table';
 import { api } from '@workspace/backend/api';
 import type { Doc } from '@workspace/backend/dataModel';
+import {
+	Accordion,
+	AccordionItem,
+	AccordionPanel,
+	AccordionPrimitive,
+} from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import { DataTable } from '@workspace/ui/components/data-table';
 import {
 	Empty,
 	EmptyDescription,
@@ -23,61 +25,54 @@ import {
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
 import { SearchInput } from '@workspace/ui/components/search-input';
-import { toastManager } from '@workspace/ui/components/toast';
-import { useAction, useQuery } from 'convex/react';
+import { useQuery } from 'convex/react';
 import {
+	ChevronDownIcon,
 	EllipsisVertical,
 	ExternalLink,
 	FileSignature,
+	Pencil,
 	Plus,
 	Trash2,
 } from 'lucide-react';
-import Link from 'next/link';
+import Link, { type LinkProps } from 'next/link';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
-import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { formatAudWhole } from '@/lib/currency';
 import { formatIssueDate } from './client-quotation-form-shared';
+import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
 import DeleteClientQuotation from './delete-client-quotation';
+import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 type QuotationRow = Doc<'clientQuotations'>;
 
 const MS_PER_DAY = 86_400_000;
 const NEW_HREF = '/client-quotations/new';
+const FIRST_VERSION = 1;
+
+// The header labels and every row are the same grid — including the trailing
+// track the actions sit in — so the columns line up exactly. The first column is
+// wide enough for a reference and its version badge on one line, and the date
+// columns for a spelled-out month.
+const ROW_GRID =
+	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_9.5rem_4.5rem] items-center gap-3 px-3 text-left';
 
 function validUntil(row: QuotationRow): Date {
 	return new Date(row.issuedAt + row.validityDays * MS_PER_DAY);
 }
 
-function QuotationActionsCell({ row }: { row: QuotationRow }) {
-	const [deleteOpen, setDeleteOpen] = useState(false);
-	const signUrl = useAction(api.cdn.signUrl.signUrl);
+// Routes are typed, and a template literal can't be proved to be one of them.
+function editHref(row: QuotationRow): LinkProps<string>['href'] {
+	return `/client-quotations/${row._id}/edit` as LinkProps<string>['href'];
+}
 
-	const openPdf = async () => {
-		if (!row.s3Key) {
-			return;
-		}
-		try {
-			const url = await signUrl({ s3Key: row.s3Key });
-			window.open(url, '_blank', 'noopener');
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not open the quotation PDF.'
-				),
-				title: 'Could not open PDF',
-				type: 'error',
-			});
-		}
-	};
+function QuotationRowActions({ row }: { row: QuotationRow }) {
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const openPdf = useOpenQuotationPdf();
 
 	return (
-		// biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation wrapper, not interactive
-		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation wrapper, not interactive
-		// biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation wrapper, not interactive
-		<div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+		<>
 			<Menu>
 				<MenuTrigger
 					render={
@@ -92,16 +87,20 @@ function QuotationActionsCell({ row }: { row: QuotationRow }) {
 					<EllipsisVertical className="size-4" />
 				</MenuTrigger>
 				<MenuPopup align="end">
+					<MenuItem render={<Link href={editHref(row)} />}>
+						<Pencil />
+						Edit
+					</MenuItem>
 					<MenuItem
 						disabled={!row.s3Key}
 						onClick={() => {
-							openPdf().catch(() => {
+							openPdf(row.s3Key).catch(() => {
 								/* handled in openPdf */
 							});
 						}}
 					>
 						<ExternalLink />
-						Open PDF
+						Open latest PDF
 					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
@@ -111,82 +110,86 @@ function QuotationActionsCell({ row }: { row: QuotationRow }) {
 				</MenuPopup>
 			</Menu>
 			<DeleteClientQuotation
-				documentId={row.documentId}
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}
 				quotationId={row._id}
 				reference={row.reference}
 			/>
-		</div>
+		</>
 	);
 }
 
-const columns: ColumnDef<QuotationRow>[] = [
-	{
-		accessorKey: 'reference',
-		header: 'Reference',
-		cell: ({ row }) => (
-			<span className="font-medium tabular-nums">{row.original.reference}</span>
-		),
-	},
-	{
-		accessorKey: 'projectName',
-		header: 'Project',
-	},
-	{
-		id: 'clients',
-		header: 'Clients',
-		cell: ({ row }) => (
-			<span className="text-muted-foreground text-sm">
-				{row.original.clients.map((client) => client.name).join(', ')}
-			</span>
-		),
-	},
-	{
-		accessorKey: 'totalInclGst',
-		header: 'Total incl. GST',
-		cell: ({ row }) => (
-			<span className="tabular-nums">
-				{formatAudWhole(row.original.totalInclGst)}
-			</span>
-		),
-	},
-	{
-		accessorKey: 'issuedAt',
-		header: 'Issued',
-		cell: ({ row }) => (
-			<span className="text-muted-foreground text-sm">
-				{formatIssueDate(new Date(row.original.issuedAt))}
-			</span>
-		),
-	},
-	{
-		id: 'validUntil',
-		header: 'Valid until',
-		cell: ({ row }) => {
-			const expiry = validUntil(row.original);
-			const expired = expiry.getTime() < Date.now();
-			return (
-				<span className="flex items-center gap-2 text-sm">
+function QuotationAccordionItem({
+	expanded,
+	row,
+}: {
+	expanded: boolean;
+	row: QuotationRow;
+}) {
+	const expiry = validUntil(row);
+	const expired = expiry.getTime() < Date.now();
+	const version = row.version ?? FIRST_VERSION;
+
+	return (
+		<AccordionItem className="border-b last:border-b-0" value={row._id}>
+			<AccordionPrimitive.Header
+				className={`${ROW_GRID} relative py-3 text-sm`}
+			>
+				{/* The whole row toggles, but the cells have to be grid children to
+				    align with the labels above — so the trigger is an overlay behind
+				    them rather than their parent. */}
+				<AccordionPrimitive.Trigger
+					aria-label={`Toggle version history for ${row.reference}`}
+					className="absolute inset-0 cursor-pointer rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+				/>
+				<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
+					<span className="font-medium tabular-nums">{row.reference}</span>
+					<Badge variant="secondary">v{version}</Badge>
+				</span>
+				<span className="pointer-events-none relative truncate">
+					{row.projectName}
+				</span>
+				<span className="pointer-events-none relative truncate text-muted-foreground">
+					{row.clients.map((client) => client.name).join(', ')}
+				</span>
+				<span className="pointer-events-none relative tabular-nums">
+					{formatAudWhole(row.totalInclGst)}
+				</span>
+				<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
+					{formatIssueDate(new Date(row.issuedAt))}
+				</span>
+				<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
 					<span className="text-muted-foreground">
 						{formatIssueDate(expiry)}
 					</span>
 					{expired ? <Badge variant="secondary">Expired</Badge> : null}
 				</span>
-			);
-		},
-	},
-	{
-		id: 'actions',
-		header: '',
-		size: 60,
-		cell: ({ row }) => <QuotationActionsCell row={row.original} />,
-	},
-];
+				<span className="relative flex items-center justify-end">
+					<QuotationRowActions row={row} />
+					<AccordionPrimitive.Trigger
+						aria-label={`Toggle version history for ${row.reference}`}
+						className="flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring data-panel-open:[&>svg]:rotate-180"
+					>
+						<ChevronDownIcon className="size-4 shrink-0 transition-transform duration-200 ease-in-out" />
+					</AccordionPrimitive.Trigger>
+				</span>
+			</AccordionPrimitive.Header>
+			<AccordionPanel className="px-3">
+				{expanded ? (
+					<ClientQuotationVersionsPanel
+						latestVersion={version}
+						quotationId={row._id}
+					/>
+				) : null}
+			</AccordionPanel>
+		</AccordionItem>
+	);
+}
 
 export default function ClientQuotationsPageContent() {
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
+	const [openRows, setOpenRows] = useState<string[]>([]);
 	const trimmedSearch = debouncedSearch.trim();
 
 	useEffect(() => {
@@ -231,13 +234,31 @@ export default function ClientQuotationsPageContent() {
 		);
 	} else {
 		content = (
-			<DataTable
-				columns={columns}
-				data={quotations}
-				emptyMessage="No matching quotations."
-				initialPageSize={20}
-				key={trimmedSearch}
-			/>
+			<div className="overflow-hidden rounded-md border">
+				<div
+					className={`${ROW_GRID} border-b bg-muted/50 py-2 font-medium text-muted-foreground text-xs uppercase`}
+				>
+					<span>Reference</span>
+					<span>Project</span>
+					<span>Clients</span>
+					<span>Total incl. GST</span>
+					<span>Issued</span>
+					<span>Valid until</span>
+					<span />
+				</div>
+				<Accordion
+					onValueChange={(value) => setOpenRows(value as string[])}
+					value={openRows}
+				>
+					{quotations.map((row) => (
+						<QuotationAccordionItem
+							expanded={openRows.includes(row._id)}
+							key={row._id}
+							row={row}
+						/>
+					))}
+				</Accordion>
+			</div>
 		);
 	}
 

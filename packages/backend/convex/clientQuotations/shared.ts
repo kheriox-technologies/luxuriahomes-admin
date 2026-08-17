@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
-import type { Id } from '../_generated/dataModel';
-import type { QueryCtx } from '../_generated/server';
+import type { Doc, Id } from '../_generated/dataModel';
+import type { MutationCtx, QueryCtx } from '../_generated/server';
 
 const AUSTRALIAN_POSTCODE_REGEX = /^\d{4}$/;
 const MAX_CLIENTS = 4;
@@ -11,6 +11,11 @@ const PERCENT_EPSILON = 0.005;
 const GST_DIVISOR = 1.1;
 const MIN_VALIDITY_DAYS = 1;
 const MAX_VALIDITY_DAYS = 365;
+const MAX_VERSION_DESCRIPTION_LENGTH = 200;
+
+/** Every quotation starts here; only later revisions are described by the user. */
+export const INITIAL_VERSION_DESCRIPTION = 'Initial version';
+export const FIRST_VERSION = 1;
 
 export const quotationClientValidator = v.object({
 	name: v.string(),
@@ -161,6 +166,89 @@ export function assertPositiveTotal(totalInclGst: number): void {
 			message: 'Total price must be greater than zero',
 		});
 	}
+}
+
+export function parseVersionDescription(description: string): string {
+	const trimmed = description.trim();
+	if (trimmed.length === 0) {
+		throw new ConvexError({
+			code: 'INVALID_DESCRIPTION',
+			message: 'Describe what changed in this version',
+		});
+	}
+	if (trimmed.length > MAX_VERSION_DESCRIPTION_LENGTH) {
+		throw new ConvexError({
+			code: 'INVALID_DESCRIPTION',
+			message: `Keep the version description under ${MAX_VERSION_DESCRIPTION_LENGTH} characters`,
+		});
+	}
+	return trimmed;
+}
+
+/** The PDF issued for one version, and where it is filed. */
+export interface QuotationVersionDocument {
+	documentId?: Id<'companyDocuments'>;
+	fileName?: string;
+	folderPath?: string;
+	s3Key?: string;
+}
+
+/**
+ * Appends a history row. Shared by `create` and `update` so the row shape — and
+ * the document fields that make each version's PDF openable — live in one place.
+ */
+export async function insertQuotationVersion(
+	ctx: MutationCtx,
+	args: QuotationVersionDocument & {
+		description: string;
+		quotationId: Id<'clientQuotations'>;
+		totalInclGst: number;
+		updatedAt: number;
+		updatedBy: string;
+		version: number;
+	}
+): Promise<Id<'clientQuotationVersions'>> {
+	return await ctx.db.insert('clientQuotationVersions', {
+		quotationId: args.quotationId,
+		version: args.version,
+		description: args.description,
+		updatedBy: args.updatedBy,
+		updatedAt: args.updatedAt,
+		totalInclGst: args.totalInclGst,
+		documentId: args.documentId,
+		s3Key: args.s3Key,
+		fileName: args.fileName,
+		folderPath: args.folderPath,
+	});
+}
+
+/**
+ * The version-1 row a quotation would have had if versioning had existed when it
+ * was issued. Used both to backfill on first edit and to answer `listVersions`
+ * for rows that have no history yet, so no migration is needed.
+ */
+export function initialVersionFrom(quotation: Doc<'clientQuotations'>): {
+	description: string;
+	documentId?: Id<'companyDocuments'>;
+	fileName?: string;
+	folderPath?: string;
+	s3Key?: string;
+	totalInclGst: number;
+	updatedAt: number;
+	updatedBy: string;
+	version: number;
+} {
+	return {
+		description: INITIAL_VERSION_DESCRIPTION,
+		documentId: quotation.documentId,
+		fileName: quotation.fileName,
+		folderPath: quotation.folderPath,
+		s3Key: quotation.s3Key,
+		totalInclGst: quotation.totalInclGst,
+		updatedAt: quotation.createdAt,
+		updatedBy: quotation.createdBy,
+		version: FIRST_VERSION,
+	};
 }
 
 export async function getClientQuotationOrThrow(

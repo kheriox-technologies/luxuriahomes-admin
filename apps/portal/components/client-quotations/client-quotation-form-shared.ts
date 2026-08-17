@@ -1,3 +1,4 @@
+import type { Doc } from '@workspace/backend/dataModel';
 import { z } from 'zod';
 import { AUSTRALIAN_STATES } from '@/components/projects/project-form-shared';
 
@@ -91,6 +92,38 @@ export const emptyClientQuotationFormValues: ClientQuotationFormValues = {
 	marginPercent: '',
 	totalInclGst: '',
 };
+
+/**
+ * The stored quotation, mapped back to the form's string-based values so an
+ * issued quotation can be revised. Numbers become strings for the same reason
+ * they are typed as strings — a half-edited "1." must survive a keystroke.
+ */
+export function formValuesFromQuotation(
+	quotation: Doc<'clientQuotations'>
+): ClientQuotationFormValues {
+	return {
+		projectName: quotation.projectName,
+		description: quotation.description ?? '',
+		clients: quotation.clients.map((client) => ({
+			name: client.name,
+			email: client.email,
+			phone: client.phone,
+		})),
+		address: {
+			street: quotation.address.street,
+			suburb: quotation.address.suburb,
+			state: quotation.address.state,
+			postcode: quotation.address.postcode,
+		},
+		validityDays: String(quotation.validityDays),
+		budgetTemplateId: quotation.budgetTemplateId ?? '',
+		marginPercent:
+			quotation.marginPercent === undefined
+				? ''
+				: String(quotation.marginPercent),
+		totalInclGst: String(quotation.totalInclGst),
+	};
+}
 
 export function quotationFieldError(
 	errors: readonly unknown[] | undefined
