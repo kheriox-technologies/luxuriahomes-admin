@@ -64,7 +64,7 @@ import { useQuotationDraft } from './use-quotation-draft';
 // Long enough for the new tab to fetch the blob before the URL is released.
 const PREVIEW_URL_TTL_MS = 60_000;
 const PDF_CONTENT_TYPE = 'application/pdf';
-const LIST_HREF = '/client-quotations';
+const LIST_HREF = '/quotations';
 const FIRST_VERSION = 1;
 
 function editHeading(

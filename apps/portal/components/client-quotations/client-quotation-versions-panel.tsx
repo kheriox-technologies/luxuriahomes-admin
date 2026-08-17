@@ -30,7 +30,7 @@ function editVersionHref(
 	quotationId: Id<'clientQuotations'>,
 	version: number
 ): LinkProps<string>['href'] {
-	return `/client-quotations/${quotationId}/edit?version=${version}` as LinkProps<string>['href'];
+	return `/quotations/${quotationId}/edit?version=${version}` as LinkProps<string>['href'];
 }
 
 /**

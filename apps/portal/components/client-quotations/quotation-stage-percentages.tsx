@@ -39,7 +39,7 @@ export default function QuotationStagePercentages({
 	if (rows.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">
-				No quote stages yet. Add them under Lists → Quote Items.
+				No quote stages yet. Add them under Lists → Quotation Items.
 			</p>
 		);
 	}

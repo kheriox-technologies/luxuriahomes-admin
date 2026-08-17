@@ -47,7 +47,7 @@ import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 type QuotationRow = Doc<'clientQuotations'>;
 
-const NEW_HREF = '/client-quotations/new';
+const NEW_HREF = '/quotations/new';
 const FIRST_VERSION = 1;
 
 // The header labels and every row are the same grid — including the trailing
@@ -59,7 +59,7 @@ const ROW_GRID =
 
 // Routes are typed, and a template literal can't be proved to be one of them.
 function editHref(row: QuotationRow): LinkProps<string>['href'] {
-	return `/client-quotations/${row._id}/edit` as LinkProps<string>['href'];
+	return `/quotations/${row._id}/edit` as LinkProps<string>['href'];
 }
 
 function QuotationRowActions({ row }: { row: QuotationRow }) {

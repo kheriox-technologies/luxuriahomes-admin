@@ -113,9 +113,9 @@ const items: SidebarItem[] = [
 		icon: FileText,
 	},
 	{
-		title: 'Client Quotations',
-		url: '/client-quotations',
-		path: '/client-quotations',
+		title: 'Quotations',
+		url: '/quotations',
+		path: '/quotations',
 		icon: FileSignature,
 	},
 	{
@@ -161,9 +161,9 @@ const items: SidebarItem[] = [
 				path: '/takeoff-categories',
 			},
 			{
-				title: 'Quotations',
-				url: '/quotations',
-				path: '/quotations',
+				title: 'Quotation Items',
+				url: '/quotation-items',
+				path: '/quotation-items',
 			},
 		],
 	},

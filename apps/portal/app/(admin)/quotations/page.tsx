@@ -1,5 +1,5 @@
-import QuotationsPageContent from '@/components/quotations/quotations-page-content';
+import ClientQuotationsPageContent from '@/components/client-quotations/client-quotations-page-content';
 
-export default function QuotationsPage() {
-	return <QuotationsPageContent />;
+export default function ClientQuotationsPage() {
+	return <ClientQuotationsPageContent />;
 }
