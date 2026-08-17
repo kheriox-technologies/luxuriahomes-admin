@@ -138,6 +138,17 @@ export function buildQuoteItemSearchText(
 	return buildSearchText([name, description, sectionName, stageName]);
 }
 
+export function buildQuoteTermSectionSearchText(name: string): string {
+	return buildSearchText([name]);
+}
+
+export function buildQuoteTermItemSearchText(
+	text: string,
+	sectionName: string
+): string {
+	return buildSearchText([text, sectionName]);
+}
+
 export function buildBudgetTemplateSearchText(
 	title: string,
 	description?: string

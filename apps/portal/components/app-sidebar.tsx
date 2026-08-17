@@ -158,6 +158,11 @@ const items: SidebarItem[] = [
 				url: '/quote-items',
 				path: '/quote-items',
 			},
+			{
+				title: 'Quote Terms',
+				url: '/quote-terms',
+				path: '/quote-terms',
+			},
 		],
 	},
 	{

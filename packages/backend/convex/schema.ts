@@ -429,6 +429,33 @@ export default defineSchema({
 	})
 		.index('by_section_order', ['sectionId', 'order'])
 		.searchIndex('search_quote_items', { searchField: 'searchText' }),
+	// The boilerplate copy that prints after the catalogue in a quotation:
+	// a disclaimer, an acknowledgement and a set of terms & conditions.
+	//
+	// Singleton — exactly one row holds both blocks of rich text. It is created
+	// lazily on the first save (or by `quoteTerms/seed`), so reads must tolerate
+	// its absence.
+	quoteTermsSettings: defineTable({
+		acknowledgementHtml: v.string(),
+		disclaimerHtml: v.string(),
+	}),
+	quoteTermSections: defineTable({
+		name: v.string(),
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_term_sections', { searchField: 'searchText' }),
+	quoteTermItems: defineTable({
+		// A single clause, stored as the full sentence that prints as one bullet.
+		text: v.string(),
+		sectionId: v.id('quoteTermSections'),
+		// Sort position within the clause's section.
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_section_order', ['sectionId', 'order'])
+		.searchIndex('search_quote_term_items', { searchField: 'searchText' }),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),
