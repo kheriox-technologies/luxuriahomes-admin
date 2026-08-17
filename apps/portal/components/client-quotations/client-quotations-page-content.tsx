@@ -57,10 +57,26 @@ const FIRST_VERSION = 1;
 
 // The header labels and every row are the same grid — including the trailing
 // track the actions sit in — so the columns line up exactly. The first column is
-// wide enough for a reference and its version badge on one line, and the issued
-// column for a spelled-out month.
+// wide enough for a reference and its version badge on one line, the status
+// column for 'Awaiting Signatures', and the issued column for a spelled-out
+// month.
 const ROW_GRID =
-	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_7rem] items-center gap-3 px-3 text-left';
+	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_9.5rem_7rem] items-center gap-3 px-3 text-left';
+
+function statusBadgeVariant(
+	status: QuotationRow['status']
+): 'info' | 'secondary' | 'success' | 'warning' {
+	if (status === 'Under Review') {
+		return 'warning';
+	}
+	if (status === 'Awaiting Signatures') {
+		return 'info';
+	}
+	if (status === 'Signed') {
+		return 'success';
+	}
+	return 'secondary';
+}
 
 // Routes are typed, and a template literal can't be proved to be one of them.
 function editHref(row: QuotationRow): LinkProps<string>['href'] {
@@ -179,6 +195,9 @@ function QuotationAccordionItem({
 				<span className="pointer-events-none relative tabular-nums">
 					{formatAudWhole(row.totalInclGst)}
 				</span>
+				<span className="pointer-events-none relative">
+					<Badge variant={statusBadgeVariant(row.status)}>{row.status}</Badge>
+				</span>
 				<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
 					{formatIssueDate(new Date(row.issuedAt))}
 				</span>
@@ -260,6 +279,7 @@ export default function ClientQuotationsPageContent() {
 					<span>Project</span>
 					<span>Clients</span>
 					<span>Total incl. GST</span>
+					<span>Status</span>
 					<span>Issued</span>
 					<span />
 				</div>

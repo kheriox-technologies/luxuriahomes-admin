@@ -17,6 +17,20 @@ const MAX_VERSION_DESCRIPTION_LENGTH = 200;
 export const INITIAL_VERSION_DESCRIPTION = 'Initial version';
 export const FIRST_VERSION = 1;
 
+/**
+ * Where a quotation sits in its lifecycle. Only 'Draft' is reachable today; the
+ * later states arrive with the send and signature workflows.
+ */
+export const clientQuotationStatusValidator = v.union(
+	v.literal('Draft'),
+	v.literal('Under Review'),
+	v.literal('Awaiting Signatures'),
+	v.literal('Signed')
+);
+
+/** Every quotation starts here. */
+export const INITIAL_QUOTATION_STATUS = 'Draft' as const;
+
 export const quotationClientValidator = v.object({
 	name: v.string(),
 	email: v.string(),

@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { zodToConvex } from 'convex-helpers/server/zod';
 import { z } from 'zod';
 import {
+	clientQuotationStatusValidator,
 	quotationClientValidator,
 	quotationEntrySnapshotValidator,
 	quotationStageSnapshotValidator,
@@ -506,6 +507,9 @@ export default defineSchema({
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
 		issuedAt: v.number(),
+		// Lifecycle state. Every quotation is saved as 'Draft'; the later states
+		// arrive with the send and signature workflows.
+		status: clientQuotationStatusValidator,
 		// Pricing provenance. The template fields are optional — the budget can be
 		// typed free-hand without picking a budget template at all.
 		budgetTemplateId: v.optional(v.id('budgetTemplates')),

@@ -4,6 +4,7 @@ import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import {
 	buildQuotationSnapshotPatch,
 	FIRST_VERSION,
+	INITIAL_QUOTATION_STATUS,
 	INITIAL_VERSION_DESCRIPTION,
 	insertQuotationVersion,
 	quotationSnapshotArgs,
@@ -39,6 +40,7 @@ export const create = mutation({
 			...snapshot,
 			reference: args.reference,
 			issuedAt: args.issuedAt,
+			status: INITIAL_QUOTATION_STATUS,
 			createdBy: savedBy,
 			createdAt: savedAt,
 			version: FIRST_VERSION,
