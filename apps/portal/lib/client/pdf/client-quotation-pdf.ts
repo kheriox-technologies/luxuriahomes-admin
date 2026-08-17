@@ -1,0 +1,1404 @@
+import { env } from '@workspace/env/portal';
+import { formatAud, formatAudWhole } from '@/lib/currency';
+import { htmlToPdfmakeContent, type PdfBlock } from '@/lib/pdf/html-to-pdfmake';
+import { getClientQuotationPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
+import { getPdfMakeWithInter } from '@/lib/pdf/pdf-fonts';
+import {
+	A4_HEIGHT,
+	A4_WIDTH,
+	QUOTATION_COLORS as C,
+	COVER_DESCRIPTION_MAX_LENGTH,
+	COVER_TITLE_COMPACT_THRESHOLD,
+	QUOTATION_FONT_SIZES as F,
+	GST_RATE_LABEL,
+	QUOTATION_LAYOUT as L,
+	QUOTATION_LINE_HEIGHTS as LH,
+	QUOTATION_SPACING as S,
+	QUOTATION_TRACKING as T,
+} from './client-quotation-theme';
+
+export interface QuotationPdfClient {
+	email: string;
+	name: string;
+	phone: string;
+}
+
+export interface QuotationPdfItem {
+	description?: string;
+	name: string;
+}
+
+export interface QuotationPdfSection {
+	items: QuotationPdfItem[];
+	name: string;
+}
+
+export interface QuotationPdfStage {
+	amount: number;
+	name: string;
+	percent: number;
+	scopeSummary?: string;
+	sections: QuotationPdfSection[];
+}
+
+export interface QuotationPdfTermSection {
+	items: string[];
+	name: string;
+}
+
+/** One row of the revision history page, in the order it was saved. */
+export interface QuotationPdfVersion {
+	description: string;
+	// Human-readable, e.g. "17 August 2026" — formatted by the caller like
+	// `issuedAtLabel`, so the builder never touches locales.
+	updatedAtLabel: string;
+	updatedBy: string;
+	version: number;
+}
+
+export interface QuotationPdfInput {
+	acknowledgementHtml: string;
+	address: {
+		postcode: string;
+		state: string;
+		street: string;
+		suburb: string;
+	};
+	clients: QuotationPdfClient[];
+	contractSumExclGst: number;
+	description?: string;
+	disclaimerHtml: string;
+	// Drafted on the composer from the catalogue lists; either can be empty, in
+	// which case its section is dropped and the rest renumber.
+	exclusions: string[];
+	gstAmount: number;
+	// Human-readable issue date, e.g. "12 August 2026".
+	issuedAtLabel: string;
+	notes: string[];
+	projectName: string;
+	reference: string;
+	stages: QuotationPdfStage[];
+	termSections: QuotationPdfTermSection[];
+	totalInclGst: number;
+	// The revision this document is, and the trail behind it. Oldest first, and
+	// always including the version being issued — version 1 prints a single row.
+	version: number;
+	versionHistory: QuotationPdfVersion[];
+}
+
+// pdfmake's document model has no published types; every builder in this repo
+// hands it plain objects.
+type Node = Record<string, unknown>;
+
+const CONTENT_WIDTH = A4_WIDTH - L.sidePadding * 2;
+const URL_SCHEME = /^https?:\/\//;
+const NON_SLUG_CHARS = /[^a-z0-9]+/g;
+
+// Node ids must be unique across the document, so the section leads are
+// namespaced by prefix and matched that way in `pageBreakBefore`.
+const SECTION_OPENING_ID_PREFIX = 'section-opening-';
+
+// Intrinsic aspect of public/logo.svg (viewBox 7627 × 3029), which the linen
+// PNG is derived from.
+const LOGO_ASPECT = 7627 / 3029;
+// 78pt wide is ~31pt tall, which clears the 68pt header band comfortably and
+// balances against the address lines opposite. Much larger and the script
+// descender runs into the band edge.
+const HEADER_LOGO_WIDTH = 78;
+const COVER_LOGO_WIDTH = 190;
+const HEADER_TEXT_LINE_HEIGHT = 1.4;
+
+// Cover geometry. The three blocks are absolutely positioned so they hold the
+// template's rhythm regardless of how long the project name runs; the details
+// bank is measured and pinned to the foot of the page (see `coverDetailsTop`).
+const COVER_TEXT_WIDTH = 383;
+const COVER_TITLE_Y = 250;
+const LABEL_MARGIN_BOTTOM = 5;
+/**
+ * A rendered line box is the font's ascender-to-descender span, not the point
+ * size — for Inter that is ~1.25em. Any height we predict for absolutely
+ * positioned text has to account for it or the block silently overruns.
+ */
+const FONT_LINE_BOX = 1.25;
+/** Slack on predicted heights, so a rounding error never costs a page break. */
+const COVER_DETAILS_SAFETY_PAD = 8;
+/** Clients per "Prepared for" column on the cover before they wrap. */
+const COVER_CLIENTS_PER_COLUMN = 2;
+/**
+ * Reference, version, issued date — the lines of the cover's reference column.
+ * `coverDetailsTop` measures the bank off this, so it has to move with
+ * `coverDetails`.
+ */
+const REFERENCE_COLUMN_LINES = 3;
+
+function textBlockHeight(
+	fontSize: number,
+	lineHeight: number,
+	lines: number
+): number {
+	return lines * fontSize * lineHeight * FONT_LINE_BOX;
+}
+
+function panelHeight(
+	lines: { count: number; size: number }[],
+	padY: number
+): number {
+	const content = lines.reduce(
+		(sum, line) => sum + line.count * line.size * LH.tight,
+		0
+	);
+	return padY * 2 + content;
+}
+
+/**
+ * A rounded, filled or outlined block. pdfmake has no box model, so the surface
+ * is a `canvas` rect and the content is pulled back over it with a negative top
+ * margin. The height must therefore be known up front — only use this where the
+ * line count is fixed (pills, badges, the summary card, signature boxes). For a
+ * block whose height depends on user content, use `tintedCard` instead.
+ */
+function roundedPanel(options: {
+	content: Node[];
+	fill?: string;
+	height: number;
+	padX?: number;
+	padY?: number;
+	radius?: number;
+	stroke?: string;
+	width: number;
+}): Node {
+	const {
+		content,
+		fill,
+		height,
+		padX = 14,
+		padY = 10,
+		radius = L.radius,
+		stroke,
+		width,
+	} = options;
+	return {
+		width,
+		stack: [
+			{
+				canvas: [
+					{
+						type: 'rect',
+						x: 0,
+						y: 0,
+						w: width,
+						h: height,
+						r: radius,
+						...(fill ? { color: fill } : {}),
+						...(stroke ? { lineColor: stroke, lineWidth: 1 } : {}),
+					},
+				],
+			},
+			{
+				stack: content,
+				margin: [padX, -(height - padY), padX, 0],
+			},
+		],
+		// The stack under-consumes by the bottom padding (the content is shorter
+		// than the rect it sits on), so give it back here.
+		margin: [0, 0, 0, padY],
+	};
+}
+
+/**
+ * A tinted, square-cornered card that grows with its content. Used for the
+ * disclaimer and acknowledgement, whose height comes from editable rich text.
+ */
+function tintedCard(content: Node[] | PdfBlock[]): Node {
+	return {
+		table: { widths: ['*'], body: [[{ stack: content, border: [] }]] },
+		layout: {
+			defaultBorder: false,
+			fillColor: () => C.surface,
+			paddingBottom: () => S.cardPadY,
+			paddingLeft: () => S.cardPadX,
+			paddingRight: () => S.cardPadX,
+			paddingTop: () => S.cardPadY,
+		},
+		margin: [0, 0, 0, S.block],
+	};
+}
+
+/**
+ * The portal wordmark, in brand linen so it reads on the ink cover and header
+ * band. This is the full lockup — mark plus "Luxuria Homes" — so nothing should
+ * set the company name as text beside it.
+ */
+function brandLogo(logoDataUrl: string, width: number): Node {
+	return {
+		width,
+		image: logoDataUrl,
+		fit: [width, width / LOGO_ASPECT],
+	};
+}
+
+function kickerNode(text: string): Node {
+	return {
+		text: text.toUpperCase(),
+		fontSize: F.kicker,
+		characterSpacing: T.kicker,
+		color: C.accent,
+		bold: true,
+		margin: [0, 0, 0, S.kickerToHeading],
+	};
+}
+
+function labelNode(text: string, color: string): Node {
+	return {
+		text: text.toUpperCase(),
+		fontSize: F.label,
+		characterSpacing: T.label,
+		color,
+		bold: true,
+		margin: [0, 0, 0, LABEL_MARGIN_BOTTOM],
+	};
+}
+
+function sectionOpening(
+	kicker: string,
+	heading: string,
+	lead?: string
+): Node[] {
+	const nodes: Node[] = [
+		kickerNode(kicker),
+		{
+			text: heading,
+			fontSize: F.sectionHeading,
+			bold: true,
+			color: C.body,
+			lineHeight: LH.heading,
+			margin: [0, 0, 0, S.headingToLead],
+		},
+	];
+	if (lead) {
+		nodes.push({
+			text: lead,
+			fontSize: F.body,
+			color: C.accent,
+			lineHeight: LH.body,
+			margin: [0, 0, 0, S.leadToContent],
+			// A section heading stranded at the foot of a page reads as a mistake.
+			// pdfmake requires node ids to be unique, so qualify it by section.
+			id: `${SECTION_OPENING_ID_PREFIX}${kicker.toLowerCase().replace(NON_SLUG_CHARS, '-')}`,
+		});
+	}
+	return nodes;
+}
+
+function addressLines(address: QuotationPdfInput['address']): string[] {
+	return [
+		address.street,
+		`${address.suburb} ${address.state.toUpperCase()} ${address.postcode}`,
+	];
+}
+
+// ---------------------------------------------------------------------------
+// Page chrome
+// ---------------------------------------------------------------------------
+
+function companyHeaderLines(): string[] {
+	const lines = [env.NEXT_PUBLIC_CONTACT_ADDRESS];
+	const credentials = [
+		env.NEXT_PUBLIC_QBCC_LICENCE ? `QBCC ${env.NEXT_PUBLIC_QBCC_LICENCE}` : '',
+		env.NEXT_PUBLIC_ABN ? `ABN ${env.NEXT_PUBLIC_ABN}` : '',
+	].filter(Boolean);
+	if (credentials.length > 0) {
+		lines.push(credentials.join('  ·  '));
+	}
+	return lines;
+}
+
+/**
+ * Rendered line count, not entry count — a configured address may carry its own
+ * newlines, and those lines have to be counted for the block to sit centred.
+ */
+function headerTextLineCount(lines: string[]): number {
+	return lines.reduce((total, line) => total + line.split('\n').length, 0);
+}
+
+/** Top margin that centres a block of known height inside the header band. */
+function bandCenterOffset(contentHeight: number): number {
+	return Math.max((L.headerBandHeight - contentHeight) / 2, 0);
+}
+
+function pageHeader(logoDataUrl: string, currentPage: number): Node | null {
+	if (currentPage === 1) {
+		return null;
+	}
+	const textLines = companyHeaderLines();
+	const logoHeight = HEADER_LOGO_WIDTH / LOGO_ASPECT;
+	const textHeight =
+		headerTextLineCount(textLines) * F.band * HEADER_TEXT_LINE_HEIGHT;
+
+	// Each side is centred on its own height rather than sharing one top margin
+	// on the columns block — the logo and the address are different heights, so a
+	// shared margin can only ever centre one of them.
+	return {
+		columns: [
+			{
+				width: '*',
+				stack: [brandLogo(logoDataUrl, HEADER_LOGO_WIDTH)],
+				margin: [0, bandCenterOffset(logoHeight), 0, 0],
+			},
+			{
+				width: 'auto',
+				stack: textLines.map((line) => ({ text: line })),
+				alignment: 'right',
+				fontSize: F.band,
+				color: C.linenMuted,
+				lineHeight: HEADER_TEXT_LINE_HEIGHT,
+				margin: [0, bandCenterOffset(textHeight), 0, 0],
+			},
+		],
+		margin: [L.sidePadding, 0, L.sidePadding, 0],
+	};
+}
+
+function pageFooter(currentPage: number): Node | null {
+	if (currentPage === 1) {
+		return null;
+	}
+	const contact = [
+		env.NEXT_PUBLIC_CONTACT_PHONE,
+		env.NEXT_PUBLIC_CONTACT_EMAIL,
+		env.NEXT_PUBLIC_WEB_URL.replace(URL_SCHEME, ''),
+	].join('  ·  ');
+	return {
+		columns: [
+			{ width: '*', text: contact, fontSize: F.band, color: C.linenMuted },
+			{
+				width: 'auto',
+				text: `Page ${currentPage}`,
+				fontSize: F.band,
+				color: C.linen,
+				alignment: 'right',
+			},
+		],
+		// The footer region starts `bandClearance` above the band, so clear that
+		// first, then centre the single line of text within the band itself.
+		margin: [
+			L.sidePadding,
+			L.bandClearance +
+				(L.footerBandHeight - F.band * HEADER_TEXT_LINE_HEIGHT) / 2,
+			L.sidePadding,
+			0,
+		],
+	};
+}
+
+function pageBackground(currentPage: number): Node {
+	if (currentPage === 1) {
+		return {
+			canvas: [
+				{ type: 'rect', x: 0, y: 0, w: A4_WIDTH, h: A4_HEIGHT, color: C.ink },
+			],
+		};
+	}
+	return {
+		canvas: [
+			{
+				type: 'rect',
+				x: 0,
+				y: 0,
+				w: A4_WIDTH,
+				h: L.headerBandHeight,
+				color: C.ink,
+			},
+			{
+				type: 'rect',
+				x: 0,
+				y: A4_HEIGHT - L.footerBandHeight,
+				w: A4_WIDTH,
+				h: L.footerBandHeight,
+				color: C.ink,
+			},
+		],
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Page 1 — cover
+// ---------------------------------------------------------------------------
+
+/** A labelled block of lines, used for the cover details and the sign-off page. */
+function detailsColumn(
+	label: string,
+	lines: string[],
+	options: { labelColor?: string; valueColor?: string } = {}
+): Node {
+	return {
+		width: '*',
+		stack: [
+			labelNode(label, options.labelColor ?? C.accent),
+			...lines.map((line) => ({
+				text: line,
+				fontSize: F.body,
+				color: options.valueColor ?? C.body,
+				lineHeight: LH.body,
+			})),
+		],
+	};
+}
+
+/** Height of a `detailsColumn` with the given number of value lines. */
+function detailsColumnHeight(lineCount: number): number {
+	return (
+		textBlockHeight(F.label, LH.tight, 1) +
+		LABEL_MARGIN_BOTTOM +
+		textBlockHeight(F.body, LH.body, lineCount)
+	);
+}
+
+/**
+ * The prepared-for lines, split into columns. Stacking every client in one
+ * column runs the details bank up into the cover title once there are more than
+ * two, so past that point they wrap into a second column.
+ */
+function clientLineGroups(clients: QuotationPdfClient[]): string[][] {
+	const linesFor = (client: QuotationPdfClient) =>
+		[client.name, client.phone, client.email].filter(Boolean);
+	const group = (members: QuotationPdfClient[]) =>
+		members.flatMap((client, index) =>
+			index === 0 ? linesFor(client) : ['', ...linesFor(client)]
+		);
+
+	if (clients.length <= COVER_CLIENTS_PER_COLUMN) {
+		return [group(clients)];
+	}
+	const split = Math.ceil(clients.length / 2);
+	return [group(clients.slice(0, split)), group(clients.slice(split))];
+}
+
+/**
+ * Prepared-for / address / reference / total, banked along the bottom of the ink
+ * cover. These sit on the dark background, so they take the inverted palette.
+ */
+function coverDetails(input: QuotationPdfInput): Node {
+	const onInk = { labelColor: C.linenMuted, valueColor: C.linen };
+
+	return {
+		stack: [
+			{
+				columns: [
+					...clientLineGroups(input.clients).map((lines, index) =>
+						detailsColumn(index === 0 ? 'Prepared for' : ' ', lines, onInk)
+					),
+					detailsColumn('Project address', addressLines(input.address), onInk),
+				],
+				columnGap: 28,
+				margin: [0, 0, 0, S.block * 2],
+			},
+			{
+				columns: [
+					detailsColumn(
+						'Quote reference',
+						[
+							input.reference,
+							`Version ${input.version}`,
+							`Issued ${input.issuedAtLabel}`,
+						],
+						onInk
+					),
+					{
+						width: '*',
+						stack: [
+							labelNode('Total investment', C.linenMuted),
+							{
+								text: formatAudWhole(input.totalInclGst),
+								fontSize: F.total,
+								bold: true,
+								color: C.linen,
+							},
+							{
+								text: 'Including GST',
+								fontSize: F.bodySmall,
+								color: C.linenMuted,
+								margin: [0, 4, 0, 0],
+							},
+						],
+					},
+				],
+				columnGap: 28,
+			},
+		],
+	};
+}
+
+/**
+ * The details bank is absolutely positioned, and absolutely positioned content
+ * that runs past the page still paginates — silently pushing its last lines onto
+ * page 2. So anchor it off the page bottom using its own measured height rather
+ * than a fixed y that only happens to fit one client.
+ */
+function coverDetailsTop(input: QuotationPdfInput): number {
+	const clientLineCount = Math.max(
+		...clientLineGroups(input.clients).map((lines) => lines.length)
+	);
+	const firstRow = Math.max(
+		detailsColumnHeight(clientLineCount),
+		detailsColumnHeight(addressLines(input.address).length)
+	);
+	const totalColumnHeight =
+		textBlockHeight(F.label, LH.tight, 1) +
+		LABEL_MARGIN_BOTTOM +
+		textBlockHeight(F.total, LH.body, 1) +
+		4 +
+		textBlockHeight(F.bodySmall, LH.body, 1);
+	const secondRow = Math.max(
+		detailsColumnHeight(REFERENCE_COLUMN_LINES),
+		totalColumnHeight
+	);
+	const height = firstRow + S.block * 2 + secondRow;
+	const usableBottom = A4_HEIGHT - (L.footerBandHeight + L.bandClearance);
+	return usableBottom - height - COVER_DETAILS_SAFETY_PAD;
+}
+
+function coverPage(input: QuotationPdfInput, logoDataUrl: string): Node[] {
+	const titleSize =
+		input.projectName.length > COVER_TITLE_COMPACT_THRESHOLD
+			? F.coverTitleCompact
+			: F.coverTitle;
+	const description = input.description?.slice(0, COVER_DESCRIPTION_MAX_LENGTH);
+
+	return [
+		// Decorative arc, echoing the template. Drawn first so it sits behind the
+		// copy, and clipped by the page edge on the right.
+		{
+			absolutePosition: { x: 360, y: 210 },
+			canvas: [
+				{
+					type: 'ellipse',
+					x: 0,
+					y: 0,
+					r1: 205,
+					r2: 205,
+					lineColor: C.accent,
+					lineWidth: 1,
+				},
+			],
+		},
+		{
+			absolutePosition: { x: L.sidePadding, y: 96 },
+			stack: [
+				brandLogo(logoDataUrl, COVER_LOGO_WIDTH),
+				{
+					text: 'LUXURY HOME BUILDERS · BRISBANE',
+					fontSize: F.coverBrandKicker,
+					characterSpacing: T.brandKicker,
+					color: C.linenMuted,
+					margin: [0, 10, 0, 0],
+				},
+			],
+		},
+		{
+			absolutePosition: { x: L.sidePadding, y: COVER_TITLE_Y },
+			width: COVER_TEXT_WIDTH,
+			stack: [
+				roundedPanel({
+					content: [
+						{
+							text: 'BUILDING QUOTATION',
+							fontSize: F.coverBrandKicker,
+							characterSpacing: T.brandKicker,
+							color: C.linen,
+							lineHeight: LH.tight,
+						},
+					],
+					height: panelHeight([{ count: 1, size: F.coverBrandKicker }], 7),
+					padX: 16,
+					padY: 7,
+					radius: L.pillRadius,
+					stroke: C.accent,
+					width: 150,
+				}),
+				{
+					text: input.projectName,
+					fontSize: titleSize,
+					bold: true,
+					color: C.linen,
+					lineHeight: 1.06,
+					margin: [0, 14, 0, 0],
+					width: COVER_TEXT_WIDTH,
+				},
+				...(description
+					? [
+							{
+								text: description,
+								fontSize: F.coverBody,
+								color: C.linenMuted,
+								lineHeight: 1.55,
+								margin: [0, 14, 0, 0],
+								width: COVER_TEXT_WIDTH,
+							},
+						]
+					: []),
+			],
+		},
+		{
+			absolutePosition: { x: L.sidePadding, y: coverDetailsTop(input) },
+			width: CONTENT_WIDTH,
+			stack: [coverDetails(input)],
+		},
+		{ text: '', pageBreak: 'after' },
+	];
+}
+
+// ---------------------------------------------------------------------------
+// The contract-sum breakdown card
+// ---------------------------------------------------------------------------
+
+function summaryCard(input: QuotationPdfInput): Node {
+	const width = L.summaryCardWidth;
+	const padX = S.cardPadX;
+	const padY = S.cardPadY;
+	const rowGap = 6;
+	const ruleGapAbove = 2;
+	const ruleGapBelow = 8;
+
+	const row = (label: string, value: string): Node => ({
+		columns: [
+			{ width: '*', text: label, fontSize: F.bodySmall, color: C.accent },
+			{
+				width: 'auto',
+				text: value,
+				fontSize: F.bodySmall,
+				color: C.body,
+				alignment: 'right',
+			},
+		],
+		margin: [0, 0, 0, rowGap],
+		lineHeight: LH.tight,
+	});
+
+	// Measured rather than guessed: the earlier version summed only the text
+	// heights and left the total line hanging out the bottom of the rect.
+	const rowHeight = F.bodySmall * LH.tight + rowGap;
+	const ruleHeight = ruleGapAbove + 0.7 + ruleGapBelow;
+	const totalRowHeight = F.totalSmall * LH.tight;
+	const height =
+		padY * 2 + rowHeight * 2 + ruleHeight + totalRowHeight + rowGap;
+
+	return roundedPanel({
+		content: [
+			row('Contract sum (excl. GST)', formatAud(input.contractSumExclGst)),
+			row(GST_RATE_LABEL, formatAud(input.gstAmount)),
+			{
+				canvas: [
+					{
+						type: 'line',
+						x1: 0,
+						y1: 0,
+						x2: width - padX * 2,
+						y2: 0,
+						lineWidth: 0.7,
+						lineColor: C.divider,
+					},
+				],
+				margin: [0, ruleGapAbove, 0, ruleGapBelow],
+			},
+			{
+				columns: [
+					{
+						width: '*',
+						text: 'TOTAL INCL. GST',
+						fontSize: F.label,
+						characterSpacing: T.label,
+						bold: true,
+						color: C.accent,
+						margin: [0, (F.totalSmall - F.label) * LH.tight * 0.6, 0, 0],
+					},
+					{
+						width: 'auto',
+						text: formatAudWhole(input.totalInclGst),
+						fontSize: F.totalSmall,
+						bold: true,
+						color: C.body,
+						alignment: 'right',
+					},
+				],
+				lineHeight: LH.tight,
+			},
+		],
+		fill: C.surface,
+		height,
+		padX,
+		padY,
+		width,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+
+/** The ink header row every table in the document shares. */
+function tableHeaderCell(text: string, alignment?: string): Node {
+	return {
+		text: text.toUpperCase(),
+		fontSize: F.tableHeader,
+		characterSpacing: T.label,
+		bold: true,
+		color: C.linen,
+		fillColor: C.ink,
+		alignment,
+	};
+}
+
+/**
+ * Borderless rows with a hairline under each, and the outer edges of the table
+ * padded wider than the gutters between columns so the ink header row's fill
+ * doesn't crowd the text.
+ */
+function tableLayout(lastColumnIndex: number): Record<string, unknown> {
+	return {
+		defaultBorder: false,
+		hLineWidth: (i: number) => (i === 0 || i === 1 ? 0 : 0.5),
+		vLineWidth: () => 0,
+		hLineColor: () => C.divider,
+		paddingBottom: () => S.tableCell,
+		paddingLeft: (i: number) => (i === 0 ? 10 : 7),
+		paddingRight: (i: number) => (i === lastColumnIndex ? 10 : 7),
+		paddingTop: () => S.tableCell,
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Page 2 — revision history
+// ---------------------------------------------------------------------------
+
+const VERSION_TABLE_LAST_COLUMN = 3;
+
+function versionHistoryPage(input: QuotationPdfInput): Node[] {
+	const rows = input.versionHistory;
+	if (rows.length === 0) {
+		return [];
+	}
+
+	const cell = (
+		text: string,
+		fillColor?: string,
+		options: Node = {}
+	): Node => ({
+		text,
+		fontSize: F.tableCell,
+		color: C.body,
+		lineHeight: LH.body,
+		fillColor,
+		...options,
+	});
+
+	const body: Node[][] = [
+		[
+			tableHeaderCell('Version'),
+			tableHeaderCell('Date'),
+			tableHeaderCell('Updated by'),
+			tableHeaderCell('Description'),
+		],
+		...rows.map((row, index) => {
+			const fillColor = index % 2 === 1 ? C.surfaceSubtle : undefined;
+			return [
+				cell(String(row.version), fillColor, { bold: true }),
+				cell(row.updatedAtLabel, fillColor, { color: C.accent }),
+				cell(row.updatedBy, fillColor, { color: C.accent }),
+				cell(row.description, fillColor),
+			];
+		}),
+	];
+
+	return [
+		...sectionOpening(
+			'Version control',
+			'Revision history',
+			'This quotation has been revised as set out below. The version printed on the cover is the one this document reflects; earlier versions are superseded.'
+		),
+		{
+			table: {
+				headerRows: 1,
+				dontBreakRows: true,
+				widths: ['12%', '22%', '24%', '42%'],
+				body,
+			},
+			layout: tableLayout(VERSION_TABLE_LAST_COLUMN),
+		},
+		// The history stands alone, so Section 01 still opens its own page.
+		{ text: '', pageBreak: 'after' },
+	];
+}
+
+// ---------------------------------------------------------------------------
+// Progress payments
+// ---------------------------------------------------------------------------
+
+function stageScopeText(stage: QuotationPdfStage): string {
+	const summary = stage.scopeSummary?.trim();
+	if (summary) {
+		return summary;
+	}
+	return stage.sections.map((section) => section.name).join(' · ');
+}
+
+const STAGE_TABLE_LAST_COLUMN = 3;
+
+function progressPaymentsBody(input: QuotationPdfInput): Node[] {
+	const body: Node[][] = [
+		[
+			tableHeaderCell('Stage'),
+			tableHeaderCell('Scope of works'),
+			tableHeaderCell('%', 'right'),
+			tableHeaderCell('Amount', 'right'),
+		],
+		...input.stages.map((stage, index) => {
+			const fillColor = index % 2 === 1 ? C.surfaceSubtle : undefined;
+			return [
+				{
+					columns: [
+						{
+							width: 16,
+							text: String(index + 1),
+							fontSize: F.tableHeader,
+							bold: true,
+							color: C.accent,
+							margin: [0, 2, 0, 0],
+						},
+						{
+							width: '*',
+							text: stage.name,
+							fontSize: F.tableCell,
+							bold: true,
+							color: C.body,
+						},
+					],
+					fillColor,
+				},
+				{
+					text: stageScopeText(stage),
+					fontSize: F.tableScope,
+					color: C.accent,
+					lineHeight: LH.body,
+					fillColor,
+				},
+				{
+					text: `${stage.percent}%`,
+					fontSize: F.tableCell,
+					color: C.body,
+					alignment: 'right',
+					fillColor,
+				},
+				{
+					text: formatAudWhole(stage.amount),
+					fontSize: F.tableCell,
+					bold: true,
+					color: C.body,
+					alignment: 'right',
+					fillColor,
+				},
+			];
+		}),
+	];
+
+	return [
+		{
+			// The schedule and the sum it adds up to belong together — splitting
+			// them leaves a total stranded at the top of the next page.
+			unbreakable: true,
+			stack: [
+				{
+					table: {
+						headerRows: 1,
+						dontBreakRows: true,
+						// The % column needs room for "100%" on one line — 8% wraps it.
+						widths: ['24%', '43%', '11%', '22%'],
+						body,
+					},
+					layout: tableLayout(STAGE_TABLE_LAST_COLUMN),
+				},
+				{
+					columns: [{ width: '*', text: '' }, summaryCard(input)],
+					margin: [0, S.block * 2, 0, 0],
+				},
+			],
+		},
+	];
+}
+
+// ---------------------------------------------------------------------------
+// Inclusions
+// ---------------------------------------------------------------------------
+
+function stagePill(stage: QuotationPdfStage): Node {
+	return roundedPanel({
+		content: [
+			{
+				columns: [
+					{
+						width: '*',
+						text: stage.name,
+						fontSize: F.stageTitle,
+						bold: true,
+						color: C.linen,
+						lineHeight: LH.tight,
+					},
+					{
+						width: 'auto',
+						alignment: 'right',
+						// Amount and share on one line — "$47,500 (5%)" — so the pill
+						// stays a single row of text.
+						text: [
+							{
+								text: formatAudWhole(stage.amount),
+								bold: true,
+								color: C.linen,
+							},
+							{ text: `  (${stage.percent}%)`, color: C.linenMuted },
+						],
+						fontSize: F.stageAmount,
+						lineHeight: LH.tight,
+					},
+				],
+			},
+		],
+		fill: C.ink,
+		height: L.stagePillHeight,
+		padX: 14,
+		padY: (L.stagePillHeight - F.stageTitle * LH.tight) / 2,
+		width: CONTENT_WIDTH,
+	});
+}
+
+// Every list in the document uses this dot, so the inclusions, exclusions,
+// notes and terms all read as one family. It is set above the body size and in
+// the accent ink because a small `·` in a muted tone all but disappears in
+// print.
+const BULLET_GLYPH = '•';
+const BULLET_COLUMN_WIDTH = 14;
+const BULLET_SIZE_BOOST = 3;
+
+// Columns share a top edge, not a baseline, so the larger bullet would drop
+// below its line — the glyph's box grows downward from that shared top. Pulling
+// it up by the ascent the extra points add puts the two baselines back level,
+// which is where a `•` sits optically centred on lowercase text.
+const BULLET_ASCENT_RATIO = 0.75;
+
+function bulletColumn(textSize: number): Node {
+	return {
+		width: BULLET_COLUMN_WIDTH,
+		text: BULLET_GLYPH,
+		fontSize: textSize + BULLET_SIZE_BOOST,
+		color: C.accent,
+		margin: [0, -(BULLET_SIZE_BOOST * BULLET_ASCENT_RATIO), 0, 0],
+	};
+}
+
+function inclusionBullet(item: QuotationPdfItem): Node {
+	return {
+		columns: [
+			bulletColumn(F.body),
+			{
+				width: '*',
+				text: item.description?.trim() || item.name,
+				fontSize: F.body,
+				color: C.body,
+				lineHeight: 1.5,
+			},
+		],
+		margin: [0, 0, 0, 7],
+	};
+}
+
+function inclusionSubsection(
+	section: QuotationPdfSection,
+	label: string
+): Node {
+	return {
+		// A subsection is a handful of bullets and always fits a page, so keeping
+		// it whole never forces an awkward break the way a whole stage would.
+		unbreakable: true,
+		stack: [
+			{
+				text: `${label} · ${section.name.toUpperCase()}`,
+				fontSize: F.subheading,
+				characterSpacing: T.label,
+				bold: true,
+				color: C.accent,
+				margin: [0, 0, 0, 4],
+			},
+			{
+				canvas: [
+					{
+						type: 'line',
+						x1: 0,
+						y1: 0,
+						x2: CONTENT_WIDTH,
+						y2: 0,
+						lineWidth: 0.5,
+						lineColor: C.divider,
+					},
+				],
+				margin: [0, 0, 0, 7],
+			},
+			...section.items.map(inclusionBullet),
+		],
+		margin: [0, 0, 0, S.subsection],
+	};
+}
+
+function inclusionsBody(input: QuotationPdfInput): Node[] {
+	// A stage with everything removed still owes a progress payment, so it keeps
+	// its row in the payment schedule — it just has nothing to list here.
+	const stages = input.stages
+		.map((stage, index) => ({ stage, number: index + 1 }))
+		.filter(({ stage }) =>
+			stage.sections.some((section) => section.items.length > 0)
+		);
+	if (stages.length === 0) {
+		return [];
+	}
+
+	return [
+		...stages.flatMap(({ stage, number }) => {
+			const subsections = stage.sections
+				.filter((section) => section.items.length > 0)
+				.map((section, sectionIndex) =>
+					inclusionSubsection(section, `${number}.${sectionIndex + 1}`)
+				);
+			const [first, ...rest] = subsections;
+			return [
+				{
+					// Bind the pill to its first subsection. A `pageBreakBefore`
+					// heuristic can only guess at the remaining space, whereas an
+					// unbreakable pair makes a stranded stage header impossible.
+					unbreakable: true,
+					stack: [
+						{ ...stagePill(stage), margin: [0, 0, 0, S.pillToContent] },
+						...(first ? [first] : []),
+					],
+					margin: [0, S.block, 0, 0],
+				},
+				...rest,
+			];
+		}),
+	];
+}
+
+// ---------------------------------------------------------------------------
+// Exclusions, notes, disclaimer, terms, acknowledgement
+// ---------------------------------------------------------------------------
+
+/**
+ * The disclaimer and acknowledgement are authored in the Quote Terms rich-text
+ * editor, whose converter emits neutral defaults. Push the quotation's type
+ * scale onto anything that didn't set its own.
+ */
+function restyle(blocks: PdfBlock[]): Node[] {
+	return blocks.map((block) => {
+		const node = { ...block } as Node;
+		if (node.fontSize === undefined) {
+			node.fontSize = F.bodySmall;
+		}
+		node.color ??= C.accent;
+		node.lineHeight ??= LH.body;
+		if (Array.isArray(node.stack)) {
+			node.stack = restyle(node.stack as PdfBlock[]);
+		}
+		if (Array.isArray(node.ul)) {
+			node.ul = restyle(node.ul as PdfBlock[]);
+		}
+		if (Array.isArray(node.ol)) {
+			node.ol = restyle(node.ol as PdfBlock[]);
+		}
+		return node;
+	});
+}
+
+/** A bulleted line, the shape used by terms, exclusions and notes. */
+function textBullet(text: string): Node {
+	return {
+		columns: [
+			bulletColumn(F.bodySmall),
+			{
+				width: '*',
+				text,
+				fontSize: F.bodySmall,
+				color: C.body,
+				lineHeight: LH.body,
+			},
+		],
+		margin: [0, 0, 0, S.bullet],
+	};
+}
+
+function exclusionsBody(input: QuotationPdfInput): Node[] {
+	return input.exclusions.map(textBullet);
+}
+
+function notesBody(input: QuotationPdfInput): Node[] {
+	return input.notes.map(textBullet);
+}
+
+function disclaimerBody(input: QuotationPdfInput): Node[] {
+	const content = restyle(htmlToPdfmakeContent(input.disclaimerHtml));
+	return content.length === 0 ? [] : [tintedCard(content)];
+}
+
+function termsBody(input: QuotationPdfInput): Node[] {
+	return [
+		...input.termSections.map((section, index) => ({
+			unbreakable: true,
+			stack: [
+				{
+					text: `${index + 1} · ${section.name}`,
+					fontSize: F.subheading,
+					characterSpacing: T.label,
+					bold: true,
+					color: C.accent,
+					margin: [0, 0, 0, 6],
+				},
+				...section.items.map(textBullet),
+			],
+			margin: [0, 0, 0, S.subsection],
+		})),
+	];
+}
+
+const SIGNATURE_COLUMN_GAP = 20;
+const SIGNATURE_BOX_WIDTH = (CONTENT_WIDTH - SIGNATURE_COLUMN_GAP) / 2;
+
+function signatureBox(title: string, subtitle?: string): Node {
+	const padX = S.cardPadX;
+	const padY = S.cardPadY;
+	const labelHeight = F.label * LH.tight;
+	const subtitleHeight = subtitle ? F.bodySmall * LH.tight + 2 : 0;
+	const footerHeight = F.band * LH.tight;
+
+	return roundedPanel({
+		content: [
+			{
+				text: title.toUpperCase(),
+				fontSize: F.label,
+				characterSpacing: T.label,
+				bold: true,
+				color: C.accent,
+				lineHeight: LH.tight,
+			},
+			...(subtitle
+				? [
+						{
+							text: subtitle,
+							fontSize: F.bodySmall,
+							color: C.body,
+							lineHeight: LH.tight,
+							margin: [0, 2, 0, 0],
+						},
+					]
+				: []),
+			{
+				canvas: [
+					{
+						type: 'line',
+						x1: 0,
+						y1: 0,
+						x2: SIGNATURE_BOX_WIDTH - padX * 2,
+						y2: 0,
+						lineWidth: 0.5,
+						lineColor: C.divider,
+					},
+				],
+				margin: [0, L.signatureGap, 0, 6],
+			},
+			{
+				columns: [
+					{ width: '*', text: 'Signed', fontSize: F.band, color: C.accent },
+					{
+						width: 'auto',
+						text: 'Date',
+						fontSize: F.band,
+						color: C.accent,
+						alignment: 'right',
+					},
+				],
+				lineHeight: LH.tight,
+			},
+		],
+		height:
+			padY * 2 +
+			labelHeight +
+			subtitleHeight +
+			L.signatureGap +
+			6 +
+			footerHeight,
+		padX,
+		padY,
+		stroke: C.divider,
+		width: SIGNATURE_BOX_WIDTH,
+	});
+}
+
+/** Lays boxes out two-up, padding the last row so the grid stays aligned. */
+function signatureGrid(boxes: Node[]): Node[] {
+	const rows: Node[] = [];
+	for (let i = 0; i < boxes.length; i += 2) {
+		const pair = boxes.slice(i, i + 2);
+		rows.push({
+			columns: [
+				pair[0],
+				{ width: SIGNATURE_COLUMN_GAP, text: '' },
+				pair[1] ?? { width: SIGNATURE_BOX_WIDTH, text: '' },
+			],
+			unbreakable: true,
+		});
+	}
+	return rows;
+}
+
+function acknowledgementBody(input: QuotationPdfInput): Node[] {
+	const acknowledgement = restyle(
+		htmlToPdfmakeContent(input.acknowledgementHtml)
+	);
+	// One box per client, so every party to the contract has somewhere to sign,
+	// then Luxuria Homes underneath.
+	const clientBoxes = input.clients.map((client, index) =>
+		signatureBox(
+			input.clients.length > 1 ? `Client ${index + 1}` : 'Client',
+			client.name
+		)
+	);
+
+	return [
+		...(acknowledgement.length > 0 ? [tintedCard(acknowledgement)] : []),
+		{
+			columns: [
+				detailsColumn('Quote reference', [input.reference]),
+				// Signed copies have to say which revision was accepted.
+				detailsColumn('Version', [String(input.version)]),
+				detailsColumn('Project', [input.projectName]),
+			],
+			columnGap: 24,
+			margin: [0, S.block, 0, S.block * 1.5],
+			unbreakable: true,
+		},
+		...signatureGrid(clientBoxes),
+		...signatureGrid([signatureBox('Luxuria Homes')]),
+	];
+}
+
+// ---------------------------------------------------------------------------
+// Document
+// ---------------------------------------------------------------------------
+
+// A section heading left at the foot of a page with nothing under it reads as a
+// printing error. Stage pills are handled structurally instead — each is bound
+// to its first subsection in an unbreakable stack.
+const MIN_NODES_AFTER_SECTION_OPENING = 2;
+
+/**
+ * The numbered sections, in print order. A quotation with no exclusions (or no
+ * terms, or a blank disclaimer) simply drops that section, so the numbers are
+ * assigned to what actually renders rather than hardcoded per builder — that
+ * would leave gaps like "Section 03" followed by "Section 05".
+ */
+const NUMBERED_SECTIONS: {
+	body: (input: QuotationPdfInput) => Node[];
+	heading: string;
+	lead?: string;
+}[] = [
+	{
+		body: progressPaymentsBody,
+		heading: 'Construction stages & progress payments',
+		lead: 'Payments are claimed at the completion of each stage below and are due within five business days of the claim being issued. All amounts are inclusive of GST.',
+	},
+	{
+		body: inclusionsBody,
+		heading: 'What each stage includes',
+		lead: 'Everything listed below is allowed for within the contract sum. Where an allowance is stated, the figure is a supply-and-install budget confirmed at selections.',
+	},
+	{
+		body: exclusionsBody,
+		heading: 'Exclusions',
+		lead: 'The following are not allowed for in the contract sum. Anything required from this list is quoted separately as a variation.',
+	},
+	{
+		body: notesBody,
+		heading: 'Important notes',
+		lead: 'Please read these alongside the terms & conditions — they set out how allowances, selections and site conditions are handled.',
+	},
+	{ body: disclaimerBody, heading: 'Disclaimer' },
+	{ body: termsBody, heading: 'Terms & conditions' },
+	{ body: acknowledgementBody, heading: 'Acknowledgement' },
+];
+
+function numberedSections(input: QuotationPdfInput): Node[] {
+	const nodes: Node[] = [];
+	let number = 0;
+	for (const section of NUMBERED_SECTIONS) {
+		const body = section.body(input);
+		if (body.length === 0) {
+			continue;
+		}
+		number += 1;
+		// The cover already ends with a page break, so only later sections add one.
+		if (number > 1) {
+			nodes.push({ text: '', pageBreak: 'before' });
+		}
+		nodes.push(
+			...sectionOpening(
+				`Section ${String(number).padStart(2, '0')}`,
+				section.heading,
+				section.lead
+			),
+			...body
+		);
+	}
+	return nodes;
+}
+
+function buildDocDefinition(
+	input: QuotationPdfInput,
+	font: string,
+	logoDataUrl: string
+): Node {
+	return {
+		pageSize: 'A4',
+		pageMargins: [
+			L.sidePadding,
+			L.headerBandHeight + L.bandClearance,
+			L.sidePadding,
+			L.footerBandHeight + L.bandClearance,
+		],
+		defaultStyle: {
+			font,
+			fontSize: F.body,
+			color: C.body,
+			lineHeight: LH.body,
+		},
+		background: pageBackground,
+		header: (currentPage: number) => pageHeader(logoDataUrl, currentPage),
+		footer: pageFooter,
+		pageBreakBefore: (
+			currentNode: { id?: string },
+			followingNodesOnPage: unknown[]
+		) =>
+			Boolean(currentNode.id?.startsWith(SECTION_OPENING_ID_PREFIX)) &&
+			followingNodesOnPage.length < MIN_NODES_AFTER_SECTION_OPENING,
+		content: [
+			...coverPage(input, logoDataUrl),
+			...versionHistoryPage(input),
+			...numberedSections(input),
+		],
+	};
+}
+
+export async function buildClientQuotationPdfBlob(
+	input: QuotationPdfInput
+): Promise<Blob> {
+	const [{ font, pdfMake }, logoDataUrl] = await Promise.all([
+		getPdfMakeWithInter(),
+		getClientQuotationPdfLogoDataUrl(),
+	]);
+	const pdf = pdfMake.createPdf(buildDocDefinition(input, font, logoDataUrl));
+	return await pdf.getBlob();
+}

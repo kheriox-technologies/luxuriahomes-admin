@@ -21,6 +21,7 @@
     "./dataModel": {
       "types": "./convex/_generated/dataModel.d.ts"
     },
+    "./quotationReference": "./convex/clientQuotations/reference.ts",
     "./schema": "./convex/schema.ts",
     "./emailSignatureHtml": "./convex/lib/signatureHtml.ts"
   },

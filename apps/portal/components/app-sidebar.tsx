@@ -26,6 +26,7 @@ import {
 	Building2,
 	CalendarDays,
 	ChevronDown,
+	FileSignature,
 	FileText,
 	Globe,
 	LayoutDashboard,
@@ -112,6 +113,12 @@ const items: SidebarItem[] = [
 		icon: FileText,
 	},
 	{
+		title: 'Quotations',
+		url: '/quotations',
+		path: '/quotations',
+		icon: FileSignature,
+	},
+	{
 		title: 'Notifications',
 		url: '/notifications',
 		path: '/notifications',
@@ -154,14 +161,9 @@ const items: SidebarItem[] = [
 				path: '/takeoff-categories',
 			},
 			{
-				title: 'Quote Items',
-				url: '/quote-items',
-				path: '/quote-items',
-			},
-			{
-				title: 'Quote Terms',
-				url: '/quote-terms',
-				path: '/quote-terms',
+				title: 'Quotation Catalogue',
+				url: '/quotation-items',
+				path: '/quotation-items',
 			},
 		],
 	},

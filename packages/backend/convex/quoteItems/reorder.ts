@@ -40,7 +40,6 @@ export const reorder = mutation({
 				order: update.order,
 				searchText: buildQuoteItemSearchText(
 					item.name,
-					item.description,
 					section.name,
 					stage.name
 				),

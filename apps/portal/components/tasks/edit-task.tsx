@@ -4,16 +4,7 @@ import { useUser } from '@clerk/nextjs';
 import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
-import { Alert, AlertDescription } from '@workspace/ui/components/alert';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardAction,
-	CardDescription,
-	CardHeader,
-	CardPanel,
-	CardTitle,
-} from '@workspace/ui/components/card';
 import { CheckboxCard } from '@workspace/ui/components/checkbox-card';
 import {
 	Field,
@@ -40,13 +31,13 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Check, ImagePlus, Info, Trash2 } from 'lucide-react';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { Check, ImagePlus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import {
 	NoteImageUploader,
 	type NoteImageUploaderHandle,
 } from '@/components/notes/note-image-uploader';
-import { NoteImagesRow } from '@/components/notes/note-images-row';
+import { NoteTimelineBody } from '@/components/notes/note-timeline';
 import TaskAssigneeCombobox from '@/components/tasks/task-assignee-combobox';
 import TaskDueDatePicker from '@/components/tasks/task-due-date-picker';
 import {
@@ -60,15 +51,6 @@ import TaskStatusSelect from '@/components/tasks/task-status-select';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 
 const FORM_ID = 'edit-task-form';
-
-function formatNoteDate(timestamp: number): string {
-	return new Date(timestamp).toLocaleDateString('en-AU', {
-		day: 'numeric',
-		month: 'long',
-		weekday: 'short',
-		year: 'numeric',
-	});
-}
 
 function TaskNotesSection({ taskId }: { taskId: Id<'tasks'> }) {
 	const [noteText, setNoteText] = useState('');
@@ -113,121 +95,76 @@ function TaskNotesSection({ taskId }: { taskId: Id<'tasks'> }) {
 		}
 	};
 
-	const onDelete = async (noteId: Id<'taskNotes'>) => {
-		try {
-			await deleteNote({ noteId });
-			toastManager.add({ title: 'Note deleted', type: 'success' });
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not delete note. Please try again in a moment.'
-				),
-				title: 'Could not delete note',
-				type: 'error',
+	const onDelete = (noteId: Id<'taskNotes'>) => {
+		deleteNote({ noteId })
+			.then(() => {
+				toastManager.add({ title: 'Note deleted', type: 'success' });
+			})
+			.catch((error: unknown) => {
+				toastManager.add({
+					description: getConvexErrorMessage(
+						error,
+						'Could not delete note. Please try again in a moment.'
+					),
+					title: 'Could not delete note',
+					type: 'error',
+				});
 			});
-		}
 	};
-
-	let notesBody: ReactNode;
-	if (notes === undefined) {
-		notesBody = <p className="text-muted-foreground text-sm">Loading notes…</p>;
-	} else if (notes.length === 0) {
-		notesBody = (
-			<Alert variant="info">
-				<Info aria-hidden className="size-4 shrink-0" />
-				<AlertDescription>
-					No notes yet. Use the field above to add the first one.
-				</AlertDescription>
-			</Alert>
-		);
-	} else {
-		notesBody = (
-			<div className="flex flex-col gap-3">
-				{notes.map((entry) => (
-					<Card key={entry._id}>
-						<CardHeader>
-							<CardTitle>{entry.addedBy}</CardTitle>
-							<CardDescription>
-								{formatNoteDate(entry.timestamp)}
-							</CardDescription>
-							<CardAction>
-								<Button
-									aria-label="Delete note"
-									onClick={() => {
-										onDelete(entry._id).catch(() => {
-											/* handled in onDelete */
-										});
-									}}
-									size="icon"
-									type="button"
-									variant="destructive-outline"
-								>
-									<Trash2 />
-								</Button>
-							</CardAction>
-						</CardHeader>
-						<CardPanel className="flex flex-col gap-3">
-							<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
-								{entry.note}
-							</p>
-							{entry.images && entry.images.length > 0 ? (
-								<NoteImagesRow
-									imageKeys={entry.images}
-									title={`Note by ${entry.addedBy}`}
-								/>
-							) : null}
-						</CardPanel>
-					</Card>
-				))}
-			</div>
-		);
-	}
 
 	return (
 		<Frame>
 			<FrameHeader className="flex flex-row items-center py-3">
 				<FrameTitle className="min-w-0 truncate leading-none">Notes</FrameTitle>
 			</FrameHeader>
-			<FramePanel className="flex flex-col gap-3">
-				<Textarea
-					className="min-h-[90px] resize-y"
-					onChange={(e) => setNoteText(e.target.value)}
-					placeholder="Type your note…"
-					value={noteText}
+			<FramePanel className="flex flex-col gap-4">
+				<NoteTimelineBody
+					emptyDescription="Add the first note using the field below."
+					notes={notes}
+					onDelete={onDelete}
 				/>
-				<NoteImageUploader
-					key={uploaderKey}
-					onChange={setImages}
-					onUploadingChange={setImagesUploading}
-					ref={uploaderRef}
-				/>
-				<div className="flex justify-end gap-2">
-					<Button
-						disabled={imagesUploading}
-						loading={imagesUploading}
-						onClick={() => uploaderRef.current?.open()}
-						type="button"
-						variant="outline"
-					>
-						<ImagePlus />
-						Add image
-					</Button>
-					<Button
-						disabled={imagesUploading}
-						loading={submitting}
-						onClick={() => {
-							onSubmit().catch(() => {
-								/* handled in onSubmit */
-							});
-						}}
-						type="button"
-						variant="outline"
-					>
-						<Check aria-hidden /> Save note
-					</Button>
+				{/* The composer sits below the timeline so the newest notes stay in
+				    view while you type. */}
+				<div className="flex flex-col gap-3 border-t pt-4">
+					<Textarea
+						aria-label="New note"
+						className="min-h-20 resize-y"
+						onChange={(e) => setNoteText(e.target.value)}
+						placeholder="Add a note…"
+						value={noteText}
+					/>
+					<NoteImageUploader
+						key={uploaderKey}
+						onChange={setImages}
+						onUploadingChange={setImagesUploading}
+						ref={uploaderRef}
+					/>
+					<div className="flex justify-end gap-2">
+						<Button
+							disabled={imagesUploading}
+							loading={imagesUploading}
+							onClick={() => uploaderRef.current?.open()}
+							type="button"
+							variant="outline"
+						>
+							<ImagePlus />
+							Add image
+						</Button>
+						<Button
+							disabled={imagesUploading}
+							loading={submitting}
+							onClick={() => {
+								onSubmit().catch(() => {
+									/* handled in onSubmit */
+								});
+							}}
+							type="button"
+							variant="outline"
+						>
+							<Check aria-hidden /> Save note
+						</Button>
+					</div>
 				</div>
-				{notesBody}
 			</FramePanel>
 		</Frame>
 	);

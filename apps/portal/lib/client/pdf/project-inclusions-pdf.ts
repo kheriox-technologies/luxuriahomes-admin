@@ -1,5 +1,6 @@
 import { env } from '@workspace/env/portal';
 import { getProjectInclusionsPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
+import { type CreatedPdf, getPdfMake } from '@/lib/pdf/pdf-fonts';
 
 export interface PdfProjectAddress {
 	postcode: string;
@@ -379,115 +380,14 @@ function buildDocDefinition(
 	};
 }
 
-const ROBOTO_VFS_FILES = {
-	normal: 'Roboto-Regular.ttf',
-	bold: 'Roboto-Medium.ttf',
-	italics: 'Roboto-Italic.ttf',
-	bolditalics: 'Roboto-MediumItalic.ttf',
-} as const;
-
-/**
- * pdfmake ships `vfs_fonts` as CJS `module.exports = { "Roboto-….ttf": "<base64>" }`.
- * Bundlers may expose that map on `import().default`, on the module namespace, or split
- * across both — taking the first object with any `.ttf` can yield a partial vfs and then
- * `Roboto-Medium.ttf` is missing at runtime. Merge every `.ttf` entry we can find.
- */
-function mergeVirtualFontFilesFromModule(
-	vfsModule: unknown
-): Record<string, string> {
-	const merged: Record<string, string> = {};
-
-	function mergeFromObject(obj: unknown) {
-		if (!obj || typeof obj !== 'object') {
-			return;
-		}
-		for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
-			if (
-				!key.endsWith('.ttf') ||
-				typeof val !== 'string' ||
-				val.length === 0
-			) {
-				continue;
-			}
-			merged[key] = val;
-		}
-	}
-
-	const mod = vfsModule as Record<string, unknown>;
-	mergeFromObject(mod);
-	mergeFromObject(mod.default);
-
-	const defaultNested = mod.default as
-		| { pdfMake?: { vfs?: unknown } }
-		| undefined;
-	mergeFromObject(defaultNested?.pdfMake?.vfs);
-
-	const modNested = (mod as { pdfMake?: { vfs?: unknown } }).pdfMake?.vfs;
-	mergeFromObject(modNested);
-
-	return merged;
-}
-
-interface PdfMakeBrowser {
-	addVirtualFileSystem: (
-		vfs: Record<string, string | { data: string; encoding?: string }>
-	) => void;
-	setFonts: (fonts: Record<string, Record<string, string>>) => void;
-}
-
-interface CreatedPdf {
-	getBase64: () => Promise<string>;
-	getBlob: () => Promise<Blob>;
-	open: () => void;
-}
-
-/**
- * Browser `pdfmake` is a singleton that loads fonts from an internal virtual FS.
- * Assigning `pdfMake.vfs = …` does not register files — you must call
- * `addVirtualFileSystem` so `Roboto-Medium.ttf` etc. exist for the default font map.
- */
-function configurePdfMakeFonts(
-	pdfMake: PdfMakeBrowser,
-	vfs: Record<string, string>
-) {
-	pdfMake.addVirtualFileSystem(vfs);
-
-	const pick = (file: string, fallback: string) =>
-		vfs[file] !== undefined && vfs[file] !== '' ? file : fallback;
-
-	pdfMake.setFonts({
-		Roboto: {
-			normal: pick(ROBOTO_VFS_FILES.normal, ROBOTO_VFS_FILES.normal),
-			bold: pick(ROBOTO_VFS_FILES.bold, ROBOTO_VFS_FILES.normal),
-			italics: pick(ROBOTO_VFS_FILES.italics, ROBOTO_VFS_FILES.normal),
-			bolditalics: pick(
-				ROBOTO_VFS_FILES.bolditalics,
-				pick(ROBOTO_VFS_FILES.italics, ROBOTO_VFS_FILES.normal)
-			),
-		},
-	});
-}
-
 async function createInclusionsPdf(
 	options: OpenProjectInclusionsPdfOptions,
 	groupOptions?: GroupPdfOptions
 ): Promise<CreatedPdf> {
-	const [{ default: pdfMake }, vfsModule, logoDataUrl] = await Promise.all([
-		import('pdfmake/build/pdfmake'),
-		import('pdfmake/build/vfs_fonts'),
+	const [pdfMake, logoDataUrl] = await Promise.all([
+		getPdfMake(),
 		getProjectInclusionsPdfLogoDataUrl(),
 	]);
-
-	const vfs = mergeVirtualFontFilesFromModule(vfsModule);
-	if (
-		Object.keys(vfs).length === 0 ||
-		typeof vfs[ROBOTO_VFS_FILES.normal] !== 'string' ||
-		vfs[ROBOTO_VFS_FILES.normal] === ''
-	) {
-		throw new Error('Could not initialize PDF fonts.');
-	}
-
-	configurePdfMakeFonts(pdfMake as PdfMakeBrowser, vfs);
 
 	const inclusionImageDataUrls = resolveInclusionImageDataUrls(
 		options.sections

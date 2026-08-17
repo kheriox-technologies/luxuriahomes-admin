@@ -131,11 +131,10 @@ export function buildQuoteSectionSearchText(
 
 export function buildQuoteItemSearchText(
 	name: string,
-	description: string | undefined,
 	sectionName: string,
 	stageName: string
 ): string {
-	return buildSearchText([name, description, sectionName, stageName]);
+	return buildSearchText([name, sectionName, stageName]);
 }
 
 export function buildQuoteTermSectionSearchText(name: string): string {
@@ -147,6 +146,34 @@ export function buildQuoteTermItemSearchText(
 	sectionName: string
 ): string {
 	return buildSearchText([text, sectionName]);
+}
+
+export function buildQuoteExclusionSearchText(text: string): string {
+	return buildSearchText([text]);
+}
+
+export function buildQuoteNoteSearchText(text: string): string {
+	return buildSearchText([text]);
+}
+
+export function buildClientQuotationSearchText(fields: {
+	address: { postcode: string; street: string; suburb: string };
+	clients: { email: string; name: string; phone: string }[];
+	projectName: string;
+	reference: string;
+}): string {
+	return buildSearchText([
+		fields.reference,
+		fields.projectName,
+		...fields.clients.flatMap((client) => [
+			client.name,
+			client.email,
+			client.phone,
+		]),
+		fields.address.street,
+		fields.address.suburb,
+		fields.address.postcode,
+	]);
 }
 
 export function buildBudgetTemplateSearchText(

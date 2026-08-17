@@ -3,6 +3,13 @@ import { v } from 'convex/values';
 import { zodToConvex } from 'convex-helpers/server/zod';
 import { z } from 'zod';
 import {
+	clientQuotationStatusValidator,
+	quotationClientValidator,
+	quotationEntrySnapshotValidator,
+	quotationStageSnapshotValidator,
+	quotationTermsSnapshotValidator,
+} from './clientQuotations/shared';
+import {
 	australianAddressValidator,
 	projectClientValidator,
 	projectStatusValidator,
@@ -404,6 +411,13 @@ export default defineSchema({
 	quoteStages: defineTable({
 		name: v.string(),
 		order: v.number(),
+		// Share of the contract sum (0–100) pre-filled on a new client quotation.
+		// Optional so stages created before quotations existed stay valid; absent
+		// reads as 0 and the quotation form still requires the set to total 100.
+		defaultPercent: v.optional(v.number()),
+		// One-line "scope of works" printed beside the stage in a quotation's
+		// progress-payment table. Absent falls back to the stage's section names.
+		scopeSummary: v.optional(v.string()),
 		searchText: v.string(),
 	})
 		.index('by_order', ['order'])
@@ -418,8 +432,8 @@ export default defineSchema({
 		.index('by_stage_order', ['stageId', 'order'])
 		.searchIndex('search_quote_sections', { searchField: 'searchText' }),
 	quoteItems: defineTable({
+		// The verbatim quotation line as it prints on the quote.
 		name: v.string(),
-		description: v.optional(v.string()),
 		sectionId: v.id('quoteSections'),
 		// Pre-selected when a new quotation is built from the catalogue.
 		isDefault: v.boolean(),
@@ -456,6 +470,110 @@ export default defineSchema({
 	})
 		.index('by_section_order', ['sectionId', 'order'])
 		.searchIndex('search_quote_term_items', { searchField: 'searchText' }),
+	// The exclusions and important notes printed after the terms. Both are flat,
+	// hand-ordered lists of single sentences — deliberately no section level, so
+	// they are edited as plain text rows rather than through the terms tree.
+	quoteExclusions: defineTable({
+		text: v.string(),
+		// Sort position within the single list.
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_exclusions', { searchField: 'searchText' }),
+	quoteNotes: defineTable({
+		text: v.string(),
+		order: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_notes', { searchField: 'searchText' }),
+	// A client-facing building quotation, composed from the quote catalogue and
+	// the quote terms and rendered to a branded PDF.
+	//
+	// Every value the PDF prints is snapshotted here — a later catalogue rename or
+	// terms edit must never retroactively change a quotation that has already been
+	// issued, and the row has to be able to regenerate the exact same document.
+	clientQuotations: defineTable({
+		// 'LUX-7K3M9Q', an opaque code confirmed on save. Deliberately not a
+		// running number — that would leak how many quotations we've issued.
+		reference: v.string(),
+		// Only on rows created under the old 'LUX-2026-0148' counter scheme.
+		referenceYear: v.optional(v.number()),
+		referenceSeq: v.optional(v.number()),
+		projectName: v.string(),
+		description: v.optional(v.string()),
+		// At least one client; the upper bound is enforced on write.
+		clients: v.array(quotationClientValidator),
+		address: australianAddressValidator,
+		issuedAt: v.number(),
+		// Lifecycle state. Every quotation is saved as 'Draft'; the later states
+		// arrive with the send and signature workflows.
+		status: clientQuotationStatusValidator,
+		// Pricing provenance. The template fields are optional — the budget can be
+		// typed free-hand without picking a budget template at all.
+		budgetTemplateId: v.optional(v.id('budgetTemplates')),
+		budgetTemplateTitle: v.optional(v.string()),
+		budgetTemplateTotal: v.optional(v.number()),
+		// The project budget, seeded from the template or typed by hand.
+		budgetAmount: v.number(),
+		marginPercent: v.optional(v.number()),
+		// The quoted price: budget plus margin. All prices are inclusive of GST;
+		// the other two are derived from this.
+		totalInclGst: v.number(),
+		contractSumExclGst: v.number(),
+		gstAmount: v.number(),
+		stages: v.array(quotationStageSnapshotValidator),
+		terms: quotationTermsSnapshotValidator,
+		// Drafted from the catalogue lists on the composer. Optional only so rows
+		// created before these sections existed keep validating.
+		exclusions: v.optional(v.array(quotationEntrySnapshotValidator)),
+		notes: v.optional(v.array(quotationEntrySnapshotValidator)),
+		// The generated PDF, filed under company documents.
+		documentId: v.optional(v.id('companyDocuments')),
+		s3Key: v.optional(v.string()),
+		fileName: v.optional(v.string()),
+		folderPath: v.optional(v.string()),
+		createdBy: v.string(),
+		createdAt: v.number(),
+		// Revision tracking. Optional so rows issued before versioning existed keep
+		// validating — an absent `version` reads as 1.
+		version: v.optional(v.number()),
+		updatedAt: v.optional(v.number()),
+		updatedBy: v.optional(v.string()),
+		searchText: v.string(),
+	})
+		.index('by_reference', ['reference'])
+		.index('by_created', ['createdAt'])
+		.searchIndex('search_client_quotations', { searchField: 'searchText' }),
+	// One row per saved revision of a client quotation. The quotation row always
+	// holds the latest snapshot; these rows carry who revised it, when and why,
+	// plus the PDF that was issued for that version — every version's document
+	// stays viewable.
+	clientQuotationVersions: defineTable({
+		quotationId: v.id('clientQuotations'),
+		version: v.number(),
+		description: v.string(),
+		updatedBy: v.string(),
+		updatedAt: v.number(),
+		// The quoted total at that version, so the history reads as a trail of
+		// price changes without loading each PDF.
+		totalInclGst: v.number(),
+		documentId: v.optional(v.id('companyDocuments')),
+		s3Key: v.optional(v.string()),
+		fileName: v.optional(v.string()),
+		folderPath: v.optional(v.string()),
+	})
+		.index('by_quotation', ['quotationId'])
+		.index('by_quotation_version', ['quotationId', 'version']),
+	// An append-only commentary log against a client quotation. Notes hang off the
+	// quotation rather than a version, so the history survives every revision.
+	clientQuotationNotes: defineTable({
+		quotationId: v.id('clientQuotations'),
+		timestamp: v.number(),
+		addedBy: v.string(),
+		note: v.string(),
+	}).index('by_quotation', ['quotationId']),
 	budgetTemplates: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

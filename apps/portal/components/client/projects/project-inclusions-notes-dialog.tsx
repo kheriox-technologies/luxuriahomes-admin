@@ -12,26 +12,17 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@workspace/ui/components/dialog';
+import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { ImagePlus, Plus, Trash2, X } from 'lucide-react';
+import { ImagePlus, Plus, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
 	NoteImageUploader,
 	type NoteImageUploaderHandle,
 } from '@/components/client/notes/note-image-uploader';
-import { NoteImagesRow } from '@/components/client/notes/note-images-row';
+import { NoteTimelineBody } from '@/components/notes/note-timeline';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
-
-function formatNoteDate(timestamp: number): string {
-	return new Intl.DateTimeFormat('en-AU', {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-	}).format(new Date(timestamp));
-}
 
 export default function ProjectInclusionNotesDialog({
 	projectId,
@@ -63,6 +54,13 @@ export default function ProjectInclusionNotesDialog({
 	const [uploaderKey, setUploaderKey] = useState(0);
 	const uploaderRef = useRef<NoteImageUploaderHandle>(null);
 
+	const resetForm = () => {
+		setNoteText('');
+		setImages([]);
+		setImagesUploading(false);
+		setUploaderKey((key) => key + 1);
+	};
+
 	const onAdd = async () => {
 		const trimmed = noteText.trim();
 		if (trimmed === '') {
@@ -75,10 +73,7 @@ export default function ProjectInclusionNotesDialog({
 				note: trimmed,
 				images,
 			});
-			setNoteText('');
-			setImages([]);
-			setImagesUploading(false);
-			setUploaderKey((key) => key + 1);
+			resetForm();
 		} catch (error) {
 			toastManager.add({
 				title: 'Could not add note',
@@ -90,16 +85,14 @@ export default function ProjectInclusionNotesDialog({
 		}
 	};
 
-	const onDelete = async (noteId: Id<'projectInclusionNotes'>) => {
-		try {
-			await deleteNote({ noteId });
-		} catch (error) {
+	const onDelete = (noteId: Id<'projectInclusionNotes'>) => {
+		deleteNote({ noteId }).catch((error: unknown) => {
 			toastManager.add({
 				title: 'Could not delete note',
 				description: getConvexErrorMessage(error, 'Please try again.'),
 				type: 'error',
 			});
-		}
+		});
 	};
 
 	return (
@@ -107,10 +100,7 @@ export default function ProjectInclusionNotesDialog({
 			onOpenChange={(next) => {
 				onOpenChange(next);
 				if (!next) {
-					setNoteText('');
-					setImages([]);
-					setImagesUploading(false);
-					setUploaderKey((key) => key + 1);
+					resetForm();
 				}
 			}}
 			open={open}
@@ -121,11 +111,21 @@ export default function ProjectInclusionNotesDialog({
 					<DialogDescription>{inclusionTitle}</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col gap-4">
-					<div className="flex flex-col gap-2">
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background p-2 text-sm"
+					<div className="max-h-72 overflow-y-auto pe-1">
+						<NoteTimelineBody
+							emptyDescription="Add the first note using the field below."
+							notes={notes}
+							onDelete={onDelete}
+						/>
+					</div>
+					{/* The composer is docked below the timeline so the newest notes
+					    stay in view while you type. */}
+					<div className="flex flex-col gap-2 border-t pt-4">
+						<Textarea
+							aria-label="New note"
+							className="min-h-20 resize-y"
 							onChange={(e) => setNoteText(e.target.value)}
-							placeholder="Type your note…"
+							placeholder="Add a note…"
 							value={noteText}
 						/>
 						<NoteImageUploader
@@ -155,47 +155,6 @@ export default function ProjectInclusionNotesDialog({
 								<Plus aria-hidden /> Add note
 							</Button>
 						</div>
-					</div>
-					<div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
-						{notes === undefined ? (
-							<p className="text-muted-foreground text-sm">Loading notes…</p>
-						) : null}
-						{notes && notes.length === 0 ? (
-							<p className="text-muted-foreground text-sm">No notes yet.</p>
-						) : null}
-						{notes?.map((note) => (
-							<div
-								className="flex items-start justify-between gap-2 rounded-md border p-3"
-								key={note._id}
-							>
-								<div className="min-w-0">
-									<p className="font-medium text-sm">{note.addedBy}</p>
-									<p className="text-muted-foreground text-xs">
-										{formatNoteDate(note.timestamp)}
-									</p>
-									<p className="mt-1 whitespace-pre-wrap text-sm">
-										{note.note}
-									</p>
-									{note.images && note.images.length > 0 ? (
-										<div className="mt-2">
-											<NoteImagesRow
-												imageKeys={note.images}
-												title={`Note by ${note.addedBy}`}
-											/>
-										</div>
-									) : null}
-								</div>
-								<Button
-									aria-label="Delete note"
-									onClick={() => onDelete(note._id).catch(() => undefined)}
-									size="icon-sm"
-									type="button"
-									variant="ghost"
-								>
-									<Trash2 className="size-4" />
-								</Button>
-							</div>
-						))}
 					</div>
 				</div>
 				<DialogFooter>

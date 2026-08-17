@@ -36,7 +36,6 @@ import {
 } from '@workspace/ui/components/accordion';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
 import {
 	Menu,
 	MenuItem,
@@ -44,7 +43,6 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 } from '@workspace/ui/components/menu';
-import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import {
 	ChevronDownIcon,
@@ -64,7 +62,10 @@ import {
 	useRef,
 	useState,
 } from 'react';
-import { getConvexErrorMessage } from '@/lib/convex-errors';
+import {
+	DragHandle,
+	InlineAddRow,
+} from '@/components/quote-lists/list-primitives';
 import AddQuoteTermItem from './add-quote-term-item';
 import DeleteQuoteTermItem from './delete-quote-term-item';
 import DeleteQuoteTermSection from './delete-quote-term-section';
@@ -109,33 +110,6 @@ const MEASURING_CONFIG = {
 	droppable: { strategy: MeasuringStrategy.Always },
 };
 
-type SortableHandle = Pick<
-	ReturnType<typeof useSortable>,
-	'attributes' | 'listeners'
->;
-
-function DragHandle({
-	attributes,
-	listeners,
-	label,
-}: {
-	attributes: SortableHandle['attributes'];
-	listeners: SortableHandle['listeners'];
-	label: string;
-}) {
-	return (
-		<button
-			aria-label={label}
-			className="flex cursor-grab touch-none items-center text-muted-foreground active:cursor-grabbing"
-			type="button"
-			{...attributes}
-			{...listeners}
-		>
-			<GripVertical className="size-4" />
-		</button>
-	);
-}
-
 // Standalone accordion toggle rendered after the action buttons so the chevron
 // sits at the far right of the header instead of beside the name.
 function AccordionChevronTrigger({ label }: { label: string }) {
@@ -146,87 +120,6 @@ function AccordionChevronTrigger({ label }: { label: string }) {
 		>
 			<ChevronDownIcon className="size-4 shrink-0 transition-transform duration-200 ease-in-out" />
 		</AccordionPrimitive.Trigger>
-	);
-}
-
-/**
- * Inline "add" row pinned above a list. Enter or the icon button appends the
- * record and clears the box so several can be typed in a row without leaving the
- * keyboard; the full dialogs remain for the fields this row doesn't cover.
- */
-function InlineAddRow({
-	noun,
-	placeholder,
-	onAdd,
-}: {
-	noun: string;
-	placeholder: string;
-	onAdd: (value: string) => Promise<unknown>;
-}) {
-	const [value, setValue] = useState('');
-	const [isSaving, setIsSaving] = useState(false);
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	const submit = async () => {
-		const trimmed = value.trim();
-		if (!trimmed || isSaving) {
-			return;
-		}
-		setIsSaving(true);
-		try {
-			await onAdd(trimmed);
-			setValue('');
-			inputRef.current?.focus();
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					`Could not add ${noun}. Please try again in a moment.`
-				),
-				title: `Could not add ${noun}`,
-				type: 'error',
-			});
-		} finally {
-			setIsSaving(false);
-		}
-	};
-
-	const handleSubmit = () => {
-		submit().catch(() => {
-			/* Error handled in submit */
-		});
-	};
-
-	return (
-		<div className="flex items-center gap-2">
-			<Input
-				aria-label={`New ${noun}`}
-				className="flex-1"
-				disabled={isSaving}
-				nativeInput
-				onChange={(e) => setValue(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						handleSubmit();
-					}
-				}}
-				placeholder={placeholder}
-				ref={inputRef}
-				value={value}
-			/>
-			<Button
-				aria-label={`Add ${noun}`}
-				disabled={value.trim().length === 0}
-				loading={isSaving}
-				onClick={handleSubmit}
-				size="icon"
-				type="button"
-				variant="outline"
-			>
-				<Plus />
-			</Button>
-		</div>
 	);
 }
 
@@ -279,7 +172,7 @@ function ItemRow({
 
 	return (
 		<div
-			className="flex items-start gap-2 bg-card px-3 py-2"
+			className="flex items-center gap-2 bg-card px-3 py-2"
 			ref={setNodeRef}
 			style={{
 				transform: CSS.Translate.toString(transform),
@@ -296,7 +189,7 @@ function ItemRow({
 			) : (
 				<span aria-hidden className="w-4 shrink-0" />
 			)}
-			<span className="shrink-0 pt-0.5 text-muted-foreground text-xs tabular-nums">
+			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 				{number}
 			</span>
 			<p className="min-w-0 flex-1 text-foreground text-sm">{item.text}</p>
@@ -587,7 +480,6 @@ export function QuoteTermsTree({
 	const [tree, setTree] = useState<TermSectionNode[]>([]);
 	const [openSectionKeys, setOpenSectionKeys] = useState<string[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
-	const initializedRef = useRef(false);
 	const scrollerRef = useRef<HTMLDivElement>(null);
 	// Signature of the last cross-container move applied in onDragOver; guards
 	// against re-processing an identical hover and looping at a container boundary.
@@ -600,14 +492,6 @@ export function QuoteTermsTree({
 			setTree(serverTree);
 		}
 	}, [serverTree, activeId]);
-
-	// Open every section the first time data loads.
-	useEffect(() => {
-		if (serverTree && !initializedRef.current) {
-			initializedRef.current = true;
-			setOpenSectionKeys(allKeys(serverTree));
-		}
-	}, [serverTree]);
 
 	useImperativeHandle(
 		ref,

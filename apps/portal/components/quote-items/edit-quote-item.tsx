@@ -16,7 +16,6 @@ import {
 	DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
-import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
@@ -38,7 +37,6 @@ const FORM_ID = 'edit-quote-item-form';
 export default function EditQuoteItem({
 	itemId,
 	initialName,
-	initialDescription,
 	initialIsDefault,
 	initialSectionId,
 	initialStageId,
@@ -47,7 +45,6 @@ export default function EditQuoteItem({
 }: {
 	itemId: Id<'quoteItems'>;
 	initialName: string;
-	initialDescription: string | undefined;
 	initialIsDefault: boolean;
 	initialSectionId: Id<'quoteSections'>;
 	initialStageId: Id<'quoteStages'>;
@@ -73,7 +70,6 @@ export default function EditQuoteItem({
 				await updateItem({
 					itemId,
 					name: parsed.name,
-					description: parsed.description?.trim() || undefined,
 					isDefault,
 					sectionId: await target.resolveSectionId(),
 				});
@@ -96,16 +92,12 @@ export default function EditQuoteItem({
 		resetTarget({ sectionId: initialSectionId, stageId: initialStageId });
 		setIsDefault(initialIsDefault);
 		if (open) {
-			form.reset(
-				{ name: initialName, description: initialDescription ?? '' },
-				{ keepDefaultValues: true }
-			);
+			form.reset({ name: initialName }, { keepDefaultValues: true });
 			return;
 		}
 		form.reset();
 	}, [
 		form,
-		initialDescription,
 		initialIsDefault,
 		initialName,
 		initialSectionId,
@@ -153,15 +145,15 @@ export default function EditQuoteItem({
 									field.state.meta.isTouched && !field.state.meta.isValid;
 								return (
 									<Field data-invalid={invalid}>
-										<FieldLabel htmlFor={field.name}>Item name</FieldLabel>
-										<Input
+										<FieldLabel htmlFor={field.name}>Item text</FieldLabel>
+										<Textarea
 											aria-invalid={invalid}
 											id={field.name}
 											name={field.name}
-											nativeInput
 											onBlur={field.handleBlur}
 											onChange={(e) => field.handleChange(e.target.value)}
-											placeholder="Item name"
+											placeholder="Wording that appears on the quote"
+											rows={3}
 											value={field.state.value}
 										/>
 										{invalid ? (
@@ -172,27 +164,6 @@ export default function EditQuoteItem({
 									</Field>
 								);
 							}}
-						</form.Field>
-						<form.Field name="description">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>
-										Description
-										<span className="ml-1 text-muted-foreground text-xs">
-											(optional)
-										</span>
-									</FieldLabel>
-									<Textarea
-										id={field.name}
-										name={field.name}
-										onBlur={field.handleBlur}
-										onChange={(e) => field.handleChange(e.target.value)}
-										placeholder="Wording that appears under this item on the quote"
-										rows={3}
-										value={field.state.value ?? ''}
-									/>
-								</Field>
-							)}
 						</form.Field>
 						<CheckboxCard
 							checked={isDefault}

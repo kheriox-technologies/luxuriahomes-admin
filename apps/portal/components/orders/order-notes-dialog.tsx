@@ -1,17 +1,9 @@
 'use client';
 
 import { api } from '@workspace/backend/api';
-import type { Doc, Id } from '@workspace/backend/dataModel';
-import { Alert, AlertDescription } from '@workspace/ui/components/alert';
+import type { Id } from '@workspace/backend/dataModel';
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
-import {
-	Card,
-	CardAction,
-	CardDescription,
-	CardHeader,
-	CardPanel,
-	CardTitle,
-} from '@workspace/ui/components/card';
 import {
 	Dialog,
 	DialogClose,
@@ -23,106 +15,14 @@ import {
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation, useQuery } from 'convex/react';
-import { Check, ImagePlus, Info, Trash2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Check, ImagePlus } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
 	NoteImageUploader,
 	type NoteImageUploaderHandle,
 } from '@/components/notes/note-image-uploader';
-import { NoteImagesRow } from '@/components/notes/note-images-row';
+import { NoteTimelineBody } from '@/components/notes/note-timeline';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
-
-type OrderNote = Doc<'projectOrderNotes'>;
-
-function ordinalSuffix(day: number): string {
-	const mod100 = day % 100;
-	if (mod100 >= 11 && mod100 <= 13) {
-		return 'th';
-	}
-	switch (day % 10) {
-		case 1:
-			return 'st';
-		case 2:
-			return 'nd';
-		case 3:
-			return 'rd';
-		default:
-			return 'th';
-	}
-}
-
-function formatNoteDate(timestamp: number): string {
-	const d = new Date(timestamp);
-	const weekday = new Intl.DateTimeFormat('en-AU', { weekday: 'short' }).format(
-		d
-	);
-	const day = d.getDate();
-	const month = new Intl.DateTimeFormat('en-AU', { month: 'short' }).format(d);
-	const year = d.getFullYear();
-	return `${weekday}, ${day}${ordinalSuffix(day)} ${month} ${year}`;
-}
-
-function OrderNotesCardList({ notes }: { notes: OrderNote[] }) {
-	const deleteNoteMutation = useMutation(
-		api.projectOrders.deleteNote.deleteNote
-	);
-
-	const onDelete = async (noteId: OrderNote['_id']) => {
-		try {
-			await deleteNoteMutation({ noteId });
-			toastManager.add({ title: 'Note deleted', type: 'success' });
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not delete note. Please try again in a moment.'
-				),
-				title: 'Could not delete note',
-				type: 'error',
-			});
-		}
-	};
-
-	return (
-		<div className="flex flex-col gap-3">
-			{notes.map((entry) => (
-				<Card key={entry._id}>
-					<CardHeader>
-						<CardTitle>{entry.addedBy}</CardTitle>
-						<CardDescription>{formatNoteDate(entry.timestamp)}</CardDescription>
-						<CardAction>
-							<Button
-								aria-label="Delete note"
-								onClick={() => {
-									onDelete(entry._id).catch(() => {
-										/* Error is handled in onDelete */
-									});
-								}}
-								size="icon"
-								type="button"
-								variant="destructive-outline"
-							>
-								<Trash2 />
-							</Button>
-						</CardAction>
-					</CardHeader>
-					<CardPanel className="flex flex-col gap-3">
-						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
-							{entry.note}
-						</p>
-						{entry.images && entry.images.length > 0 ? (
-							<NoteImagesRow
-								imageKeys={entry.images}
-								title={`Note by ${entry.addedBy}`}
-							/>
-						) : null}
-					</CardPanel>
-				</Card>
-			))}
-		</div>
-	);
-}
 
 export default function OrderNotesDialog({
 	orderId,
@@ -149,6 +49,9 @@ export default function OrderNotesDialog({
 
 	const appendNoteMutation = useMutation(
 		api.projectOrders.appendNote.appendNote
+	);
+	const deleteNoteMutation = useMutation(
+		api.projectOrders.deleteNote.deleteNote
 	);
 	const notes = useQuery(
 		api.projectOrders.listNotes.listNotes,
@@ -180,22 +83,22 @@ export default function OrderNotesDialog({
 		}
 	};
 
-	let notesBody: ReactNode;
-	if (notes === undefined) {
-		notesBody = <p className="text-muted-foreground text-sm">Loading notes…</p>;
-	} else if (notes.length === 0) {
-		notesBody = (
-			<Alert variant="info">
-				<Info aria-hidden className="size-4 shrink-0" />
-				<AlertDescription>
-					No notes have been added for this order yet. Use the field above to
-					add the first one.
-				</AlertDescription>
-			</Alert>
-		);
-	} else {
-		notesBody = <OrderNotesCardList notes={notes} />;
-	}
+	const onDelete = (noteId: Id<'projectOrderNotes'>) => {
+		deleteNoteMutation({ noteId })
+			.then(() => {
+				toastManager.add({ title: 'Note deleted', type: 'success' });
+			})
+			.catch((error: unknown) => {
+				toastManager.add({
+					description: getConvexErrorMessage(
+						error,
+						'Could not delete note. Please try again in a moment.'
+					),
+					title: 'Could not delete note',
+					type: 'error',
+				});
+			});
+	};
 
 	return (
 		<Dialog
@@ -209,39 +112,39 @@ export default function OrderNotesDialog({
 		>
 			<DialogContent className="flex h-[min(88vh,44rem)] w-[min(92vw,40rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
 				<DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6">
-					<DialogTitle>Order Notes</DialogTitle>
+					<div className="flex items-center gap-2">
+						<DialogTitle>Order Notes</DialogTitle>
+						{notes && notes.length > 0 ? (
+							<Badge variant="secondary">{notes.length}</Badge>
+						) : null}
+					</div>
 				</DialogHeader>
-				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-					<div className="shrink-0 px-6 py-4">
-						<div className="flex flex-col gap-2">
-							<label
-								className="font-medium text-sm"
-								htmlFor={`note-${orderId}`}
-							>
-								New note
-							</label>
-							<Textarea
-								className="min-h-[100px] resize-y"
-								id={`note-${orderId}`}
-								onChange={(e) => setNoteText(e.target.value)}
-								placeholder="Type your note…"
-								value={noteText}
-							/>
-							<NoteImageUploader
-								key={uploaderKey}
-								onChange={setImages}
-								onUploadingChange={setImagesUploading}
-								ref={uploaderRef}
-							/>
-						</div>
-					</div>
-					<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
-						<div className="min-h-0 flex-1 overflow-y-auto pe-1">
-							{notesBody}
-						</div>
-					</div>
+				<div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+					<NoteTimelineBody
+						emptyDescription="Add the first note using the field below."
+						notes={notes}
+						onDelete={onDelete}
+					/>
 				</div>
-				<DialogFooter className="shrink-0 border-t px-6 py-4">
+				{/* The composer is docked below the timeline so the newest notes stay
+				    in view while you type. */}
+				<div className="flex shrink-0 flex-col gap-2 border-t px-6 pt-4">
+					<Textarea
+						aria-label="New note"
+						className="min-h-20 resize-y"
+						id={`note-${orderId}`}
+						onChange={(e) => setNoteText(e.target.value)}
+						placeholder="Add a note…"
+						value={noteText}
+					/>
+					<NoteImageUploader
+						key={uploaderKey}
+						onChange={setImages}
+						onUploadingChange={setImagesUploading}
+						ref={uploaderRef}
+					/>
+				</div>
+				<DialogFooter className="shrink-0 px-6 py-4">
 					<DialogClose render={<Button type="button" variant="outline" />}>
 						Close
 					</DialogClose>

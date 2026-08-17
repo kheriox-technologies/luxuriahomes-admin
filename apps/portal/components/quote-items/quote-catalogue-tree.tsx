@@ -37,7 +37,6 @@ import {
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Checkbox } from '@workspace/ui/components/checkbox';
-import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
 	Menu,
@@ -66,6 +65,10 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import {
+	DragHandle,
+	InlineAddRow,
+} from '@/components/quote-lists/list-primitives';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import AddQuoteSection from './add-quote-section';
 import DeleteQuoteItem from './delete-quote-item';
@@ -126,33 +129,6 @@ const MEASURING_CONFIG = {
 	droppable: { strategy: MeasuringStrategy.Always },
 };
 
-type SortableHandle = Pick<
-	ReturnType<typeof useSortable>,
-	'attributes' | 'listeners'
->;
-
-function DragHandle({
-	attributes,
-	listeners,
-	label,
-}: {
-	attributes: SortableHandle['attributes'];
-	listeners: SortableHandle['listeners'];
-	label: string;
-}) {
-	return (
-		<button
-			aria-label={label}
-			className="flex cursor-grab touch-none items-center text-muted-foreground active:cursor-grabbing"
-			type="button"
-			{...attributes}
-			{...listeners}
-		>
-			<GripVertical className="size-4" />
-		</button>
-	);
-}
-
 // Standalone accordion toggle rendered after the action buttons so the chevron
 // sits at the far right of the header instead of beside the name.
 function AccordionChevronTrigger({ label }: { label: string }) {
@@ -163,87 +139,6 @@ function AccordionChevronTrigger({ label }: { label: string }) {
 		>
 			<ChevronDownIcon className="size-4 shrink-0 transition-transform duration-200 ease-in-out" />
 		</AccordionPrimitive.Trigger>
-	);
-}
-
-/**
- * Inline "add" row pinned above a list. Enter or the icon button appends the
- * record and clears the box so several can be typed in a row without leaving the
- * keyboard; the full dialogs remain for the fields this row doesn't cover.
- */
-function InlineAddRow({
-	noun,
-	placeholder,
-	onAdd,
-}: {
-	noun: string;
-	placeholder: string;
-	onAdd: (name: string) => Promise<unknown>;
-}) {
-	const [name, setName] = useState('');
-	const [isSaving, setIsSaving] = useState(false);
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	const submit = async () => {
-		const trimmed = name.trim();
-		if (!trimmed || isSaving) {
-			return;
-		}
-		setIsSaving(true);
-		try {
-			await onAdd(trimmed);
-			setName('');
-			inputRef.current?.focus();
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					`Could not add ${noun}. Please try again in a moment.`
-				),
-				title: `Could not add ${noun}`,
-				type: 'error',
-			});
-		} finally {
-			setIsSaving(false);
-		}
-	};
-
-	const handleSubmit = () => {
-		submit().catch(() => {
-			/* Error handled in submit */
-		});
-	};
-
-	return (
-		<div className="flex items-center gap-2">
-			<Input
-				aria-label={`New ${noun} name`}
-				className="flex-1"
-				disabled={isSaving}
-				nativeInput
-				onChange={(e) => setName(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === 'Enter') {
-						e.preventDefault();
-						handleSubmit();
-					}
-				}}
-				placeholder={placeholder}
-				ref={inputRef}
-				value={name}
-			/>
-			<Button
-				aria-label={`Add ${noun}`}
-				disabled={name.trim().length === 0}
-				loading={isSaving}
-				onClick={handleSubmit}
-				size="icon"
-				type="button"
-				variant="outline"
-			>
-				<Plus />
-			</Button>
-		</div>
 	);
 }
 
@@ -275,7 +170,9 @@ function InlineAddStage() {
 	return (
 		<InlineAddRow
 			noun="stage"
-			onAdd={(name) => addStage({ name })}
+			// Starts at 0% so the stage counts toward the percentage total right away
+			// instead of reading as "not set".
+			onAdd={(name) => addStage({ defaultPercent: 0, name })}
 			placeholder="Add a stage and press Enter…"
 		/>
 	);
@@ -332,14 +229,7 @@ function ItemRow({
 			<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 				{number}
 			</span>
-			<div className="min-w-0 flex-1">
-				<span className="font-medium text-foreground text-sm">{item.name}</span>
-				{item.description ? (
-					<div className="truncate text-muted-foreground text-xs">
-						{item.description}
-					</div>
-				) : null}
-			</div>
+			<p className="min-w-0 flex-1 text-foreground text-sm">{item.name}</p>
 			<div className="flex shrink-0 items-center gap-2">
 				<Checkbox
 					checked={item.isDefault}
@@ -389,7 +279,6 @@ function ItemRow({
 				</MenuPopup>
 			</Menu>
 			<EditQuoteItem
-				initialDescription={item.description}
 				initialIsDefault={item.isDefault}
 				initialName={item.name}
 				initialSectionId={item.sectionId}
@@ -691,6 +580,11 @@ function StageAccordionItem({
 						<Badge size="lg" variant="secondary">
 							{itemCount} items
 						</Badge>
+						{node.stage.defaultPercent === undefined ? null : (
+							<Badge size="lg" variant="outline">
+								{node.stage.defaultPercent}%
+							</Badge>
+						)}
 					</AccordionPrimitive.Trigger>
 					<Menu>
 						<MenuTrigger
@@ -742,7 +636,9 @@ function StageAccordionItem({
 				open={addSectionOpen}
 			/>
 			<EditQuoteStage
+				initialDefaultPercent={node.stage.defaultPercent}
 				initialName={node.stage.name}
+				initialScopeSummary={node.stage.scopeSummary}
 				onOpenChange={setEditOpen}
 				open={editOpen}
 				stageId={node.stage._id}
@@ -781,10 +677,8 @@ function filterTree(tree: StageNode[], needle: string): StageNode[] {
 				sections.push(sectionNode);
 				continue;
 			}
-			const items = sectionNode.items.filter(
-				(item) =>
-					matchesText(item.name, needle) ||
-					matchesText(item.description, needle)
+			const items = sectionNode.items.filter((item) =>
+				matchesText(item.name, needle)
 			);
 			if (items.length > 0) {
 				sections.push({ ...sectionNode, items });
@@ -865,6 +759,7 @@ export function QuoteCatalogueTree({
 	loadingLabel = 'Loading catalogue…',
 	noResults,
 	empty,
+	banner,
 	ref,
 }: {
 	tree: StageNode[] | undefined;
@@ -873,6 +768,8 @@ export function QuoteCatalogueTree({
 	noResults?: ReactNode;
 	// Shown below the inline add-stage box when the catalogue has no stages yet.
 	empty?: ReactNode;
+	// Persistent notice rendered directly under the inline add-stage box.
+	banner?: ReactNode;
 	ref?: Ref<QuoteCatalogueTreeHandle>;
 }) {
 	const reorderStages = useMutation(api.quoteStages.reorder.reorder);
@@ -886,7 +783,6 @@ export function QuoteCatalogueTree({
 	const [openStageKeys, setOpenStageKeys] = useState<string[]>([]);
 	const [openSectionKeys, setOpenSectionKeys] = useState<string[]>([]);
 	const [activeId, setActiveId] = useState<string | null>(null);
-	const initializedRef = useRef(false);
 	const scrollerRef = useRef<HTMLDivElement>(null);
 	// Signature of the last cross-container move applied in onDragOver; guards
 	// against re-processing an identical hover and looping at a container boundary.
@@ -899,14 +795,6 @@ export function QuoteCatalogueTree({
 			setTree(serverTree);
 		}
 	}, [serverTree, activeId]);
-
-	// Open every stage (but not every section) the first time data loads.
-	useEffect(() => {
-		if (serverTree && !initializedRef.current) {
-			initializedRef.current = true;
-			setOpenStageKeys(serverTree.map((n) => `${STAGE_PREFIX}${n.stage._id}`));
-		}
-	}, [serverTree]);
 
 	useImperativeHandle(
 		ref,
@@ -1344,6 +1232,7 @@ export function QuoteCatalogueTree({
 					<InlineAddStage />
 				</div>
 			) : null}
+			{banner ? <div className="mb-3">{banner}</div> : null}
 			{displayTree.length === 0 && !trimmedSearch ? empty : null}
 			<DndContext
 				autoScroll={autoScroll}

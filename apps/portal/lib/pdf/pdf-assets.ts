@@ -33,6 +33,29 @@ export function getProjectInclusionsPdfLogoDataUrl(): Promise<string> {
 	return logoDataUrlPromise;
 }
 
+let quotationLogoDataUrlPromise: Promise<string> | null = null;
+
+/**
+ * The portal wordmark in brand linen, for use on the quotation's ink cover and
+ * header band. Same artwork as `public/logo.svg` (and the `BrandLogo`
+ * component), recoloured to `#f5ebe0` — pdfkit takes PNG/JPEG only, so an SVG
+ * that gets its colour from `currentColor` is no use here.
+ */
+export function getClientQuotationPdfLogoDataUrl(): Promise<string> {
+	if (quotationLogoDataUrlPromise) {
+		return quotationLogoDataUrlPromise;
+	}
+	quotationLogoDataUrlPromise = (async () => {
+		const response = await fetch('/lh-quotation-logo-linen.png');
+		if (!response.ok) {
+			throw new Error('Could not load the quotation logo from public assets.');
+		}
+		const blob = await response.blob();
+		return blobToDataUrl(blob);
+	})();
+	return quotationLogoDataUrlPromise;
+}
+
 /** Fetches a remote image for embedding in pdfmake (browser). Returns null on failure or empty body. */
 export async function fetchUrlAsDataUrl(url: string): Promise<string | null> {
 	const trimmed = url.trim();

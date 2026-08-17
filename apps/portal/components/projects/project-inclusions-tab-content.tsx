@@ -3,7 +3,6 @@
 
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
-import { Alert, AlertDescription } from '@workspace/ui/components/alert';
 import {
 	AlertDialog,
 	AlertDialogClose,
@@ -19,7 +18,6 @@ import { Button } from '@workspace/ui/components/button';
 import {
 	Card,
 	CardAction,
-	CardDescription,
 	CardHeader,
 	CardPanel,
 	CardTitle,
@@ -91,7 +89,6 @@ import {
 	EllipsisVertical,
 	ExternalLink,
 	ImagePlus,
-	Info,
 	Mail,
 	MapPin,
 	Package,
@@ -123,7 +120,7 @@ import {
 	NoteImageUploader,
 	type NoteImageUploaderHandle,
 } from '@/components/notes/note-image-uploader';
-import { NoteImagesRow } from '@/components/notes/note-images-row';
+import { NoteTimelineBody } from '@/components/notes/note-timeline';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import type { ComposeAttachment } from '@/lib/email';
 import { fetchUrlAsJpegDataUrl } from '@/lib/pdf/pdf-assets';
@@ -138,7 +135,6 @@ import { useAppModeStore } from '@/stores/app-mode-store';
 type ProjectInclusion = NonNullable<
 	FunctionReturnType<typeof api.projectInclusions.list.list>
 >[number];
-type ProjectInclusionNote = Doc<'projectInclusionNotes'>;
 type InclusionCategory = Doc<'inclusionCategories'>;
 
 interface PendingOrderItem {
@@ -310,101 +306,6 @@ function DeleteProjectInclusionDialog({
 	);
 }
 
-function ordinalSuffix(day: number): string {
-	const mod100 = day % 100;
-	if (mod100 >= 11 && mod100 <= 13) {
-		return 'th';
-	}
-	switch (day % 10) {
-		case 1:
-			return 'st';
-		case 2:
-			return 'nd';
-		case 3:
-			return 'rd';
-		default:
-			return 'th';
-	}
-}
-
-function formatProjectInclusionNoteDate(timestamp: number): string {
-	const d = new Date(timestamp);
-	const weekday = new Intl.DateTimeFormat('en-AU', { weekday: 'short' }).format(
-		d
-	);
-	const day = d.getDate();
-	const month = new Intl.DateTimeFormat('en-AU', { month: 'short' }).format(d);
-	const year = d.getFullYear();
-	return `${weekday}, ${day}${ordinalSuffix(day)} ${month} ${year}`;
-}
-
-function ProjectInclusionNotesCardList({
-	notes,
-}: {
-	notes: ProjectInclusionNote[];
-}) {
-	const deleteNoteMutation = useMutation(
-		api.projectInclusions.deleteNote.deleteNote
-	);
-
-	const onDelete = async (noteId: ProjectInclusionNote['_id']) => {
-		try {
-			await deleteNoteMutation({ noteId });
-			toastManager.add({ title: 'Note deleted', type: 'success' });
-		} catch (error) {
-			toastManager.add({
-				description: getConvexErrorMessage(
-					error,
-					'Could not delete note. Please try again in a moment.'
-				),
-				title: 'Could not delete note',
-				type: 'error',
-			});
-		}
-	};
-
-	return (
-		<div className="flex flex-col gap-3">
-			{notes.map((entry) => (
-				<Card key={entry._id}>
-					<CardHeader>
-						<CardTitle>{entry.addedBy}</CardTitle>
-						<CardDescription>
-							{formatProjectInclusionNoteDate(entry.timestamp)}
-						</CardDescription>
-						<CardAction>
-							<Button
-								aria-label="Delete note"
-								onClick={() => {
-									onDelete(entry._id).catch(() => {
-										/* Error is handled in onDelete */
-									});
-								}}
-								size="icon"
-								type="button"
-								variant="destructive-outline"
-							>
-								<Trash2 />
-							</Button>
-						</CardAction>
-					</CardHeader>
-					<CardPanel className="flex flex-col gap-3">
-						<p className="whitespace-pre-wrap text-pretty text-sm leading-relaxed">
-							{entry.note}
-						</p>
-						{entry.images && entry.images.length > 0 ? (
-							<NoteImagesRow
-								imageKeys={entry.images}
-								title={`Note by ${entry.addedBy}`}
-							/>
-						) : null}
-					</CardPanel>
-				</Card>
-			))}
-		</div>
-	);
-}
-
 function ProjectInclusionNotesDialog({
 	projectId,
 	projectInclusionId,
@@ -436,6 +337,9 @@ function ProjectInclusionNotesDialog({
 
 	const appendNoteMutation = useMutation(
 		api.projectInclusions.appendNote.appendNote
+	);
+	const deleteNoteMutation = useMutation(
+		api.projectInclusions.deleteNote.deleteNote
 	);
 	const notes = useQuery(
 		api.projectInclusions.listNotes.listNotes,
@@ -473,22 +377,22 @@ function ProjectInclusionNotesDialog({
 		}
 	};
 
-	let notesBody: ReactNode;
-	if (notes === undefined) {
-		notesBody = <p className="text-muted-foreground text-sm">Loading notes…</p>;
-	} else if (notes.length === 0) {
-		notesBody = (
-			<Alert variant="info">
-				<Info aria-hidden className="size-4 shrink-0" />
-				<AlertDescription>
-					No notes have been added for this inclusion yet. Use the field above
-					to add the first one.
-				</AlertDescription>
-			</Alert>
-		);
-	} else {
-		notesBody = <ProjectInclusionNotesCardList notes={notes} />;
-	}
+	const onDelete = (noteId: Id<'projectInclusionNotes'>) => {
+		deleteNoteMutation({ noteId })
+			.then(() => {
+				toastManager.add({ title: 'Note deleted', type: 'success' });
+			})
+			.catch((error: unknown) => {
+				toastManager.add({
+					description: getConvexErrorMessage(
+						error,
+						'Could not delete note. Please try again in a moment.'
+					),
+					title: 'Could not delete note',
+					type: 'error',
+				});
+			});
+	};
 
 	return (
 		<Dialog
@@ -508,38 +412,33 @@ function ProjectInclusionNotesDialog({
 						<span className="text-muted-foreground">{` · ${code}`}</span>
 					</DialogDescription>
 				</DialogHeader>
-				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-					<div className="shrink-0 px-6 py-4">
-						<div className="flex flex-col gap-2">
-							<label
-								className="font-medium text-sm"
-								htmlFor={`note-${projectInclusionId}`}
-							>
-								New note
-							</label>
-							<Textarea
-								className="min-h-[100px] resize-y"
-								id={`note-${projectInclusionId}`}
-								onChange={(e) => setNoteText(e.target.value)}
-								placeholder="Type your note…"
-								value={noteText}
-							/>
-							<NoteImageUploader
-								key={uploaderKey}
-								onChange={setImages}
-								onUploadingChange={setImagesUploading}
-								projectId={projectId}
-								ref={uploaderRef}
-							/>
-						</div>
-					</div>
-					<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2">
-						<div className="min-h-0 flex-1 overflow-y-auto pe-1">
-							{notesBody}
-						</div>
-					</div>
+				<div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+					<NoteTimelineBody
+						emptyDescription="Add the first note using the field below."
+						notes={notes}
+						onDelete={onDelete}
+					/>
 				</div>
-				<DialogFooter className="shrink-0 border-t px-6 py-4">
+				{/* The composer is docked below the timeline so the newest notes stay
+				    in view while you type. */}
+				<div className="flex shrink-0 flex-col gap-2 border-t px-6 pt-4">
+					<Textarea
+						aria-label="New note"
+						className="min-h-20 resize-y"
+						id={`note-${projectInclusionId}`}
+						onChange={(e) => setNoteText(e.target.value)}
+						placeholder="Add a note…"
+						value={noteText}
+					/>
+					<NoteImageUploader
+						key={uploaderKey}
+						onChange={setImages}
+						onUploadingChange={setImagesUploading}
+						projectId={projectId}
+						ref={uploaderRef}
+					/>
+				</div>
+				<DialogFooter className="shrink-0 px-6 py-4">
 					<DialogClose render={<Button type="button" variant="outline" />}>
 						Close
 					</DialogClose>

@@ -1,0 +1,29 @@
+import { ConvexError, v } from 'convex/values';
+import { query } from '../_generated/server';
+import { requireAdmin } from '../lib/checkIdentity';
+import { withNoteCounts } from './shared';
+
+export const search = query({
+	args: {
+		query: v.string(),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args) => {
+		await requireAdmin(ctx);
+		const trimmed = args.query.trim();
+		if (trimmed.length === 0) {
+			throw new ConvexError({
+				code: 'INVALID_QUERY',
+				message: 'Search query cannot be empty',
+			});
+		}
+		const limit = args.limit ?? 100;
+		const rows = await ctx.db
+			.query('clientQuotations')
+			.withSearchIndex('search_client_quotations', (q) =>
+				q.search('searchText', trimmed)
+			)
+			.take(limit);
+		return await withNoteCounts(ctx, rows);
+	},
+});

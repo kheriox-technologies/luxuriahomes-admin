@@ -496,6 +496,7 @@ export function ProjectStartDatePicker({
 
 export function AustralianStateCombobox({
 	id,
+	codeOnly,
 	disabled,
 	value,
 	onChange,
@@ -504,6 +505,8 @@ export function AustralianStateCombobox({
 	invalid,
 }: {
 	id: string;
+	/** Show 'QLD' rather than 'QLD — Queensland', for narrow columns. */
+	codeOnly?: boolean;
 	disabled?: boolean;
 	value: string;
 	onChange: (next: string) => void;
@@ -512,12 +515,14 @@ export function AustralianStateCombobox({
 	invalid?: boolean;
 }) {
 	const selected = value && isAustralianState(value) ? value : null;
+	const label = (code: AustralianState) =>
+		codeOnly ? code : STATE_LABELS[code];
 
 	return (
 		<Combobox<AustralianState>
 			disabled={disabled}
 			items={[...STATE_ITEMS]}
-			itemToStringLabel={(code) => STATE_LABELS[code]}
+			itemToStringLabel={label}
 			onValueChange={(next) => {
 				onChange(next ?? '');
 			}}
@@ -534,7 +539,7 @@ export function AustralianStateCombobox({
 				<ComboboxList>
 					{(item: AustralianState) => (
 						<ComboboxItem key={item} value={item}>
-							{STATE_LABELS[item]}
+							{label(item)}
 						</ComboboxItem>
 					)}
 				</ComboboxList>

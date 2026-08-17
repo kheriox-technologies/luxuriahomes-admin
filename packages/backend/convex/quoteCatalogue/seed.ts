@@ -1,12 +1,12 @@
+import type { Id } from '../_generated/dataModel';
 import { internalMutation } from '../_generated/server';
 import {
 	buildQuoteItemSearchText,
 	buildQuoteSectionSearchText,
-	buildQuoteStageSearchText,
 } from '../lib/buildSearchText';
+import { createQuoteStage, QUOTE_STAGE_DEFAULTS } from '../quoteStages/shared';
 
 interface SeedItem {
-	description: string;
 	name: string;
 }
 
@@ -21,51 +21,44 @@ interface SeedStage {
 }
 
 /**
- * The catalogue as it appears in the client quotation template
- * (`docs/client-quotation-template.pdf`): six QBCC progress-payment stages, each
- * with the sections and inclusion lines the template prints under it. Every
- * seeded item is a default so a new quotation starts from the full template.
+ * The full standard inclusions list transcribed from
+ * `docs/CMA-Quotation-Sample.pdf` — 118 lines under the 15 headings the estimate
+ * prints them beneath. Each heading becomes one section, assigned wholesale to
+ * the QBCC progress-payment stage the work mostly falls in; the item `name` is
+ * the verbatim quotation line.
+ *
+ * Builder-branded copy is rewritten from "HOMES by CMA" to "Luxuria Homes";
+ * third-party product names are left exactly as the source has them.
+ *
+ * Every seeded item is a default so a new quotation starts from the full list.
  */
 const QUOTE_CATALOGUE_DATA: SeedStage[] = [
 	{
 		name: 'Deposit',
 		sections: [
 			{
-				name: 'Design & Documentation',
+				name: 'Pre-Construction',
 				items: [
 					{
-						name: 'Working drawings & engineering',
-						description:
-							'Full working drawings, engineering and energy efficiency report',
+						name: 'Fixed Price HIA QLD New Home QC1 Contract.',
 					},
 					{
-						name: 'Soil test & contour survey',
-						description:
-							'Soil test and contour survey by a registered surveyor',
+						name: 'Complete Plan drafting (all plans remain copyright of Luxuria Homes) and Engineering (concrete slab designed and inspected by a Structural Engineer).',
 					},
 					{
-						name: 'Building approval lodgement',
-						description: 'Building approval lodgement with a private certifier',
-					},
-				],
-			},
-			{
-				name: 'Approvals & Insurances',
-				items: [
-					{
-						name: 'QBCC Home Warranty Insurance',
-						description:
-							'QBCC Home Warranty Insurance and contract works cover',
+						name: 'Standard Council fees, plumbing approval fees (excluding HSTP) and Insurance fees (QBCC Insurance, Qleave Insurance and Public Liability Insurance).',
 					},
 					{
-						name: 'Council & plumbing fees',
-						description:
-							'Council infrastructure charges and plumbing application fees',
+						name: 'All Standard Building approval fees (see Exclusion Items 6 and 7 for exceptions).',
 					},
 					{
-						name: 'Site establishment',
-						description:
-							'Site establishment: temporary fencing, amenities and site power',
+						name: 'Independent Soil Test with Wind Rating and Contour Survey.',
+					},
+					{
+						name: 'Underground three phase power connection (not including provider connection fee), connection to existing sewer house point, existing stormwater connection to street outlet and connection to existing water meter up to Up to 6 Lineal Meters.',
+					},
+					{
+						name: 'Colour selection at the Luxuria Homes Design Studio with our Resident Interior Designer.',
 					},
 				],
 			},
@@ -75,41 +68,40 @@ const QUOTE_CATALOGUE_DATA: SeedStage[] = [
 		name: 'Base',
 		sections: [
 			{
-				name: 'Foundations',
+				name: 'General and Structural',
 				items: [
 					{
-						name: 'Waffle raft slab',
-						description:
-							'Engineer-designed waffle raft slab to AS 2870, class M soil classification',
+						name: 'Complete termite protection: Termiseal™ to slab penetrations and chemically impregnated termite Term Seal Ura-fen sheet barrier to the perimeter of the building in accordance with Aus Standard 3660.1.',
 					},
 					{
-						name: 'Bored concrete piers',
-						description:
-							'Bored concrete piers to basement retaining walls, depths per geotechnical report',
+						name: 'Standard cut and fill house pad (maximum crossfall 400mm) excluding piers.',
 					},
 					{
-						name: 'Termite management system',
-						description:
-							'Termite management system to AS 3660 with 50-year product warranty',
-					},
-				],
-			},
-			{
-				name: 'Earthworks & Drainage',
-				items: [
-					{
-						name: 'Site cut & benching',
-						description:
-							"Site cut and benching to engineer's levels, spoil removed from site",
+						name: 'Erosion control silt fence as per council requirements, up to 20lm.',
 					},
 					{
-						name: 'Stormwater drainage',
-						description:
-							'Stormwater drainage to legal point of discharge with silt control',
+						name: 'Driveway crossover during construction to comply with council regulations.',
 					},
 					{
-						name: 'Under-slab rough-in',
-						description: 'Under-slab plumbing rough-in and service conduits',
+						name: 'H1 Soil Allowance and N3 (W41) Wind Classification.',
+					},
+					{
+						name: "Waffle pod, Steel reinforced concrete slab as per Engineer's specifications. (no piering allowance to slab U.N.O.).",
+					},
+					{
+						name: 'TRUECORE™ Steel Frame and Trusses.',
+					},
+					{
+						name: "50 Year Warranty on TRUECORE™ Steel (T's and C's apply).",
+					},
+					{
+						name: 'Third party Frame quality control.',
+					},
+					{
+						name: 'Site skip bins and regular site clean ups.',
+					},
+					{
+						name: "25 Year Structural Warranty (T's and C's apply) and 12 Month Maintenance Warranty.",
 					},
 				],
 			},
@@ -119,42 +111,22 @@ const QUOTE_CATALOGUE_DATA: SeedStage[] = [
 		name: 'Frame',
 		sections: [
 			{
-				name: 'Structural Frame',
+				name: 'Two Storey Homes ONLY',
 				items: [
 					{
-						name: 'Structural steel',
-						description:
-							'Structural steel beams and columns, hot-dip galvanised, primed and certified',
+						name: '2440mm high ceiling to upper level.',
 					},
 					{
-						name: 'Wall frames',
-						description:
-							'MGP10 seasoned pine wall frames at 450mm centres, 2740mm ceiling height',
+						name: 'R2 insulation batts to all external walls.',
 					},
 					{
-						name: 'Roof trusses',
-						description:
-							'Engineered roof trusses, wind rated to N3 with cyclone tie-down straps',
-					},
-				],
-			},
-			{
-				name: 'Services Rough-in',
-				items: [
-					{
-						name: 'Electrical rough-in',
-						description:
-							'Electrical rough-in including Cat6 data cabling to eight locations',
+						name: 'Closed House Victorian Ash (TIMBER) staircase with staingrade treads, risers and stringer and 1 stained timber handrail fixed to the plasterboard wall.',
 					},
 					{
-						name: 'Air conditioning rough-in',
-						description:
-							'Ducted air conditioning rough-in, four zones with dedicated returns',
+						name: 'Axon Fibre cement cladding to upper level (where applicable timber battening).',
 					},
 					{
-						name: 'Hydronic & gas rough-in',
-						description:
-							'Hydronic and gas rough-in to kitchen, laundry and outdoor kitchen',
+						name: 'Termicide Treated Red Tongue Particle Board Flooring to Upper Floor.',
 					},
 				],
 			},
@@ -164,42 +136,92 @@ const QUOTE_CATALOGUE_DATA: SeedStage[] = [
 		name: 'Enclosed',
 		sections: [
 			{
-				name: 'Roof & External Cladding',
+				name: 'Energy Efficiency',
 				items: [
 					{
-						name: 'Colorbond standing seam roof',
-						description:
-							'Colorbond Ultra standing seam roof with concealed box gutters',
+						name: 'R3.0 ceiling batt insulation.',
 					},
 					{
-						name: 'Rendered blockwork',
-						description:
-							'Rendered blockwork to ground floor, acrylic texture coat in three-colour scheme',
+						name: 'R2.0 thermal wall insulation batts to Garage internal walls.',
 					},
 					{
-						name: 'Sarking & wall insulation',
-						description:
-							'Sarking, wall wrap and R2.5 external wall insulation throughout',
+						name: 'Wall sarking to all external walls.',
+					},
+					{
+						name: '7 STAR ENERGY EFFICIENCY COMPLIANCY - As of May 1st 2024, all new homes must be built to achieve a 7 Star Energy Efficiency rating in accordance with the National Construction Code and Queensland Development Code 4.1 – Sustainable Buildings. Luxuria Homes will arrange for your home to be assessed by a licensed Energy Assessor after your colour selections have been signed off. Should any changes be required to meet the 7 star energy rating, Luxuria Homes will discuss this with you and provide costings for any additional requirements. Any additional costs will be your responsibility and will be passed on to you by way variation or addition to your contract. Additional requirements may include but are not limited to - ceiling fans, roof insulation, internal and external wall thermal insulation, solar power, window and door glazing. Luxuria Homes recommends an allowance of $10,000 for double storey homes, $4,000 for acreage homes and $1,000 for single storey homes for 7 Star Energy Efficiency Allowance.',
 					},
 				],
 			},
 			{
-				name: 'Glazing & External Doors',
+				name: 'External Features',
 				items: [
 					{
-						name: 'Aluminium glazing',
-						description:
-							'Commercial-grade thermally broken aluminium glazing, double glazed throughout',
+						name: 'Autoclaved aerated concrete (AAC) cladding to External Walls.',
 					},
 					{
-						name: 'Pivot entry door',
-						description:
-							'Pivot entry door in solid American oak, 1200 x 2700mm with concealed hardware',
+						name: 'Acrylic Render to External Walls (excluding cladded areas).',
 					},
 					{
-						name: 'Stacking sliding doors',
-						description:
-							'Stacking sliding doors to alfresco with flush sill detail',
+						name: 'Paint finished fibre cement eave lining (Timber Battening).',
+					},
+					{
+						name: 'Colorbond roof, fascia and gutter (up to 25 degree pitch).',
+					},
+					{
+						name: '60mm (R1.3)Anticon lightweight blanket to roof area.',
+					},
+					{
+						name: 'Colorbond slimline garage door with motor and 3 remotes (2100Hx2400W/4800W U.N.O. Mediterranean). Includes side weather seals.',
+					},
+					{
+						name: '2 external garden taps (front and back).',
+					},
+					{
+						name: 'Hot water system - Wulfe 250L heat pump.',
+					},
+					{
+						name: '90mm PVC painted downpipes.',
+					},
+					{
+						name: 'Exposed Aggregate Driveway (Colour: Salt and Pepper, Unsealed).',
+					},
+					{
+						name: 'Note: Single garage - 25sqm Driveway allowance, Double garage - 40sqm Driveway allowance.',
+					},
+					{
+						name: 'Kerb cut-out.',
+					},
+					{
+						name: 'Round yard gullies as per plan. (total of 4 allowed)',
+					},
+					{
+						name: 'Powder coated, Wall Mounted Fold Down Clothesline (2.49m x 1.5m).',
+					},
+					{
+						name: 'Rendered look Letterbox.',
+					},
+				],
+			},
+			{
+				name: 'Windows and Doors',
+				items: [
+					{
+						name: 'Bradnams Essential Aluminium powdercoat sliding windows and sliding doors with key locks (bathrooms to have obscure glass for privacy). All windows to be standard sizing. Please note double storey upper windows must be either restricted or have security screens.',
+					},
+					{
+						name: 'Flyscreens to all windows and sliding doors (excluding cornerless doors and hinged doors).',
+					},
+					{
+						name: '820mm Wide Aluminium Entry Door and Frame. Note: Includes Lever Handle and Lock, from the Luxuria Homes standard range.',
+					},
+					{
+						name: 'Hume™ Redicote flush internal doors (2040mm high) with chrome hinges and plastic door stops.',
+					},
+					{
+						name: 'Zanda Epic Brushed Nickel or Matte Black door furniture sets (privacy set to bathrooms and master bedroom).',
+					},
+					{
+						name: 'Choice of premium PVC white venetian blinds or block our roller blinds to all windows (excluding sliding doors, wet areas, Kitchen and cornerless windows).',
 					},
 				],
 			},
@@ -209,116 +231,262 @@ const QUOTE_CATALOGUE_DATA: SeedStage[] = [
 		name: 'Fixing',
 		sections: [
 			{
-				name: 'Skirting & Internal Detailing',
+				name: 'Internal Features',
 				items: [
 					{
-						name: 'Square-set skirting',
-						description:
-							'185mm square-set MDF skirting, glued and set flush with two-pack finish',
+						name: '2590mm high ceilings throughout (single storey homes only and ground floor of double storey).',
 					},
 					{
-						name: 'Shadowline ceiling detail',
-						description:
-							'Shadowline ceiling detail to living, dining and primary suite',
+						name: '10mm plasterboard to all internal walls and ceilings.',
 					},
 					{
-						name: 'Concealed door jambs',
-						description:
-							'Concealed door jambs to all internal doors, 2340mm height',
+						name: 'Water Resistant Plasterboard to wet area walls.',
+					},
+					{
+						name: '90mm cove cornice (excluding porch and patios).',
+					},
+					{
+						name: '66mm x 11mm skirting (primed FJ pine).',
+					},
+					{
+						name: '42mm x 11mm architrave (primed FJ pine).',
+					},
+					{
+						name: 'Mirrored or 1 Mirror/1 White Vinyl sliding doors to bedroom robes (2100H approx., white or bright silver frame).',
+					},
+					{
+						name: 'White Vinyl sliding doors to linen (2100H approx., white frame).',
+					},
+					{
+						name: '4 x whiteboard shelves to linen and pantry (450mm deep approx. where applicable).',
+					},
+					{
+						name: '1 x whiteboard shelf to all bedroom robes (450mm deep approx. where applicable) with 1 x chrome hanging rail.',
 					},
 				],
 			},
 			{
-				name: 'Kitchen & Wet Areas',
+				name: 'Painting',
 				items: [
 					{
-						name: 'Custom two-pack joinery',
-						description:
-							'Custom two-pack joinery with 20mm engineered stone tops and waterfall ends',
+						name: '3 coats of Acrylic low sheen paint to all internal walls and matt to ceilings. Note: 1 light paint colour throughout.',
 					},
 					{
-						name: 'Appliance allowance',
-						description:
-							'Appliance allowance of $28,000 including integrated refrigeration',
+						name: 'Gloss finish to doors, architraves and skirtings (colour matched to walls, water based).',
 					},
 					{
-						name: 'Bathroom tiling',
-						description:
-							'Full-height tiling to all bathrooms, tile allowance $95/m² supply',
+						name: '3 coats of Acrylic low sheen paint to eaves and patio ceiling (and render if applicable).',
 					},
 				],
 			},
 			{
-				name: 'Electrical & Sustainable Energy',
+				name: 'Floor Coverings',
 				items: [
 					{
-						name: 'Solar & battery storage',
-						description:
-							'10kW solar array with 13.5kWh battery storage and hybrid inverter',
+						name: '600mm x 600mm Tiles to main living from Builders Range.',
 					},
 					{
-						name: 'LED downlights',
-						description:
-							'Recessed LED downlights on dimmable circuits, allowance of 64 fittings',
+						name: '600mm x 600mm Tiles to wet area floors from Builders Range.',
 					},
 					{
-						name: 'EV charger rough-in',
-						description:
-							'EV charger rough-in to basement garage, 32A single phase',
+						name: '600mm x 300mm or 600mm x 600mm Wall tiles from Builders Range (2100mm high approximately, shower area only, bath surround to approximately 900mm high).',
+					},
+					{
+						name: '600mm x 600mm tiles to porch and alfresco (non-slip) from Builders Range.',
+					},
+					{
+						name: '600mm x 300mm or 600mm x 600mm Tiles to kitchen splashback (600mm high approx.).',
+					},
+					{
+						name: '600mm x 300mm Tiles to laundry splashback (300mmm high approx.).',
+					},
+					{
+						name: 'Grout and Silicone colours at Builders discretion U.N.O. Grout lines approx. 3mm.',
+					},
+					{
+						name: 'Quality carpet from Builders Range with premium 10mm underlay to bedrooms and media/living room - where applicable.',
+					},
+					{
+						name: 'Plain concrete to garage floor.',
+					},
+				],
+			},
+			{
+				name: 'Kitchen Appliances - For homes up to 170sqm',
+				items: [
+					{
+						name: 'Westinghouse 60cm under bench electric oven (WVE613S).',
+					},
+					{
+						name: 'Westinghouse 60cm 4 zone Induction cooktop (WHI645BD).',
+					},
+					{
+						name: 'Chef slide out rangehood (CRR612SB) - externally ducted as per plan.',
+					},
+					{
+						name: 'Westinghouse Stainless Steel dishwasher (WSF6606XA).',
+					},
+				],
+			},
+			{
+				name: 'Kitchen Appliances - For homes above 170sqm',
+				items: [
+					{
+						name: 'Westinghouse 90cm underbench electric oven (WVE9915SDA).',
+					},
+					{
+						name: 'Westinghouse 4 zone 90cm Induction cooktop (WHI955BD).',
+					},
+					{
+						name: 'Chef 90cm canopy rangehood (CRC914SB) - externally ducted as per plan.',
+					},
+					{
+						name: 'Westinghouse stainless steel dishwasher (WSF6606XB).',
+					},
+				],
+			},
+			{
+				name: 'Kitchen',
+				items: [
+					{
+						name: 'Lithostone™ 20mm stone benchtops (8 colours to choose from). 1 stone colour throughout.',
+					},
+					{
+						name: 'Polytec™ melamine doors (60 colours to choose from). 1 cabinetry colour throughout, Matt or Sheen finish.',
+					},
+					{
+						name: 'Matching kickboard colour.',
+					},
+					{
+						name: 'Breakfast bar to island benchtop 900mm Deep UNO.',
+					},
+					{
+						name: '1 set of drawers with cutlery tray to top drawer (450mm wide, UNO).',
+					},
+					{
+						name: 'Overhead cabinets (Inc. fridge space).',
+					},
+					{
+						name: 'Microwave space including single GPO.',
+					},
+					{
+						name: 'Slimline brushed nickel/matte black kitchen handles (165mm) or knobs.',
+					},
+					{
+						name: 'Kitchen plaster bulkhead included above overhead cabinets.',
+					},
+					{
+						name: 'Soft close doors and drawers.',
+					},
+					{
+						name: 'Cold water tap to the fridge space.',
+					},
+					{
+						name: 'Seima Leto Double bowl undermount sink with Nero Dolce gooseneck chrome or black sink mixer (no pull out spray).',
+					},
+					{
+						name: "Seima Leto Single bowl undermount sink with Nero Dolce gooseneck chrome or black sink mixer to butler's pantry (design specific).",
+					},
+				],
+			},
+			{
+				name: 'Wet Areas',
+				items: [
+					{
+						name: 'Seima Syros 105 Freestanding bath (Colour: White, Size: 1500 x 740 x 570H mm).',
+					},
+					{
+						name: 'Lithostone™ 20mm stone benchtops with white Builders Range Basin.',
+					},
+					{
+						name: 'Frameless mirrors (matching vanity width, 900mm high).',
+					},
+					{
+						name: 'Seima Syros (Liara) wall faced, clean flush toilet with soft close lid.',
+					},
+					{
+						name: 'Nero Dolce Pin Mixers in Chrome or Black.',
+					},
+					{
+						name: 'Nero single shower rail in Chrome or Black (NR315).',
+					},
+					{
+						name: 'Semi Frameless shower screen with clear glass and pivot door. Black or Bright Silver',
+					},
+					{
+						name: 'Chrome or Black accessories (double towel rails, hand towel (powder room only) and toilet paper holders).',
+					},
+					{
+						name: 'Lithostone™ 20mm stone to laundry with 45L Stainless Steel laundry tub and Nero Gooseneck Sink Mixer in Chrome or Black.',
+					},
+					{
+						name: 'Smart tile wastes to all showers in Black or Chrome.',
+					},
+					{
+						name: 'Recessed shower floors with 5mm Waterbar.',
+					},
+					{
+						name: 'Waterproofing to Australian Standards.',
+					},
+				],
+			},
+			{
+				name: 'Electrical',
+				items: [
+					{
+						name: 'Daikin™ 5kW Cooling / 6KW Heating Reverse Cycle split system to one living area (back to back installation).',
+					},
+					{
+						name: 'LED Downlights (2 downlights per bedroom plus 1 downlight for every 10sqm of home).',
+					},
+					{
+						name: 'White 4 Blade ceiling fans to all bedrooms.',
+					},
+					{
+						name: 'Externally ducted exhaust fan to Bathroom and Ensuite.',
+					},
+					{
+						name: 'White external ceiling fan to the Alfresco.',
+					},
+					{
+						name: '1 x Digital TV Antenna (roof mounted).',
+					},
+					{
+						name: 'Hardwired smoke alarms.',
+					},
+					{
+						name: '1 x Data point to Media or Kitchen and 1 x Data point to Garage (Garage for NBN requirements).',
+					},
+					{
+						name: '2 x TV Points.',
+					},
+					{
+						name: '2 x Double power points to Kitchen and Living area.',
+					},
+					{
+						name: '1 x Double power points to all other rooms (Excluding robes, linen and storage).',
+					},
+					{
+						name: 'Quality white switches and power points.',
 					},
 				],
 			},
 		],
 	},
 	{
-		name: 'Practical completion',
+		name: 'Practical Completion',
 		sections: [
 			{
-				name: 'Pool & Outdoor Living',
+				name: 'Plus',
 				items: [
 					{
-						name: 'Concrete lap pool',
-						description:
-							'10m concrete lap pool, fully tiled with glass mosaic waterline and gas heating',
+						name: 'Professionally cleaned.',
 					},
 					{
-						name: 'Outdoor kitchen',
-						description:
-							'Outdoor kitchen with teppanyaki plate, sink and integrated bar refrigeration',
+						name: 'Approx. 70mm stepdown to Porch and Alfresco.',
 					},
 					{
-						name: 'Pool fencing & paving',
-						description: 'Pool fencing, paving and turf to rear yard',
-					},
-				],
-			},
-			{
-				name: 'Landscaping & Driveway',
-				items: [
-					{
-						name: 'Exposed aggregate driveway',
-						description:
-							'Exposed aggregate driveway with automated sliding gate and intercom',
-					},
-					{
-						name: 'Landscape package',
-						description:
-							'Landscape package to approved plan including irrigation to garden beds',
-					},
-				],
-			},
-			{
-				name: 'Handover',
-				items: [
-					{
-						name: 'Final clean & pest treatment',
-						description:
-							"Final builder's clean, window clean and pest treatment",
-					},
-					{
-						name: 'Handover walkthrough',
-						description:
-							'Handover walkthrough, keys, warranty folder and maintenance schedule',
+						name: 'Up to 6 Lineal Meters NBN Provision conduit (where applicable), any connection fees are to be paid by the Owners.',
 					},
 				],
 			},
@@ -327,48 +495,77 @@ const QUOTE_CATALOGUE_DATA: SeedStage[] = [
 ];
 
 /**
- * Seeds the quote catalogue from the client quotation template. Skips entirely
- * if any stage already exists so it never duplicates a hand-curated catalogue.
+ * Replaces the quote catalogue with the standard inclusions from
+ * `docs/CMA-Quotation-Sample.pdf`.
+ *
+ * DESTRUCTIVE: every section and item is deleted before reseeding, so any
+ * hand-curated catalogue content is lost. Stages are deliberately preserved —
+ * their `defaultPercent` and `scopeSummary` are edited in the portal and must
+ * survive a reseed. Stages the data references but that do not exist yet are
+ * created from `QUOTE_STAGE_DEFAULTS`.
+ *
+ * Run with `npx convex run quoteCatalogue/seed:populate`.
  */
 export const populate = internalMutation({
 	args: {},
 	handler: async (ctx) => {
-		const existing = await ctx.db.query('quoteStages').first();
-		if (existing) {
-			return { skipped: true, message: 'Quote catalogue already populated' };
+		const existingItems = await ctx.db.query('quoteItems').collect();
+		for (const item of existingItems) {
+			await ctx.db.delete(item._id);
 		}
+		const existingSections = await ctx.db.query('quoteSections').collect();
+		for (const section of existingSections) {
+			await ctx.db.delete(section._id);
+		}
+
+		const existingStages = await ctx.db.query('quoteStages').collect();
+		// Matched case-insensitively, but the kept stage's own name is what the
+		// denormalized search texts embed — a preserved stage may be cased
+		// differently to the seed data.
+		const stagesByName = new Map(
+			existingStages.map((stage) => [
+				stage.name.toLowerCase(),
+				{ id: stage._id, name: stage.name },
+			])
+		);
 
 		let sectionCount = 0;
 		let itemCount = 0;
 
-		for (const [stageIndex, stage] of QUOTE_CATALOGUE_DATA.entries()) {
-			const stageId = await ctx.db.insert('quoteStages', {
-				name: stage.name,
-				order: stageIndex,
-				searchText: buildQuoteStageSearchText(stage.name),
-			});
+		for (const stage of QUOTE_CATALOGUE_DATA) {
+			const stageKey = stage.name.toLowerCase();
+			let existing = stagesByName.get(stageKey);
+			if (!existing) {
+				const stageId: Id<'quoteStages'> = await createQuoteStage(
+					ctx,
+					stage.name,
+					QUOTE_STAGE_DEFAULTS[stageKey]
+				);
+				existing = { id: stageId, name: stage.name };
+				stagesByName.set(stageKey, existing);
+			}
+			const stageId = existing.id;
+			const stageName = existing.name;
 
 			for (const [sectionIndex, section] of stage.sections.entries()) {
 				const sectionId = await ctx.db.insert('quoteSections', {
 					name: section.name,
 					stageId,
 					order: sectionIndex,
-					searchText: buildQuoteSectionSearchText(section.name, stage.name),
+					searchText: buildQuoteSectionSearchText(section.name, stageName),
 				});
 				sectionCount++;
 
 				for (const [itemIndex, item] of section.items.entries()) {
 					await ctx.db.insert('quoteItems', {
 						name: item.name,
-						description: item.description,
 						sectionId,
 						isDefault: true,
 						order: itemIndex,
 						searchText: buildQuoteItemSearchText(
 							item.name,
-							item.description,
 							section.name,
-							stage.name
+							stageName
 						),
 					});
 					itemCount++;
@@ -380,6 +577,8 @@ export const populate = internalMutation({
 			stages: QUOTE_CATALOGUE_DATA.length,
 			sections: sectionCount,
 			items: itemCount,
+			deletedSections: existingSections.length,
+			deletedItems: existingItems.length,
 		};
 	},
 });
