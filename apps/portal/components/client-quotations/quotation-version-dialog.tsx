@@ -22,14 +22,22 @@ export const MAX_VERSION_DESCRIPTION_LENGTH = 200;
  * Asks what changed before a revision is saved. Every version after the first
  * carries a description, so the history reads as a record rather than a list of
  * dates — the reason it is required rather than optional.
+ *
+ * When `amending`, the same dialog confirms a correction to a version that has
+ * already been saved: the description starts from what that version already
+ * says, and can be corrected along with everything else.
  */
 export default function QuotationVersionDialog({
+	amending = false,
+	initialDescription = '',
 	onConfirm,
 	onOpenChange,
 	open,
 	saving,
 	version,
 }: {
+	amending?: boolean;
+	initialDescription?: string;
 	onConfirm: (description: string) => void;
 	onOpenChange: (open: boolean) => void;
 	open: boolean;
@@ -40,26 +48,32 @@ export default function QuotationVersionDialog({
 
 	useEffect(() => {
 		if (open) {
-			setDescription('');
+			setDescription(initialDescription);
 		}
-	}, [open]);
+	}, [open, initialDescription]);
 
 	const trimmed = description.trim();
+	const action = amending ? 'Update' : 'Save';
 
 	return (
 		<Dialog onOpenChange={onOpenChange} open={open}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Save version {version}</DialogTitle>
+					<DialogTitle>
+						{action} version {version}
+					</DialogTitle>
 					<DialogDescription>
-						This keeps the quote reference and issues a new PDF. The previous
-						version stays available.
+						{amending
+							? `This rewrites version ${version} in place and replaces its PDF. No new version is issued.`
+							: 'This keeps the quote reference and issues a new PDF. The previous version stays available.'}
 					</DialogDescription>
 				</DialogHeader>
 				<DialogPanel>
 					<Field>
 						<FieldLabel htmlFor="quotation-version-description">
-							What changed in this version?
+							{amending
+								? 'What does this version say?'
+								: 'What changed in this version?'}
 						</FieldLabel>
 						<Textarea
 							id="quotation-version-description"
@@ -82,7 +96,7 @@ export default function QuotationVersionDialog({
 						type="button"
 						variant="outline"
 					>
-						<Save aria-hidden /> Save version {version}
+						<Save aria-hidden /> {action} version {version}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -1,6 +1,8 @@
-import { ConvexError, v } from 'convex/values';
+import { ConvexError, type Infer, v } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
+import { buildClientQuotationSearchText } from '../lib/buildSearchText';
+import { australianAddressValidator } from '../projects/shared';
 
 const AUSTRALIAN_POSTCODE_REGEX = /^\d{4}$/;
 const MAX_CLIENTS = 4;
@@ -69,6 +71,37 @@ export const quotationTermsSnapshotValidator = v.object({
 		})
 	),
 });
+
+/**
+ * Everything the composer posts about the body of a quotation, shared by
+ * `create`, `update` and `saveVersion`. The fields that identify a quotation —
+ * the reference, the issue date, the version being written — are declared by
+ * each mutation instead, because only some of them accept each one.
+ */
+export const quotationSnapshotArgs = {
+	projectName: v.string(),
+	description: v.optional(v.string()),
+	clients: v.array(quotationClientValidator),
+	address: australianAddressValidator,
+	validityDays: v.number(),
+	budgetTemplateId: v.optional(v.id('budgetTemplates')),
+	budgetTemplateTitle: v.optional(v.string()),
+	budgetTemplateTotal: v.optional(v.number()),
+	marginPercent: v.optional(v.number()),
+	totalInclGst: v.number(),
+	stages: v.array(quotationStageSnapshotValidator),
+	terms: quotationTermsSnapshotValidator,
+	exclusions: v.array(quotationEntrySnapshotValidator),
+	notes: v.array(quotationEntrySnapshotValidator),
+	documentId: v.optional(v.id('companyDocuments')),
+	s3Key: v.optional(v.string()),
+	fileName: v.optional(v.string()),
+	folderPath: v.optional(v.string()),
+};
+
+const quotationSnapshotValidator = v.object(quotationSnapshotArgs);
+
+export type QuotationSnapshotArgs = Infer<typeof quotationSnapshotValidator>;
 
 export interface QuotationClient {
 	email: string;
@@ -183,6 +216,63 @@ export function parseVersionDescription(description: string): string {
 		});
 	}
 	return trimmed;
+}
+
+/**
+ * Validates a snapshot posted from the composer and returns the fields written
+ * to the quotation row. Every rule a quotation must satisfy lives here, so
+ * `create`, `update` and `saveVersion` cannot drift apart.
+ *
+ * The derived figures are computed here rather than trusted from the client, so
+ * the stored contract sum and GST always agree with the total that was quoted.
+ */
+export function buildQuotationSnapshotPatch(
+	args: QuotationSnapshotArgs,
+	reference: string
+) {
+	const projectName = args.projectName.trim();
+	if (projectName.length === 0) {
+		throw new ConvexError({
+			code: 'INVALID_NAME',
+			message: 'Project name is required',
+		});
+	}
+
+	const clients = parseQuotationClients(args.clients);
+	assertAustralianPostcode(args.address.postcode);
+	assertPositiveTotal(args.totalInclGst);
+	assertStagePercentsTotal(args.stages);
+	const validityDays = parseValidityDays(args.validityDays);
+	const { contractSumExclGst, gstAmount } = splitGst(args.totalInclGst);
+
+	return {
+		projectName,
+		description: args.description?.trim() || undefined,
+		clients,
+		address: args.address,
+		validityDays,
+		budgetTemplateId: args.budgetTemplateId,
+		budgetTemplateTitle: args.budgetTemplateTitle,
+		budgetTemplateTotal: args.budgetTemplateTotal,
+		marginPercent: args.marginPercent,
+		totalInclGst: args.totalInclGst,
+		contractSumExclGst,
+		gstAmount,
+		stages: args.stages,
+		terms: args.terms,
+		exclusions: args.exclusions,
+		notes: args.notes,
+		documentId: args.documentId,
+		s3Key: args.s3Key,
+		fileName: args.fileName,
+		folderPath: args.folderPath,
+		searchText: buildClientQuotationSearchText({
+			address: args.address,
+			clients,
+			projectName,
+			reference,
+		}),
+	};
 }
 
 /** The PDF issued for one version, and where it is filed. */

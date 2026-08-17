@@ -3,9 +3,25 @@ import ClientQuotationComposer from '@/components/client-quotations/client-quota
 
 export default async function EditClientQuotationPage({
 	params,
+	searchParams,
 }: {
 	params: Promise<{ id: string }>;
+	searchParams: Promise<{ version?: string }>;
 }) {
 	const { id } = await params;
-	return <ClientQuotationComposer quotationId={id as Id<'clientQuotations'>} />;
+	// Present when the edit was opened from a row in the version history, which
+	// rewrites that version rather than issuing a new one.
+	const { version } = await searchParams;
+	const editVersion = version === undefined ? undefined : Number(version);
+
+	return (
+		<ClientQuotationComposer
+			editVersion={
+				editVersion !== undefined && Number.isFinite(editVersion)
+					? editVersion
+					: undefined
+			}
+			quotationId={id as Id<'clientQuotations'>}
+		/>
+	);
 }

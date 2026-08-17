@@ -59,6 +59,7 @@ import type * as clientQuotations_listVersions from "../clientQuotations/listVer
 import type * as clientQuotations_reference from "../clientQuotations/reference.js";
 import type * as clientQuotations_remove from "../clientQuotations/remove.js";
 import type * as clientQuotations_reserveReference from "../clientQuotations/reserveReference.js";
+import type * as clientQuotations_saveVersion from "../clientQuotations/saveVersion.js";
 import type * as clientQuotations_search from "../clientQuotations/search.js";
 import type * as clientQuotations_shared from "../clientQuotations/shared.js";
 import type * as clientQuotations_update from "../clientQuotations/update.js";
@@ -536,6 +537,7 @@ declare const fullApi: ApiFromModules<{
   "clientQuotations/reference": typeof clientQuotations_reference;
   "clientQuotations/remove": typeof clientQuotations_remove;
   "clientQuotations/reserveReference": typeof clientQuotations_reserveReference;
+  "clientQuotations/saveVersion": typeof clientQuotations_saveVersion;
   "clientQuotations/search": typeof clientQuotations_search;
   "clientQuotations/shared": typeof clientQuotations_shared;
   "clientQuotations/update": typeof clientQuotations_update;

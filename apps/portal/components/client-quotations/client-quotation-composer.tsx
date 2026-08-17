@@ -65,6 +65,28 @@ const PDF_CONTENT_TYPE = 'application/pdf';
 const LIST_HREF = '/client-quotations';
 const FIRST_VERSION = 1;
 
+function editHeading(
+	editing: boolean,
+	amending: boolean,
+	version: number
+): string {
+	if (!editing) {
+		return 'Add Quotation';
+	}
+	return amending ? `Edit Version ${version}` : 'Edit Quotation';
+}
+
+function saveLabel(
+	editing: boolean,
+	amending: boolean,
+	version: number
+): string {
+	if (!editing) {
+		return 'Save';
+	}
+	return amending ? `Update version ${version}` : 'Save version';
+}
+
 /**
  * Composes a client quotation — a new one, or the next version of an issued one
  * when `quotationId` is given.
@@ -73,10 +95,15 @@ const FIRST_VERSION = 1;
  * the same quotation, described by its version. Its body seeds from what was
  * issued rather than from the catalogue (see `useQuotationDraft`), and saving
  * uploads a fresh PDF so every version stays viewable.
+ *
+ * `editVersion` comes from a row in the version history and asks for that
+ * version to be rewritten in place instead — see `amending` below.
  */
 export default function ClientQuotationComposer({
+	editVersion,
 	quotationId,
 }: {
+	editVersion?: number;
 	quotationId?: Id<'clientQuotations'>;
 }) {
 	const router = useRouter();
@@ -114,6 +141,10 @@ export default function ClientQuotationComposer({
 	const createDocument = useMutation(api.companyDocuments.create.create);
 	const createQuotation = useMutation(api.clientQuotations.create.create);
 	const updateQuotation = useMutation(api.clientQuotations.update.update);
+	const saveQuotationVersion = useMutation(
+		api.clientQuotations.saveVersion.saveVersion
+	);
+	const removeDocument = useAction(api.companyDocuments.remove.remove);
 
 	// Stage percentages and the editable body of the quotation are seeded from the
 	// catalogue (or the issued quotation) rather than held in the form — a
@@ -158,8 +189,13 @@ export default function ClientQuotationComposer({
 
 	const reference = quotation?.reference ?? candidateReference;
 	const issuedAt = quotation ? new Date(quotation.issuedAt) : newIssuedAt;
-	const nextVersion = quotation
-		? (quotation.version ?? FIRST_VERSION) + 1
+	const currentVersion = quotation?.version ?? FIRST_VERSION;
+	// Opened from a version-history row to correct that version in place. Only the
+	// current version holds a snapshot to load back, so anything else — including a
+	// stale link to an older version — falls back to issuing the next version.
+	const amending = Boolean(quotation) && editVersion === currentVersion;
+	const targetVersion = quotation
+		? currentVersion + (amending ? 0 : 1)
 		: FIRST_VERSION;
 
 	const totalInclGst = parseMoney(values.totalInclGst);
@@ -256,26 +292,39 @@ export default function ClientQuotationComposer({
 	const savedBy =
 		user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
 
-	/** The trail printed on page 2: the issued versions, then the pending one. */
+	// The history row being rewritten: its description prefills the dialog, and its
+	// document is the PDF that the freshly generated one replaces.
+	const amendedVersion = amending
+		? versionHistory?.find((row) => row.version === targetVersion)
+		: undefined;
+	const amendedVersionDescription = amendedVersion?.description ?? '';
+
+	/**
+	 * The trail printed on page 2: the issued versions, then the pending one.
+	 * An amendment has no pending version — it replaces the row for the version
+	 * being rewritten, so the trail still reads one row per version.
+	 */
 	const pdfVersionHistory: QuotationPdfVersion[] = useMemo(() => {
+		const pending = {
+			description: editing ? 'This revision' : 'Initial version',
+			updatedAtLabel: formatIssueDate(new Date()),
+			updatedBy: savedBy,
+			version: targetVersion,
+		};
 		const issued = (versionHistory ?? [])
-			.map((row) => ({
-				description: row.description,
-				updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
-				updatedBy: row.updatedBy,
-				version: row.version,
-			}))
+			.map((row) =>
+				amending && row.version === targetVersion
+					? pending
+					: {
+							description: row.description,
+							updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
+							updatedBy: row.updatedBy,
+							version: row.version,
+						}
+			)
 			.sort((a, b) => a.version - b.version);
-		return [
-			...issued,
-			{
-				description: editing ? 'This revision' : 'Initial version',
-				updatedAtLabel: formatIssueDate(new Date()),
-				updatedBy: savedBy,
-				version: nextVersion,
-			},
-		];
-	}, [versionHistory, editing, nextVersion, savedBy]);
+		return amending ? issued : [...issued, pending];
+	}, [versionHistory, amending, editing, targetVersion, savedBy]);
 
 	const pdfInput: QuotationPdfInput | null = useMemo(() => {
 		if (!(termsContent && draft.hydrated)) {
@@ -313,7 +362,7 @@ export default function ClientQuotationComposer({
 			})),
 			totalInclGst,
 			validityDays: Number(values.validityDays) || 0,
-			version: nextVersion,
+			version: targetVersion,
 			versionHistory: pdfVersionHistory,
 		};
 	}, [
@@ -328,7 +377,7 @@ export default function ClientQuotationComposer({
 		draft.stages,
 		draft.termSections,
 		totalInclGst,
-		nextVersion,
+		targetVersion,
 		pdfVersionHistory,
 	]);
 
@@ -374,8 +423,25 @@ export default function ClientQuotationComposer({
 	};
 
 	/**
-	 * Saves version 1 of a new quotation, or the next version of an existing one
-	 * with the description the user gave for it.
+	 * Deletes the PDF an amended version used to point at. Best effort: the save
+	 * has already succeeded by this point, so a stray file is not worth failing on
+	 * — and reporting it would only be noise the user can't act on.
+	 */
+	const discardReplacedPdf = async (documentId?: Id<'companyDocuments'>) => {
+		if (!documentId) {
+			return;
+		}
+		try {
+			await removeDocument({ documentId });
+		} catch {
+			// Left in company documents; the version still opens the current PDF.
+		}
+	};
+
+	/**
+	 * Saves version 1 of a new quotation, the next version of an existing one, or
+	 * — when amending — rewrites the current version in place. Every path but the
+	 * first carries the description the user gave for it.
 	 */
 	const handleSave = async (versionDescription?: string) => {
 		const parsed = clientQuotationFormSchema.safeParse(values);
@@ -403,13 +469,23 @@ export default function ClientQuotationComposer({
 			const blob = await buildClientQuotationPdfBlob({
 				...pdfInput,
 				reference: savedReference,
+				// The trail in `pdfInput` carries a placeholder for the version being
+				// written, because the description is only given in the dialog. By here
+				// it is known, so the printed page 2 says what the history will say.
+				versionHistory: versionDescription
+					? pdfInput.versionHistory.map((row) =>
+							row.version === targetVersion
+								? { ...row, description: versionDescription }
+								: row
+						)
+					: pdfInput.versionHistory,
 			});
 			// Every version keeps its own file, so the name carries the version from
 			// the second one on — v1 files stay as they were named when issued.
 			const fileName =
-				nextVersion === FIRST_VERSION
+				targetVersion === FIRST_VERSION
 					? `${savedReference} - ${parsed.data.projectName}.pdf`
-					: `${savedReference} - ${parsed.data.projectName} - v${nextVersion}.pdf`;
+					: `${savedReference} - ${parsed.data.projectName} - v${targetVersion}.pdf`;
 			const generated = await generateUploadUrl({
 				folderPath,
 				fileName,
@@ -509,10 +585,24 @@ export default function ClientQuotationComposer({
 				folderPath,
 			};
 
-			if (quotationId && versionDescription) {
+			if (quotationId && versionDescription && amending) {
+				await saveQuotationVersion({
+					quotationId,
+					version: targetVersion,
+					versionDescription,
+					...snapshot,
+				});
+				// Only once the version points at the new PDF, so a failed save can
+				// never leave it with no document at all.
+				await discardReplacedPdf(amendedVersion?.documentId);
+				toastManager.add({
+					title: `Version ${targetVersion} updated`,
+					type: 'success',
+				});
+			} else if (quotationId && versionDescription) {
 				await updateQuotation({ quotationId, versionDescription, ...snapshot });
 				toastManager.add({
-					title: `Version ${nextVersion} saved`,
+					title: `Version ${targetVersion} saved`,
 					type: 'success',
 				});
 			} else {
@@ -566,7 +656,7 @@ export default function ClientQuotationComposer({
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<PageHeading
 				backLink={LIST_HREF}
-				heading={editing ? 'Edit Quotation' : 'Add Quotation'}
+				heading={editHeading(editing, amending, targetVersion)}
 				rightSlot={
 					<div className="flex items-center gap-2">
 						<Button
@@ -598,7 +688,8 @@ export default function ClientQuotationComposer({
 							type="button"
 							variant="outline"
 						>
-							<Save aria-hidden /> {editing ? 'Save version' : 'Save'}
+							<Save aria-hidden />
+							{saveLabel(editing, amending, targetVersion)}
 						</Button>
 					</div>
 				}
@@ -752,7 +843,7 @@ export default function ClientQuotationComposer({
 									</div>
 									<p className="mt-auto text-muted-foreground text-sm">
 										{editing
-											? `Issued ${formatIssueDate(issuedAt)}. Saving issues version ${nextVersion} under the same reference.`
+											? `Issued ${formatIssueDate(issuedAt)}. ${amending ? `Saving rewrites version ${targetVersion}` : `Saving issues version ${targetVersion}`} under the same reference.`
 											: `Issued ${formatIssueDate(issuedAt)}. The reference is confirmed when you save.`}
 									</p>
 								</FramePanel>
@@ -904,6 +995,8 @@ export default function ClientQuotationComposer({
 			</div>
 
 			<QuotationVersionDialog
+				amending={amending}
+				initialDescription={amending ? amendedVersionDescription : ''}
 				onConfirm={(description) => {
 					handleSave(description).catch(() => {
 						/* handled in handleSave */
@@ -912,7 +1005,7 @@ export default function ClientQuotationComposer({
 				onOpenChange={setVersionDialogOpen}
 				open={versionDialogOpen}
 				saving={saving}
-				version={nextVersion}
+				version={targetVersion}
 			/>
 		</div>
 	);

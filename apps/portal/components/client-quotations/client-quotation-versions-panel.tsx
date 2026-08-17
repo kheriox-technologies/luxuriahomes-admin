@@ -5,6 +5,12 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
+	Menu,
+	MenuItem,
+	MenuPopup,
+	MenuTrigger,
+} from '@workspace/ui/components/menu';
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -13,10 +19,19 @@ import {
 	TableRow,
 } from '@workspace/ui/components/table';
 import { useQuery } from 'convex/react';
-import { ExternalLink } from 'lucide-react';
+import { EllipsisVertical, ExternalLink, Pencil } from 'lucide-react';
+import Link, { type LinkProps } from 'next/link';
 import { formatAudWhole } from '@/lib/currency';
 import { formatIssueDate } from './client-quotation-form-shared';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
+
+// Routes are typed, and a template literal can't be proved to be one of them.
+function editVersionHref(
+	quotationId: Id<'clientQuotations'>,
+	version: number
+): LinkProps<string>['href'] {
+	return `/client-quotations/${quotationId}/edit?version=${version}` as LinkProps<string>['href'];
+}
 
 /**
  * The revision history of one quotation, newest first. Mounted only while its
@@ -53,7 +68,7 @@ export default function ClientQuotationVersionsPanel({
 						<TableHead className="w-40">Updated by</TableHead>
 						<TableHead className="w-36">Updated at</TableHead>
 						<TableHead className="w-32 text-right">Total</TableHead>
-						<TableHead className="w-28" />
+						<TableHead className="w-12" />
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -80,19 +95,54 @@ export default function ClientQuotationVersionsPanel({
 								{formatAudWhole(version.totalInclGst)}
 							</TableCell>
 							<TableCell className="text-right">
-								<Button
-									disabled={!version.s3Key}
-									onClick={() => {
-										openPdf(version.s3Key).catch(() => {
-											/* handled in openPdf */
-										});
-									}}
-									size="sm"
-									type="button"
-									variant="outline"
-								>
-									<ExternalLink aria-hidden /> PDF
-								</Button>
+								<Menu>
+									<MenuTrigger
+										render={
+											<Button
+												aria-label={`Version ${version.version} actions`}
+												size="icon-sm"
+												type="button"
+												variant="ghost"
+											/>
+										}
+									>
+										<EllipsisVertical className="size-4" />
+									</MenuTrigger>
+									<MenuPopup align="end">
+										{/* Only the current version carries a snapshot to load back
+										    into the composer, so earlier ones can't be edited. The
+										    link is left out rather than only disabled — an anchor
+										    still navigates when it is clicked. */}
+										{version.version === latestVersion ? (
+											<MenuItem
+												render={
+													<Link
+														href={editVersionHref(quotationId, version.version)}
+													/>
+												}
+											>
+												<Pencil />
+												Edit
+											</MenuItem>
+										) : (
+											<MenuItem disabled>
+												<Pencil />
+												Edit
+											</MenuItem>
+										)}
+										<MenuItem
+											disabled={!version.s3Key}
+											onClick={() => {
+												openPdf(version.s3Key).catch(() => {
+													/* handled in openPdf */
+												});
+											}}
+										>
+											<ExternalLink />
+											View PDF
+										</MenuItem>
+									</MenuPopup>
+								</Menu>
 							</TableCell>
 						</TableRow>
 					))}
