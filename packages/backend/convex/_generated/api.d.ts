@@ -290,6 +290,7 @@ import type * as projects_remove from "../projects/remove.js";
 import type * as projects_search from "../projects/search.js";
 import type * as projects_shared from "../projects/shared.js";
 import type * as projects_update from "../projects/update.js";
+import type * as quoteCatalogue_seed from "../quoteCatalogue/seed.js";
 import type * as quoteCatalogue_tree from "../quoteCatalogue/tree.js";
 import type * as quoteItems_add from "../quoteItems/add.js";
 import type * as quoteItems_remove from "../quoteItems/remove.js";
@@ -728,6 +729,7 @@ declare const fullApi: ApiFromModules<{
   "projects/search": typeof projects_search;
   "projects/shared": typeof projects_shared;
   "projects/update": typeof projects_update;
+  "quoteCatalogue/seed": typeof quoteCatalogue_seed;
   "quoteCatalogue/tree": typeof quoteCatalogue_tree;
   "quoteItems/add": typeof quoteItems_add;
   "quoteItems/remove": typeof quoteItems_remove;
