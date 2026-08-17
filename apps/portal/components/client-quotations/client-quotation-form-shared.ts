@@ -7,11 +7,9 @@ import { AUSTRALIAN_STATES } from '@/components/projects/project-form-shared';
 const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
 const PERCENT_PATTERN = /^\d{1,3}(\.\d{1,2})?$/;
 const POSTCODE_PATTERN = /^\d{4}$/;
-const VALIDITY_PATTERN = /^\d{1,3}$/;
 
 export const MAX_QUOTATION_CLIENTS = 4;
 export const COVER_DESCRIPTION_MAX_LENGTH = 400;
-export const DEFAULT_VALIDITY_DAYS = '30';
 export const QUOTATION_FOLDER_NAME = 'Client Quotations';
 export const REQUIRED_PERCENT_TOTAL = 100;
 // Percentages are entered to two decimals; anything closer than this is rounding.
@@ -52,10 +50,6 @@ export const clientQuotationFormSchema = z.object({
 			.trim()
 			.regex(POSTCODE_PATTERN, 'Postcode must be 4 digits'),
 	}),
-	validityDays: z
-		.string()
-		.trim()
-		.regex(VALIDITY_PATTERN, 'Enter a whole number of days'),
 	budgetTemplateId: z.string(),
 	marginPercent: z
 		.string()
@@ -87,7 +81,6 @@ export const emptyClientQuotationFormValues: ClientQuotationFormValues = {
 	description: '',
 	clients: [{ ...emptyQuotationClient }],
 	address: { street: '', suburb: '', state: 'QLD', postcode: '' },
-	validityDays: DEFAULT_VALIDITY_DAYS,
 	budgetTemplateId: '',
 	marginPercent: '',
 	totalInclGst: '',
@@ -115,7 +108,6 @@ export function formValuesFromQuotation(
 			state: quotation.address.state,
 			postcode: quotation.address.postcode,
 		},
-		validityDays: String(quotation.validityDays),
 		budgetTemplateId: quotation.budgetTemplateId ?? '',
 		marginPercent:
 			quotation.marginPercent === undefined

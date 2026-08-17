@@ -61,9 +61,9 @@ export default function QuotationPricingField({
 
 	return (
 		<div className="flex flex-col gap-3">
-			{/* Template at half the row, margin and total at a quarter each. */}
-			<div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<Field className="lg:col-span-2">
+			{/* Template on its own row, margin and total sharing the one below. */}
+			<div className="grid items-start gap-3 sm:grid-cols-2">
+				<Field className="sm:col-span-2">
 					<FieldLabel htmlFor="quotation-budget-template">
 						Budget template
 					</FieldLabel>
@@ -104,7 +104,7 @@ export default function QuotationPricingField({
 					<FieldLabel htmlFor="quotation-margin">Margin</FieldLabel>
 					<InputGroup>
 						<InputGroupInput
-							aria-invalid={Boolean(marginError)}
+							aria-invalid={Boolean(marginError) || undefined}
 							id="quotation-margin"
 							inputMode="decimal"
 							nativeInput
@@ -127,7 +127,7 @@ export default function QuotationPricingField({
 							<InputGroupText>$</InputGroupText>
 						</InputGroupAddon>
 						<InputGroupInput
-							aria-invalid={Boolean(totalError)}
+							aria-invalid={Boolean(totalError) || undefined}
 							id="quotation-total"
 							inputMode="decimal"
 							nativeInput

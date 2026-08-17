@@ -47,20 +47,15 @@ import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 type QuotationRow = Doc<'clientQuotations'>;
 
-const MS_PER_DAY = 86_400_000;
 const NEW_HREF = '/client-quotations/new';
 const FIRST_VERSION = 1;
 
 // The header labels and every row are the same grid — including the trailing
 // track the actions sit in — so the columns line up exactly. The first column is
-// wide enough for a reference and its version badge on one line, and the date
-// columns for a spelled-out month.
+// wide enough for a reference and its version badge on one line, and the issued
+// column for a spelled-out month.
 const ROW_GRID =
-	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_9.5rem_4.5rem] items-center gap-3 px-3 text-left';
-
-function validUntil(row: QuotationRow): Date {
-	return new Date(row.issuedAt + row.validityDays * MS_PER_DAY);
-}
+	'grid grid-cols-[10.5rem_minmax(0,1.4fr)_minmax(0,1.2fr)_8rem_9.5rem_4.5rem] items-center gap-3 px-3 text-left';
 
 // Routes are typed, and a template literal can't be proved to be one of them.
 function editHref(row: QuotationRow): LinkProps<string>['href'] {
@@ -126,8 +121,6 @@ function QuotationAccordionItem({
 	expanded: boolean;
 	row: QuotationRow;
 }) {
-	const expiry = validUntil(row);
-	const expired = expiry.getTime() < Date.now();
 	const version = row.version ?? FIRST_VERSION;
 
 	return (
@@ -157,12 +150,6 @@ function QuotationAccordionItem({
 				</span>
 				<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
 					{formatIssueDate(new Date(row.issuedAt))}
-				</span>
-				<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
-					<span className="text-muted-foreground">
-						{formatIssueDate(expiry)}
-					</span>
-					{expired ? <Badge variant="secondary">Expired</Badge> : null}
 				</span>
 				<span className="relative flex items-center justify-end">
 					<QuotationRowActions row={row} />
@@ -243,7 +230,6 @@ export default function ClientQuotationsPageContent() {
 					<span>Clients</span>
 					<span>Total incl. GST</span>
 					<span>Issued</span>
-					<span>Valid until</span>
 					<span />
 				</div>
 				<Accordion

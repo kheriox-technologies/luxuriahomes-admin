@@ -11,8 +11,6 @@ const PERCENT_TOTAL = 100;
 // 100 is a rounding artefact rather than a real imbalance.
 const PERCENT_EPSILON = 0.005;
 const GST_DIVISOR = 1.1;
-const MIN_VALIDITY_DAYS = 1;
-const MAX_VALIDITY_DAYS = 365;
 const MAX_VERSION_DESCRIPTION_LENGTH = 200;
 
 /** Every quotation starts here; only later revisions are described by the user. */
@@ -83,7 +81,6 @@ export const quotationSnapshotArgs = {
 	description: v.optional(v.string()),
 	clients: v.array(quotationClientValidator),
 	address: australianAddressValidator,
-	validityDays: v.number(),
 	budgetTemplateId: v.optional(v.id('budgetTemplates')),
 	budgetTemplateTitle: v.optional(v.string()),
 	budgetTemplateTotal: v.optional(v.number()),
@@ -178,20 +175,6 @@ export function assertAustralianPostcode(postcode: string): void {
 	}
 }
 
-export function parseValidityDays(days: number): number {
-	if (
-		!Number.isInteger(days) ||
-		days < MIN_VALIDITY_DAYS ||
-		days > MAX_VALIDITY_DAYS
-	) {
-		throw new ConvexError({
-			code: 'INVALID_VALIDITY',
-			message: `Validity must be between ${MIN_VALIDITY_DAYS} and ${MAX_VALIDITY_DAYS} days`,
-		});
-	}
-	return days;
-}
-
 export function assertPositiveTotal(totalInclGst: number): void {
 	if (!Number.isFinite(totalInclGst) || totalInclGst <= 0) {
 		throw new ConvexError({
@@ -242,7 +225,6 @@ export function buildQuotationSnapshotPatch(
 	assertAustralianPostcode(args.address.postcode);
 	assertPositiveTotal(args.totalInclGst);
 	assertStagePercentsTotal(args.stages);
-	const validityDays = parseValidityDays(args.validityDays);
 	const { contractSumExclGst, gstAmount } = splitGst(args.totalInclGst);
 
 	return {
@@ -250,7 +232,6 @@ export function buildQuotationSnapshotPatch(
 		description: args.description?.trim() || undefined,
 		clients,
 		address: args.address,
-		validityDays,
 		budgetTemplateId: args.budgetTemplateId,
 		budgetTemplateTitle: args.budgetTemplateTitle,
 		budgetTemplateTotal: args.budgetTemplateTotal,

@@ -506,7 +506,6 @@ export default defineSchema({
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
 		issuedAt: v.number(),
-		validityDays: v.number(),
 		// Pricing provenance. All optional — the total can be typed free-hand
 		// without picking a budget template at all.
 		budgetTemplateId: v.optional(v.id('budgetTemplates')),

@@ -35,7 +35,8 @@ export default function QuotationAddressField({
 				{errors?.street ? <FieldError>{errors.street}</FieldError> : null}
 			</Field>
 
-			<div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+			{/* State and postcode are fixed-width, so the suburb takes the slack. */}
+			<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem]">
 				<Field data-invalid={Boolean(errors?.suburb)}>
 					<FieldLabel htmlFor="quotation-address-suburb">Suburb</FieldLabel>
 					<Input
@@ -52,13 +53,14 @@ export default function QuotationAddressField({
 				<Field data-invalid={Boolean(errors?.state)}>
 					<FieldLabel htmlFor="quotation-address-state">State</FieldLabel>
 					<AustralianStateCombobox
+						codeOnly
 						id="quotation-address-state"
 						invalid={Boolean(errors?.state)}
 						onBlur={() => {
 							/* validation runs on change */
 						}}
 						onChange={(next) => patch({ state: next })}
-						placeholder="Select a state"
+						placeholder="QLD"
 						value={value.state}
 					/>
 					{errors?.state ? <FieldError>{errors.state}</FieldError> : null}
@@ -68,7 +70,6 @@ export default function QuotationAddressField({
 					<FieldLabel htmlFor="quotation-address-postcode">Postcode</FieldLabel>
 					<Input
 						aria-invalid={Boolean(errors?.postcode)}
-						className="sm:w-28"
 						id="quotation-address-postcode"
 						inputMode="numeric"
 						nativeInput

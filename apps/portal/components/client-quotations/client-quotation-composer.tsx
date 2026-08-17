@@ -5,6 +5,7 @@ import { useForm, useStore } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { generateQuotationReference } from '@workspace/backend/quotationReference';
+import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import {
@@ -74,6 +75,23 @@ function editHeading(
 		return 'Add Quotation';
 	}
 	return amending ? `Edit Version ${version}` : 'Edit Quotation';
+}
+
+/** Sits under the heading: when this was issued, and what saving will do. */
+function issuedNote(
+	editing: boolean,
+	amending: boolean,
+	issuedAt: Date,
+	version: number
+): string {
+	const issued = `Issued ${formatIssueDate(issuedAt)}.`;
+	if (!editing) {
+		return `${issued} The reference is confirmed when you save.`;
+	}
+	const versioning = amending
+		? `Saving rewrites version ${version}`
+		: `Saving issues version ${version}`;
+	return `${issued} ${versioning} under the same reference.`;
 }
 
 function saveLabel(
@@ -361,7 +379,6 @@ export default function ClientQuotationComposer({
 				items: section.items.map((item) => item.text),
 			})),
 			totalInclGst,
-			validityDays: Number(values.validityDays) || 0,
 			version: targetVersion,
 			versionHistory: pdfVersionHistory,
 		};
@@ -524,7 +541,6 @@ export default function ClientQuotationComposer({
 					street: string;
 					suburb: string;
 				},
-				validityDays: Number(parsed.data.validityDays),
 				budgetTemplateId: selectedTemplate?._id as
 					| Id<'budgetTemplates'>
 					| undefined,
@@ -634,9 +650,14 @@ export default function ClientQuotationComposer({
 	const descriptionError = quotationFieldError(
 		fieldMeta.description?.isTouched ? fieldMeta.description.errors : undefined
 	);
-	const validityError = quotationFieldError(
-		fieldMeta.validityDays?.isTouched
-			? fieldMeta.validityDays.errors
+	const marginError = quotationFieldError(
+		fieldMeta.marginPercent?.isTouched
+			? fieldMeta.marginPercent.errors
+			: undefined
+	);
+	const totalError = quotationFieldError(
+		fieldMeta.totalInclGst?.isTouched
+			? fieldMeta.totalInclGst.errors
 			: undefined
 	);
 
@@ -656,6 +677,7 @@ export default function ClientQuotationComposer({
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
 			<PageHeading
 				backLink={LIST_HREF}
+				description={issuedNote(editing, amending, issuedAt, targetVersion)}
 				heading={editHeading(editing, amending, targetVersion)}
 				rightSlot={
 					<div className="flex items-center gap-2">
@@ -693,12 +715,17 @@ export default function ClientQuotationComposer({
 						</Button>
 					</div>
 				}
+				titleTrailing={
+					<Badge className="tabular-nums" variant="secondary">
+						{reference}
+					</Badge>
+				}
 			/>
 
 			<div className="flex min-h-0 flex-1 flex-col">
 				<ScrollArea className="min-h-0">
 					<div className="flex w-full flex-col gap-5 pe-3 pb-4">
-						<div className="grid items-stretch gap-5 lg:grid-cols-2">
+						<div className="grid items-stretch gap-5 lg:grid-cols-3">
 							<Frame className="h-full">
 								<FrameHeader>
 									<FrameTitle>Project</FrameTitle>
@@ -768,6 +795,41 @@ export default function ClientQuotationComposer({
 									/>
 								</FramePanel>
 							</Frame>
+
+							<Frame className="h-full">
+								<FrameHeader>
+									<FrameTitle>Price</FrameTitle>
+								</FrameHeader>
+								<FramePanel className="flex-1">
+									<QuotationPricingField
+										budgetTemplateId={values.budgetTemplateId}
+										budgetTemplates={budgetTemplates}
+										marginError={marginError}
+										marginPercent={values.marginPercent}
+										onBudgetTemplateChange={(templateId) => {
+											form.setFieldValue('budgetTemplateId', templateId);
+											applyTemplatePrice(templateId, values.marginPercent);
+										}}
+										onMarginChange={(margin) => {
+											form.setFieldValue('marginPercent', margin);
+											form.setFieldMeta('marginPercent', (meta) => ({
+												...meta,
+												isTouched: true,
+											}));
+											applyTemplatePrice(values.budgetTemplateId, margin);
+										}}
+										onTotalChange={(total) => {
+											form.setFieldValue('totalInclGst', total);
+											form.setFieldMeta('totalInclGst', (meta) => ({
+												...meta,
+												isTouched: true,
+											}));
+										}}
+										totalError={totalError}
+										totalInclGst={values.totalInclGst}
+									/>
+								</FramePanel>
+							</Frame>
 						</div>
 
 						<Frame>
@@ -796,84 +858,6 @@ export default function ClientQuotationComposer({
 								/>
 							</FramePanel>
 						</Frame>
-
-						<div className="grid items-stretch gap-5 lg:grid-cols-2">
-							<Frame className="h-full">
-								<FrameHeader>
-									<FrameTitle>Quote reference</FrameTitle>
-								</FrameHeader>
-								<FramePanel className="flex flex-1 flex-col gap-4">
-									<div className="grid gap-4 sm:grid-cols-2">
-										<Field>
-											<FieldLabel htmlFor="quotation-reference">
-												Reference
-											</FieldLabel>
-											<Input
-												disabled
-												id="quotation-reference"
-												nativeInput
-												readOnly
-												value={reference}
-											/>
-										</Field>
-										<Field data-invalid={Boolean(validityError)}>
-											<FieldLabel htmlFor="quotation-validity">
-												Valid for (days)
-											</FieldLabel>
-											<Input
-												aria-invalid={Boolean(validityError)}
-												id="quotation-validity"
-												inputMode="numeric"
-												nativeInput
-												onBlur={() =>
-													form.setFieldMeta('validityDays', (meta) => ({
-														...meta,
-														isTouched: true,
-													}))
-												}
-												onChange={(event) =>
-													form.setFieldValue('validityDays', event.target.value)
-												}
-												value={values.validityDays}
-											/>
-											{validityError ? (
-												<FieldError>{validityError}</FieldError>
-											) : null}
-										</Field>
-									</div>
-									<p className="mt-auto text-muted-foreground text-sm">
-										{editing
-											? `Issued ${formatIssueDate(issuedAt)}. ${amending ? `Saving rewrites version ${targetVersion}` : `Saving issues version ${targetVersion}`} under the same reference.`
-											: `Issued ${formatIssueDate(issuedAt)}. The reference is confirmed when you save.`}
-									</p>
-								</FramePanel>
-							</Frame>
-
-							<Frame className="h-full">
-								<FrameHeader>
-									<FrameTitle>Price</FrameTitle>
-								</FrameHeader>
-								<FramePanel className="flex-1">
-									<QuotationPricingField
-										budgetTemplateId={values.budgetTemplateId}
-										budgetTemplates={budgetTemplates}
-										marginPercent={values.marginPercent}
-										onBudgetTemplateChange={(templateId) => {
-											form.setFieldValue('budgetTemplateId', templateId);
-											applyTemplatePrice(templateId, values.marginPercent);
-										}}
-										onMarginChange={(margin) => {
-											form.setFieldValue('marginPercent', margin);
-											applyTemplatePrice(values.budgetTemplateId, margin);
-										}}
-										onTotalChange={(total) =>
-											form.setFieldValue('totalInclGst', total)
-										}
-										totalInclGst={values.totalInclGst}
-									/>
-								</FramePanel>
-							</Frame>
-						</div>
 
 						<Frame>
 							<FrameHeader>

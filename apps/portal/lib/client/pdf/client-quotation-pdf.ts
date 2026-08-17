@@ -80,7 +80,6 @@ export interface QuotationPdfInput {
 	stages: QuotationPdfStage[];
 	termSections: QuotationPdfTermSection[];
 	totalInclGst: number;
-	validityDays: number;
 	// The revision this document is, and the trail behind it. Oldest first, and
 	// always including the version being issued — version 1 prints a single row.
 	version: number;
@@ -126,11 +125,11 @@ const COVER_DETAILS_SAFETY_PAD = 8;
 /** Clients per "Prepared for" column on the cover before they wrap. */
 const COVER_CLIENTS_PER_COLUMN = 2;
 /**
- * Reference, version, issued date, validity — the lines of the cover's reference
- * column. `coverDetailsTop` measures the bank off this, so it has to move with
+ * Reference, version, issued date — the lines of the cover's reference column.
+ * `coverDetailsTop` measures the bank off this, so it has to move with
  * `coverDetails`.
  */
-const REFERENCE_COLUMN_LINES = 4;
+const REFERENCE_COLUMN_LINES = 3;
 
 function textBlockHeight(
 	fontSize: number,
@@ -502,7 +501,6 @@ function coverDetails(input: QuotationPdfInput): Node {
 							input.reference,
 							`Version ${input.version}`,
 							`Issued ${input.issuedAtLabel}`,
-							`Valid for ${input.validityDays} days`,
 						],
 						onInk
 					),
