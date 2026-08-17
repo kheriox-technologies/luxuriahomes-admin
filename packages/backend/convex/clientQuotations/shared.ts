@@ -18,18 +18,26 @@ export const INITIAL_VERSION_DESCRIPTION = 'Initial version';
 export const FIRST_VERSION = 1;
 
 /**
- * Where a quotation sits in its lifecycle. Only 'Draft' is reachable today; the
- * later states arrive with the send and signature workflows.
+ * Where a quotation sits in its lifecycle. 'Draft' and 'Approved' are reachable
+ * today; the rest arrive with the send and signature workflows.
  */
 export const clientQuotationStatusValidator = v.union(
 	v.literal('Draft'),
 	v.literal('Under Review'),
+	v.literal('Approved'),
 	v.literal('Awaiting Signatures'),
 	v.literal('Signed')
 );
 
 /** Every quotation starts here. */
 export const INITIAL_QUOTATION_STATUS = 'Draft' as const;
+
+/** The only status a quotation can be approved from. */
+export const REVIEW_QUOTATION_STATUS = 'Under Review' as const;
+export const APPROVED_QUOTATION_STATUS = 'Approved' as const;
+
+/** How an approval reads in the version history. */
+export const APPROVAL_VERSION_DESCRIPTION = 'Approved' as const;
 
 export const quotationClientValidator = v.object({
 	name: v.string(),
@@ -280,13 +288,21 @@ export interface QuotationVersionDocument {
 	s3Key?: string;
 }
 
+/** What a history row records: a new snapshot, or a move through the lifecycle. */
+export type QuotationVersionChangeType = 'Revision' | 'Status';
+
+/** Rows written before status events existed are all revisions. */
+export const DEFAULT_VERSION_CHANGE_TYPE = 'Revision' as const;
+
 /**
- * Appends a history row. Shared by `create` and `update` so the row shape — and
- * the document fields that make each version's PDF openable — live in one place.
+ * Appends a history row. Shared by `create`, `update` and `approve` so the row
+ * shape — and the document fields that make each version's PDF openable — live
+ * in one place.
  */
 export async function insertQuotationVersion(
 	ctx: MutationCtx,
 	args: QuotationVersionDocument & {
+		changeType?: QuotationVersionChangeType;
 		description: string;
 		quotationId: Id<'clientQuotations'>;
 		totalInclGst: number;
@@ -298,6 +314,7 @@ export async function insertQuotationVersion(
 	return await ctx.db.insert('clientQuotationVersions', {
 		quotationId: args.quotationId,
 		version: args.version,
+		changeType: args.changeType,
 		description: args.description,
 		updatedBy: args.updatedBy,
 		updatedAt: args.updatedAt,

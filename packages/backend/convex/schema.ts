@@ -507,8 +507,8 @@ export default defineSchema({
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
 		issuedAt: v.number(),
-		// Lifecycle state. Every quotation is saved as 'Draft'; the later states
-		// arrive with the send and signature workflows.
+		// Lifecycle state. Every quotation is saved as 'Draft' and can be approved
+		// out of review; the signature states arrive with the send workflow.
 		status: clientQuotationStatusValidator,
 		// Pricing provenance. The template fields are optional — the budget can be
 		// typed free-hand without picking a budget template at all.
@@ -546,13 +546,18 @@ export default defineSchema({
 		.index('by_reference', ['reference'])
 		.index('by_created', ['createdAt'])
 		.searchIndex('search_client_quotations', { searchField: 'searchText' }),
-	// One row per saved revision of a client quotation. The quotation row always
-	// holds the latest snapshot; these rows carry who revised it, when and why,
-	// plus the PDF that was issued for that version — every version's document
-	// stays viewable.
+	// One row per saved revision of a client quotation, plus the lifecycle events
+	// that happened against it. The quotation row always holds the latest
+	// snapshot; these rows carry who revised it, when and why, plus the PDF that
+	// was issued for that version — every version's document stays viewable.
 	clientQuotationVersions: defineTable({
 		quotationId: v.id('clientQuotations'),
 		version: v.number(),
+		// What the row records. A status event — an approval, say — keeps the
+		// version it happened at rather than minting a new one, so two rows can
+		// share a number. Absent on rows written before status events existed,
+		// which reads as 'Revision'.
+		changeType: v.optional(v.union(v.literal('Revision'), v.literal('Status'))),
 		description: v.string(),
 		updatedBy: v.string(),
 		updatedAt: v.number(),

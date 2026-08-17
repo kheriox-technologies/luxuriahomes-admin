@@ -28,6 +28,7 @@ import { useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
 import {
 	ChevronDownIcon,
+	CircleCheck,
 	EllipsisVertical,
 	ExternalLink,
 	FileSignature,
@@ -41,6 +42,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import { formatAudWhole } from '@/lib/currency';
+import ApproveClientQuotation from './approve-client-quotation';
 import { formatIssueDate } from './client-quotation-form-shared';
 import ClientQuotationNotesSheet from './client-quotation-notes-sheet';
 import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
@@ -54,6 +56,8 @@ type QuotationRow = FunctionReturnType<
 
 const NEW_HREF = '/quotations/new';
 const FIRST_VERSION = 1;
+/** The only status a quotation can be approved from. */
+const REVIEW_STATUS = 'Under Review';
 
 // The header labels and every row are the same grid — including the trailing
 // track the actions sit in — so the columns line up exactly. The first column is
@@ -65,9 +69,14 @@ const ROW_GRID =
 
 function statusBadgeVariant(
 	status: QuotationRow['status']
-): 'info' | 'secondary' | 'success' | 'warning' {
-	if (status === 'Under Review') {
+): 'info' | 'secondary' | 'success' | 'success-outline' | 'warning' {
+	if (status === REVIEW_STATUS) {
 		return 'warning';
+	}
+	// Approved and Signed are both good news, but they aren't the same news —
+	// the outline keeps the signed state as the emphatic one.
+	if (status === 'Approved') {
+		return 'success-outline';
 	}
 	if (status === 'Awaiting Signatures') {
 		return 'info';
@@ -84,6 +93,7 @@ function editHref(row: QuotationRow): LinkProps<string>['href'] {
 }
 
 function QuotationRowActions({ row }: { row: QuotationRow }) {
+	const [approveOpen, setApproveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
 	const openPdf = useOpenQuotationPdf();
@@ -137,6 +147,15 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 						<StickyNote />
 						Notes
 					</MenuItem>
+					{/* Approval is the outcome of a review, so it only opens once the
+					    quotation is actually under review. */}
+					<MenuItem
+						disabled={row.status !== REVIEW_STATUS}
+						onClick={() => setApproveOpen(true)}
+					>
+						<CircleCheck />
+						Approve
+					</MenuItem>
 					<MenuSeparator />
 					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
 						<Trash2 />
@@ -144,6 +163,12 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 					</MenuItem>
 				</MenuPopup>
 			</Menu>
+			<ApproveClientQuotation
+				onOpenChange={setApproveOpen}
+				open={approveOpen}
+				quotationId={row._id}
+				reference={row.reference}
+			/>
 			<DeleteClientQuotation
 				onOpenChange={setDeleteOpen}
 				open={deleteOpen}

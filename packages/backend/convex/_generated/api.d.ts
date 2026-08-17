@@ -53,6 +53,7 @@ import type * as clientPortal_projects_get from "../clientPortal/projects/get.js
 import type * as clientPortal_projects_list from "../clientPortal/projects/list.js";
 import type * as clientPortal_revokeAccess from "../clientPortal/revokeAccess.js";
 import type * as clientQuotations_appendNote from "../clientQuotations/appendNote.js";
+import type * as clientQuotations_approve from "../clientQuotations/approve.js";
 import type * as clientQuotations_create from "../clientQuotations/create.js";
 import type * as clientQuotations_deleteNote from "../clientQuotations/deleteNote.js";
 import type * as clientQuotations_get from "../clientQuotations/get.js";
@@ -534,6 +535,7 @@ declare const fullApi: ApiFromModules<{
   "clientPortal/projects/list": typeof clientPortal_projects_list;
   "clientPortal/revokeAccess": typeof clientPortal_revokeAccess;
   "clientQuotations/appendNote": typeof clientQuotations_appendNote;
+  "clientQuotations/approve": typeof clientQuotations_approve;
   "clientQuotations/create": typeof clientQuotations_create;
   "clientQuotations/deleteNote": typeof clientQuotations_deleteNote;
   "clientQuotations/get": typeof clientQuotations_get;
