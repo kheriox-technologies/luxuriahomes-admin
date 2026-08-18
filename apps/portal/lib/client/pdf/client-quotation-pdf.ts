@@ -2,7 +2,11 @@ import { env } from '@workspace/env/portal';
 import { formatAud, formatAudWhole } from '@/lib/currency';
 import { htmlToPdfmakeContent, type PdfBlock } from '@/lib/pdf/html-to-pdfmake';
 import { getClientQuotationPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
-import { getPdfMakeWithInter } from '@/lib/pdf/pdf-fonts';
+import {
+	getPdfMakeWithInter,
+	getPdfMakeWithSignatureFonts,
+	isSignatureFontRegistered,
+} from '@/lib/pdf/pdf-fonts';
 import {
 	A4_HEIGHT,
 	A4_WIDTH,
@@ -14,8 +18,10 @@ import {
 	QUOTATION_LAYOUT as L,
 	QUOTATION_LINE_HEIGHTS as LH,
 	QUOTATION_SPACING as S,
+	QUOTATION_SIGNATURE as SG,
 	QUOTATION_TRACKING as T,
 } from './client-quotation-theme';
+import { type SignatureStyleId, signatureStyle } from './signature-styles';
 
 export interface QuotationPdfClient {
 	email: string;
@@ -56,6 +62,25 @@ export interface QuotationPdfVersion {
 	version: number;
 }
 
+/**
+ * One party to the quotation, and whatever they have signed so far.
+ *
+ * The slots are the same for every signer's copy of the document — a client
+ * rebuilding the PDF to add their own initials also redraws everyone else's, so
+ * whoever opens it next sees the marks already collected.
+ */
+export interface QuotationPdfSignerSlot {
+	/** Applied initials, e.g. 'JAW'. Absent leaves the box blank to be filled. */
+	initials?: string;
+	/** 'client-0' … 'client-3' | 'rep'. Stable across every regeneration. */
+	key: string;
+	name: string;
+	role: 'client' | 'representative';
+	/** The full signature and the date it was given, on the acknowledgement page. */
+	signature?: { dateLabel: string; text: string };
+	style: SignatureStyleId;
+}
+
 export interface QuotationPdfInput {
 	acknowledgementHtml: string;
 	address: {
@@ -77,6 +102,12 @@ export interface QuotationPdfInput {
 	notes: string[];
 	projectName: string;
 	reference: string;
+	/**
+	 * The signing parties. Absent on an unsigned quotation, which prints the
+	 * blank signature boxes it always has and no initials strips at all — the
+	 * document only grows signing furniture once signatures are being collected.
+	 */
+	signers?: QuotationPdfSignerSlot[];
 	stages: QuotationPdfStage[];
 	termSections: QuotationPdfTermSection[];
 	totalInclGst: number;
@@ -97,6 +128,35 @@ const NON_SLUG_CHARS = /[^a-z0-9]+/g;
 // Node ids must be unique across the document, so the section leads are
 // namespaced by prefix and matched that way in `pageBreakBefore`.
 const SECTION_OPENING_ID_PREFIX = 'section-opening-';
+
+/**
+ * Signing anchors carry an id too, which is how the signing UI finds where each
+ * box landed. Namespaced away from the section leads, which share the callback.
+ */
+const SIGNATURE_ANCHOR_PREFIX = 'lhsig-';
+
+export function initialsAnchorId(section: number, slotKey: string): string {
+	return `${SIGNATURE_ANCHOR_PREFIX}initials-${section}-${slotKey}`;
+}
+
+export function signatureAnchorId(slotKey: string): string {
+	return `${SIGNATURE_ANCHOR_PREFIX}signature-${slotKey}`;
+}
+
+/** Where one signing box landed, in PDF points from the page's top-left corner. */
+export interface QuotationPdfAnchor {
+	height: number;
+	id: string;
+	kind: 'initials' | 'signature';
+	left: number;
+	/** 1-based, matching the page numbering the PDF renderer uses. */
+	page: number;
+	/** Which numbered section the box closes; absent on the signature boxes. */
+	section?: number;
+	slotKey: string;
+	top: number;
+	width: number;
+}
 
 // Intrinsic aspect of public/logo.svg (viewBox 7627 × 3029), which the linen
 // PNG is derived from.
@@ -1168,16 +1228,146 @@ function termsBody(input: QuotationPdfInput): Node[] {
 const SIGNATURE_COLUMN_GAP = 20;
 const SIGNATURE_BOX_WIDTH = (CONTENT_WIDTH - SIGNATURE_COLUMN_GAP) / 2;
 
-function signatureBox(title: string, subtitle?: string): Node {
+const INITIALS_PAD_X = 10;
+const INITIALS_PAD_Y = 8;
+
+const INITIALS_ANCHOR_REGEX = /^lhsig-initials-(\d+)-(.+)$/;
+const SIGNATURE_ANCHOR_REGEX = /^lhsig-signature-(.+)$/;
+
+/** The strip divides the content width evenly between the signers. */
+function initialsBoxWidth(slotCount: number): number {
+	const count = Math.max(slotCount, 1);
+	return (CONTENT_WIDTH - SG.initialsGap * (count - 1)) / count;
+}
+
+/**
+ * Fixed regardless of whether the box has been signed — the mark is drawn into
+ * the gap left for it rather than added below, so the acknowledgement page does
+ * not reflow as signatures come in.
+ */
+function signatureBoxHeight(hasSubtitle: boolean): number {
+	return (
+		S.cardPadY * 2 +
+		F.label * LH.tight +
+		(hasSubtitle ? F.bodySmall * LH.tight + 2 : 0) +
+		L.signatureGap +
+		6 +
+		F.band * LH.tight
+	);
+}
+
+/**
+ * A signer's name as it captions their box. The representative signs for the
+ * company rather than themselves, so their box says so.
+ */
+function slotCaption(slot: QuotationPdfSignerSlot): string {
+	return slot.role === 'representative'
+		? 'LUXURIA HOMES'
+		: slot.name.toUpperCase();
+}
+
+/**
+ * The script face a mark is drawn in, or the body font when that face failed to
+ * load. pdfmake throws on an unregistered font name, so a network hiccup
+ * fetching Great Vibes must not take the whole document down with it.
+ */
+function markFont(style: SignatureStyleId): Record<string, unknown> {
+	const { pdfFont } = signatureStyle(style);
+	return isSignatureFontRegistered(pdfFont) ? { font: pdfFont } : {};
+}
+
+/** One signer's initials box within a section's strip. */
+function initialsBox(
+	section: number,
+	slot: QuotationPdfSignerSlot,
+	width: number
+): Node {
+	return roundedPanel({
+		content: [
+			{
+				id: initialsAnchorId(section, slot.key),
+				text: slotCaption(slot),
+				fontSize: F.band,
+				characterSpacing: T.label,
+				color: C.accent,
+				lineHeight: LH.tight,
+			},
+			{
+				text: slot.initials ?? '',
+				fontSize: SG.initialsMarkSize,
+				color: C.body,
+				lineHeight: LH.tight,
+				margin: [0, SG.initialsCaptionToMark, 0, 0],
+				...markFont(slot.style),
+			},
+		],
+		height: SG.initialsBoxHeight,
+		padX: INITIALS_PAD_X,
+		padY: INITIALS_PAD_Y,
+		stroke: C.divider,
+		width,
+	});
+}
+
+/**
+ * The initials strip that closes a numbered section — one box per signer, so
+ * every party initials every part of what they are agreeing to.
+ *
+ * Kept unbreakable: a strip split across a page boundary would leave a signer
+ * hunting for the other half of their own box.
+ */
+function sectionInitials(section: number, input: QuotationPdfInput): Node[] {
+	const slots = input.signers ?? [];
+	if (slots.length === 0) {
+		return [];
+	}
+	const width = initialsBoxWidth(slots.length);
+
+	return [
+		{
+			text: `Please initial to confirm you have read and accept Section ${String(section).padStart(2, '0')}.`,
+			fontSize: F.bodySmall,
+			color: C.accent,
+			margin: [0, S.block, 0, S.bullet * 2],
+		},
+		{
+			// Unbreakable so a signer never finds half their box on the next page.
+			// It also collapses every child's reported position onto the row's own
+			// top-left corner, which is exactly what `anchorFromNode` reads back.
+			unbreakable: true,
+			columns: slots.flatMap((slot, index) =>
+				index === 0
+					? [initialsBox(section, slot, width)]
+					: [
+							{ width: SG.initialsGap, text: '' },
+							initialsBox(section, slot, width),
+						]
+			),
+		},
+	];
+}
+
+function signatureBox(
+	title: string,
+	subtitle?: string,
+	options?: {
+		anchorId?: string;
+		signature?: { dateLabel: string; style: SignatureStyleId; text: string };
+	}
+): Node {
 	const padX = S.cardPadX;
 	const padY = S.cardPadY;
-	const labelHeight = F.label * LH.tight;
-	const subtitleHeight = subtitle ? F.bodySmall * LH.tight + 2 : 0;
-	const footerHeight = F.band * LH.tight;
+	const signature = options?.signature;
+	// A signed box gives its blank gap over to the mark itself, so the box keeps
+	// the same footprint whether or not it has been signed and the acknowledgement
+	// page does not reflow as signatures come in.
+	const gapHeight = L.signatureGap;
+	const markHeight = SG.signatureMarkSize * LH.tight;
 
 	return roundedPanel({
 		content: [
 			{
+				...(options?.anchorId ? { id: options.anchorId } : {}),
 				text: title.toUpperCase(),
 				fontSize: F.label,
 				characterSpacing: T.label,
@@ -1196,6 +1386,20 @@ function signatureBox(title: string, subtitle?: string): Node {
 						},
 					]
 				: []),
+			...(signature
+				? [
+						{
+							text: signature.text,
+							fontSize: SG.signatureMarkSize,
+							color: C.body,
+							lineHeight: LH.tight,
+							// Sits on the rule below rather than floating mid-box, the
+							// way a hand-signed line does.
+							margin: [0, gapHeight - markHeight, 0, 0],
+							...markFont(signature.style),
+						},
+					]
+				: []),
 			{
 				canvas: [
 					{
@@ -1208,14 +1412,14 @@ function signatureBox(title: string, subtitle?: string): Node {
 						lineColor: C.divider,
 					},
 				],
-				margin: [0, L.signatureGap, 0, 6],
+				margin: [0, signature ? 0 : gapHeight, 0, 6],
 			},
 			{
 				columns: [
 					{ width: '*', text: 'Signed', fontSize: F.band, color: C.accent },
 					{
 						width: 'auto',
-						text: 'Date',
+						text: signature ? `Date ${signature.dateLabel}` : 'Date',
 						fontSize: F.band,
 						color: C.accent,
 						alignment: 'right',
@@ -1224,13 +1428,7 @@ function signatureBox(title: string, subtitle?: string): Node {
 				lineHeight: LH.tight,
 			},
 		],
-		height:
-			padY * 2 +
-			labelHeight +
-			subtitleHeight +
-			L.signatureGap +
-			6 +
-			footerHeight,
+		height: signatureBoxHeight(Boolean(subtitle)),
 		padX,
 		padY,
 		stroke: C.divider,
@@ -1260,13 +1458,46 @@ function acknowledgementBody(input: QuotationPdfInput): Node[] {
 		htmlToPdfmakeContent(input.acknowledgementHtml)
 	);
 	// One box per client, so every party to the contract has somewhere to sign,
-	// then Luxuria Homes underneath.
-	const clientBoxes = input.clients.map((client, index) =>
-		signatureBox(
-			input.clients.length > 1 ? `Client ${index + 1}` : 'Client',
-			client.name
-		)
+	// then Luxuria Homes underneath. Once signatures are being collected the boxes
+	// are driven by the signer slots instead, which carry the marks already given.
+	const slots = input.signers ?? [];
+	const clientSlots = slots.filter((slot) => slot.role === 'client');
+	const representativeSlot = slots.find(
+		(slot) => slot.role === 'representative'
 	);
+
+	const clientBoxes =
+		clientSlots.length > 0
+			? clientSlots.map((slot, index) =>
+					signatureBox(
+						clientSlots.length > 1 ? `Client ${index + 1}` : 'Client',
+						slot.name,
+						{
+							anchorId: signatureAnchorId(slot.key),
+							signature: slot.signature
+								? { ...slot.signature, style: slot.style }
+								: undefined,
+						}
+					)
+				)
+			: input.clients.map((client, index) =>
+					signatureBox(
+						input.clients.length > 1 ? `Client ${index + 1}` : 'Client',
+						client.name
+					)
+				);
+
+	const representativeBox = representativeSlot
+		? signatureBox('Luxuria Homes', representativeSlot.name, {
+				anchorId: signatureAnchorId(representativeSlot.key),
+				signature: representativeSlot.signature
+					? {
+							...representativeSlot.signature,
+							style: representativeSlot.style,
+						}
+					: undefined,
+			})
+		: signatureBox('Luxuria Homes');
 
 	return [
 		...(acknowledgement.length > 0 ? [tintedCard(acknowledgement)] : []),
@@ -1282,7 +1513,7 @@ function acknowledgementBody(input: QuotationPdfInput): Node[] {
 			unbreakable: true,
 		},
 		...signatureGrid(clientBoxes),
-		...signatureGrid([signatureBox('Luxuria Homes')]),
+		...signatureGrid([representativeBox]),
 	];
 }
 
@@ -1305,6 +1536,8 @@ const NUMBERED_SECTIONS: {
 	body: (input: QuotationPdfInput) => Node[];
 	heading: string;
 	lead?: string;
+	/** Set where the section already carries its own signing furniture. */
+	skipInitials?: boolean;
 }[] = [
 	{
 		body: progressPaymentsBody,
@@ -1328,7 +1561,13 @@ const NUMBERED_SECTIONS: {
 	},
 	{ body: disclaimerBody, heading: 'Disclaimer' },
 	{ body: termsBody, heading: 'Terms & conditions' },
-	{ body: acknowledgementBody, heading: 'Acknowledgement' },
+	// No initials strip: this section is the signature block, so initialling it
+	// after signing it would only ask the same thing twice.
+	{
+		body: acknowledgementBody,
+		heading: 'Acknowledgement',
+		skipInitials: true,
+	},
 ];
 
 function numberedSections(input: QuotationPdfInput): Node[] {
@@ -1350,16 +1589,87 @@ function numberedSections(input: QuotationPdfInput): Node[] {
 				section.heading,
 				section.lead
 			),
-			...body
+			...body,
+			...(section.skipInitials ? [] : sectionInitials(number, input))
 		);
 	}
 	return nodes;
 }
 
+/**
+ * Recovers where a signing box was laid out from the node pdfmake reports.
+ *
+ * Both kinds of box sit in an `unbreakable` row, and pdfmake reports every node
+ * under one of those at the row's own top-left corner rather than the node's —
+ * so `top` is the box's top edge, but `left` is the row's, identical for every
+ * box in it. The horizontal offset is recovered from the slot's column instead,
+ * which is safe because this file lays the row out and so knows its geometry
+ * exactly. Positions are absolute page points with a top-left origin, which is
+ * what a viewer overlaying the rendered page needs.
+ */
+function anchorFromNode(
+	node: {
+		id: string;
+		startPosition: { pageNumber: number; top: number };
+	},
+	input: QuotationPdfInput
+): QuotationPdfAnchor | null {
+	const slots = input.signers ?? [];
+	const { pageNumber, top } = node.startPosition;
+
+	const initials = INITIALS_ANCHOR_REGEX.exec(node.id);
+	if (initials?.[1] && initials[2]) {
+		const slotKey = initials[2];
+		const column = slots.findIndex((slot) => slot.key === slotKey);
+		if (column < 0) {
+			return null;
+		}
+		const width = initialsBoxWidth(slots.length);
+		return {
+			id: node.id,
+			kind: 'initials',
+			section: Number(initials[1]),
+			slotKey,
+			page: pageNumber,
+			left: L.sidePadding + column * (width + SG.initialsGap),
+			top,
+			width,
+			height: SG.initialsBoxHeight,
+		};
+	}
+
+	const signature = SIGNATURE_ANCHOR_REGEX.exec(node.id);
+	if (signature?.[1]) {
+		const slotKey = signature[1];
+		// The client boxes are laid out two-up in slot order; the representative
+		// has a row to itself, so it always opens the left column.
+		const clientIndex = slots
+			.filter((slot) => slot.role === 'client')
+			.findIndex((slot) => slot.key === slotKey);
+		const column = clientIndex < 0 ? 0 : clientIndex % 2;
+		return {
+			id: node.id,
+			kind: 'signature',
+			slotKey,
+			page: pageNumber,
+			left:
+				L.sidePadding + column * (SIGNATURE_BOX_WIDTH + SIGNATURE_COLUMN_GAP),
+			top,
+			width: SIGNATURE_BOX_WIDTH,
+			// Every signing box carries a subtitle — the signer's name — so the
+			// signed height is the one to measure against.
+			height: signatureBoxHeight(true),
+		};
+	}
+
+	return null;
+}
+
 function buildDocDefinition(
 	input: QuotationPdfInput,
 	font: string,
-	logoDataUrl: string
+	logoDataUrl: string,
+	anchors?: Map<string, QuotationPdfAnchor>
 ): Node {
 	return {
 		pageSize: 'A4',
@@ -1379,11 +1689,34 @@ function buildDocDefinition(
 		header: (currentPage: number) => pageHeader(logoDataUrl, currentPage),
 		footer: pageFooter,
 		pageBreakBefore: (
-			currentNode: { id?: string },
+			currentNode: {
+				id?: string;
+				startPosition?: { pageNumber: number; top: number };
+			},
 			followingNodesOnPage: unknown[]
-		) =>
-			Boolean(currentNode.id?.startsWith(SECTION_OPENING_ID_PREFIX)) &&
-			followingNodesOnPage.length < MIN_NODES_AFTER_SECTION_OPENING,
+		) => {
+			// pdfmake re-lays the document out each time this forces a break and
+			// only stops once no node moves, so the last position written for an id
+			// is the one from the settled layout.
+			if (
+				anchors &&
+				currentNode.id?.startsWith(SIGNATURE_ANCHOR_PREFIX) &&
+				currentNode.startPosition
+			) {
+				const anchor = anchorFromNode(
+					{ id: currentNode.id, startPosition: currentNode.startPosition },
+					input
+				);
+				if (anchor) {
+					anchors.set(anchor.id, anchor);
+				}
+			}
+
+			return (
+				Boolean(currentNode.id?.startsWith(SECTION_OPENING_ID_PREFIX)) &&
+				followingNodesOnPage.length < MIN_NODES_AFTER_SECTION_OPENING
+			);
+		},
 		content: [
 			...coverPage(input, logoDataUrl),
 			...versionHistoryPage(input),
@@ -1401,4 +1734,34 @@ export async function buildClientQuotationPdfBlob(
 	]);
 	const pdf = pdfMake.createPdf(buildDocDefinition(input, font, logoDataUrl));
 	return await pdf.getBlob();
+}
+
+/**
+ * The same document with the script faces loaded, plus where every signing box
+ * landed so the signing UI can put its affordances over them.
+ *
+ * Separate from `buildClientQuotationPdfBlob` because the anchors are only
+ * meaningful while signatures are being collected, and the extra three font
+ * fetches are wasted on the composer's preview.
+ */
+export async function buildClientQuotationSignaturePdf(
+	input: QuotationPdfInput
+): Promise<{ anchors: QuotationPdfAnchor[]; blob: Blob }> {
+	const [{ font, pdfMake }, logoDataUrl] = await Promise.all([
+		getPdfMakeWithSignatureFonts(),
+		getClientQuotationPdfLogoDataUrl(),
+	]);
+	const anchors = new Map<string, QuotationPdfAnchor>();
+	const pdf = pdfMake.createPdf(
+		buildDocDefinition(input, font, logoDataUrl, anchors)
+	);
+	const blob = await pdf.getBlob();
+
+	return {
+		// Document order, so "next unsigned box" walks the way the reader reads.
+		anchors: [...anchors.values()].sort(
+			(a, b) => a.page - b.page || a.top - b.top || a.left - b.left
+		),
+		blob,
+	};
 }

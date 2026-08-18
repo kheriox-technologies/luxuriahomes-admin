@@ -18,6 +18,8 @@ import { NoteImagesRow } from '@/components/notes/note-images-row';
 export interface TimelineNote<TId extends string = string> {
 	_id: TId;
 	addedBy: string;
+	/** Clerk user id of the author, where the note log records one. */
+	addedByUserId?: string;
 	images?: string[];
 	note: string;
 	timestamp: number;
@@ -90,10 +92,12 @@ function groupByDay<TId extends string>(
 }
 
 function NoteTimelineItem<TId extends string>({
+	deletable,
 	latest,
 	note,
 	onDelete,
 }: {
+	deletable: boolean;
 	latest: boolean;
 	note: TimelineNote<TId>;
 	onDelete: (noteId: TId) => void;
@@ -113,16 +117,18 @@ function NoteTimelineItem<TId extends string>({
 					<span className="shrink-0 text-muted-foreground text-xs">
 						{TIME_FORMATTER.format(new Date(note.timestamp))}
 					</span>
-					<Button
-						aria-label={`Delete note by ${note.addedBy}`}
-						className="ms-auto shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within/note:opacity-100 group-hover/note:opacity-100 max-md:opacity-100"
-						onClick={() => onDelete(note._id)}
-						size="icon-sm"
-						type="button"
-						variant="ghost"
-					>
-						<Trash2 className="size-4 text-destructive" />
-					</Button>
+					{deletable ? (
+						<Button
+							aria-label={`Delete note by ${note.addedBy}`}
+							className="ms-auto shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within/note:opacity-100 group-hover/note:opacity-100 max-md:opacity-100"
+							onClick={() => onDelete(note._id)}
+							size="icon-sm"
+							type="button"
+							variant="ghost"
+						>
+							<Trash2 className="size-4 text-destructive" />
+						</Button>
+					) : null}
 				</div>
 				<p className="whitespace-pre-wrap text-pretty text-muted-foreground text-sm leading-relaxed">
 					{note.note}
@@ -139,9 +145,11 @@ function NoteTimelineItem<TId extends string>({
 }
 
 function NoteTimeline<TId extends string>({
+	canDelete,
 	notes,
 	onDelete,
 }: {
+	canDelete: (note: TimelineNote<TId>) => boolean;
 	notes: TimelineNote<TId>[];
 	onDelete: (noteId: TId) => void;
 }) {
@@ -160,6 +168,7 @@ function NoteTimeline<TId extends string>({
 					<ol className="flex flex-col">
 						{day.notes.map((note) => (
 							<NoteTimelineItem
+								deletable={canDelete(note)}
 								key={note._id}
 								latest={note._id === latestId}
 								note={note}
@@ -178,10 +187,16 @@ function NoteTimeline<TId extends string>({
  * Every notes surface renders this so they stay identical as the design moves.
  */
 export function NoteTimelineBody<TId extends string>({
+	canDelete,
 	emptyDescription,
 	notes,
 	onDelete,
 }: {
+	/**
+	 * Which notes offer a delete button. Defaults to all of them — the client
+	 * portal passes a predicate so a client only sees it on their own notes.
+	 */
+	canDelete?: (note: TimelineNote<TId>) => boolean;
 	emptyDescription: string;
 	notes: TimelineNote<TId>[] | undefined;
 	onDelete: (noteId: TId) => void;
@@ -202,5 +217,11 @@ export function NoteTimelineBody<TId extends string>({
 			</Empty>
 		);
 	}
-	return <NoteTimeline notes={notes} onDelete={onDelete} />;
+	return (
+		<NoteTimeline
+			canDelete={canDelete ?? (() => true)}
+			notes={notes}
+			onDelete={onDelete}
+		/>
+	);
 }

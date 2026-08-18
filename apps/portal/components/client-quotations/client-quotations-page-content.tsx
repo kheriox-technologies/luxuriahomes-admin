@@ -28,11 +28,15 @@ import { useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
 import {
 	ChevronDownIcon,
+	CircleCheck,
 	EllipsisVertical,
 	ExternalLink,
 	FileSignature,
 	Pencil,
+	PenLine,
 	Plus,
+	Send,
+	Signature,
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
@@ -41,10 +45,14 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import { formatAudWhole } from '@/lib/currency';
+import ApproveClientQuotation from './approve-client-quotation';
 import { formatIssueDate } from './client-quotation-form-shared';
 import ClientQuotationNotesSheet from './client-quotation-notes-sheet';
 import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
 import DeleteClientQuotation from './delete-client-quotation';
+import type { QuotationSurface } from './quotation-surface';
+import RequestSignatures from './request-signatures';
+import SendQuotationToClients from './send-quotation-to-clients';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 // The list and search queries both return the quotation plus its note count.
@@ -54,6 +62,12 @@ type QuotationRow = FunctionReturnType<
 
 const NEW_HREF = '/quotations/new';
 const FIRST_VERSION = 1;
+/** The only status a quotation can be approved from. */
+const REVIEW_STATUS = 'Under Review';
+const DRAFT_STATUS = 'Draft';
+/** Signatures are requested from an approved quotation and collected after. */
+const APPROVED_STATUS = 'Approved';
+const AWAITING_SIGNATURES_STATUS = 'Awaiting Signatures';
 
 // The header labels and every row are the same grid — including the trailing
 // track the actions sit in — so the columns line up exactly. The first column is
@@ -65,9 +79,14 @@ const ROW_GRID =
 
 function statusBadgeVariant(
 	status: QuotationRow['status']
-): 'info' | 'secondary' | 'success' | 'warning' {
-	if (status === 'Under Review') {
+): 'info' | 'secondary' | 'success' | 'success-outline' | 'warning' {
+	if (status === REVIEW_STATUS) {
 		return 'warning';
+	}
+	// Approved and Signed are both good news, but they aren't the same news —
+	// the outline keeps the signed state as the emphatic one.
+	if (status === 'Approved') {
+		return 'success-outline';
 	}
 	if (status === 'Awaiting Signatures') {
 		return 'info';
@@ -78,15 +97,51 @@ function statusBadgeVariant(
 	return 'secondary';
 }
 
+/**
+ * The document to open for a quotation: the signed copy once signing has
+ * started, otherwise the one that was issued.
+ *
+ * Signing files its output separately so the approved PDF stays openable
+ * exactly as it was sent — but that is the archived copy, not the current one.
+ * Anyone opening the quotation wants to see the signatures on it, including the
+ * part-signed state while the ceremony is still running.
+ */
+function latestPdfKey(row: QuotationRow): string | undefined {
+	return row.signedS3Key ?? row.s3Key;
+}
+
 // Routes are typed, and a template literal can't be proved to be one of them.
 function editHref(row: QuotationRow): LinkProps<string>['href'] {
 	return `/quotations/${row._id}/edit` as LinkProps<string>['href'];
 }
 
-function QuotationRowActions({ row }: { row: QuotationRow }) {
+/**
+ * Where this surface signs. A client signs their own copy from the client
+ * portal; an admin countersigns for Luxuria Homes from the admin surface, which
+ * is what keeps the countersignature behind the admin role.
+ */
+function signHref(
+	row: QuotationRow,
+	surface: QuotationSurface
+): LinkProps<string>['href'] {
+	const base = surface === 'client' ? '/client/quotations' : '/quotations';
+	return `${base}/${row._id}/sign` as LinkProps<string>['href'];
+}
+
+function QuotationRowActions({
+	row,
+	surface,
+}: {
+	row: QuotationRow;
+	surface: QuotationSurface;
+}) {
+	const [approveOpen, setApproveOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
-	const openPdf = useOpenQuotationPdf();
+	const [sendOpen, setSendOpen] = useState(false);
+	const [requestSignaturesOpen, setRequestSignaturesOpen] = useState(false);
+	const openPdf = useOpenQuotationPdf(surface);
+	const isClient = surface === 'client';
 
 	return (
 		<>
@@ -118,45 +173,166 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 					<EllipsisVertical className="size-4" />
 				</MenuTrigger>
 				<MenuPopup align="end">
-					<MenuItem render={<Link href={editHref(row)} />}>
-						<Pencil />
-						Edit
-					</MenuItem>
-					<MenuItem
-						disabled={!row.s3Key}
-						onClick={() => {
-							openPdf(row.s3Key).catch(() => {
-								/* handled in openPdf */
-							});
-						}}
-					>
-						<ExternalLink />
-						Open latest PDF
-					</MenuItem>
+					{isClient ? null : (
+						<MenuItem render={<Link href={editHref(row)} />}>
+							<Pencil />
+							Edit
+						</MenuItem>
+					)}
+					{/* The client's row already opens the PDF on click, so the menu
+					    only carries it for admins. */}
+					{isClient ? null : (
+						<MenuItem
+							disabled={!latestPdfKey(row)}
+							onClick={() => {
+								openPdf(latestPdfKey(row), row._id).catch(() => {
+									/* handled in openPdf */
+								});
+							}}
+						>
+							<ExternalLink />
+							Open latest PDF
+						</MenuItem>
+					)}
 					<MenuItem onClick={() => setNotesOpen(true)}>
 						<StickyNote />
 						Notes
 					</MenuItem>
-					<MenuSeparator />
-					<MenuItem onClick={() => setDeleteOpen(true)} variant="destructive">
-						<Trash2 />
-						Delete
+					{/* Also the re-send: a client who has lost the email can be sent
+					    another copy at any status, so only a missing PDF closes it. */}
+					{isClient ? null : (
+						<MenuItem disabled={!row.s3Key} onClick={() => setSendOpen(true)}>
+							<Send />
+							{row.status === DRAFT_STATUS
+								? 'Send to Client/s'
+								: 'Resend to Client/s'}
+						</MenuItem>
+					)}
+					{/* Approval is the outcome of a review, so it only opens once the
+					    quotation is actually under review. */}
+					<MenuItem
+						disabled={row.status !== REVIEW_STATUS}
+						onClick={() => setApproveOpen(true)}
+					>
+						<CircleCheck />
+						Approve
 					</MenuItem>
+					{/* Signatures are collected against a settled document, so the
+					    request only opens once the quotation has been approved. */}
+					{isClient ? null : (
+						<MenuItem
+							disabled={row.status !== APPROVED_STATUS || !row.s3Key}
+							onClick={() => setRequestSignaturesOpen(true)}
+						>
+							<Signature />
+							Request Signatures
+						</MenuItem>
+					)}
+					{/* Open to both surfaces: a client signs their own copy, an admin
+					    countersigns for Luxuria Homes. Whether it is actually this
+					    signer's turn is decided on the signing page itself. */}
+					<MenuItem
+						disabled={row.status !== AWAITING_SIGNATURES_STATUS}
+						render={
+							row.status === AWAITING_SIGNATURES_STATUS ? (
+								<Link href={signHref(row, surface)} />
+							) : undefined
+						}
+					>
+						<PenLine />
+						Sign
+					</MenuItem>
+					{isClient ? null : (
+						<>
+							<MenuSeparator />
+							<MenuItem
+								onClick={() => setDeleteOpen(true)}
+								variant="destructive"
+							>
+								<Trash2 />
+								Delete
+							</MenuItem>
+						</>
+					)}
 				</MenuPopup>
 			</Menu>
-			<DeleteClientQuotation
-				onOpenChange={setDeleteOpen}
-				open={deleteOpen}
+			<ApproveClientQuotation
+				onOpenChange={setApproveOpen}
+				open={approveOpen}
 				quotationId={row._id}
 				reference={row.reference}
+				surface={surface}
 			/>
+			{isClient ? null : (
+				<>
+					<DeleteClientQuotation
+						onOpenChange={setDeleteOpen}
+						open={deleteOpen}
+						quotationId={row._id}
+						reference={row.reference}
+					/>
+					<SendQuotationToClients
+						clients={row.clients}
+						isDraft={row.status === DRAFT_STATUS}
+						onOpenChange={setSendOpen}
+						open={sendOpen}
+						quotationId={row._id}
+						reference={row.reference}
+					/>
+					<RequestSignatures
+						clients={row.clients}
+						onOpenChange={setRequestSignaturesOpen}
+						open={requestSignaturesOpen}
+						quotationId={row._id}
+						reference={row.reference}
+					/>
+				</>
+			)}
 			<ClientQuotationNotesSheet
 				onOpenChange={setNotesOpen}
 				open={notesOpen}
 				projectName={row.projectName}
 				quotationId={row._id}
 				reference={row.reference}
+				surface={surface}
 			/>
+		</>
+	);
+}
+
+/**
+ * The cells between the row-wide overlay (toggle or PDF link) and the actions.
+ * They have to be grid children of the row itself to line up with the header
+ * labels, so they sit above the overlay and pass clicks straight through it.
+ */
+function QuotationRowCells({
+	row,
+	version,
+}: {
+	row: QuotationRow;
+	version: number;
+}) {
+	return (
+		<>
+			<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
+				<span className="font-medium tabular-nums">{row.reference}</span>
+				<Badge variant="secondary">v{version}</Badge>
+			</span>
+			<span className="pointer-events-none relative truncate">
+				{row.projectName}
+			</span>
+			<span className="pointer-events-none relative truncate text-muted-foreground">
+				{row.clients.map((client) => client.name).join(', ')}
+			</span>
+			<span className="pointer-events-none relative tabular-nums">
+				{formatAudWhole(row.totalInclGst)}
+			</span>
+			<span className="pointer-events-none relative">
+				<Badge variant={statusBadgeVariant(row.status)}>{row.status}</Badge>
+			</span>
+			<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
+				{formatIssueDate(new Date(row.issuedAt))}
+			</span>
 		</>
 	);
 }
@@ -164,9 +340,11 @@ function QuotationRowActions({ row }: { row: QuotationRow }) {
 function QuotationAccordionItem({
 	expanded,
 	row,
+	surface,
 }: {
 	expanded: boolean;
 	row: QuotationRow;
+	surface: QuotationSurface;
 }) {
 	const version = row.version ?? FIRST_VERSION;
 
@@ -182,27 +360,9 @@ function QuotationAccordionItem({
 					aria-label={`Toggle version history for ${row.reference}`}
 					className="absolute inset-0 cursor-pointer rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
 				/>
-				<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
-					<span className="font-medium tabular-nums">{row.reference}</span>
-					<Badge variant="secondary">v{version}</Badge>
-				</span>
-				<span className="pointer-events-none relative truncate">
-					{row.projectName}
-				</span>
-				<span className="pointer-events-none relative truncate text-muted-foreground">
-					{row.clients.map((client) => client.name).join(', ')}
-				</span>
-				<span className="pointer-events-none relative tabular-nums">
-					{formatAudWhole(row.totalInclGst)}
-				</span>
-				<span className="pointer-events-none relative">
-					<Badge variant={statusBadgeVariant(row.status)}>{row.status}</Badge>
-				</span>
-				<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
-					{formatIssueDate(new Date(row.issuedAt))}
-				</span>
+				<QuotationRowCells row={row} version={version} />
 				<span className="relative flex items-center justify-end gap-1">
-					<QuotationRowActions row={row} />
+					<QuotationRowActions row={row} surface={surface} />
 					<AccordionPrimitive.Trigger
 						aria-label={`Toggle version history for ${row.reference}`}
 						className="flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted-foreground outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring data-panel-open:[&>svg]:rotate-180"
@@ -223,11 +383,68 @@ function QuotationAccordionItem({
 	);
 }
 
-export default function ClientQuotationsPageContent() {
+/**
+ * The client's row. Version history and status changes are an internal record,
+ * so there is nothing to expand into — the row itself opens the latest PDF,
+ * which prints its own version history.
+ */
+function QuotationClientRow({ row }: { row: QuotationRow }) {
+	const openPdf = useOpenQuotationPdf('client');
+
+	return (
+		<div
+			className={`${ROW_GRID} relative border-b py-3 text-sm last:border-b-0`}
+		>
+			<button
+				aria-label={`Open the PDF for ${row.reference}`}
+				className="absolute inset-0 cursor-pointer rounded-md outline-none transition-colors hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed"
+				disabled={!latestPdfKey(row)}
+				onClick={() => {
+					openPdf(latestPdfKey(row), row._id).catch(() => {
+						/* handled in openPdf */
+					});
+				}}
+				type="button"
+			/>
+			<QuotationRowCells row={row} version={row.version ?? FIRST_VERSION} />
+			<span className="relative flex items-center justify-end gap-1">
+				<QuotationRowActions row={row} surface="client" />
+			</span>
+		</div>
+	);
+}
+
+function emptyDescription(isClient: boolean, unsearched: boolean): string {
+	if (!unsearched) {
+		return 'Try a different reference, project name or client.';
+	}
+	return isClient
+		? 'Quotations appear here once Luxuria Homes sends one to you.'
+		: 'Create your first client quotation using the Add Quotation button.';
+}
+
+/** Matches a row the way the backend search index does: reference, project, clients. */
+function matchesSearch(row: QuotationRow, query: string): boolean {
+	const haystack = [
+		row.reference,
+		row.projectName,
+		...row.clients.map((client) => client.name),
+	]
+		.join(' ')
+		.toLowerCase();
+	return haystack.includes(query.toLowerCase());
+}
+
+export default function ClientQuotationsPageContent({
+	surface = 'admin',
+}: {
+	surface?: QuotationSurface;
+}) {
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const [openRows, setOpenRows] = useState<string[]>([]);
 	const trimmedSearch = debouncedSearch.trim();
+	const isClient = surface === 'client';
 
 	useEffect(() => {
 		const id = window.setTimeout(() => setDebouncedSearch(search), 300);
@@ -236,13 +453,28 @@ export default function ClientQuotationsPageContent() {
 
 	const listResults = useQuery(
 		api.clientQuotations.list.list,
-		trimmedSearch === '' ? {} : 'skip'
+		!isClient && trimmedSearch === '' ? {} : 'skip'
 	);
 	const searchResults = useQuery(
 		api.clientQuotations.search.search,
-		trimmedSearch === '' ? 'skip' : { query: trimmedSearch }
+		isClient || trimmedSearch === '' ? 'skip' : { query: trimmedSearch }
 	);
-	const quotations = trimmedSearch === '' ? listResults : searchResults;
+	// A client only ever holds a handful of quotations, so their list is fetched
+	// whole and filtered here rather than through the search index.
+	const clientResults = useQuery(
+		api.clientPortal.quotations.list.list,
+		isClient ? {} : 'skip'
+	);
+
+	let quotations: QuotationRow[] | undefined;
+	if (isClient) {
+		quotations =
+			trimmedSearch === ''
+				? clientResults
+				: clientResults?.filter((row) => matchesSearch(row, trimmedSearch));
+	} else {
+		quotations = trimmedSearch === '' ? listResults : searchResults;
+	}
 
 	let content: ReactNode;
 	if (quotations === undefined) {
@@ -262,9 +494,7 @@ export default function ClientQuotationsPageContent() {
 							: 'No matching quotations'}
 					</EmptyTitle>
 					<EmptyDescription>
-						{trimmedSearch === ''
-							? 'Create your first client quotation using the Add Quotation button.'
-							: 'Try a different reference, project name or client.'}
+						{emptyDescription(isClient, trimmedSearch === '')}
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
@@ -283,18 +513,25 @@ export default function ClientQuotationsPageContent() {
 					<span>Issued</span>
 					<span />
 				</div>
-				<Accordion
-					onValueChange={(value) => setOpenRows(value as string[])}
-					value={openRows}
-				>
-					{quotations.map((row) => (
-						<QuotationAccordionItem
-							expanded={openRows.includes(row._id)}
-							key={row._id}
-							row={row}
-						/>
-					))}
-				</Accordion>
+				{isClient ? (
+					quotations.map((row) => (
+						<QuotationClientRow key={row._id} row={row} />
+					))
+				) : (
+					<Accordion
+						onValueChange={(value) => setOpenRows(value as string[])}
+						value={openRows}
+					>
+						{quotations.map((row) => (
+							<QuotationAccordionItem
+								expanded={openRows.includes(row._id)}
+								key={row._id}
+								row={row}
+								surface={surface}
+							/>
+						))}
+					</Accordion>
+				)}
 			</div>
 		);
 	}
@@ -312,9 +549,11 @@ export default function ClientQuotationsPageContent() {
 							placeholder="Search by reference, project or client…"
 							value={search}
 						/>
-						<Button render={<Link href={NEW_HREF} />} variant="outline">
-							<Plus aria-hidden /> Add Quotation
-						</Button>
+						{isClient ? null : (
+							<Button render={<Link href={NEW_HREF} />} variant="outline">
+								<Plus aria-hidden /> Add Quotation
+							</Button>
+						)}
 					</>
 				}
 			/>

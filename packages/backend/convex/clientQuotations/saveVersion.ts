@@ -3,11 +3,16 @@ import { mutation } from '../_generated/server';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import {
 	buildQuotationSnapshotPatch,
+	CLEARED_SIGNED_DOCUMENT,
+	DEFAULT_VERSION_CHANGE_TYPE,
 	FIRST_VERSION,
 	getClientQuotationOrThrow,
 	insertQuotationVersion,
 	parseVersionDescription,
 	quotationSnapshotArgs,
+	REVIEW_QUOTATION_STATUS,
+	SIGNATURES_VOIDED_DESCRIPTION,
+	voidSignaturesForVersion,
 } from './shared';
 
 /**
@@ -45,19 +50,40 @@ export const saveVersion = mutation({
 		const savedBy = identity.name ?? identity.email ?? 'Unknown';
 		const savedAt = Date.now();
 
+		// An amend rewrites the very snapshot that was signed, so anything already
+		// collected against this version has to go — a signature has to belong to
+		// the document the signer actually read.
+		const voided = await voidSignaturesForVersion(
+			ctx,
+			args.quotationId,
+			currentVersion,
+			savedAt
+		);
+
 		// The version is deliberately left as it was — this rewrites that version.
 		await ctx.db.patch(args.quotationId, {
 			...snapshot,
 			updatedAt: savedAt,
 			updatedBy: savedBy,
+			...(voided > 0
+				? { ...CLEARED_SIGNED_DOCUMENT, status: REVIEW_QUOTATION_STATUS }
+				: {}),
 		});
 
-		const versionRow = await ctx.db
+		// A version can hold several rows — the revision plus every lifecycle event
+		// recorded against it — so the revision is picked out rather than assumed
+		// to be the only one.
+		const rowsAtVersion = await ctx.db
 			.query('clientQuotationVersions')
 			.withIndex('by_quotation_version', (q) =>
 				q.eq('quotationId', args.quotationId).eq('version', args.version)
 			)
-			.unique();
+			.collect();
+		const versionRow = rowsAtVersion
+			.filter(
+				(row) => (row.changeType ?? DEFAULT_VERSION_CHANGE_TYPE) === 'Revision'
+			)
+			.sort((a, b) => b.updatedAt - a.updatedAt)[0];
 
 		const versionFields = {
 			description: versionDescription,
@@ -82,6 +108,18 @@ export const saveVersion = mutation({
 			});
 		}
 
-		return { version: args.version };
+		if (voided > 0) {
+			await insertQuotationVersion(ctx, {
+				quotationId: args.quotationId,
+				version: args.version,
+				changeType: 'Status',
+				description: SIGNATURES_VOIDED_DESCRIPTION,
+				updatedBy: savedBy,
+				updatedAt: savedAt,
+				totalInclGst: args.totalInclGst,
+			});
+		}
+
+		return { version: args.version, voidedSignatures: voided };
 	},
 });

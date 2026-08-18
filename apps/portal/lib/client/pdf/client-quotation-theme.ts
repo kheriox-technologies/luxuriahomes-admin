@@ -129,6 +129,22 @@ export const QUOTATION_TRACKING = {
 	brandKicker: 1.6,
 } as const;
 
+/**
+ * The initials strip that closes every numbered section, and the script marks
+ * baked into the signature boxes.
+ *
+ * The box is two lines tall — a name caption over the initials themselves — and
+ * is sized so four signers still fit across the content width.
+ */
+export const QUOTATION_SIGNATURE = {
+	initialsBoxHeight: 44,
+	initialsGap: 10,
+	initialsCaptionToMark: 4,
+	/** Script sizes; a signature reads larger than the body copy it sits under. */
+	signatureMarkSize: 22,
+	initialsMarkSize: 15,
+} as const;
+
 /** Beyond this, the cover title drops to the compact size to stay on the page. */
 export const COVER_TITLE_COMPACT_THRESHOLD = 46;
 

@@ -1,5 +1,4 @@
 import { UserButton } from '@clerk/nextjs';
-import { env } from '@workspace/env/portal';
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -32,7 +31,7 @@ const ClientLayout = async ({ children }: ClientLayoutProps) => {
 								<div className="flex items-center gap-2">
 									<SidebarTrigger />
 									<h1 className="font-semibold text-xl">
-										{env.NEXT_PUBLIC_APP_NAME}
+										Luxuria Homes Client Portal
 									</h1>
 								</div>
 								<div className="flex items-center gap-4">

@@ -34,9 +34,43 @@ function editVersionHref(
 }
 
 /**
- * The revision history of one quotation, newest first. Mounted only while its
- * accordion row is open, so a long list of quotations doesn't fan out into a
- * query per row.
+ * Only the current version carries a snapshot to load back into the composer, so
+ * earlier ones — and status events, which hold no snapshot at all — can't be
+ * edited. When it isn't editable the link is left out rather than only disabled:
+ * an anchor still navigates when it is clicked.
+ */
+function EditVersionMenuItem({
+	editable,
+	quotationId,
+	version,
+}: {
+	editable: boolean;
+	quotationId: Id<'clientQuotations'>;
+	version: number;
+}) {
+	if (!editable) {
+		return (
+			<MenuItem disabled>
+				<Pencil />
+				Edit
+			</MenuItem>
+		);
+	}
+	return (
+		<MenuItem render={<Link href={editVersionHref(quotationId, version)} />}>
+			<Pencil />
+			Edit
+		</MenuItem>
+	);
+}
+
+/**
+ * The history of one quotation, newest first — its revisions and the lifecycle
+ * events recorded against them. Mounted only while its accordion row is open, so
+ * a long list of quotations doesn't fan out into a query per row.
+ *
+ * Admin-only: a client sees a single quotation row that opens the latest PDF,
+ * which prints its own version history.
  */
 export default function ClientQuotationVersionsPanel({
 	latestVersion,
@@ -48,7 +82,7 @@ export default function ClientQuotationVersionsPanel({
 	const versions = useQuery(api.clientQuotations.listVersions.listVersions, {
 		quotationId,
 	});
-	const openPdf = useOpenQuotationPdf();
+	const openPdf = useOpenQuotationPdf('admin');
 
 	if (versions === undefined) {
 		return (
@@ -72,80 +106,81 @@ export default function ClientQuotationVersionsPanel({
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{versions.map((version) => (
-						<TableRow key={version.version}>
-							<TableCell>
-								<span className="flex items-center gap-2">
-									<span className="font-medium tabular-nums">
-										v{version.version}
+					{versions.map((version) => {
+						const isStatusEvent = version.changeType === 'Status';
+						// A status event shares its version number with the revision it
+						// happened against, so being the latest version isn't enough to
+						// mark a row as the current snapshot.
+						const isCurrentRevision =
+							!isStatusEvent && version.version === latestVersion;
+
+						return (
+							// Two rows can share a version, so the timestamp completes the key.
+							<TableRow key={`${version.version}-${version.updatedAt}`}>
+								<TableCell>
+									<span className="flex items-center gap-2">
+										<span className="font-medium tabular-nums">
+											v{version.version}
+										</span>
+										{isCurrentRevision ? (
+											<Badge variant="secondary">Current</Badge>
+										) : null}
 									</span>
-									{version.version === latestVersion ? (
-										<Badge variant="secondary">Current</Badge>
-									) : null}
-								</span>
-							</TableCell>
-							<TableCell>{version.description}</TableCell>
-							<TableCell className="text-muted-foreground">
-								{version.updatedBy}
-							</TableCell>
-							<TableCell className="text-muted-foreground">
-								{formatIssueDate(new Date(version.updatedAt))}
-							</TableCell>
-							<TableCell className="text-right tabular-nums">
-								{formatAudWhole(version.totalInclGst)}
-							</TableCell>
-							<TableCell className="text-right">
-								<Menu>
-									<MenuTrigger
-										render={
-											<Button
-												aria-label={`Version ${version.version} actions`}
-												size="icon-sm"
-												type="button"
-												variant="ghost"
-											/>
-										}
-									>
-										<EllipsisVertical className="size-4" />
-									</MenuTrigger>
-									<MenuPopup align="end">
-										{/* Only the current version carries a snapshot to load back
-										    into the composer, so earlier ones can't be edited. The
-										    link is left out rather than only disabled — an anchor
-										    still navigates when it is clicked. */}
-										{version.version === latestVersion ? (
-											<MenuItem
-												render={
-													<Link
-														href={editVersionHref(quotationId, version.version)}
-													/>
-												}
-											>
-												<Pencil />
-												Edit
-											</MenuItem>
-										) : (
-											<MenuItem disabled>
-												<Pencil />
-												Edit
-											</MenuItem>
-										)}
-										<MenuItem
-											disabled={!version.s3Key}
-											onClick={() => {
-												openPdf(version.s3Key).catch(() => {
-													/* handled in openPdf */
-												});
-											}}
+								</TableCell>
+								<TableCell>
+									<span className="flex items-center gap-2">
+										{version.description}
+										{isStatusEvent ? (
+											<Badge variant="success-outline">Status</Badge>
+										) : null}
+									</span>
+								</TableCell>
+								<TableCell className="text-muted-foreground">
+									{version.updatedBy}
+								</TableCell>
+								<TableCell className="text-muted-foreground">
+									{formatIssueDate(new Date(version.updatedAt))}
+								</TableCell>
+								<TableCell className="text-right tabular-nums">
+									{formatAudWhole(version.totalInclGst)}
+								</TableCell>
+								<TableCell className="text-right">
+									<Menu>
+										<MenuTrigger
+											render={
+												<Button
+													aria-label={`${version.description} (v${version.version}) actions`}
+													size="icon-sm"
+													type="button"
+													variant="ghost"
+												/>
+											}
 										>
-											<ExternalLink />
-											View PDF
-										</MenuItem>
-									</MenuPopup>
-								</Menu>
-							</TableCell>
-						</TableRow>
-					))}
+											<EllipsisVertical className="size-4" />
+										</MenuTrigger>
+										<MenuPopup align="end">
+											<EditVersionMenuItem
+												editable={isCurrentRevision}
+												quotationId={quotationId}
+												version={version.version}
+											/>
+											<MenuItem
+												disabled={!version.s3Key}
+												onClick={() => {
+													openPdf(version.s3Key, quotationId).catch(() => {
+														/* handled in openPdf */
+													});
+												}}
+											>
+												<ExternalLink />
+												View PDF
+											</MenuItem>
+										</MenuPopup>
+									</Menu>
+								</TableCell>
+							</TableRow>
+						);
+					})}
 				</TableBody>
 			</Table>
 		</div>

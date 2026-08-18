@@ -18,18 +18,175 @@ export const INITIAL_VERSION_DESCRIPTION = 'Initial version';
 export const FIRST_VERSION = 1;
 
 /**
- * Where a quotation sits in its lifecycle. Only 'Draft' is reachable today; the
- * later states arrive with the send and signature workflows.
+ * Where a quotation sits in its lifecycle. 'Draft' and 'Approved' are reachable
+ * today; the rest arrive with the send and signature workflows.
  */
 export const clientQuotationStatusValidator = v.union(
 	v.literal('Draft'),
 	v.literal('Under Review'),
+	v.literal('Approved'),
 	v.literal('Awaiting Signatures'),
 	v.literal('Signed')
 );
 
 /** Every quotation starts here. */
 export const INITIAL_QUOTATION_STATUS = 'Draft' as const;
+
+/** The only status a quotation can be approved from. */
+export const REVIEW_QUOTATION_STATUS = 'Under Review' as const;
+export const APPROVED_QUOTATION_STATUS = 'Approved' as const;
+
+/** How an approval reads in the version history. */
+export const APPROVAL_VERSION_DESCRIPTION = 'Approved' as const;
+
+/** How a revision that undoes an approval reads in the version history. */
+export const REOPENED_VERSION_DESCRIPTION =
+	'Returned to review — revised after approval' as const;
+
+export type ClientQuotationStatus = Infer<
+	typeof clientQuotationStatusValidator
+>;
+
+/**
+ * Whether issuing a new version from this status has to send the quotation back
+ * for approval. What the clients approved — or signed off on — no longer exists
+ * once the figures change, so their decision cannot carry over to the revision.
+ */
+export function requiresReapproval(status: ClientQuotationStatus): boolean {
+	return (
+		status === APPROVED_QUOTATION_STATUS ||
+		status === 'Awaiting Signatures' ||
+		status === 'Signed'
+	);
+}
+
+/** How issuing a quotation to its clients reads in the version history. */
+export const SENT_VERSION_DESCRIPTION = 'Sent to client' as const;
+
+/** Collecting signatures, and the terminal state once everyone has signed. */
+export const AWAITING_SIGNATURES_STATUS = 'Awaiting Signatures' as const;
+export const SIGNED_QUOTATION_STATUS = 'Signed' as const;
+
+/** How the signature ceremony reads in the version history. */
+export const SIGNATURES_REQUESTED_DESCRIPTION = 'Signatures requested' as const;
+export const SIGNATURES_VOIDED_DESCRIPTION =
+	'Signatures voided — quotation revised' as const;
+export const FULLY_SIGNED_DESCRIPTION = 'Fully signed' as const;
+
+export function signatureVersionDescription(signerName: string): string {
+	return `Signed by ${signerName}`;
+}
+
+/**
+ * Who a signature belongs to. Clients sign what they were quoted; the
+ * representative countersigns on behalf of Luxuria Homes once they all have.
+ */
+export const quotationSignerRoleValidator = v.union(
+	v.literal('Client'),
+	v.literal('Representative')
+);
+
+export type QuotationSignerRole = Infer<typeof quotationSignerRoleValidator>;
+
+/**
+ * The script face a signature is drawn in. Mirrors `SIGNATURE_STYLES` in
+ * apps/portal/lib/client/pdf/signature-styles.ts, which owns the font files —
+ * adding a style means editing both.
+ */
+export const quotationSignatureStyleValidator = v.union(
+	v.literal('flowing'),
+	v.literal('casual'),
+	v.literal('hand')
+);
+
+/**
+ * The key a signature's marks are anchored to in the PDF. Quotation clients have
+ * no stable id, so the slot is their position in `quotation.clients` — which is
+ * why a signature stores the index it was collected against rather than
+ * recomputing it from the email each time the document is rebuilt.
+ */
+export function signatureSlotKey(signature: {
+	clientIndex?: number;
+	role: QuotationSignerRole;
+}): string {
+	return signature.role === 'Representative'
+		? 'rep'
+		: `client-${signature.clientIndex ?? 0}`;
+}
+
+export const REPRESENTATIVE_SLOT_KEY = 'rep';
+
+/** The key an email is matched on, here and in `isQuotationClient`. */
+export function normalizeSignerEmail(email: string): string {
+	return email.trim().toLowerCase();
+}
+
+/**
+ * The signatures still standing against a version. Voided rows are kept so the
+ * trail survives a revision, but they no longer count towards completion and are
+ * never drawn into the document.
+ */
+export async function readActiveSignatures(
+	ctx: QueryCtx,
+	quotationId: Id<'clientQuotations'>,
+	version: number
+): Promise<Doc<'clientQuotationSignatures'>[]> {
+	const rows = await ctx.db
+		.query('clientQuotationSignatures')
+		.withIndex('by_quotation_version', (q) =>
+			q.eq('quotationId', quotationId).eq('version', version)
+		)
+		.collect();
+	return rows
+		.filter((row) => row.voidedAt === undefined)
+		.sort((a, b) => a.signedAt - b.signedAt);
+}
+
+/**
+ * Retires every signature collected against a version, because the document
+ * those signers accepted no longer exists. Returns how many were voided so the
+ * caller only writes a history row when something actually changed.
+ */
+export async function voidSignaturesForVersion(
+	ctx: MutationCtx,
+	quotationId: Id<'clientQuotations'>,
+	version: number,
+	voidedAt: number
+): Promise<number> {
+	const active = await readActiveSignatures(ctx, quotationId, version);
+	await Promise.all(active.map((row) => ctx.db.patch(row._id, { voidedAt })));
+	return active.length;
+}
+
+/** The four fields that hold the signed PDF, cleared together when it is voided. */
+export const CLEARED_SIGNED_DOCUMENT = {
+	signedDocumentId: undefined,
+	signedS3Key: undefined,
+	signedFileName: undefined,
+	signedFolderPath: undefined,
+} as const;
+
+/**
+ * How far through the ceremony a quotation is. A client with no email address
+ * cannot be sent a link, so they are not counted as an outstanding signer —
+ * otherwise the quotation could never complete.
+ */
+export function signatureProgress(
+	quotation: Doc<'clientQuotations'>,
+	active: Doc<'clientQuotationSignatures'>[]
+): { allClientsSigned: boolean; complete: boolean } {
+	const signed = new Set(active.map((row) => row.signerEmail));
+	const expected = quotation.clients
+		.map((client) => normalizeSignerEmail(client.email))
+		.filter((email) => email.length > 0);
+	const allClientsSigned =
+		expected.length > 0 && expected.every((email) => signed.has(email));
+	return {
+		allClientsSigned,
+		complete:
+			allClientsSigned && active.some((row) => row.role === 'Representative'),
+	};
+}
 
 export const quotationClientValidator = v.object({
 	name: v.string(),
@@ -280,13 +437,21 @@ export interface QuotationVersionDocument {
 	s3Key?: string;
 }
 
+/** What a history row records: a new snapshot, or a move through the lifecycle. */
+export type QuotationVersionChangeType = 'Revision' | 'Status';
+
+/** Rows written before status events existed are all revisions. */
+export const DEFAULT_VERSION_CHANGE_TYPE = 'Revision' as const;
+
 /**
- * Appends a history row. Shared by `create` and `update` so the row shape — and
- * the document fields that make each version's PDF openable — live in one place.
+ * Appends a history row. Shared by `create`, `update` and `approve` so the row
+ * shape — and the document fields that make each version's PDF openable — live
+ * in one place.
  */
 export async function insertQuotationVersion(
 	ctx: MutationCtx,
 	args: QuotationVersionDocument & {
+		changeType?: QuotationVersionChangeType;
 		description: string;
 		quotationId: Id<'clientQuotations'>;
 		totalInclGst: number;
@@ -298,6 +463,7 @@ export async function insertQuotationVersion(
 	return await ctx.db.insert('clientQuotationVersions', {
 		quotationId: args.quotationId,
 		version: args.version,
+		changeType: args.changeType,
 		description: args.description,
 		updatedBy: args.updatedBy,
 		updatedAt: args.updatedAt,
@@ -336,6 +502,109 @@ export function initialVersionFrom(quotation: Doc<'clientQuotations'>): {
 		updatedBy: quotation.createdBy,
 		version: FIRST_VERSION,
 	};
+}
+
+/**
+ * Records a lifecycle event — an approval, an issue to the clients — against the
+ * quotation's current version.
+ *
+ * A status event changes nothing about what was quoted, so the version is
+ * deliberately left where it is and no new PDF is issued. Quotations issued
+ * before versioning existed have no history rows, so the revision the event
+ * happened against is backfilled first — otherwise the event would be the only
+ * entry in the trail.
+ *
+ * Shared by the admin and client-portal paths so both write an identical row.
+ */
+export async function recordQuotationStatusEvent(
+	ctx: MutationCtx,
+	args: {
+		description: string;
+		quotation: Doc<'clientQuotations'>;
+		updatedAt: number;
+		updatedBy: string;
+	}
+): Promise<number> {
+	const history = await ctx.db
+		.query('clientQuotationVersions')
+		.withIndex('by_quotation', (q) => q.eq('quotationId', args.quotation._id))
+		.collect();
+	if (history.length === 0) {
+		await insertQuotationVersion(ctx, {
+			quotationId: args.quotation._id,
+			...initialVersionFrom(args.quotation),
+		});
+	}
+
+	const currentVersion = args.quotation.version ?? FIRST_VERSION;
+
+	// No document fields: a status event issues no new PDF, so the row points at
+	// nothing to open.
+	await insertQuotationVersion(ctx, {
+		quotationId: args.quotation._id,
+		version: currentVersion,
+		changeType: 'Status',
+		description: args.description,
+		updatedBy: args.updatedBy,
+		updatedAt: args.updatedAt,
+		totalInclGst: args.quotation.totalInclGst,
+	});
+
+	return currentVersion;
+}
+
+/**
+ * The history of one quotation, newest first — its revisions plus the lifecycle
+ * events recorded against them.
+ *
+ * Rows issued before versioning existed have no history, so a version-1 row is
+ * synthesised from the quotation itself — callers never have to special-case
+ * legacy data, and `update` writes the same row when it backfills.
+ */
+function statusEventRank(changeType: QuotationVersionChangeType): number {
+	return changeType === 'Status' ? 1 : 0;
+}
+
+export async function readQuotationVersions(
+	ctx: QueryCtx,
+	quotation: Doc<'clientQuotations'>
+) {
+	const rows = await ctx.db
+		.query('clientQuotationVersions')
+		.withIndex('by_quotation', (q) => q.eq('quotationId', quotation._id))
+		.collect();
+
+	const versions =
+		rows.length === 0
+			? [
+					{
+						...initialVersionFrom(quotation),
+						changeType: DEFAULT_VERSION_CHANGE_TYPE,
+					},
+				]
+			: rows.map((row) => ({
+					changeType: row.changeType ?? DEFAULT_VERSION_CHANGE_TYPE,
+					description: row.description,
+					documentId: row.documentId,
+					fileName: row.fileName,
+					folderPath: row.folderPath,
+					s3Key: row.s3Key,
+					totalInclGst: row.totalInclGst,
+					updatedAt: row.updatedAt,
+					updatedBy: row.updatedBy,
+					version: row.version,
+				}));
+
+	// A status event shares its version with the revision it happened against, so
+	// the tiebreak puts the newer entry — the event — on top. Both can be written
+	// in the same instant (a revision that reopens the quotation for approval), so
+	// an equal timestamp falls back to the event, which can only have come after.
+	return versions.sort(
+		(a, b) =>
+			b.version - a.version ||
+			b.updatedAt - a.updatedAt ||
+			statusEventRank(b.changeType) - statusEventRank(a.changeType)
+	);
 }
 
 export async function getClientQuotationOrThrow(

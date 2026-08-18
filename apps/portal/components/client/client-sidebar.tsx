@@ -10,7 +10,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from '@workspace/ui/components/sidebar';
-import { Building2, type LucideIcon } from 'lucide-react';
+import { Building2, FileSignature, type LucideIcon } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -25,6 +25,11 @@ const items: SidebarItem[] = [
 		title: 'Projects',
 		url: '/client/projects',
 		icon: Building2,
+	},
+	{
+		title: 'Quotations',
+		url: '/client/quotations',
+		icon: FileSignature,
 	},
 ];
 

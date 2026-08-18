@@ -6,6 +6,8 @@ import {
 	clientQuotationStatusValidator,
 	quotationClientValidator,
 	quotationEntrySnapshotValidator,
+	quotationSignatureStyleValidator,
+	quotationSignerRoleValidator,
 	quotationStageSnapshotValidator,
 	quotationTermsSnapshotValidator,
 } from './clientQuotations/shared';
@@ -507,8 +509,9 @@ export default defineSchema({
 		clients: v.array(quotationClientValidator),
 		address: australianAddressValidator,
 		issuedAt: v.number(),
-		// Lifecycle state. Every quotation is saved as 'Draft'; the later states
-		// arrive with the send and signature workflows.
+		// Lifecycle state. Every quotation is saved as 'Draft', is sent to its
+		// clients for review, is approved out of review, then collects signatures
+		// from every client and a Luxuria Homes representative before it is signed.
 		status: clientQuotationStatusValidator,
 		// Pricing provenance. The template fields are optional — the budget can be
 		// typed free-hand without picking a budget template at all.
@@ -534,6 +537,14 @@ export default defineSchema({
 		s3Key: v.optional(v.string()),
 		fileName: v.optional(v.string()),
 		folderPath: v.optional(v.string()),
+		// The signed PDF, filed alongside the approved one and rewritten by every
+		// signer. Deliberately separate from `s3Key`: the document that was issued
+		// and approved has to stay openable exactly as it was sent.
+		signedDocumentId: v.optional(v.id('companyDocuments')),
+		signedS3Key: v.optional(v.string()),
+		signedFileName: v.optional(v.string()),
+		signedFolderPath: v.optional(v.string()),
+		signaturesRequestedAt: v.optional(v.number()),
 		createdBy: v.string(),
 		createdAt: v.number(),
 		// Revision tracking. Optional so rows issued before versioning existed keep
@@ -546,13 +557,18 @@ export default defineSchema({
 		.index('by_reference', ['reference'])
 		.index('by_created', ['createdAt'])
 		.searchIndex('search_client_quotations', { searchField: 'searchText' }),
-	// One row per saved revision of a client quotation. The quotation row always
-	// holds the latest snapshot; these rows carry who revised it, when and why,
-	// plus the PDF that was issued for that version — every version's document
-	// stays viewable.
+	// One row per saved revision of a client quotation, plus the lifecycle events
+	// that happened against it. The quotation row always holds the latest
+	// snapshot; these rows carry who revised it, when and why, plus the PDF that
+	// was issued for that version — every version's document stays viewable.
 	clientQuotationVersions: defineTable({
 		quotationId: v.id('clientQuotations'),
 		version: v.number(),
+		// What the row records. A status event — an approval, say — keeps the
+		// version it happened at rather than minting a new one, so two rows can
+		// share a number. Absent on rows written before status events existed,
+		// which reads as 'Revision'.
+		changeType: v.optional(v.union(v.literal('Revision'), v.literal('Status'))),
 		description: v.string(),
 		updatedBy: v.string(),
 		updatedAt: v.number(),
@@ -566,12 +582,48 @@ export default defineSchema({
 	})
 		.index('by_quotation', ['quotationId'])
 		.index('by_quotation_version', ['quotationId', 'version']),
+	// One row per signature collected against a client quotation.
+	//
+	// A quotation's clients are an embedded array with no stable id, so a signer is
+	// keyed by their normalized email — the same key `isQuotationClient` matches a
+	// portal user on. Rows are bound to the version they were collected against: a
+	// revision replaces the document that was signed, so the old rows are voided
+	// rather than carried forward.
+	clientQuotationSignatures: defineTable({
+		quotationId: v.id('clientQuotations'),
+		version: v.number(),
+		role: quotationSignerRoleValidator,
+		// Trimmed and lowercased. For a client this matches one of
+		// `quotation.clients[].email`; for the representative it is the admin's own.
+		signerEmail: v.string(),
+		signerName: v.string(),
+		// Which slot in `quotation.clients` was signed, so the PDF puts the marks in
+		// the right box even when two clients share a name. Absent for the
+		// representative, who has a slot of their own.
+		clientIndex: v.optional(v.number()),
+		style: quotationSignatureStyleValidator,
+		signatureText: v.string(),
+		initialsText: v.string(),
+		signedAt: v.number(),
+		// Clerk subject of whoever signed, so an admin countersignature names the
+		// individual rather than just the company.
+		signedBySubject: v.string(),
+		// Set when a revision supersedes the version this was collected against.
+		// Kept rather than deleted so the trail of who signed what survives.
+		voidedAt: v.optional(v.number()),
+	})
+		.index('by_quotation', ['quotationId'])
+		.index('by_quotation_version', ['quotationId', 'version']),
 	// An append-only commentary log against a client quotation. Notes hang off the
 	// quotation rather than a version, so the history survives every revision.
 	clientQuotationNotes: defineTable({
 		quotationId: v.id('clientQuotations'),
 		timestamp: v.number(),
 		addedBy: v.string(),
+		// Clerk user id of the author, used to let a portal client delete their own
+		// notes. Optional so notes written before this existed keep validating —
+		// those are not client-deletable.
+		addedByUserId: v.optional(v.string()),
 		note: v.string(),
 	}).index('by_quotation', ['quotationId']),
 	budgetTemplates: defineTable({
@@ -892,7 +944,10 @@ export default defineSchema({
 			v.literal('inclusion_approved'),
 			v.literal('inclusion_unapproved'),
 			v.literal('inclusion_note'),
-			v.literal('document_upload')
+			v.literal('document_upload'),
+			v.literal('quotation_note'),
+			v.literal('quotation_approved'),
+			v.literal('quotation_signed')
 		),
 		message: v.string(),
 		fromName: v.string(),

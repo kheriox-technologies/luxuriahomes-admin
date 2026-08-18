@@ -1,3 +1,30 @@
+/*
+ * Signature script faces. These are the same TTFs pdfmake bakes into the signed
+ * quotation (see lib/client/pdf/signature-styles.ts), so what a signer previews
+ * on the style cards is exactly what the document ends up carrying.
+ */
+@font-face {
+	font-family: "Great Vibes";
+	src: url("/fonts/GreatVibes-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Dancing Script";
+	src: url("/fonts/DancingScript-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: "Caveat";
+	src: url("/fonts/Caveat-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
 /* Portal-only override: invert primary fill/text (dark ink on linen). */
 :root {
 	--app-primary: #2b2927;
