@@ -23,7 +23,6 @@ import { EllipsisVertical, ExternalLink, Pencil } from 'lucide-react';
 import Link, { type LinkProps } from 'next/link';
 import { formatAudWhole } from '@/lib/currency';
 import { formatIssueDate } from './client-quotation-form-shared';
-import type { QuotationSurface } from './quotation-surface';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
 // Routes are typed, and a template literal can't be proved to be one of them.
@@ -69,27 +68,21 @@ function EditVersionMenuItem({
  * The history of one quotation, newest first — its revisions and the lifecycle
  * events recorded against them. Mounted only while its accordion row is open, so
  * a long list of quotations doesn't fan out into a query per row.
+ *
+ * Admin-only: a client sees a single quotation row that opens the latest PDF,
+ * which prints its own version history.
  */
 export default function ClientQuotationVersionsPanel({
 	latestVersion,
 	quotationId,
-	surface = 'admin',
 }: {
 	latestVersion: number;
 	quotationId: Id<'clientQuotations'>;
-	surface?: QuotationSurface;
 }) {
-	const isClient = surface === 'client';
-	const adminVersions = useQuery(
-		api.clientQuotations.listVersions.listVersions,
-		isClient ? 'skip' : { quotationId }
-	);
-	const clientVersions = useQuery(
-		api.clientPortal.quotations.listVersions.listVersions,
-		isClient ? { quotationId } : 'skip'
-	);
-	const versions = isClient ? clientVersions : adminVersions;
-	const openPdf = useOpenQuotationPdf(surface);
+	const versions = useQuery(api.clientQuotations.listVersions.listVersions, {
+		quotationId,
+	});
+	const openPdf = useOpenQuotationPdf('admin');
 
 	if (versions === undefined) {
 		return (
@@ -166,15 +159,11 @@ export default function ClientQuotationVersionsPanel({
 											<EllipsisVertical className="size-4" />
 										</MenuTrigger>
 										<MenuPopup align="end">
-											{/* Clients never edit a quotation, so on that surface the
-											    item is absent rather than disabled. */}
-											{isClient ? null : (
-												<EditVersionMenuItem
-													editable={isCurrentRevision}
-													quotationId={quotationId}
-													version={version.version}
-												/>
-											)}
+											<EditVersionMenuItem
+												editable={isCurrentRevision}
+												quotationId={quotationId}
+												version={version.version}
+											/>
 											<MenuItem
 												disabled={!version.s3Key}
 												onClick={() => {

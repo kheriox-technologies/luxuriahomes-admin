@@ -146,17 +146,21 @@ function QuotationRowActions({
 							Edit
 						</MenuItem>
 					)}
-					<MenuItem
-						disabled={!row.s3Key}
-						onClick={() => {
-							openPdf(row.s3Key, row._id).catch(() => {
-								/* handled in openPdf */
-							});
-						}}
-					>
-						<ExternalLink />
-						Open latest PDF
-					</MenuItem>
+					{/* The client's row already opens the PDF on click, so the menu
+					    only carries it for admins. */}
+					{isClient ? null : (
+						<MenuItem
+							disabled={!row.s3Key}
+							onClick={() => {
+								openPdf(row.s3Key, row._id).catch(() => {
+									/* handled in openPdf */
+								});
+							}}
+						>
+							<ExternalLink />
+							Open latest PDF
+						</MenuItem>
+					)}
 					<MenuItem onClick={() => setNotesOpen(true)}>
 						<StickyNote />
 						Notes
@@ -231,6 +235,43 @@ function QuotationRowActions({
 	);
 }
 
+/**
+ * The cells between the row-wide overlay (toggle or PDF link) and the actions.
+ * They have to be grid children of the row itself to line up with the header
+ * labels, so they sit above the overlay and pass clicks straight through it.
+ */
+function QuotationRowCells({
+	row,
+	version,
+}: {
+	row: QuotationRow;
+	version: number;
+}) {
+	return (
+		<>
+			<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
+				<span className="font-medium tabular-nums">{row.reference}</span>
+				<Badge variant="secondary">v{version}</Badge>
+			</span>
+			<span className="pointer-events-none relative truncate">
+				{row.projectName}
+			</span>
+			<span className="pointer-events-none relative truncate text-muted-foreground">
+				{row.clients.map((client) => client.name).join(', ')}
+			</span>
+			<span className="pointer-events-none relative tabular-nums">
+				{formatAudWhole(row.totalInclGst)}
+			</span>
+			<span className="pointer-events-none relative">
+				<Badge variant={statusBadgeVariant(row.status)}>{row.status}</Badge>
+			</span>
+			<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
+				{formatIssueDate(new Date(row.issuedAt))}
+			</span>
+		</>
+	);
+}
+
 function QuotationAccordionItem({
 	expanded,
 	row,
@@ -254,25 +295,7 @@ function QuotationAccordionItem({
 					aria-label={`Toggle version history for ${row.reference}`}
 					className="absolute inset-0 cursor-pointer rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
 				/>
-				<span className="pointer-events-none relative flex items-center gap-2 whitespace-nowrap">
-					<span className="font-medium tabular-nums">{row.reference}</span>
-					<Badge variant="secondary">v{version}</Badge>
-				</span>
-				<span className="pointer-events-none relative truncate">
-					{row.projectName}
-				</span>
-				<span className="pointer-events-none relative truncate text-muted-foreground">
-					{row.clients.map((client) => client.name).join(', ')}
-				</span>
-				<span className="pointer-events-none relative tabular-nums">
-					{formatAudWhole(row.totalInclGst)}
-				</span>
-				<span className="pointer-events-none relative">
-					<Badge variant={statusBadgeVariant(row.status)}>{row.status}</Badge>
-				</span>
-				<span className="pointer-events-none relative whitespace-nowrap text-muted-foreground">
-					{formatIssueDate(new Date(row.issuedAt))}
-				</span>
+				<QuotationRowCells row={row} version={version} />
 				<span className="relative flex items-center justify-end gap-1">
 					<QuotationRowActions row={row} surface={surface} />
 					<AccordionPrimitive.Trigger
@@ -288,11 +311,41 @@ function QuotationAccordionItem({
 					<ClientQuotationVersionsPanel
 						latestVersion={version}
 						quotationId={row._id}
-						surface={surface}
 					/>
 				) : null}
 			</AccordionPanel>
 		</AccordionItem>
+	);
+}
+
+/**
+ * The client's row. Version history and status changes are an internal record,
+ * so there is nothing to expand into — the row itself opens the latest PDF,
+ * which prints its own version history.
+ */
+function QuotationClientRow({ row }: { row: QuotationRow }) {
+	const openPdf = useOpenQuotationPdf('client');
+
+	return (
+		<div
+			className={`${ROW_GRID} relative border-b py-3 text-sm last:border-b-0`}
+		>
+			<button
+				aria-label={`Open the PDF for ${row.reference}`}
+				className="absolute inset-0 cursor-pointer rounded-md outline-none transition-colors hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed"
+				disabled={!row.s3Key}
+				onClick={() => {
+					openPdf(row.s3Key, row._id).catch(() => {
+						/* handled in openPdf */
+					});
+				}}
+				type="button"
+			/>
+			<QuotationRowCells row={row} version={row.version ?? FIRST_VERSION} />
+			<span className="relative flex items-center justify-end gap-1">
+				<QuotationRowActions row={row} surface="client" />
+			</span>
+		</div>
 	);
 }
 
@@ -395,19 +448,25 @@ export default function ClientQuotationsPageContent({
 					<span>Issued</span>
 					<span />
 				</div>
-				<Accordion
-					onValueChange={(value) => setOpenRows(value as string[])}
-					value={openRows}
-				>
-					{quotations.map((row) => (
-						<QuotationAccordionItem
-							expanded={openRows.includes(row._id)}
-							key={row._id}
-							row={row}
-							surface={surface}
-						/>
-					))}
-				</Accordion>
+				{isClient ? (
+					quotations.map((row) => (
+						<QuotationClientRow key={row._id} row={row} />
+					))
+				) : (
+					<Accordion
+						onValueChange={(value) => setOpenRows(value as string[])}
+						value={openRows}
+					>
+						{quotations.map((row) => (
+							<QuotationAccordionItem
+								expanded={openRows.includes(row._id)}
+								key={row._id}
+								row={row}
+								surface={surface}
+							/>
+						))}
+					</Accordion>
+				)}
 			</div>
 		);
 	}
