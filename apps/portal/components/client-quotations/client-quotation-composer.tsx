@@ -320,10 +320,25 @@ export default function ClientQuotationComposer({
 	const savedBy =
 		user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
 
+	/**
+	 * The revisions alone, oldest first.
+	 *
+	 * A status event — an approval, a send — shares its version number with the
+	 * revision it happened against, so anything looking for "the row for version N"
+	 * has to exclude them or it can land on the event instead of the snapshot.
+	 */
+	const revisions = useMemo(
+		() =>
+			[...(versionHistory ?? [])]
+				.filter((row) => row.changeType === 'Revision')
+				.sort((a, b) => a.version - b.version || a.updatedAt - b.updatedAt),
+		[versionHistory]
+	);
+
 	// The history row being rewritten: its description prefills the dialog, and its
 	// document is the PDF that the freshly generated one replaces.
 	const amendedVersion = amending
-		? versionHistory?.find((row) => row.version === targetVersion)
+		? revisions.find((row) => row.version === targetVersion)
 		: undefined;
 	const amendedVersionDescription = amendedVersion?.description ?? '';
 
@@ -338,9 +353,15 @@ export default function ClientQuotationComposer({
 			: [];
 
 	/**
-	 * The trail printed on page 2: the issued versions, then the pending one.
+	 * The trail printed on page 2: the issued revisions, then the pending one.
 	 * An amendment has no pending version — it replaces the row for the version
 	 * being rewritten, so the trail still reads one row per version.
+	 *
+	 * Revisions only. A PDF is built once, when its version is saved, so any
+	 * lifecycle event after that — an approval, a re-send — could never appear on
+	 * it however it were ordered. Printing what the document has said over time is
+	 * a promise the file can keep; the live history in the app is where the
+	 * lifecycle is read.
 	 */
 	const pdfVersionHistory: QuotationPdfVersion[] = useMemo(() => {
 		const pending = {
@@ -349,20 +370,18 @@ export default function ClientQuotationComposer({
 			updatedBy: savedBy,
 			version: targetVersion,
 		};
-		const issued = (versionHistory ?? [])
-			.map((row) =>
-				amending && row.version === targetVersion
-					? pending
-					: {
-							description: row.description,
-							updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
-							updatedBy: row.updatedBy,
-							version: row.version,
-						}
-			)
-			.sort((a, b) => a.version - b.version);
+		const issued = revisions.map((row) =>
+			amending && row.version === targetVersion
+				? pending
+				: {
+						description: row.description,
+						updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
+						updatedBy: row.updatedBy,
+						version: row.version,
+					}
+		);
 		return amending ? issued : [...issued, pending];
-	}, [versionHistory, amending, editing, targetVersion, savedBy]);
+	}, [revisions, amending, editing, targetVersion, savedBy]);
 
 	const pdfInput: QuotationPdfInput | null = useMemo(() => {
 		if (!(termsContent && draft.hydrated)) {
