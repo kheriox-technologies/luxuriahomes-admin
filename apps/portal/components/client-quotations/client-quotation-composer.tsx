@@ -66,6 +66,13 @@ const PREVIEW_URL_TTL_MS = 60_000;
 const PDF_CONTENT_TYPE = 'application/pdf';
 const LIST_HREF = '/quotations';
 const FIRST_VERSION = 1;
+// Statuses a new version sends back to Under Review: the clients agreed to
+// figures the revision replaces, so their decision cannot carry over to it.
+const REAPPROVAL_STATUSES: string[] = [
+	'Approved',
+	'Awaiting Signatures',
+	'Signed',
+];
 
 function editHeading(
 	editing: boolean,
@@ -341,6 +348,14 @@ export default function ClientQuotationComposer({
 		? revisions.find((row) => row.version === targetVersion)
 		: undefined;
 	const amendedVersionDescription = amendedVersion?.description ?? '';
+
+	// Issuing a new version of a quotation the clients have already agreed to
+	// sends it back for approval — they signed off on figures this version
+	// replaces. Amending a version in place changes no decision, so it doesn't.
+	const reopening =
+		!amending &&
+		Boolean(quotation) &&
+		REAPPROVAL_STATUSES.includes(quotation?.status ?? '');
 
 	// Who a new version can be emailed to. A quotation still in Draft has never
 	// been issued, so there is nobody expecting an update — the dialog leaves the
@@ -688,8 +703,15 @@ export default function ClientQuotationComposer({
 					type: 'success',
 				});
 			} else if (quotationId && versionDescription) {
-				await updateQuotation({ quotationId, versionDescription, ...snapshot });
+				const saved = await updateQuotation({
+					quotationId,
+					versionDescription,
+					...snapshot,
+				});
 				toastManager.add({
+					description: saved.reopened
+						? 'The quotation is back under review — the clients approve this version again.'
+						: undefined,
 					title: `Version ${targetVersion} saved`,
 					type: 'success',
 				});
@@ -1069,6 +1091,7 @@ export default function ClientQuotationComposer({
 				onOpenChange={setVersionDialogOpen}
 				open={versionDialogOpen}
 				recipients={versionEmailRecipients}
+				reopening={reopening}
 				saving={saving}
 				version={targetVersion}
 			/>

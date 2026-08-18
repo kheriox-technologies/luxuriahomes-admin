@@ -39,6 +39,27 @@ export const APPROVED_QUOTATION_STATUS = 'Approved' as const;
 /** How an approval reads in the version history. */
 export const APPROVAL_VERSION_DESCRIPTION = 'Approved' as const;
 
+/** How a revision that undoes an approval reads in the version history. */
+export const REOPENED_VERSION_DESCRIPTION =
+	'Returned to review — revised after approval' as const;
+
+export type ClientQuotationStatus = Infer<
+	typeof clientQuotationStatusValidator
+>;
+
+/**
+ * Whether issuing a new version from this status has to send the quotation back
+ * for approval. What the clients approved — or signed off on — no longer exists
+ * once the figures change, so their decision cannot carry over to the revision.
+ */
+export function requiresReapproval(status: ClientQuotationStatus): boolean {
+	return (
+		status === APPROVED_QUOTATION_STATUS ||
+		status === 'Awaiting Signatures' ||
+		status === 'Signed'
+	);
+}
+
 /** How issuing a quotation to its clients reads in the version history. */
 export const SENT_VERSION_DESCRIPTION = 'Sent to client' as const;
 
@@ -415,6 +436,10 @@ export async function recordQuotationStatusEvent(
  * synthesised from the quotation itself — callers never have to special-case
  * legacy data, and `update` writes the same row when it backfills.
  */
+function statusEventRank(changeType: QuotationVersionChangeType): number {
+	return changeType === 'Status' ? 1 : 0;
+}
+
 export async function readQuotationVersions(
 	ctx: QueryCtx,
 	quotation: Doc<'clientQuotations'>
@@ -446,9 +471,14 @@ export async function readQuotationVersions(
 				}));
 
 	// A status event shares its version with the revision it happened against, so
-	// the tiebreak puts the newer entry — the event — on top.
+	// the tiebreak puts the newer entry — the event — on top. Both can be written
+	// in the same instant (a revision that reopens the quotation for approval), so
+	// an equal timestamp falls back to the event, which can only have come after.
 	return versions.sort(
-		(a, b) => b.version - a.version || b.updatedAt - a.updatedAt
+		(a, b) =>
+			b.version - a.version ||
+			b.updatedAt - a.updatedAt ||
+			statusEventRank(b.changeType) - statusEventRank(a.changeType)
 	);
 }
 

@@ -32,6 +32,9 @@ export const MAX_VERSION_DESCRIPTION_LENGTH = 200;
  * the new version. It is only offered once the quotation has been issued — a
  * draft has no recipients — and never when amending, because a correction to a
  * version in place is not new news.
+ *
+ * When the revision undoes an approval, the dialog says so before it is saved:
+ * the decision the clients already made does not survive it.
  */
 export default function QuotationVersionDialog({
 	amending = false,
@@ -40,6 +43,7 @@ export default function QuotationVersionDialog({
 	onOpenChange,
 	open,
 	recipients = [],
+	reopening = false,
 	saving,
 	version,
 }: {
@@ -50,6 +54,8 @@ export default function QuotationVersionDialog({
 	open: boolean;
 	/** Client names to email, empty when the quotation has not been issued yet. */
 	recipients?: string[];
+	/** Whether saving sends an already-approved quotation back for approval. */
+	reopening?: boolean;
 	saving: boolean;
 	version: number;
 }) {
@@ -78,6 +84,9 @@ export default function QuotationVersionDialog({
 						{amending
 							? `This rewrites version ${version} in place and replaces its PDF. No new version is issued.`
 							: 'This keeps the quote reference and issues a new PDF. The previous version stays available.'}
+						{reopening
+							? ' The quotation goes back to Under Review, so the clients approve this version again.'
+							: null}
 					</DialogDescription>
 				</DialogHeader>
 				<DialogPanel>

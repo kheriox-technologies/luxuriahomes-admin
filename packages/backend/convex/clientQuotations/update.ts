@@ -9,6 +9,9 @@ import {
 	insertQuotationVersion,
 	parseVersionDescription,
 	quotationSnapshotArgs,
+	REOPENED_VERSION_DESCRIPTION,
+	REVIEW_QUOTATION_STATUS,
+	requiresReapproval,
 } from './shared';
 
 /**
@@ -19,6 +22,10 @@ import {
  * row records who changed it, when and why. The reference, the original issue
  * date and `createdBy`/`createdAt` are never touched: a revision is the same
  * quotation, not a new one.
+ *
+ * A quotation the clients had already approved, or that had moved on to
+ * signatures, goes back to Under Review: they agreed to figures this version
+ * replaces, so the revision has to be approved on its own terms.
  */
 export const update = mutation({
 	args: {
@@ -56,12 +63,14 @@ export const update = mutation({
 			existing.version ?? FIRST_VERSION
 		);
 		const nextVersion = latestVersion + 1;
+		const reopened = requiresReapproval(existing.status);
 
 		await ctx.db.patch(args.quotationId, {
 			...snapshot,
 			version: nextVersion,
 			updatedAt: savedAt,
 			updatedBy: savedBy,
+			...(reopened ? { status: REVIEW_QUOTATION_STATUS } : {}),
 		});
 
 		await insertQuotationVersion(ctx, {
@@ -77,6 +86,21 @@ export const update = mutation({
 			folderPath: args.folderPath,
 		});
 
-		return { version: nextVersion };
+		// Recorded against the new version rather than through
+		// `recordQuotationStatusEvent`, which reads the version off the row as it
+		// was before this revision was written.
+		if (reopened) {
+			await insertQuotationVersion(ctx, {
+				quotationId: args.quotationId,
+				version: nextVersion,
+				changeType: 'Status',
+				description: REOPENED_VERSION_DESCRIPTION,
+				updatedBy: savedBy,
+				updatedAt: savedAt,
+				totalInclGst: args.totalInclGst,
+			});
+		}
+
+		return { reopened, version: nextVersion };
 	},
 });
