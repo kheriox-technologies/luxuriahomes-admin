@@ -7,7 +7,8 @@ type NotificationType =
 	| 'inclusion_note'
 	| 'document_upload'
 	| 'quotation_note'
-	| 'quotation_approved';
+	| 'quotation_approved'
+	| 'quotation_signed';
 
 interface CreateNotificationArgs {
 	fromEmail?: string;

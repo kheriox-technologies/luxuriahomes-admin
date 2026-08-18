@@ -21,6 +21,12 @@ export const listSignableKeys = internalQuery({
 		if (quotation.s3Key) {
 			keys.add(quotation.s3Key);
 		}
+		// The signed copy is filed separately from the approved one, so it needs
+		// listing in its own right — otherwise a client cannot open the document
+		// they just signed.
+		if (quotation.signedS3Key) {
+			keys.add(quotation.signedS3Key);
+		}
 		for (const version of versions) {
 			if (version.s3Key) {
 				keys.add(version.s3Key);

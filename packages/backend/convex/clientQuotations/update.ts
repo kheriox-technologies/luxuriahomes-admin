@@ -3,6 +3,7 @@ import { mutation } from '../_generated/server';
 import { checkIdentity, requireAdmin } from '../lib/checkIdentity';
 import {
 	buildQuotationSnapshotPatch,
+	CLEARED_SIGNED_DOCUMENT,
 	FIRST_VERSION,
 	getClientQuotationOrThrow,
 	initialVersionFrom,
@@ -12,6 +13,8 @@ import {
 	REOPENED_VERSION_DESCRIPTION,
 	REVIEW_QUOTATION_STATUS,
 	requiresReapproval,
+	SIGNATURES_VOIDED_DESCRIPTION,
+	voidSignaturesForVersion,
 } from './shared';
 
 /**
@@ -65,12 +68,25 @@ export const update = mutation({
 		const nextVersion = latestVersion + 1;
 		const reopened = requiresReapproval(existing.status);
 
+		// Whatever was signed was signed against the version this replaces, so it
+		// cannot carry over — nobody may appear to have signed a document they
+		// never saw. The rows are voided rather than deleted so the trail survives.
+		const voided = reopened
+			? await voidSignaturesForVersion(
+					ctx,
+					args.quotationId,
+					existing.version ?? FIRST_VERSION,
+					savedAt
+				)
+			: 0;
+
 		await ctx.db.patch(args.quotationId, {
 			...snapshot,
 			version: nextVersion,
 			updatedAt: savedAt,
 			updatedBy: savedBy,
 			...(reopened ? { status: REVIEW_QUOTATION_STATUS } : {}),
+			...(voided > 0 ? CLEARED_SIGNED_DOCUMENT : {}),
 		});
 
 		await insertQuotationVersion(ctx, {
@@ -101,6 +117,20 @@ export const update = mutation({
 			});
 		}
 
-		return { reopened, version: nextVersion };
+		// Only when signatures were actually lost — an approved-but-unsigned
+		// quotation being revised should not gain a row about nothing.
+		if (voided > 0) {
+			await insertQuotationVersion(ctx, {
+				quotationId: args.quotationId,
+				version: nextVersion,
+				changeType: 'Status',
+				description: SIGNATURES_VOIDED_DESCRIPTION,
+				updatedBy: savedBy,
+				updatedAt: savedAt,
+				totalInclGst: args.totalInclGst,
+			});
+		}
+
+		return { reopened, version: nextVersion, voidedSignatures: voided };
 	},
 });

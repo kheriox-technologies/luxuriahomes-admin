@@ -2,6 +2,8 @@ import { v } from 'convex/values';
 import type { Doc } from '../_generated/dataModel';
 import { internalMutation, internalQuery } from '../_generated/server';
 import {
+	APPROVED_QUOTATION_STATUS,
+	AWAITING_SIGNATURES_STATUS,
 	DEFAULT_VERSION_CHANGE_TYPE,
 	FIRST_VERSION,
 	getClientQuotationOrThrow,
@@ -10,6 +12,7 @@ import {
 	REVIEW_QUOTATION_STATUS,
 	recordQuotationStatusEvent,
 	SENT_VERSION_DESCRIPTION,
+	SIGNATURES_REQUESTED_DESCRIPTION,
 } from './shared';
 
 /**
@@ -95,6 +98,41 @@ export const markSent = internalMutation({
 			quotation,
 			updatedAt: sentAt,
 			updatedBy: args.sentBy,
+		});
+	},
+});
+
+/**
+ * Opens the signature ceremony once the clients have been emailed.
+ *
+ * The status is re-checked here rather than trusted from the action: the action
+ * read the quotation before sending several emails, and an approval could have
+ * been undone by a revision in between.
+ */
+export const markAwaitingSignatures = internalMutation({
+	args: {
+		quotationId: v.id('clientQuotations'),
+		requestedBy: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const quotation = await getClientQuotationOrThrow(ctx, args.quotationId);
+		if (quotation.status !== APPROVED_QUOTATION_STATUS) {
+			return quotation.version ?? FIRST_VERSION;
+		}
+
+		const requestedAt = Date.now();
+		await ctx.db.patch(args.quotationId, {
+			status: AWAITING_SIGNATURES_STATUS,
+			signaturesRequestedAt: requestedAt,
+			updatedAt: requestedAt,
+			updatedBy: args.requestedBy,
+		});
+
+		return await recordQuotationStatusEvent(ctx, {
+			description: SIGNATURES_REQUESTED_DESCRIPTION,
+			quotation,
+			updatedAt: requestedAt,
+			updatedBy: args.requestedBy,
 		});
 	},
 });

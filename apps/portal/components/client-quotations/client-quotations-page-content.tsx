@@ -33,8 +33,10 @@ import {
 	ExternalLink,
 	FileSignature,
 	Pencil,
+	PenLine,
 	Plus,
 	Send,
+	Signature,
 	StickyNote,
 	Trash2,
 } from 'lucide-react';
@@ -49,6 +51,7 @@ import ClientQuotationNotesSheet from './client-quotation-notes-sheet';
 import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
 import DeleteClientQuotation from './delete-client-quotation';
 import type { QuotationSurface } from './quotation-surface';
+import RequestSignatures from './request-signatures';
 import SendQuotationToClients from './send-quotation-to-clients';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
@@ -62,6 +65,9 @@ const FIRST_VERSION = 1;
 /** The only status a quotation can be approved from. */
 const REVIEW_STATUS = 'Under Review';
 const DRAFT_STATUS = 'Draft';
+/** Signatures are requested from an approved quotation and collected after. */
+const APPROVED_STATUS = 'Approved';
+const AWAITING_SIGNATURES_STATUS = 'Awaiting Signatures';
 
 // The header labels and every row are the same grid — including the trailing
 // track the actions sit in — so the columns line up exactly. The first column is
@@ -91,9 +97,35 @@ function statusBadgeVariant(
 	return 'secondary';
 }
 
+/**
+ * The document to open for a quotation: the signed copy once signing has
+ * started, otherwise the one that was issued.
+ *
+ * Signing files its output separately so the approved PDF stays openable
+ * exactly as it was sent — but that is the archived copy, not the current one.
+ * Anyone opening the quotation wants to see the signatures on it, including the
+ * part-signed state while the ceremony is still running.
+ */
+function latestPdfKey(row: QuotationRow): string | undefined {
+	return row.signedS3Key ?? row.s3Key;
+}
+
 // Routes are typed, and a template literal can't be proved to be one of them.
 function editHref(row: QuotationRow): LinkProps<string>['href'] {
 	return `/quotations/${row._id}/edit` as LinkProps<string>['href'];
+}
+
+/**
+ * Where this surface signs. A client signs their own copy from the client
+ * portal; an admin countersigns for Luxuria Homes from the admin surface, which
+ * is what keeps the countersignature behind the admin role.
+ */
+function signHref(
+	row: QuotationRow,
+	surface: QuotationSurface
+): LinkProps<string>['href'] {
+	const base = surface === 'client' ? '/client/quotations' : '/quotations';
+	return `${base}/${row._id}/sign` as LinkProps<string>['href'];
 }
 
 function QuotationRowActions({
@@ -107,6 +139,7 @@ function QuotationRowActions({
 	const [deleteOpen, setDeleteOpen] = useState(false);
 	const [notesOpen, setNotesOpen] = useState(false);
 	const [sendOpen, setSendOpen] = useState(false);
+	const [requestSignaturesOpen, setRequestSignaturesOpen] = useState(false);
 	const openPdf = useOpenQuotationPdf(surface);
 	const isClient = surface === 'client';
 
@@ -150,9 +183,9 @@ function QuotationRowActions({
 					    only carries it for admins. */}
 					{isClient ? null : (
 						<MenuItem
-							disabled={!row.s3Key}
+							disabled={!latestPdfKey(row)}
 							onClick={() => {
-								openPdf(row.s3Key, row._id).catch(() => {
+								openPdf(latestPdfKey(row), row._id).catch(() => {
 									/* handled in openPdf */
 								});
 							}}
@@ -183,6 +216,31 @@ function QuotationRowActions({
 					>
 						<CircleCheck />
 						Approve
+					</MenuItem>
+					{/* Signatures are collected against a settled document, so the
+					    request only opens once the quotation has been approved. */}
+					{isClient ? null : (
+						<MenuItem
+							disabled={row.status !== APPROVED_STATUS || !row.s3Key}
+							onClick={() => setRequestSignaturesOpen(true)}
+						>
+							<Signature />
+							Request Signatures
+						</MenuItem>
+					)}
+					{/* Open to both surfaces: a client signs their own copy, an admin
+					    countersigns for Luxuria Homes. Whether it is actually this
+					    signer's turn is decided on the signing page itself. */}
+					<MenuItem
+						disabled={row.status !== AWAITING_SIGNATURES_STATUS}
+						render={
+							row.status === AWAITING_SIGNATURES_STATUS ? (
+								<Link href={signHref(row, surface)} />
+							) : undefined
+						}
+					>
+						<PenLine />
+						Sign
 					</MenuItem>
 					{isClient ? null : (
 						<>
@@ -218,6 +276,13 @@ function QuotationRowActions({
 						isDraft={row.status === DRAFT_STATUS}
 						onOpenChange={setSendOpen}
 						open={sendOpen}
+						quotationId={row._id}
+						reference={row.reference}
+					/>
+					<RequestSignatures
+						clients={row.clients}
+						onOpenChange={setRequestSignaturesOpen}
+						open={requestSignaturesOpen}
 						quotationId={row._id}
 						reference={row.reference}
 					/>
@@ -333,9 +398,9 @@ function QuotationClientRow({ row }: { row: QuotationRow }) {
 			<button
 				aria-label={`Open the PDF for ${row.reference}`}
 				className="absolute inset-0 cursor-pointer rounded-md outline-none transition-colors hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed"
-				disabled={!row.s3Key}
+				disabled={!latestPdfKey(row)}
 				onClick={() => {
-					openPdf(row.s3Key, row._id).catch(() => {
+					openPdf(latestPdfKey(row), row._id).catch(() => {
 						/* handled in openPdf */
 					});
 				}}

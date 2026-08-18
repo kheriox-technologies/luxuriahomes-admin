@@ -63,6 +63,131 @@ export function requiresReapproval(status: ClientQuotationStatus): boolean {
 /** How issuing a quotation to its clients reads in the version history. */
 export const SENT_VERSION_DESCRIPTION = 'Sent to client' as const;
 
+/** Collecting signatures, and the terminal state once everyone has signed. */
+export const AWAITING_SIGNATURES_STATUS = 'Awaiting Signatures' as const;
+export const SIGNED_QUOTATION_STATUS = 'Signed' as const;
+
+/** How the signature ceremony reads in the version history. */
+export const SIGNATURES_REQUESTED_DESCRIPTION = 'Signatures requested' as const;
+export const SIGNATURES_VOIDED_DESCRIPTION =
+	'Signatures voided — quotation revised' as const;
+export const FULLY_SIGNED_DESCRIPTION = 'Fully signed' as const;
+
+export function signatureVersionDescription(signerName: string): string {
+	return `Signed by ${signerName}`;
+}
+
+/**
+ * Who a signature belongs to. Clients sign what they were quoted; the
+ * representative countersigns on behalf of Luxuria Homes once they all have.
+ */
+export const quotationSignerRoleValidator = v.union(
+	v.literal('Client'),
+	v.literal('Representative')
+);
+
+export type QuotationSignerRole = Infer<typeof quotationSignerRoleValidator>;
+
+/**
+ * The script face a signature is drawn in. Mirrors `SIGNATURE_STYLES` in
+ * apps/portal/lib/client/pdf/signature-styles.ts, which owns the font files —
+ * adding a style means editing both.
+ */
+export const quotationSignatureStyleValidator = v.union(
+	v.literal('flowing'),
+	v.literal('casual'),
+	v.literal('hand')
+);
+
+/**
+ * The key a signature's marks are anchored to in the PDF. Quotation clients have
+ * no stable id, so the slot is their position in `quotation.clients` — which is
+ * why a signature stores the index it was collected against rather than
+ * recomputing it from the email each time the document is rebuilt.
+ */
+export function signatureSlotKey(signature: {
+	clientIndex?: number;
+	role: QuotationSignerRole;
+}): string {
+	return signature.role === 'Representative'
+		? 'rep'
+		: `client-${signature.clientIndex ?? 0}`;
+}
+
+export const REPRESENTATIVE_SLOT_KEY = 'rep';
+
+/** The key an email is matched on, here and in `isQuotationClient`. */
+export function normalizeSignerEmail(email: string): string {
+	return email.trim().toLowerCase();
+}
+
+/**
+ * The signatures still standing against a version. Voided rows are kept so the
+ * trail survives a revision, but they no longer count towards completion and are
+ * never drawn into the document.
+ */
+export async function readActiveSignatures(
+	ctx: QueryCtx,
+	quotationId: Id<'clientQuotations'>,
+	version: number
+): Promise<Doc<'clientQuotationSignatures'>[]> {
+	const rows = await ctx.db
+		.query('clientQuotationSignatures')
+		.withIndex('by_quotation_version', (q) =>
+			q.eq('quotationId', quotationId).eq('version', version)
+		)
+		.collect();
+	return rows
+		.filter((row) => row.voidedAt === undefined)
+		.sort((a, b) => a.signedAt - b.signedAt);
+}
+
+/**
+ * Retires every signature collected against a version, because the document
+ * those signers accepted no longer exists. Returns how many were voided so the
+ * caller only writes a history row when something actually changed.
+ */
+export async function voidSignaturesForVersion(
+	ctx: MutationCtx,
+	quotationId: Id<'clientQuotations'>,
+	version: number,
+	voidedAt: number
+): Promise<number> {
+	const active = await readActiveSignatures(ctx, quotationId, version);
+	await Promise.all(active.map((row) => ctx.db.patch(row._id, { voidedAt })));
+	return active.length;
+}
+
+/** The four fields that hold the signed PDF, cleared together when it is voided. */
+export const CLEARED_SIGNED_DOCUMENT = {
+	signedDocumentId: undefined,
+	signedS3Key: undefined,
+	signedFileName: undefined,
+	signedFolderPath: undefined,
+} as const;
+
+/**
+ * How far through the ceremony a quotation is. A client with no email address
+ * cannot be sent a link, so they are not counted as an outstanding signer —
+ * otherwise the quotation could never complete.
+ */
+export function signatureProgress(
+	quotation: Doc<'clientQuotations'>,
+	active: Doc<'clientQuotationSignatures'>[]
+): { allClientsSigned: boolean; complete: boolean } {
+	const signed = new Set(active.map((row) => row.signerEmail));
+	const expected = quotation.clients
+		.map((client) => normalizeSignerEmail(client.email))
+		.filter((email) => email.length > 0);
+	const allClientsSigned =
+		expected.length > 0 && expected.every((email) => signed.has(email));
+	return {
+		allClientsSigned,
+		complete:
+			allClientsSigned && active.some((row) => row.role === 'Representative'),
+	};
+}
+
 export const quotationClientValidator = v.object({
 	name: v.string(),
 	email: v.string(),
