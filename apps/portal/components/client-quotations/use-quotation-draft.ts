@@ -181,6 +181,7 @@ function specialInclusionHandlers(
 	setEntries: Dispatch<SetStateAction<DraftSpecialInclusion[]>>
 ): {
 	add: (text: string) => void;
+	addMany: (entries: { amount?: number; text: string }[]) => void;
 	remove: (key: string) => void;
 	update: (key: string, patch: { amount?: string; text?: string }) => void;
 } {
@@ -189,6 +190,17 @@ function specialInclusionHandlers(
 			setEntries((current) => [
 				...current,
 				{ amount: '', key: nextKey(), text },
+			]),
+		// Used by "Add from list": the standard list's prices come across as the
+		// starting amounts and stay editable like any other line.
+		addMany: (entries) =>
+			setEntries((current) => [
+				...current,
+				...entries.map((entry) => ({
+					amount: entry.amount === undefined ? '' : String(entry.amount),
+					key: nextKey(),
+					text: entry.text,
+				})),
 			]),
 		remove: (key) =>
 			setEntries((current) => current.filter((entry) => entry.key !== key)),
