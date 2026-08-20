@@ -62,6 +62,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import { useQuoteTemplateId } from '@/components/quotations/quote-template-context';
 import {
 	DragHandle,
 	InlineAddRow,
@@ -135,11 +136,12 @@ function InlineAddItem({ sectionId }: { sectionId: Id<'quoteTermSections'> }) {
 }
 
 function InlineAddSection() {
+	const templateId = useQuoteTemplateId();
 	const addSection = useMutation(api.quoteTermSections.add.add);
 	return (
 		<InlineAddRow
 			noun="section"
-			onAdd={(name) => addSection({ name })}
+			onAdd={(name) => addSection({ name, templateId })}
 			placeholder="Add a section and press Enter…"
 		/>
 	);

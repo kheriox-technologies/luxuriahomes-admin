@@ -108,6 +108,11 @@ export interface QuotationPdfInput {
 	 * document only grows signing furniture once signatures are being collected.
 	 */
 	signers?: QuotationPdfSignerSlot[];
+	/**
+	 * Extras specific to this quotation. Typed as plain strings so the amounts
+	 * kept alongside them for admin reference cannot reach the document.
+	 */
+	specialInclusions: string[];
 	stages: QuotationPdfStage[];
 	termSections: QuotationPdfTermSection[];
 	totalInclGst: number;
@@ -181,9 +186,21 @@ const LABEL_MARGIN_BOTTOM = 5;
  */
 const FONT_LINE_BOX = 1.25;
 /** Slack on predicted heights, so a rounding error never costs a page break. */
-const COVER_DETAILS_SAFETY_PAD = 8;
-/** Clients per "Prepared for" column on the cover before they wrap. */
-const COVER_CLIENTS_PER_COLUMN = 2;
+const COVER_DETAILS_SAFETY_PAD = 24;
+/**
+ * Gap between the cover's "Prepared for" columns. Four clients across the
+ * content width leaves each one ~105pt, so the gap tightens once the row is
+ * crowded to buy the email lines back some room.
+ */
+const COVER_CLIENT_COLUMN_GAP = 28;
+const COVER_CLIENT_COLUMN_GAP_TIGHT = 14;
+const COVER_CROWDED_CLIENT_COUNT = 3;
+/**
+ * Roughly how many characters of `F.body` text fit in one point of width. Used
+ * only to predict whether a client line wraps — `detailsColumnHeight` counts
+ * logical lines, and an under-count silently paginates the bank onto page 2.
+ */
+const BODY_CHARS_PER_POINT = 0.42;
 /**
  * Reference, version, issued date — the lines of the cover's reference column.
  * `coverDetailsTop` measures the bank off this, so it has to move with
@@ -514,29 +531,43 @@ function detailsColumnHeight(lineCount: number): number {
 	);
 }
 
-/**
- * The prepared-for lines, split into columns. Stacking every client in one
- * column runs the details bank up into the cover title once there are more than
- * two, so past that point they wrap into a second column.
- */
-function clientLineGroups(clients: QuotationPdfClient[]): string[][] {
-	const linesFor = (client: QuotationPdfClient) =>
-		[client.name, client.phone, client.email].filter(Boolean);
-	const group = (members: QuotationPdfClient[]) =>
-		members.flatMap((client, index) =>
-			index === 0 ? linesFor(client) : ['', ...linesFor(client)]
-		);
+/** One client's lines, in the order they print under "Prepared for". */
+function clientLines(client: QuotationPdfClient): string[] {
+	return [client.name, client.phone, client.email].filter(Boolean);
+}
 
-	if (clients.length <= COVER_CLIENTS_PER_COLUMN) {
-		return [group(clients)];
-	}
-	const split = Math.ceil(clients.length / 2);
-	return [group(clients.slice(0, split)), group(clients.slice(split))];
+function clientColumnGap(clientCount: number): number {
+	return clientCount >= COVER_CROWDED_CLIENT_COUNT
+		? COVER_CLIENT_COLUMN_GAP_TIGHT
+		: COVER_CLIENT_COLUMN_GAP;
 }
 
 /**
- * Prepared-for / address / reference / total, banked along the bottom of the ink
- * cover. These sit on the dark background, so they take the inverted palette.
+ * How many rendered lines the "Prepared for" row is tall. Every client gets its
+ * own column, so a long email in a narrow column wraps — counted here because
+ * `detailsColumnHeight` only knows about logical lines.
+ */
+function clientRowLineCount(clients: QuotationPdfClient[]): number {
+	const count = Math.max(clients.length, 1);
+	const gap = clientColumnGap(count);
+	const columnWidth = (CONTENT_WIDTH - gap * (count - 1)) / count;
+	const charsPerLine = Math.max(columnWidth * BODY_CHARS_PER_POINT, 1);
+	return Math.max(
+		...clients.map((client) =>
+			clientLines(client).reduce(
+				(sum, line) => sum + Math.max(Math.ceil(line.length / charsPerLine), 1),
+				0
+			)
+		),
+		1
+	);
+}
+
+/**
+ * Prepared-for on its own row, then address and reference, banked along the
+ * bottom of the ink cover. These sit on the dark background, so they take the
+ * inverted palette. No price prints here — the contract sum appears once, on
+ * the acknowledgement page.
  */
 function coverDetails(input: QuotationPdfInput): Node {
 	const onInk = { labelColor: C.linenMuted, valueColor: C.linen };
@@ -544,17 +575,21 @@ function coverDetails(input: QuotationPdfInput): Node {
 	return {
 		stack: [
 			{
-				columns: [
-					...clientLineGroups(input.clients).map((lines, index) =>
-						detailsColumn(index === 0 ? 'Prepared for' : ' ', lines, onInk)
-					),
-					detailsColumn('Project address', addressLines(input.address), onInk),
-				],
-				columnGap: 28,
+				// Every client side by side. Only the first column is labelled; the
+				// rest carry a blank label so all columns measure the same height.
+				columns: input.clients.map((client, index) =>
+					detailsColumn(
+						index === 0 ? 'Prepared for' : ' ',
+						clientLines(client),
+						onInk
+					)
+				),
+				columnGap: clientColumnGap(input.clients.length),
 				margin: [0, 0, 0, S.block * 2],
 			},
 			{
 				columns: [
+					detailsColumn('Project address', addressLines(input.address), onInk),
 					detailsColumn(
 						'Quote reference',
 						[
@@ -564,24 +599,6 @@ function coverDetails(input: QuotationPdfInput): Node {
 						],
 						onInk
 					),
-					{
-						width: '*',
-						stack: [
-							labelNode('Total investment', C.linenMuted),
-							{
-								text: formatAudWhole(input.totalInclGst),
-								fontSize: F.total,
-								bold: true,
-								color: C.linen,
-							},
-							{
-								text: 'Including GST',
-								fontSize: F.bodySmall,
-								color: C.linenMuted,
-								margin: [0, 4, 0, 0],
-							},
-						],
-					},
 				],
 				columnGap: 28,
 			},
@@ -596,22 +613,10 @@ function coverDetails(input: QuotationPdfInput): Node {
  * than a fixed y that only happens to fit one client.
  */
 function coverDetailsTop(input: QuotationPdfInput): number {
-	const clientLineCount = Math.max(
-		...clientLineGroups(input.clients).map((lines) => lines.length)
-	);
-	const firstRow = Math.max(
-		detailsColumnHeight(clientLineCount),
-		detailsColumnHeight(addressLines(input.address).length)
-	);
-	const totalColumnHeight =
-		textBlockHeight(F.label, LH.tight, 1) +
-		LABEL_MARGIN_BOTTOM +
-		textBlockHeight(F.total, LH.body, 1) +
-		4 +
-		textBlockHeight(F.bodySmall, LH.body, 1);
+	const firstRow = detailsColumnHeight(clientRowLineCount(input.clients));
 	const secondRow = Math.max(
-		detailsColumnHeight(REFERENCE_COLUMN_LINES),
-		totalColumnHeight
+		detailsColumnHeight(addressLines(input.address).length),
+		detailsColumnHeight(REFERENCE_COLUMN_LINES)
 	);
 	const height = firstRow + S.block * 2 + secondRow;
 	const usableBottom = A4_HEIGHT - (L.footerBandHeight + L.bandClearance);
@@ -891,102 +896,6 @@ function versionHistoryPage(input: QuotationPdfInput): Node[] {
 }
 
 // ---------------------------------------------------------------------------
-// Progress payments
-// ---------------------------------------------------------------------------
-
-function stageScopeText(stage: QuotationPdfStage): string {
-	const summary = stage.scopeSummary?.trim();
-	if (summary) {
-		return summary;
-	}
-	return stage.sections.map((section) => section.name).join(' · ');
-}
-
-const STAGE_TABLE_LAST_COLUMN = 3;
-
-function progressPaymentsBody(input: QuotationPdfInput): Node[] {
-	const body: Node[][] = [
-		[
-			tableHeaderCell('Stage'),
-			tableHeaderCell('Scope of works'),
-			tableHeaderCell('%', 'right'),
-			tableHeaderCell('Amount', 'right'),
-		],
-		...input.stages.map((stage, index) => {
-			const fillColor = index % 2 === 1 ? C.surfaceSubtle : undefined;
-			return [
-				{
-					columns: [
-						{
-							width: 16,
-							text: String(index + 1),
-							fontSize: F.tableHeader,
-							bold: true,
-							color: C.accent,
-							margin: [0, 2, 0, 0],
-						},
-						{
-							width: '*',
-							text: stage.name,
-							fontSize: F.tableCell,
-							bold: true,
-							color: C.body,
-						},
-					],
-					fillColor,
-				},
-				{
-					text: stageScopeText(stage),
-					fontSize: F.tableScope,
-					color: C.accent,
-					lineHeight: LH.body,
-					fillColor,
-				},
-				{
-					text: `${stage.percent}%`,
-					fontSize: F.tableCell,
-					color: C.body,
-					alignment: 'right',
-					fillColor,
-				},
-				{
-					text: formatAudWhole(stage.amount),
-					fontSize: F.tableCell,
-					bold: true,
-					color: C.body,
-					alignment: 'right',
-					fillColor,
-				},
-			];
-		}),
-	];
-
-	return [
-		{
-			// The schedule and the sum it adds up to belong together — splitting
-			// them leaves a total stranded at the top of the next page.
-			unbreakable: true,
-			stack: [
-				{
-					table: {
-						headerRows: 1,
-						dontBreakRows: true,
-						// The % column needs room for "100%" on one line — 8% wraps it.
-						widths: ['24%', '43%', '11%', '22%'],
-						body,
-					},
-					layout: tableLayout(STAGE_TABLE_LAST_COLUMN),
-				},
-				{
-					columns: [{ width: '*', text: '' }, summaryCard(input)],
-					margin: [0, S.block * 2, 0, 0],
-				},
-			],
-		},
-	];
-}
-
-// ---------------------------------------------------------------------------
 // Inclusions
 // ---------------------------------------------------------------------------
 
@@ -994,32 +903,12 @@ function stagePill(stage: QuotationPdfStage): Node {
 	return roundedPanel({
 		content: [
 			{
-				columns: [
-					{
-						width: '*',
-						text: stage.name,
-						fontSize: F.stageTitle,
-						bold: true,
-						color: C.linen,
-						lineHeight: LH.tight,
-					},
-					{
-						width: 'auto',
-						alignment: 'right',
-						// Amount and share on one line — "$47,500 (5%)" — so the pill
-						// stays a single row of text.
-						text: [
-							{
-								text: formatAudWhole(stage.amount),
-								bold: true,
-								color: C.linen,
-							},
-							{ text: `  (${stage.percent}%)`, color: C.linenMuted },
-						],
-						fontSize: F.stageAmount,
-						lineHeight: LH.tight,
-					},
-				],
+				// Name only — no price prints outside the acknowledgement page.
+				text: stage.name,
+				fontSize: F.stageTitle,
+				bold: true,
+				color: C.linen,
+				lineHeight: LH.tight,
 			},
 		],
 		fill: C.ink,
@@ -1190,6 +1079,10 @@ function textBullet(text: string): Node {
 		],
 		margin: [0, 0, 0, S.bullet],
 	};
+}
+
+function specialInclusionsBody(input: QuotationPdfInput): Node[] {
+	return input.specialInclusions.map(textBullet);
 }
 
 function exclusionsBody(input: QuotationPdfInput): Node[] {
@@ -1502,11 +1395,24 @@ function acknowledgementBody(input: QuotationPdfInput): Node[] {
 	return [
 		...(acknowledgement.length > 0 ? [tintedCard(acknowledgement)] : []),
 		{
+			// The one place a price prints: the reference and the project on the
+			// left, the contract sum on the right.
 			columns: [
-				detailsColumn('Quote reference', [input.reference]),
-				// Signed copies have to say which revision was accepted.
-				detailsColumn('Version', [String(input.version)]),
-				detailsColumn('Project', [input.projectName]),
+				{
+					width: '*',
+					stack: [
+						{
+							// Signed copies have to say which revision was accepted, so
+							// the version rides along with the reference.
+							...detailsColumn('Quote reference', [
+								`${input.reference} (v${input.version})`,
+							]),
+							margin: [0, 0, 0, S.block],
+						},
+						detailsColumn('Project', [input.projectName]),
+					],
+				},
+				summaryCard(input),
 			],
 			columnGap: 24,
 			margin: [0, S.block, 0, S.block * 1.5],
@@ -1540,14 +1446,14 @@ const NUMBERED_SECTIONS: {
 	skipInitials?: boolean;
 }[] = [
 	{
-		body: progressPaymentsBody,
-		heading: 'Construction stages & progress payments',
-		lead: 'Payments are claimed at the completion of each stage below and are due within five business days of the claim being issued. All amounts are inclusive of GST.',
-	},
-	{
 		body: inclusionsBody,
 		heading: 'What each stage includes',
 		lead: 'Everything listed below is allowed for within the contract sum. Where an allowance is stated, the figure is a supply-and-install budget confirmed at selections.',
+	},
+	{
+		body: specialInclusionsBody,
+		heading: 'Special inclusions',
+		lead: 'Allowed for within the contract sum in addition to the standard inclusions above.',
 	},
 	{
 		body: exclusionsBody,

@@ -1,3 +1,4 @@
+import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireAdmin } from '../lib/checkIdentity';
 
@@ -11,13 +12,18 @@ import { requireAdmin } from '../lib/checkIdentity';
  * strings rather than null.
  */
 export const get = query({
-	args: {},
-	handler: async (ctx) => {
+	args: { templateId: v.id('quoteTemplates') },
+	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
-		const settings = await ctx.db.query('quoteTermsSettings').first();
+		const settings = await ctx.db
+			.query('quoteTermsSettings')
+			.withIndex('by_template', (q) => q.eq('templateId', args.templateId))
+			.first();
 		const sections = await ctx.db
 			.query('quoteTermSections')
-			.withIndex('by_order')
+			.withIndex('by_template_order', (q) =>
+				q.eq('templateId', args.templateId)
+			)
 			.order('asc')
 			.collect();
 

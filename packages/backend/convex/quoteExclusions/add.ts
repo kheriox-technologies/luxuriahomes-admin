@@ -6,6 +6,7 @@ import { nextQuoteExclusionOrder, parseQuoteExclusionText } from './shared';
 
 export const add = mutation({
 	args: {
+		templateId: v.id('quoteTemplates'),
 		text: v.string(),
 	},
 	handler: async (ctx, args) => {
@@ -13,8 +14,9 @@ export const add = mutation({
 		const text = parseQuoteExclusionText(args.text);
 		return await ctx.db.insert('quoteExclusions', {
 			text,
-			order: await nextQuoteExclusionOrder(ctx),
+			order: await nextQuoteExclusionOrder(ctx, args.templateId),
 			searchText: buildQuoteExclusionSearchText(text),
+			templateId: args.templateId,
 		});
 	},
 });

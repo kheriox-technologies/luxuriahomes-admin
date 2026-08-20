@@ -1,8 +1,13 @@
+import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import {
 	buildQuoteTermItemSearchText,
 	buildQuoteTermSectionSearchText,
 } from '../lib/buildSearchText';
+import {
+	templateTermSections,
+	templateTermsSettings,
+} from '../quoteTemplates/shared';
 
 interface SeedTermSection {
 	items: string[];
@@ -83,17 +88,18 @@ const TERM_SECTIONS: SeedTermSection[] = [
  * copy. Run with `npx convex run quoteTerms/seed:populate`.
  */
 export const populate = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const existingSettings = await ctx.db.query('quoteTermsSettings').first();
-		const existingSection = await ctx.db.query('quoteTermSections').first();
-		if (existingSettings || existingSection) {
+	args: { templateId: v.id('quoteTemplates') },
+	handler: async (ctx, args) => {
+		const existingSettings = await templateTermsSettings(ctx, args.templateId);
+		const existingSections = await templateTermSections(ctx, args.templateId);
+		if (existingSettings || existingSections.length > 0) {
 			return { skipped: true, message: 'Quote terms already populated' };
 		}
 
 		await ctx.db.insert('quoteTermsSettings', {
 			acknowledgementHtml: ACKNOWLEDGEMENT_HTML,
 			disclaimerHtml: DISCLAIMER_HTML,
+			templateId: args.templateId,
 		});
 
 		let itemCount = 0;
@@ -102,6 +108,7 @@ export const populate = internalMutation({
 				name: section.name,
 				order: sectionIndex,
 				searchText: buildQuoteTermSectionSearchText(section.name),
+				templateId: args.templateId,
 			});
 			for (const [itemIndex, text] of section.items.entries()) {
 				await ctx.db.insert('quoteTermItems', {

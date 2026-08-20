@@ -4,6 +4,7 @@ import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
 import { useMutation } from 'convex/react';
 import { useCallback, useState } from 'react';
+import { useQuoteTemplateId } from '@/components/quotations/quote-template-context';
 
 export interface QuoteTargetInitial {
 	sectionId?: Id<'quoteSections'>;
@@ -17,6 +18,7 @@ export interface QuoteTargetInitial {
  * `components/trades/add-trade.tsx`, extended to the second level.
  */
 export function useQuoteTarget(initial?: QuoteTargetInitial) {
+	const templateId = useQuoteTemplateId();
 	const addStage = useMutation(api.quoteStages.add.add);
 	const addSection = useMutation(api.quoteSections.add.add);
 
@@ -75,7 +77,7 @@ export function useQuoteTarget(initial?: QuoteTargetInitial) {
 		const trimmedStage = newStageName.trim();
 		let resolvedStageId: Id<'quoteStages'>;
 		if (trimmedStage) {
-			resolvedStageId = await addStage({ name: trimmedStage });
+			resolvedStageId = await addStage({ name: trimmedStage, templateId });
 		} else {
 			if (stageId === '') {
 				throw new Error('Select a stage or enter a new stage name');
@@ -86,7 +88,15 @@ export function useQuoteTarget(initial?: QuoteTargetInitial) {
 			name: trimmedSection,
 			stageId: resolvedStageId,
 		});
-	}, [addSection, addStage, newSectionName, newStageName, sectionId, stageId]);
+	}, [
+		addSection,
+		addStage,
+		newSectionName,
+		newStageName,
+		sectionId,
+		stageId,
+		templateId,
+	]);
 
 	return {
 		changeNewStageName,

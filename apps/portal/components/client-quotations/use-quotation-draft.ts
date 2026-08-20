@@ -67,6 +67,17 @@ export interface DraftEntry {
 	text: string;
 }
 
+/**
+ * An extra inclusion specific to this quotation. The amount is held as a string
+ * while it is being typed, matching how the other money inputs on the composer
+ * work, and is parsed on save.
+ */
+export interface DraftSpecialInclusion {
+	amount: string;
+	key: string;
+	text: string;
+}
+
 // Rows the user adds have no Convex id, so React needs a local one. A counter
 // rather than a random id keeps renders deterministic.
 let keySeq = 0;
@@ -152,6 +163,44 @@ function seedEntriesFromSnapshot(
 	return seedEntries(byOrder(rows ?? []));
 }
 
+function seedSpecialInclusionsFromSnapshot(
+	rows: Doc<'clientQuotations'>['specialInclusions']
+): DraftSpecialInclusion[] {
+	return byOrder(rows ?? []).map((row) => ({
+		amount: row.amount === undefined ? '' : String(row.amount),
+		key: nextKey(),
+		text: row.text,
+	}));
+}
+
+/**
+ * The special-inclusions equivalent of `entryHandlers`. Kept separate rather
+ * than generalising that one, because an update here can touch either field.
+ */
+function specialInclusionHandlers(
+	setEntries: Dispatch<SetStateAction<DraftSpecialInclusion[]>>
+): {
+	add: (text: string) => void;
+	remove: (key: string) => void;
+	update: (key: string, patch: { amount?: string; text?: string }) => void;
+} {
+	return {
+		add: (text) =>
+			setEntries((current) => [
+				...current,
+				{ amount: '', key: nextKey(), text },
+			]),
+		remove: (key) =>
+			setEntries((current) => current.filter((entry) => entry.key !== key)),
+		update: (key, patch) =>
+			setEntries((current) =>
+				current.map((entry) =>
+					entry.key === key ? { ...entry, ...patch } : entry
+				)
+			),
+	};
+}
+
 /**
  * Add/update/remove bound to one flat list's setter. Module-level so it is a
  * stable reference the hook can memoise against an empty dependency list.
@@ -208,6 +257,11 @@ export function useQuotationDraft({
 	const [termSections, setTermSections] = useState<DraftTermSection[]>([]);
 	const [exclusions, setExclusions] = useState<DraftEntry[]>([]);
 	const [notes, setNotes] = useState<DraftEntry[]>([]);
+	// Per-quotation only — there is no catalogue source, so this seeds from the
+	// snapshot when editing and starts empty otherwise.
+	const [specialInclusions, setSpecialInclusions] = useState<
+		DraftSpecialInclusion[]
+	>([]);
 
 	// Seed once per catalogue shape. Keying on ids and counts rather than object
 	// identity means an unrelated catalogue edit in another tab can't wipe a draft
@@ -243,6 +297,9 @@ export function useQuotationDraft({
 		setTermSections(seedTermSectionsFromSnapshot(snapshot.terms.sections));
 		setExclusions(seedEntriesFromSnapshot(snapshot.exclusions));
 		setNotes(seedEntriesFromSnapshot(snapshot.notes));
+		setSpecialInclusions(
+			seedSpecialInclusionsFromSnapshot(snapshot.specialInclusions)
+		);
 	}, [snapshot, hydratedId]);
 
 	useEffect(() => {
@@ -489,6 +546,10 @@ export function useQuotationDraft({
 
 	const exclusionHandlers = useMemo(() => entryHandlers(setExclusions), []);
 	const noteHandlers = useMemo(() => entryHandlers(setNotes), []);
+	const specialInclusionsHandlers = useMemo(
+		() => specialInclusionHandlers(setSpecialInclusions),
+		[]
+	);
 
 	// --- Resets ---------------------------------------------------------------
 
@@ -558,6 +619,8 @@ export function useQuotationDraft({
 		resetNotes,
 		resetStages,
 		resetTermSections,
+		specialInclusions,
+		specialInclusionsHandlers,
 		stages,
 		termSections,
 		updateItem,

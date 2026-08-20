@@ -29,8 +29,12 @@ export async function getQuoteExclusionOrThrow(
 
 /** Next sort position for a new exclusion, appended after the existing ones. */
 export async function nextQuoteExclusionOrder(
-	ctx: MutationCtx
+	ctx: MutationCtx,
+	templateId: Id<'quoteTemplates'>
 ): Promise<number> {
-	const exclusions = await ctx.db.query('quoteExclusions').collect();
+	const exclusions = await ctx.db
+		.query('quoteExclusions')
+		.withIndex('by_template_order', (q) => q.eq('templateId', templateId))
+		.collect();
 	return exclusions.length;
 }

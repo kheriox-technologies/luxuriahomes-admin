@@ -28,11 +28,13 @@ import {
 	QuoteCatalogueTree,
 	type QuoteCatalogueTreeHandle,
 } from '@/components/quote-items/quote-catalogue-tree';
+import { useQuoteTemplateId } from './quote-template-context';
 
 const REQUIRED_PERCENT_TOTAL = 100;
 
 export default function QuotationsItemsTab() {
-	const tree = useQuery(api.quoteCatalogue.tree.tree, {});
+	const templateId = useQuoteTemplateId();
+	const tree = useQuery(api.quoteCatalogue.tree.tree, { templateId });
 	const [search, setSearch] = useState('');
 	const treeRef = useRef<QuoteCatalogueTreeHandle>(null);
 

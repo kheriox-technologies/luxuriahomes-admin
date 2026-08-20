@@ -20,6 +20,7 @@ import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
 import { Check } from 'lucide-react';
 import { type ReactElement, useEffect, useState } from 'react';
+import { useQuoteTemplateId } from '@/components/quotations/quote-template-context';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import {
 	emptyQuoteSectionFormValues,
@@ -49,12 +50,13 @@ export default function EditQuoteSection({
 	);
 	const [newStageName, setNewStageName] = useState('');
 	const updateSection = useMutation(api.quoteSections.update.update);
+	const templateId = useQuoteTemplateId();
 	const addStage = useMutation(api.quoteStages.add.add);
 
 	const resolveStageId = async (): Promise<Id<'quoteStages'>> => {
 		const trimmed = newStageName.trim();
 		if (trimmed) {
-			return await addStage({ name: trimmed });
+			return await addStage({ name: trimmed, templateId });
 		}
 		if (stageId === '') {
 			throw new Error('Select a stage or enter a new stage name');

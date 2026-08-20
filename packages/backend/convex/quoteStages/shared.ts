@@ -31,8 +31,14 @@ export async function getQuoteStageOrThrow(
 /**
  * Next sort position for a new stage, appended after existing stages.
  */
-export async function nextQuoteStageOrder(ctx: MutationCtx): Promise<number> {
-	const stages = await ctx.db.query('quoteStages').collect();
+export async function nextQuoteStageOrder(
+	ctx: MutationCtx,
+	templateId: Id<'quoteTemplates'>
+): Promise<number> {
+	const stages = await ctx.db
+		.query('quoteStages')
+		.withIndex('by_template_order', (q) => q.eq('templateId', templateId))
+		.collect();
 	return stages.length;
 }
 
@@ -117,15 +123,17 @@ export interface QuoteStageDefaults {
  */
 export async function createQuoteStage(
 	ctx: MutationCtx,
+	templateId: Id<'quoteTemplates'>,
 	rawName: string,
 	defaults: QuoteStageDefaults = {}
 ): Promise<Id<'quoteStages'>> {
 	const name = parseQuoteStageName(rawName);
 	const searchText = buildQuoteStageSearchText(name);
-	const order = await nextQuoteStageOrder(ctx);
+	const order = await nextQuoteStageOrder(ctx, templateId);
 	return await ctx.db.insert('quoteStages', {
 		name,
 		order,
+		templateId,
 		defaultPercent: parseQuoteStageDefaultPercent(defaults.defaultPercent),
 		scopeSummary: parseQuoteStageScopeSummary(defaults.scopeSummary),
 		searchText,

@@ -22,7 +22,7 @@ import {
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 /**
  * Primitives shared by the three draft editors on the Add Quotation page.
@@ -33,18 +33,23 @@ import { useEffect, useRef, useState } from 'react';
  * there is nothing to await and nothing to fail.
  */
 
-/** One editable line: number, text input committed on blur or Enter, delete. */
+/**
+ * One editable line: number, text input committed on blur or Enter, an optional
+ * trailing control (an amount field, say) and delete.
+ */
 export function DraftTextRow({
 	label,
 	number,
 	onChange,
 	onRemove,
+	trailing,
 	value,
 }: {
 	label: string;
 	number: string;
 	onChange: (next: string) => void;
 	onRemove: () => void;
+	trailing?: ReactNode;
 	value: string;
 }) {
 	const [draft, setDraft] = useState(value);
@@ -90,6 +95,7 @@ export function DraftTextRow({
 				}}
 				value={draft}
 			/>
+			{trailing}
 			<Button
 				aria-label={`Remove ${label}`}
 				onClick={onRemove}

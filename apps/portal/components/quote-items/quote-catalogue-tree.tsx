@@ -65,6 +65,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import { useQuoteTemplateId } from '@/components/quotations/quote-template-context';
 import {
 	DragHandle,
 	InlineAddRow,
@@ -166,13 +167,14 @@ function InlineAddSection({ stageId }: { stageId: Id<'quoteStages'> }) {
 }
 
 function InlineAddStage() {
+	const templateId = useQuoteTemplateId();
 	const addStage = useMutation(api.quoteStages.add.add);
 	return (
 		<InlineAddRow
 			noun="stage"
 			// Starts at 0% so the stage counts toward the percentage total right away
 			// instead of reading as "not set".
-			onAdd={(name) => addStage({ defaultPercent: 0, name })}
+			onAdd={(name) => addStage({ defaultPercent: 0, name, templateId })}
 			placeholder="Add a stage and press Enter…"
 		/>
 	);

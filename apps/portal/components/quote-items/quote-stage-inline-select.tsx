@@ -5,6 +5,7 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { useQuery } from 'convex/react';
+import { useQuoteTemplateId } from '@/components/quotations/quote-template-context';
 import QuoteStageCombobox from './quote-stage-combobox';
 
 /**
@@ -29,7 +30,8 @@ export default function QuoteStageInlineSelect({
 	onNewStageNameChange: (next: string) => void;
 	disabled?: boolean;
 }) {
-	const stages = useQuery(api.quoteStages.list.list, {});
+	const templateId = useQuoteTemplateId();
+	const stages = useQuery(api.quoteStages.list.list, { templateId });
 	const creatingNew = newStageName.trim().length > 0;
 
 	return (

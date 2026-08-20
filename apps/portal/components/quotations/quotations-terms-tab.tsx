@@ -18,9 +18,11 @@ import {
 	QuoteTermsTree,
 	type QuoteTermsTreeHandle,
 } from '@/components/quote-terms/quote-terms-tree';
+import { useQuoteTemplateId } from './quote-template-context';
 
 export default function QuotationsTermsTab() {
-	const terms = useQuery(api.quoteTerms.get.get, {});
+	const templateId = useQuoteTemplateId();
+	const terms = useQuery(api.quoteTerms.get.get, { templateId });
 	const [search, setSearch] = useState('');
 	const treeRef = useRef<QuoteTermsTreeHandle>(null);
 
