@@ -519,6 +519,23 @@ export default defineSchema({
 	})
 		.index('by_template_order', ['templateId', 'order'])
 		.searchIndex('search_quote_notes', { searchField: 'searchText' }),
+	// The standard list of special inclusions, kept once for the whole business
+	// rather than per template — the same extras get quoted across every kind of
+	// build. Rows are copied onto a quotation by value; editing or deleting one
+	// here never reaches a quotation that has already been composed.
+	quotationSpecialInclusions: defineTable({
+		text: v.string(),
+		// The standard price. Optional, and copied across as the starting amount.
+		amount: v.optional(v.number()),
+		// Sort position within the single list.
+		order: v.number(),
+		createdAt: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quotation_special_inclusions', {
+			searchField: 'searchText',
+		}),
 	// A client-facing building quotation, composed from the quote catalogue and
 	// the quote terms and rendered to a branded PDF.
 	//

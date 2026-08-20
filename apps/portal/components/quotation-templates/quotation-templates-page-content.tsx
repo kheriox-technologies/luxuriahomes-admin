@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import SpecialInclusionsSection from '@/components/quotation-special-inclusions/special-inclusions-section';
 import AddQuotationTemplate from './add-quotation-template';
 import DeleteQuotationTemplate from './delete-quotation-template';
 import DuplicateQuotationTemplate from './duplicate-quotation-template';
@@ -209,7 +210,7 @@ export default function QuotationTemplatesPageContent() {
 	}
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-4">
+		<div className="flex min-h-0 flex-1 flex-col gap-6">
 			<PageHeading
 				description="Each template holds its own catalogue, terms, exclusions, notes, disclaimer and acknowledgement. Quotations are built from one of them."
 				heading="Quotation Templates"
@@ -227,6 +228,9 @@ export default function QuotationTemplatesPageContent() {
 				}
 			/>
 			{content}
+			{/* The standard special inclusions live here rather than inside a
+			    template: the same extras get quoted across every kind of build. */}
+			<SpecialInclusionsSection />
 		</div>
 	);
 }

@@ -163,6 +163,10 @@ export function buildQuoteNoteSearchText(text: string): string {
 	return buildSearchText([text]);
 }
 
+export function buildQuotationSpecialInclusionSearchText(text: string): string {
+	return buildSearchText([text]);
+}
+
 export function buildClientQuotationSearchText(fields: {
 	address: { postcode: string; street: string; suburb: string };
 	clients: { email: string; name: string; phone: string }[];

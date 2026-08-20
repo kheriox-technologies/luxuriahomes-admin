@@ -26,10 +26,11 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { FileSignature, FileText, Plus, Save } from 'lucide-react';
+import { FileSignature, FileText, ListPlus, Plus, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
+import SelectSpecialInclusionsSheet from '@/components/quotation-special-inclusions/select-special-inclusions-sheet';
 import {
 	buildClientQuotationPdfBlob,
 	type QuotationPdfInput,
@@ -214,6 +215,7 @@ export default function ClientQuotationComposer({
 	const [saving, setSaving] = useState(false);
 	const [previewing, setPreviewing] = useState(false);
 	const [versionDialogOpen, setVersionDialogOpen] = useState(false);
+	const [addFromListOpen, setAddFromListOpen] = useState(false);
 
 	const form = useForm({
 		defaultValues: emptyClientQuotationFormValues,
@@ -1101,9 +1103,19 @@ export default function ClientQuotationComposer({
 						<Frame>
 							<FrameHeader className="flex-row items-center justify-between gap-3">
 								<FrameTitle>Special inclusions</FrameTitle>
-								<Badge className="shrink-0 tabular-nums" variant="purple">
-									{formatAudWhole(specialInclusionsAmount)}
-								</Badge>
+								<div className="flex shrink-0 items-center gap-2">
+									<Button
+										onClick={() => setAddFromListOpen(true)}
+										size="sm"
+										type="button"
+										variant="outline"
+									>
+										<ListPlus aria-hidden /> Add From List
+									</Button>
+									<Badge className="shrink-0 tabular-nums" variant="purple">
+										{formatAudWhole(specialInclusionsAmount)}
+									</Badge>
+								</div>
 							</FrameHeader>
 							<FramePanel>
 								<QuotationSpecialInclusionsEditor
@@ -1176,6 +1188,12 @@ export default function ClientQuotationComposer({
 				reopening={reopening}
 				saving={saving}
 				version={targetVersion}
+			/>
+
+			<SelectSpecialInclusionsSheet
+				onConfirm={draft.specialInclusionsHandlers.addMany}
+				onOpenChange={setAddFromListOpen}
+				open={addFromListOpen}
 			/>
 		</div>
 	);
