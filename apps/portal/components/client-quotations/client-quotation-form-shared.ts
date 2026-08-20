@@ -146,6 +146,17 @@ export function applyMargin(budget: number, marginPercent: number): number {
 }
 
 /**
+ * What the special inclusions add to the contract sum. Their amounts are entered
+ * at the price the client pays, so the margin does not apply on top — they are
+ * added to the marked-up budget at face value.
+ */
+export function specialInclusionsTotal(entries: { amount: string }[]): number {
+	return round2(
+		entries.reduce((sum, entry) => sum + parseMoney(entry.amount), 0)
+	);
+}
+
+/**
  * Splits the total across the stages, pushing any rounding remainder onto the
  * last one so the printed column always sums to the printed total.
  */

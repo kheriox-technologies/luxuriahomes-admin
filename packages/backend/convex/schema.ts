@@ -8,6 +8,7 @@ import {
 	quotationEntrySnapshotValidator,
 	quotationSignatureStyleValidator,
 	quotationSignerRoleValidator,
+	quotationSpecialInclusionValidator,
 	quotationStageSnapshotValidator,
 	quotationTermsSnapshotValidator,
 } from './clientQuotations/shared';
@@ -406,11 +407,27 @@ export default defineSchema({
 		.index('by_stage', ['stageId'])
 		.index('by_xero_account', ['xeroAccountId'])
 		.searchIndex('search_trades', { searchField: 'searchText' }),
+	// A named body of standard quotation content — the six catalogue tabs
+	// (items, terms, exclusions, notes, disclaimer, acknowledgement) all hang off
+	// one of these. A new client quotation is composed from exactly one template.
+	quoteTemplates: defineTable({
+		name: v.string(),
+		description: v.optional(v.string()),
+		// Sort position in the templates list.
+		order: v.number(),
+		createdAt: v.number(),
+		searchText: v.string(),
+	})
+		.index('by_order', ['order'])
+		.searchIndex('search_quote_templates', { searchField: 'searchText' }),
 	// Master catalogue of quotation line items, three levels deep:
 	// quoteStages > quoteSections > quoteItems. Every section belongs to exactly
 	// one stage and every item to exactly one section — there is no Ungrouped
 	// bucket, so the parent ids and `order` are required.
 	quoteStages: defineTable({
+		// The template this row belongs to. Optional only until the backfill
+		// migration has run against every deployment; every write sets it.
+		templateId: v.optional(v.id('quoteTemplates')),
 		name: v.string(),
 		order: v.number(),
 		// Share of the contract sum (0–100) pre-filled on a new client quotation.
@@ -422,7 +439,7 @@ export default defineSchema({
 		scopeSummary: v.optional(v.string()),
 		searchText: v.string(),
 	})
-		.index('by_order', ['order'])
+		.index('by_template_order', ['templateId', 'order'])
 		.searchIndex('search_quote_stages', { searchField: 'searchText' }),
 	quoteSections: defineTable({
 		name: v.string(),
@@ -452,15 +469,21 @@ export default defineSchema({
 	// lazily on the first save (or by `quoteTerms/seed`), so reads must tolerate
 	// its absence.
 	quoteTermsSettings: defineTable({
+		// The template this row belongs to. Optional only until the backfill
+		// migration has run against every deployment; every write sets it.
+		templateId: v.optional(v.id('quoteTemplates')),
 		acknowledgementHtml: v.string(),
 		disclaimerHtml: v.string(),
-	}),
+	}).index('by_template', ['templateId']),
 	quoteTermSections: defineTable({
+		// The template this row belongs to. Optional only until the backfill
+		// migration has run against every deployment; every write sets it.
+		templateId: v.optional(v.id('quoteTemplates')),
 		name: v.string(),
 		order: v.number(),
 		searchText: v.string(),
 	})
-		.index('by_order', ['order'])
+		.index('by_template_order', ['templateId', 'order'])
 		.searchIndex('search_quote_term_sections', { searchField: 'searchText' }),
 	quoteTermItems: defineTable({
 		// A single clause, stored as the full sentence that prints as one bullet.
@@ -476,19 +499,25 @@ export default defineSchema({
 	// hand-ordered lists of single sentences — deliberately no section level, so
 	// they are edited as plain text rows rather than through the terms tree.
 	quoteExclusions: defineTable({
+		// The template this row belongs to. Optional only until the backfill
+		// migration has run against every deployment; every write sets it.
+		templateId: v.optional(v.id('quoteTemplates')),
 		text: v.string(),
 		// Sort position within the single list.
 		order: v.number(),
 		searchText: v.string(),
 	})
-		.index('by_order', ['order'])
+		.index('by_template_order', ['templateId', 'order'])
 		.searchIndex('search_quote_exclusions', { searchField: 'searchText' }),
 	quoteNotes: defineTable({
+		// The template this row belongs to. Optional only until the backfill
+		// migration has run against every deployment; every write sets it.
+		templateId: v.optional(v.id('quoteTemplates')),
 		text: v.string(),
 		order: v.number(),
 		searchText: v.string(),
 	})
-		.index('by_order', ['order'])
+		.index('by_template_order', ['templateId', 'order'])
 		.searchIndex('search_quote_notes', { searchField: 'searchText' }),
 	// A client-facing building quotation, composed from the quote catalogue and
 	// the quote terms and rendered to a branded PDF.
@@ -530,8 +559,13 @@ export default defineSchema({
 		terms: quotationTermsSnapshotValidator,
 		// Drafted from the catalogue lists on the composer. Optional only so rows
 		// created before these sections existed keep validating.
+		// Extras specific to this quotation, on top of the template's inclusions.
+		// The amounts add to the contract total but are never printed.
+		specialInclusions: v.optional(v.array(quotationSpecialInclusionValidator)),
 		exclusions: v.optional(v.array(quotationEntrySnapshotValidator)),
 		notes: v.optional(v.array(quotationEntrySnapshotValidator)),
+		// The template the quotation was composed from. Provenance only.
+		templateId: v.optional(v.id('quoteTemplates')),
 		// The generated PDF, filed under company documents.
 		documentId: v.optional(v.id('companyDocuments')),
 		s3Key: v.optional(v.string()),

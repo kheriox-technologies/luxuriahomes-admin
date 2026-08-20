@@ -20,9 +20,11 @@ import { useState } from 'react';
  * throw away reworked terms.
  */
 export default function QuotationResetButton({
+	disabled,
 	label,
 	onReset,
 }: {
+	disabled?: boolean;
 	label: string;
 	onReset: () => void;
 }) {
@@ -32,7 +34,7 @@ export default function QuotationResetButton({
 		<AlertDialog onOpenChange={setOpen} open={open}>
 			<AlertDialogTrigger
 				render={
-					<Button size="sm" type="button" variant="outline">
+					<Button disabled={disabled} size="sm" type="button" variant="outline">
 						<RotateCcw aria-hidden /> Reset
 					</Button>
 				}

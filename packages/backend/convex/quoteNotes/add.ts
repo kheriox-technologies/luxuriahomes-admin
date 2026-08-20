@@ -6,6 +6,7 @@ import { nextQuoteNoteOrder, parseQuoteNoteText } from './shared';
 
 export const add = mutation({
 	args: {
+		templateId: v.id('quoteTemplates'),
 		text: v.string(),
 	},
 	handler: async (ctx, args) => {
@@ -13,8 +14,9 @@ export const add = mutation({
 		const text = parseQuoteNoteText(args.text);
 		return await ctx.db.insert('quoteNotes', {
 			text,
-			order: await nextQuoteNoteOrder(ctx),
+			order: await nextQuoteNoteOrder(ctx, args.templateId),
 			searchText: buildQuoteNoteSearchText(text),
+			templateId: args.templateId,
 		});
 	},
 });

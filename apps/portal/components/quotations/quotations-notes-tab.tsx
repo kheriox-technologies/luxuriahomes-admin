@@ -14,9 +14,11 @@ import { useMutation, useQuery } from 'convex/react';
 import { NotebookPen } from 'lucide-react';
 import { useState } from 'react';
 import { QuoteSimpleList } from '@/components/quote-lists/quote-simple-list';
+import { useQuoteTemplateId } from './quote-template-context';
 
 export default function QuotationsNotesTab() {
-	const notes = useQuery(api.quoteNotes.list.list, {});
+	const templateId = useQuoteTemplateId();
+	const notes = useQuery(api.quoteNotes.list.list, { templateId });
 	const addNote = useMutation(api.quoteNotes.add.add);
 	const updateNote = useMutation(api.quoteNotes.update.update);
 	const removeNote = useMutation(api.quoteNotes.remove.remove);
@@ -60,7 +62,7 @@ export default function QuotationsNotesTab() {
 				}
 				noun="note"
 				nounPlural="notes"
-				onAdd={(text) => addNote({ text })}
+				onAdd={(text) => addNote({ templateId, text })}
 				onRemove={(id) => removeNote({ noteId: id as Id<'quoteNotes'> })}
 				onReorder={(ids) =>
 					reorderNotes({ noteIds: ids as Id<'quoteNotes'>[] })

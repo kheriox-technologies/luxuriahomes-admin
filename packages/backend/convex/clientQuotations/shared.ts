@@ -229,6 +229,17 @@ export const quotationEntrySnapshotValidator = v.object({
 	order: v.number(),
 });
 
+/**
+ * An extra inclusion specific to one quotation, on top of everything pulled
+ * from the template. The amount is admin reference only — it is added to the
+ * contract total but never printed on the client-facing PDF.
+ */
+export const quotationSpecialInclusionValidator = v.object({
+	text: v.string(),
+	amount: v.optional(v.number()),
+	order: v.number(),
+});
+
 export const quotationTermsSnapshotValidator = v.object({
 	disclaimerHtml: v.string(),
 	acknowledgementHtml: v.string(),
@@ -260,8 +271,13 @@ export const quotationSnapshotArgs = {
 	totalInclGst: v.number(),
 	stages: v.array(quotationStageSnapshotValidator),
 	terms: quotationTermsSnapshotValidator,
+	specialInclusions: v.array(quotationSpecialInclusionValidator),
 	exclusions: v.array(quotationEntrySnapshotValidator),
 	notes: v.array(quotationEntrySnapshotValidator),
+	// The template the quotation was composed from. Provenance only — the body
+	// above is a complete snapshot, so the template can be edited or deleted
+	// later without touching an issued quotation.
+	templateId: v.optional(v.id('quoteTemplates')),
 	documentId: v.optional(v.id('companyDocuments')),
 	s3Key: v.optional(v.string()),
 	fileName: v.optional(v.string()),
@@ -381,6 +397,26 @@ export function parseVersionDescription(description: string): string {
  * The derived figures are computed here rather than trusted from the client, so
  * the stored contract sum and GST always agree with the total that was quoted.
  */
+/**
+ * Drops blank rows, discards a zero or negative amount and reindexes the order
+ * so the stored list matches exactly what the composer showed.
+ */
+function parseSpecialInclusions(
+	entries: QuotationSnapshotArgs['specialInclusions']
+) {
+	return entries
+		.map((entry) => ({ ...entry, text: entry.text.trim() }))
+		.filter((entry) => entry.text.length > 0)
+		.map((entry, index) => ({
+			text: entry.text,
+			amount:
+				entry.amount !== undefined && entry.amount > 0
+					? entry.amount
+					: undefined,
+			order: index,
+		}));
+}
+
 export function buildQuotationSnapshotPatch(
 	args: QuotationSnapshotArgs,
 	reference: string
@@ -414,8 +450,10 @@ export function buildQuotationSnapshotPatch(
 		gstAmount,
 		stages: args.stages,
 		terms: args.terms,
+		specialInclusions: parseSpecialInclusions(args.specialInclusions),
 		exclusions: args.exclusions,
 		notes: args.notes,
+		templateId: args.templateId,
 		documentId: args.documentId,
 		s3Key: args.s3Key,
 		fileName: args.fileName,

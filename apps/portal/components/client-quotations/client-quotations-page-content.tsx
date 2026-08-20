@@ -52,6 +52,7 @@ import ClientQuotationVersionsPanel from './client-quotation-versions-panel';
 import DeleteClientQuotation from './delete-client-quotation';
 import type { QuotationSurface } from './quotation-surface';
 import RequestSignatures from './request-signatures';
+import SelectQuotationTemplateDialog from './select-quotation-template-dialog';
 import SendQuotationToClients from './send-quotation-to-clients';
 import { useOpenQuotationPdf } from './use-open-quotation-pdf';
 
@@ -60,7 +61,6 @@ type QuotationRow = FunctionReturnType<
 	typeof api.clientQuotations.list.list
 >[number];
 
-const NEW_HREF = '/quotations/new';
 const FIRST_VERSION = 1;
 /** The only status a quotation can be approved from. */
 const REVIEW_STATUS = 'Under Review';
@@ -443,6 +443,7 @@ export default function ClientQuotationsPageContent({
 	const [search, setSearch] = useState('');
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const [openRows, setOpenRows] = useState<string[]>([]);
+	const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 	const trimmedSearch = debouncedSearch.trim();
 	const isClient = surface === 'client';
 
@@ -550,7 +551,11 @@ export default function ClientQuotationsPageContent({
 							value={search}
 						/>
 						{isClient ? null : (
-							<Button render={<Link href={NEW_HREF} />} variant="outline">
+							<Button
+								onClick={() => setTemplateDialogOpen(true)}
+								type="button"
+								variant="outline"
+							>
 								<Plus aria-hidden /> Add Quotation
 							</Button>
 						)}
@@ -558,6 +563,10 @@ export default function ClientQuotationsPageContent({
 				}
 			/>
 			{content}
+			<SelectQuotationTemplateDialog
+				onOpenChange={setTemplateDialogOpen}
+				open={templateDialogOpen}
+			/>
 		</div>
 	);
 }

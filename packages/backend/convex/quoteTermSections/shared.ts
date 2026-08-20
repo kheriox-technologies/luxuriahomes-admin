@@ -33,9 +33,13 @@ export async function getQuoteTermSectionOrThrow(
 
 /** Next sort position for a new section, appended after the existing ones. */
 export async function nextQuoteTermSectionOrder(
-	ctx: MutationCtx
+	ctx: MutationCtx,
+	templateId: Id<'quoteTemplates'>
 ): Promise<number> {
-	const sections = await ctx.db.query('quoteTermSections').collect();
+	const sections = await ctx.db
+		.query('quoteTermSections')
+		.withIndex('by_template_order', (q) => q.eq('templateId', templateId))
+		.collect();
 	return sections.length;
 }
 
@@ -46,13 +50,15 @@ export async function nextQuoteTermSectionOrder(
  */
 export async function createQuoteTermSection(
 	ctx: MutationCtx,
+	templateId: Id<'quoteTemplates'>,
 	rawName: string
 ): Promise<Id<'quoteTermSections'>> {
 	const name = parseQuoteTermSectionName(rawName);
 	return await ctx.db.insert('quoteTermSections', {
 		name,
-		order: await nextQuoteTermSectionOrder(ctx),
+		order: await nextQuoteTermSectionOrder(ctx, templateId),
 		searchText: buildQuoteTermSectionSearchText(name),
+		templateId,
 	});
 }
 

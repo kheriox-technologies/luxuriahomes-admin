@@ -1,5 +1,6 @@
-import QuotationsPageContent from '@/components/quotations/quotations-page-content';
+import { redirect } from 'next/navigation';
 
-export default function QuotationsPage() {
-	return <QuotationsPageContent />;
+/** The single global catalogue is now one template among many. */
+export default function QuotationItemsPage() {
+	redirect('/quotation-templates');
 }

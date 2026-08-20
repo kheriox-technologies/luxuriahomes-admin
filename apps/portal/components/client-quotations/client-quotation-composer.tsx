@@ -7,6 +7,13 @@ import type { Id } from '@workspace/backend/dataModel';
 import { generateQuotationReference } from '@workspace/backend/quotationReference';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyMedia,
+	EmptyTitle,
+} from '@workspace/ui/components/empty';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import {
 	Frame,
@@ -19,7 +26,7 @@ import { ScrollArea } from '@workspace/ui/components/scroll-area';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { FileText, Plus, Save } from 'lucide-react';
+import { FileSignature, FileText, Plus, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
@@ -46,6 +53,7 @@ import {
 	quotationFieldError,
 	REQUIRED_PERCENT_TOTAL,
 	round2,
+	specialInclusionsTotal,
 	splitGst,
 } from './client-quotation-form-shared';
 import QuotationAddressField from './quotation-address-field';
@@ -54,6 +62,7 @@ import QuotationEntriesEditor from './quotation-entries-editor';
 import QuotationInclusionsEditor from './quotation-inclusions-editor';
 import QuotationPricingField from './quotation-pricing-field';
 import QuotationResetButton from './quotation-reset-button';
+import QuotationSpecialInclusionsEditor from './quotation-special-inclusions-editor';
 import QuotationStagePercentages, {
 	type QuotationStageRow,
 } from './quotation-stage-percentages';
@@ -128,9 +137,11 @@ function saveLabel(
 export default function ClientQuotationComposer({
 	editVersion,
 	quotationId,
+	templateId,
 }: {
 	editVersion?: number;
 	quotationId?: Id<'clientQuotations'>;
+	templateId?: Id<'quoteTemplates'>;
 }) {
 	const router = useRouter();
 	const editing = quotationId !== undefined;
@@ -144,10 +155,20 @@ export default function ClientQuotationComposer({
 		api.clientQuotations.listVersions.listVersions,
 		quotationId ? { quotationId } : 'skip'
 	);
-	const tree = useQuery(api.quoteCatalogue.tree.tree, {});
-	const terms = useQuery(api.quoteTerms.get.get, {});
-	const catalogueExclusions = useQuery(api.quoteExclusions.list.list, {});
-	const catalogueNotes = useQuery(api.quoteNotes.list.list, {});
+	// On a new quotation the template comes from the URL; on an edit it comes off
+	// the issued row, so it stays unknown for the round trip that loads it. The
+	// draft seeds from the snapshot in that case, so only the reset buttons wait.
+	const resolvedTemplateId = quotation?.templateId ?? templateId;
+	const catalogueArgs = resolvedTemplateId
+		? { templateId: resolvedTemplateId }
+		: ('skip' as const);
+	const tree = useQuery(api.quoteCatalogue.tree.tree, catalogueArgs);
+	const terms = useQuery(api.quoteTerms.get.get, catalogueArgs);
+	const catalogueExclusions = useQuery(
+		api.quoteExclusions.list.list,
+		catalogueArgs
+	);
+	const catalogueNotes = useQuery(api.quoteNotes.list.list, catalogueArgs);
 	const budgetTemplates = useQuery(api.budgetTemplates.list.list, {});
 
 	// References are opaque codes rather than a running number, so there is
@@ -230,9 +251,14 @@ export default function ClientQuotationComposer({
 	// The budget is what gets entered; the quoted total is the budget plus margin,
 	// derived on every render rather than held as its own field.
 	const budgetAmount = parseMoney(values.budgetAmount);
-	const totalInclGst = applyMargin(
-		budgetAmount,
-		parseMoney(values.marginPercent)
+	// Special inclusions are priced at what the client pays, so they are added
+	// after the margin rather than marked up with the budget.
+	const specialInclusionsAmount = specialInclusionsTotal(
+		draft.specialInclusions
+	);
+	const totalInclGst = round2(
+		applyMargin(budgetAmount, parseMoney(values.marginPercent)) +
+			specialInclusionsAmount
 	);
 
 	/**
@@ -416,6 +442,8 @@ export default function ClientQuotationComposer({
 			notes: draft.notes.map((entry) => entry.text),
 			projectName: values.projectName || 'Untitled project',
 			reference,
+			// Text only — the amounts are admin reference and never print.
+			specialInclusions: draft.specialInclusions.map((entry) => entry.text),
 			stages: draft.stages.map((stage) => ({
 				amount: stageRowByKey.get(stage.key)?.amount ?? 0,
 				name: stage.name,
@@ -445,6 +473,7 @@ export default function ClientQuotationComposer({
 		draft.exclusions,
 		draft.hydrated,
 		draft.notes,
+		draft.specialInclusions,
 		draft.stages,
 		draft.termSections,
 		totalInclGst,
@@ -674,6 +703,12 @@ export default function ClientQuotationComposer({
 						items: section.items.map((item) => item.text),
 					})),
 				},
+				specialInclusions: draft.specialInclusions.map((entry, index) => ({
+					text: entry.text,
+					amount: parseMoney(entry.amount) || undefined,
+					order: index,
+				})),
+				templateId: resolvedTemplateId,
 				exclusions: draft.exclusions.map((entry, index) => ({
 					text: entry.text,
 					order: index,
@@ -766,6 +801,32 @@ export default function ClientQuotationComposer({
 		}
 		form.setFieldValue('budgetAmount', String(template.totalPrice));
 	};
+
+	// A new quotation is always built from a template — the picker on the
+	// quotations list is the only way in, so this only shows on a hand-typed URL.
+	if (!(editing || resolvedTemplateId)) {
+		return (
+			<div className="flex min-h-0 flex-1 flex-col gap-4">
+				<PageHeading
+					backLink="/quotations"
+					heading="New quotation"
+					icon={FileSignature}
+				/>
+				<Empty>
+					<EmptyHeader>
+						<EmptyMedia variant="icon">
+							<FileSignature aria-hidden />
+						</EmptyMedia>
+						<EmptyTitle>Pick a quotation template first</EmptyTitle>
+						<EmptyDescription>
+							Head back to Quotations and use Add Quotation — it asks which
+							template the quotation should be built from.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -984,6 +1045,7 @@ export default function ClientQuotationComposer({
 							<FrameHeader className="flex-row items-center justify-between">
 								<FrameTitle>What each stage includes</FrameTitle>
 								<QuotationResetButton
+									disabled={tree === undefined}
 									label="the inclusions"
 									onReset={draft.resetStages}
 								/>
@@ -1017,6 +1079,7 @@ export default function ClientQuotationComposer({
 							<FrameHeader className="flex-row items-center justify-between">
 								<FrameTitle>Terms &amp; conditions</FrameTitle>
 								<QuotationResetButton
+									disabled={terms === undefined}
 									label="the terms"
 									onReset={draft.resetTermSections}
 								/>
@@ -1036,9 +1099,27 @@ export default function ClientQuotationComposer({
 						</Frame>
 
 						<Frame>
+							<FrameHeader className="flex-row items-center justify-between gap-3">
+								<FrameTitle>Special inclusions</FrameTitle>
+								<Badge className="shrink-0 tabular-nums" variant="purple">
+									{formatAudWhole(specialInclusionsAmount)}
+								</Badge>
+							</FrameHeader>
+							<FramePanel>
+								<QuotationSpecialInclusionsEditor
+									entries={draft.specialInclusions}
+									onAdd={draft.specialInclusionsHandlers.add}
+									onRemove={draft.specialInclusionsHandlers.remove}
+									onUpdate={draft.specialInclusionsHandlers.update}
+								/>
+							</FramePanel>
+						</Frame>
+
+						<Frame>
 							<FrameHeader className="flex-row items-center justify-between">
 								<FrameTitle>Exclusions</FrameTitle>
 								<QuotationResetButton
+									disabled={catalogueExclusions === undefined}
 									label="the exclusions"
 									onReset={draft.resetExclusions}
 								/>
@@ -1060,6 +1141,7 @@ export default function ClientQuotationComposer({
 							<FrameHeader className="flex-row items-center justify-between">
 								<FrameTitle>Important notes</FrameTitle>
 								<QuotationResetButton
+									disabled={catalogueNotes === undefined}
 									label="the notes"
 									onReset={draft.resetNotes}
 								/>

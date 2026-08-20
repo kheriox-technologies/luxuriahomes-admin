@@ -104,13 +104,10 @@ export const QUOTATION_FONT_SIZES = {
 	body: px(14),
 	bodySmall: px(13),
 	label: px(9.5),
-	total: px(28),
 	totalSmall: px(24),
 	tableHeader: px(10),
 	tableCell: px(14),
-	tableScope: px(13),
 	stageTitle: px(17),
-	stageAmount: px(15),
 	subheading: px(11),
 	band: px(9),
 } as const;

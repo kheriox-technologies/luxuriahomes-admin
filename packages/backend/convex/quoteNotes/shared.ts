@@ -28,7 +28,13 @@ export async function getQuoteNoteOrThrow(
 }
 
 /** Next sort position for a new note, appended after the existing ones. */
-export async function nextQuoteNoteOrder(ctx: MutationCtx): Promise<number> {
-	const notes = await ctx.db.query('quoteNotes').collect();
+export async function nextQuoteNoteOrder(
+	ctx: MutationCtx,
+	templateId: Id<'quoteTemplates'>
+): Promise<number> {
+	const notes = await ctx.db
+		.query('quoteNotes')
+		.withIndex('by_template_order', (q) => q.eq('templateId', templateId))
+		.collect();
 	return notes.length;
 }

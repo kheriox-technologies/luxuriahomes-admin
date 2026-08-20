@@ -1,3 +1,4 @@
+import { v } from 'convex/values';
 import type { Id } from '../_generated/dataModel';
 import { internalMutation } from '../_generated/server';
 import {
@@ -5,6 +6,11 @@ import {
 	buildQuoteSectionSearchText,
 } from '../lib/buildSearchText';
 import { createQuoteStage, QUOTE_STAGE_DEFAULTS } from '../quoteStages/shared';
+import {
+	sectionItems,
+	stageSections,
+	templateStages,
+} from '../quoteTemplates/shared';
 
 interface SeedItem {
 	name: string;
@@ -504,21 +510,25 @@ const QUOTE_CATALOGUE_DATA: SeedStage[] = [
  * survive a reseed. Stages the data references but that do not exist yet are
  * created from `QUOTE_STAGE_DEFAULTS`.
  *
- * Run with `npx convex run quoteCatalogue/seed:populate`.
+ * Run with `npx convex run quoteCatalogue/seed:populate '{"templateId":"..."}'`.
  */
 export const populate = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const existingItems = await ctx.db.query('quoteItems').collect();
-		for (const item of existingItems) {
-			await ctx.db.delete(item._id);
-		}
-		const existingSections = await ctx.db.query('quoteSections').collect();
-		for (const section of existingSections) {
-			await ctx.db.delete(section._id);
+	args: { templateId: v.id('quoteTemplates') },
+	handler: async (ctx, args) => {
+		const existingStages = await templateStages(ctx, args.templateId);
+		let deletedSections = 0;
+		let deletedItems = 0;
+		for (const stage of existingStages) {
+			for (const section of await stageSections(ctx, stage._id)) {
+				for (const item of await sectionItems(ctx, section._id)) {
+					await ctx.db.delete(item._id);
+					deletedItems++;
+				}
+				await ctx.db.delete(section._id);
+				deletedSections++;
+			}
 		}
 
-		const existingStages = await ctx.db.query('quoteStages').collect();
 		// Matched case-insensitively, but the kept stage's own name is what the
 		// denormalized search texts embed — a preserved stage may be cased
 		// differently to the seed data.
@@ -538,6 +548,7 @@ export const populate = internalMutation({
 			if (!existing) {
 				const stageId: Id<'quoteStages'> = await createQuoteStage(
 					ctx,
+					args.templateId,
 					stage.name,
 					QUOTE_STAGE_DEFAULTS[stageKey]
 				);
@@ -577,8 +588,8 @@ export const populate = internalMutation({
 			stages: QUOTE_CATALOGUE_DATA.length,
 			sections: sectionCount,
 			items: itemCount,
-			deletedSections: existingSections.length,
-			deletedItems: existingItems.length,
+			deletedSections,
+			deletedItems,
 		};
 	},
 });

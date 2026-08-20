@@ -1,8 +1,10 @@
+import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 import {
 	buildQuoteExclusionSearchText,
 	buildQuoteNoteSearchText,
 } from '../lib/buildSearchText';
+import { templateExclusions, templateNotes } from '../quoteTemplates/shared';
 
 /**
  * The "EXCLUSIONS" table from `docs/CMA-Quotation-Sample.pdf` (rows 1–16),
@@ -63,13 +65,13 @@ const NOTES: string[] = [
  * `npx convex run quoteLists/seed:populate`.
  */
 export const populate = internalMutation({
-	args: {},
-	handler: async (ctx) => {
-		const existingExclusions = await ctx.db.query('quoteExclusions').collect();
+	args: { templateId: v.id('quoteTemplates') },
+	handler: async (ctx, args) => {
+		const existingExclusions = await templateExclusions(ctx, args.templateId);
 		for (const exclusion of existingExclusions) {
 			await ctx.db.delete(exclusion._id);
 		}
-		const existingNotes = await ctx.db.query('quoteNotes').collect();
+		const existingNotes = await templateNotes(ctx, args.templateId);
 		for (const note of existingNotes) {
 			await ctx.db.delete(note._id);
 		}
@@ -79,6 +81,7 @@ export const populate = internalMutation({
 				text,
 				order: index,
 				searchText: buildQuoteExclusionSearchText(text),
+				templateId: args.templateId,
 			});
 		}
 
@@ -87,6 +90,7 @@ export const populate = internalMutation({
 				text,
 				order: index,
 				searchText: buildQuoteNoteSearchText(text),
+				templateId: args.templateId,
 			});
 		}
 

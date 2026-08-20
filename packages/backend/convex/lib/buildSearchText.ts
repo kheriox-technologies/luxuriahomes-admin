@@ -118,6 +118,13 @@ export function buildTradeStageSearchText(name: string): string {
 	return buildSearchText([name]);
 }
 
+export function buildQuoteTemplateSearchText(
+	name: string,
+	description?: string
+): string {
+	return buildSearchText([name, description]);
+}
+
 export function buildQuoteStageSearchText(name: string): string {
 	return buildSearchText([name]);
 }

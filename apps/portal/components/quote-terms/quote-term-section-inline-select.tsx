@@ -5,6 +5,7 @@ import type { Id } from '@workspace/backend/dataModel';
 import { Field, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import { useQuery } from 'convex/react';
+import { useQuoteTemplateId } from '@/components/quotations/quote-template-context';
 import QuoteTermSectionCombobox from './quote-term-section-combobox';
 
 /**
@@ -26,7 +27,8 @@ export default function QuoteTermSectionInlineSelect({
 	onNewSectionNameChange: (next: string) => void;
 	disabled?: boolean;
 }) {
-	const sections = useQuery(api.quoteTermSections.list.list, {});
+	const templateId = useQuoteTemplateId();
+	const sections = useQuery(api.quoteTermSections.list.list, { templateId });
 	const creatingNew = newSectionName.trim().length > 0;
 
 	return (

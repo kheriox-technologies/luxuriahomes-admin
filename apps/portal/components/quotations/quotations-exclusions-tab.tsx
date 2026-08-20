@@ -14,9 +14,11 @@ import { useMutation, useQuery } from 'convex/react';
 import { Ban } from 'lucide-react';
 import { useState } from 'react';
 import { QuoteSimpleList } from '@/components/quote-lists/quote-simple-list';
+import { useQuoteTemplateId } from './quote-template-context';
 
 export default function QuotationsExclusionsTab() {
-	const exclusions = useQuery(api.quoteExclusions.list.list, {});
+	const templateId = useQuoteTemplateId();
+	const exclusions = useQuery(api.quoteExclusions.list.list, { templateId });
 	const addExclusion = useMutation(api.quoteExclusions.add.add);
 	const updateExclusion = useMutation(api.quoteExclusions.update.update);
 	const removeExclusion = useMutation(api.quoteExclusions.remove.remove);
@@ -60,7 +62,7 @@ export default function QuotationsExclusionsTab() {
 				}
 				noun="exclusion"
 				nounPlural="exclusions"
-				onAdd={(text) => addExclusion({ text })}
+				onAdd={(text) => addExclusion({ templateId, text })}
 				onRemove={(id) =>
 					removeExclusion({ exclusionId: id as Id<'quoteExclusions'> })
 				}

@@ -136,6 +136,12 @@ export function buildQuotationPdfInput(options: {
 		projectName: quotation.projectName,
 		reference: quotation.reference,
 		signers,
+		// Text only — the amounts stored alongside these are admin reference and
+		// must never reach the document.
+		specialInclusions: (quotation.specialInclusions ?? [])
+			.slice()
+			.sort((a, b) => a.order - b.order)
+			.map((entry) => entry.text),
 		stages: quotation.stages
 			.slice()
 			.sort((a, b) => a.order - b.order)
