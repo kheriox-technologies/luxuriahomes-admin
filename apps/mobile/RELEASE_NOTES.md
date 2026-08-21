@@ -32,7 +32,7 @@ App Store Connect, paste the bullet list from that version's section into the
 
 ## 1.0.1 — In review
 
-_iOS build 27 · Android versionCode 8_
+_iOS build 28 · Android versionCode 8_
 
 - Add a location picker when composing letters
 - Bug fixes and performance improvements
@@ -81,6 +81,7 @@ _iOS build 27 · Android versionCode 8_
   • Add a QBCC licence line to email signatures
   • Show signatures as cards instead of a table
   • Replace text email signatures with structured branded HTML
+  • fixed mobile bug
 -->
 
 ---
