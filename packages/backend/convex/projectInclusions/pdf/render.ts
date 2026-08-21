@@ -97,48 +97,87 @@ function mergeVirtualFontFilesFromModule(mod: unknown): Record<string, string> {
 	return merged;
 }
 
-let fontFileSystem: FontFileSystem | null = null;
+/**
+ * One extra typeface to register alongside Roboto for a single render.
+ *
+ * `files` maps a virtual filename to its base64 TTF; `variants` maps pdfmake's
+ * four style slots onto those filenames. A face with only a regular instance
+ * points every slot at the same file — pdfkit synthesises nothing, so an
+ * unmapped slot would fail the render rather than fake a bold.
+ */
+export interface PdfFontRegistration {
+	family: string;
+	files: Record<string, string>;
+	variants: Record<string, string>;
+}
 
-function getFontFileSystem(): FontFileSystem {
-	if (fontFileSystem) {
-		return fontFileSystem;
+let robotoBuffers: Record<string, Buffer> | null = null;
+
+/** The decoded Roboto faces, shared by every render. */
+function getRobotoBuffers(): Record<string, Buffer> {
+	if (robotoBuffers) {
+		return robotoBuffers;
 	}
 	const vfs = mergeVirtualFontFilesFromModule(vfsFontsModule);
 	const regular = vfs[ROBOTO_VFS_FILES.normal];
 	if (typeof regular !== 'string' || regular === '') {
 		throw new Error('Could not initialize PDF fonts.');
 	}
-	const regularBuffer = Buffer.from(regular, 'base64');
 	const files: Record<string, Buffer> = {};
 	for (const file of Object.values(ROBOTO_VFS_FILES)) {
 		files[file] = Buffer.from(vfs[file] ?? regular, 'base64');
 	}
-	const fs: FontFileSystem = {
+	robotoBuffers = files;
+	return files;
+}
+
+/**
+ * A virtual filesystem holding Roboto plus whatever extra faces this render
+ * asked for. Built per call rather than cached, because two callers can want
+ * different typefaces and pdfmake resolves fonts by filename.
+ */
+function buildFontFileSystem(
+	extraFonts: readonly PdfFontRegistration[]
+): FontFileSystem {
+	const roboto = getRobotoBuffers();
+	const files: Record<string, Buffer> = { ...roboto };
+	for (const font of extraFonts) {
+		for (const [filename, base64] of Object.entries(font.files)) {
+			files[filename] = Buffer.from(base64, 'base64');
+		}
+	}
+	const fallback = roboto[ROBOTO_VFS_FILES.normal] as Buffer;
+	return {
 		existsSync: (filename) => filename in files,
-		readFileSync: (filename) => files[filename] ?? regularBuffer,
+		readFileSync: (filename) => files[filename] ?? fallback,
 		writeFileSync: () => undefined,
 	};
-	fontFileSystem = fs;
-	return fs;
 }
 
 /**
  * Renders a pdfmake document definition to a PDF Buffer using the node printer.
+ *
+ * `extraFonts` registers additional typefaces for this render only — the
+ * quotation PDF uses it for Inter and the three signature script faces.
  */
 export function renderPdfToBuffer(
-	docDefinition: Record<string, unknown>
+	docDefinition: Record<string, unknown>,
+	extraFonts: readonly PdfFontRegistration[] = []
 ): Promise<Buffer> {
-	const vfs = getFontFileSystem();
+	const vfs = buildFontFileSystem(extraFonts);
 	const PdfPrinter = resolveConstructor(PrinterModule) as PrinterConstructor;
 	const URLResolver = resolveConstructor(
 		URLResolverModule
 	) as ResolverConstructor;
 
-	const printer = new PdfPrinter(
-		{ Roboto: { ...ROBOTO_VFS_FILES } },
-		vfs,
-		new URLResolver(vfs)
-	);
+	const fontDescriptors: Record<string, Record<string, string>> = {
+		Roboto: { ...ROBOTO_VFS_FILES },
+	};
+	for (const font of extraFonts) {
+		fontDescriptors[font.family] = { ...font.variants };
+	}
+
+	const printer = new PdfPrinter(fontDescriptors, vfs, new URLResolver(vfs));
 
 	return new Promise<Buffer>((resolve, reject) => {
 		printer

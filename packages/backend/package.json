@@ -23,7 +23,10 @@
     },
     "./quotationReference": "./convex/clientQuotations/reference.ts",
     "./schema": "./convex/schema.ts",
-    "./emailSignatureHtml": "./convex/lib/signatureHtml.ts"
+    "./emailSignatureHtml": "./convex/lib/signatureHtml.ts",
+    "./quotationSignatureStyles": "./convex/clientQuotations/signatureStyles.ts",
+    "./quotationPdfTheme": "./convex/clientQuotations/pdf/theme.ts",
+    "./quotationPdfAnchors": "./convex/clientQuotations/pdf/anchors.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

@@ -1,11 +1,15 @@
 /**
- * Shared browser `pdfmake` setup. `pdfMake` is a module-level singleton with one
- * internal virtual file system and one font map, so every PDF builder in the app
- * has to go through here — registering fonts from two places would have the last
- * writer silently drop the other's typefaces.
+ * Shared browser `pdfmake` setup for the builders that still render in the
+ * browser — the inclusions and letter PDFs. `pdfMake` is a module-level
+ * singleton with one internal virtual file system and one font map, so every
+ * such builder has to go through here: registering fonts from two places would
+ * have the last writer silently drop the other's typefaces.
+ *
+ * The client quotation used to be built here too, in Inter and the three
+ * signature script faces. It now renders server-side
+ * (`packages/backend/convex/clientQuotations/pdf/`) so mobile can issue one as
+ * well, which is why only Roboto is registered here.
  */
-
-import { SIGNATURE_STYLES } from '../client/pdf/signature-styles';
 
 const ROBOTO_VFS_FILES = {
 	normal: 'Roboto-Regular.ttf',
@@ -13,16 +17,6 @@ const ROBOTO_VFS_FILES = {
 	italics: 'Roboto-Italic.ttf',
 	bolditalics: 'Roboto-MediumItalic.ttf',
 } as const;
-
-const INTER_VFS_FILES = {
-	normal: 'Inter-Regular.ttf',
-	bold: 'Inter-SemiBold.ttf',
-} as const;
-
-const INTER_URLS: Record<string, string> = {
-	[INTER_VFS_FILES.normal]: '/fonts/Inter-Regular.ttf',
-	[INTER_VFS_FILES.bold]: '/fonts/Inter-SemiBold.ttf',
-};
 
 export interface PdfMakeBrowser {
 	addVirtualFileSystem: (
@@ -142,115 +136,4 @@ export function getPdfMake(): Promise<PdfMakeBrowser> {
 		return pdfMake as PdfMakeBrowser;
 	})();
 	return pdfMakePromise;
-}
-
-function toBase64(bytes: ArrayBuffer): string {
-	const view = new Uint8Array(bytes);
-	let binary = '';
-	// Chunked so a ~340 KB font doesn't blow the argument limit of String.fromCharCode.
-	const chunkSize = 0x80_00;
-	for (let i = 0; i < view.length; i += chunkSize) {
-		binary += String.fromCharCode(...view.subarray(i, i + chunkSize));
-	}
-	return btoa(binary);
-}
-
-// Cached per file rather than per typeface, so a font requested by two callers
-// is fetched and base64-encoded once.
-const fontFilePromises = new Map<string, Promise<string>>();
-
-function loadFontFile(file: string, url: string): Promise<string> {
-	const cached = fontFilePromises.get(file);
-	if (cached) {
-		return cached;
-	}
-	const promise = (async () => {
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(`Could not load ${file}`);
-		}
-		return toBase64(await response.arrayBuffer());
-	})();
-	fontFilePromises.set(file, promise);
-	return promise;
-}
-
-/** Fetches a typeface's files and returns them as a pdfmake virtual file system. */
-function loadFontVfs(
-	urls: Record<string, string>
-): Promise<Record<string, string>> {
-	return Promise.all(
-		Object.entries(urls).map(async ([file, url]) => {
-			return [file, await loadFontFile(file, url)] as const;
-		})
-	).then(Object.fromEntries);
-}
-
-/**
- * pdfmake with Inter registered alongside Roboto, matching the portal's UI
- * typeface. Falls back to Roboto if the font files can't be fetched — a preview
- * rendering in the wrong face beats a preview that fails to render at all.
- *
- * Only *static* Inter instances work here: pdfkit ignores variable-font axes and
- * would silently render the default (thin) master from `InterVariable.ttf`.
- */
-export async function getPdfMakeWithInter(): Promise<{
-	font: 'Inter' | 'Roboto';
-	pdfMake: PdfMakeBrowser;
-}> {
-	const pdfMake = await getPdfMake();
-	try {
-		const files = await loadFontVfs(INTER_URLS);
-		registerFont(pdfMake, 'Inter', files, {
-			normal: INTER_VFS_FILES.normal,
-			bold: INTER_VFS_FILES.bold,
-			// Inter has no italic static instance vendored, and the quotation
-			// never uses one — map both to the upright faces.
-			italics: INTER_VFS_FILES.normal,
-			bolditalics: INTER_VFS_FILES.bold,
-		});
-		return { font: 'Inter', pdfMake };
-	} catch {
-		return { font: 'Roboto', pdfMake };
-	}
-}
-
-/**
- * pdfmake with the three signature script faces registered on top of Inter.
- *
- * A face that fails to load is skipped rather than fatal: a signature rendered
- * in the body typeface is a cosmetic loss, while a document that refuses to
- * build leaves the signer with nothing to sign. Static instances only, for the
- * same reason Inter is — pdfkit ignores variable-font axes.
- */
-export async function getPdfMakeWithSignatureFonts(): Promise<{
-	font: 'Inter' | 'Roboto';
-	pdfMake: PdfMakeBrowser;
-}> {
-	const result = await getPdfMakeWithInter();
-	await Promise.all(
-		SIGNATURE_STYLES.map(async (style) => {
-			try {
-				const files = await loadFontVfs({
-					[style.file]: `/fonts/${style.file}`,
-				});
-				registerFont(result.pdfMake, style.pdfFont, files, {
-					// Only a regular instance exists, and a signature never needs a
-					// bold or italic one — every variant maps to the same face.
-					normal: style.file,
-					bold: style.file,
-					italics: style.file,
-					bolditalics: style.file,
-				});
-			} catch {
-				// Left unregistered; the caller's text falls back to the body font.
-			}
-		})
-	);
-	return result;
-}
-
-/** Whether a style's face actually made it into the font map. */
-export function isSignatureFontRegistered(pdfFont: string): boolean {
-	return fontMap[pdfFont] !== undefined;
 }

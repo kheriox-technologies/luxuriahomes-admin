@@ -7,7 +7,8 @@ import {
 } from '@gorhom/bottom-sheet';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
-import { LogOut } from 'lucide-react-native';
+import { usePathname, useRouter } from 'expo-router';
+import { Building2, FileSignature, LogOut } from 'lucide-react-native';
 import { useCallback, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,8 @@ export function ClientMenu() {
 	const insets = useSafeAreaInsets();
 	const { user } = useUser();
 	const { signOut } = useClerk();
+	const router = useRouter();
+	const pathname = usePathname();
 
 	const fullName = user?.fullName ?? 'Account';
 	const email = user?.primaryEmailAddress?.emailAddress ?? '';
@@ -43,6 +46,16 @@ export function ClientMenu() {
 		sheetRef.current?.dismiss();
 		signOut();
 	};
+
+	// The client surface has no drawer or tab bar, so this sheet doubles as its
+	// navigation between the two things a client has: their projects and their
+	// quotations.
+	const go = (href: '/(client)/projects' | '/(client)/quotations') => {
+		sheetRef.current?.dismiss();
+		router.replace(href);
+	};
+
+	const onProjects = pathname.includes('/projects');
 
 	return (
 		<>
@@ -95,6 +108,37 @@ export function ClientMenu() {
 					</View>
 
 					<View className="border-border border-t" />
+
+					<Pressable
+						accessibilityLabel="Projects"
+						accessibilityRole="button"
+						accessibilityState={{ selected: onProjects }}
+						className="mt-2 min-h-[48px] flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+						onPress={() => go('/(client)/projects')}
+					>
+						<Building2 color={colors.foreground} size={20} strokeWidth={2} />
+						<Text className="font-sans-medium text-base text-foreground">
+							Projects
+						</Text>
+					</Pressable>
+					<Pressable
+						accessibilityLabel="Quotations"
+						accessibilityRole="button"
+						accessibilityState={{ selected: !onProjects }}
+						className="min-h-[48px] flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+						onPress={() => go('/(client)/quotations')}
+					>
+						<FileSignature
+							color={colors.foreground}
+							size={20}
+							strokeWidth={2}
+						/>
+						<Text className="font-sans-medium text-base text-foreground">
+							Quotations
+						</Text>
+					</Pressable>
+
+					<View className="mt-2 border-border border-t" />
 
 					<Pressable
 						accessibilityLabel="Sign out"

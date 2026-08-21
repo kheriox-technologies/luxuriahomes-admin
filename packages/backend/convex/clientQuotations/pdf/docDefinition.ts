@@ -1,12 +1,28 @@
-import { env } from '@workspace/env/portal';
-import { formatAud, formatAudWhole } from '@/lib/currency';
-import { htmlToPdfmakeContent, type PdfBlock } from '@/lib/pdf/html-to-pdfmake';
-import { getClientQuotationPdfLogoDataUrl } from '@/lib/pdf/pdf-assets';
+/**
+ * The client quotation document definition.
+ *
+ * Ported from the portal's browser builder so one renderer serves the portal,
+ * the mobile app and every signature rebuild — see `./generate.ts`. Everything
+ * here is pure: it takes an input shape and returns a pdfmake document
+ * definition, with no pdfmake instance, no fonts and no I/O of its own. The
+ * company details come from `process.env` the way the other backend PDF
+ * pipelines read them.
+ */
+
 import {
-	getPdfMakeWithInter,
-	getPdfMakeWithSignatureFonts,
-	isSignatureFontRegistered,
-} from '@/lib/pdf/pdf-fonts';
+	htmlToPdfmakeContent,
+	type PdfBlock,
+} from '../../letters/pdf/htmlToPdfmake';
+import { formatAud, formatAudWhole } from '../formatting';
+import { type SignatureStyleId, signatureStyle } from '../signatureStyles';
+import {
+	initialsAnchorId,
+	type QuotationPdfAnchor,
+	SIGNATURE_ANCHOR_PREFIX,
+	signatureAnchorId,
+} from './anchors';
+import { isSignatureFontRegistered, QUOTATION_BODY_FONT } from './fonts';
+import { QUOTATION_LOGO_DATA_URL } from './logo';
 import {
 	A4_HEIGHT,
 	A4_WIDTH,
@@ -20,8 +36,7 @@ import {
 	QUOTATION_SPACING as S,
 	QUOTATION_SIGNATURE as SG,
 	QUOTATION_TRACKING as T,
-} from './client-quotation-theme';
-import { type SignatureStyleId, signatureStyle } from './signature-styles';
+} from './theme';
 
 export interface QuotationPdfClient {
 	email: string;
@@ -134,34 +149,7 @@ const NON_SLUG_CHARS = /[^a-z0-9]+/g;
 // namespaced by prefix and matched that way in `pageBreakBefore`.
 const SECTION_OPENING_ID_PREFIX = 'section-opening-';
 
-/**
- * Signing anchors carry an id too, which is how the signing UI finds where each
- * box landed. Namespaced away from the section leads, which share the callback.
- */
-const SIGNATURE_ANCHOR_PREFIX = 'lhsig-';
-
-export function initialsAnchorId(section: number, slotKey: string): string {
-	return `${SIGNATURE_ANCHOR_PREFIX}initials-${section}-${slotKey}`;
-}
-
-export function signatureAnchorId(slotKey: string): string {
-	return `${SIGNATURE_ANCHOR_PREFIX}signature-${slotKey}`;
-}
-
-/** Where one signing box landed, in PDF points from the page's top-left corner. */
-export interface QuotationPdfAnchor {
-	height: number;
-	id: string;
-	kind: 'initials' | 'signature';
-	left: number;
-	/** 1-based, matching the page numbering the PDF renderer uses. */
-	page: number;
-	/** Which numbered section the box closes; absent on the signature boxes. */
-	section?: number;
-	slotKey: string;
-	top: number;
-	width: number;
-}
+// The signing-box ids and geometry live in `./anchors` — see the note there.
 
 // Intrinsic aspect of public/logo.svg (viewBox 7627 × 3029), which the linen
 // PNG is derived from.
@@ -378,11 +366,27 @@ function addressLines(address: QuotationPdfInput['address']): string[] {
 // Page chrome
 // ---------------------------------------------------------------------------
 
+/**
+ * The company details printed in the header and footer bands.
+ *
+ * The portal reads these from its validated `@workspace/env/portal`; here they
+ * come straight off the deployment environment, matching the other backend PDF
+ * actions. An unset value prints as empty rather than throwing — a quotation
+ * missing its ABN line still beats a quotation that will not render. Note that
+ * `NEXT_PUBLIC_QBCC_LICENCE` and `NEXT_PUBLIC_ABN` have to be set on the Convex
+ * deployment, not only in the portal's `.env`.
+ */
+function companyEnv(name: string): string {
+	return process.env[name]?.trim() ?? '';
+}
+
 function companyHeaderLines(): string[] {
-	const lines = [env.NEXT_PUBLIC_CONTACT_ADDRESS];
+	const lines = [companyEnv('NEXT_PUBLIC_CONTACT_ADDRESS')];
+	const qbcc = companyEnv('NEXT_PUBLIC_QBCC_LICENCE');
+	const abn = companyEnv('NEXT_PUBLIC_ABN');
 	const credentials = [
-		env.NEXT_PUBLIC_QBCC_LICENCE ? `QBCC ${env.NEXT_PUBLIC_QBCC_LICENCE}` : '',
-		env.NEXT_PUBLIC_ABN ? `ABN ${env.NEXT_PUBLIC_ABN}` : '',
+		qbcc ? `QBCC ${qbcc}` : '',
+		abn ? `ABN ${abn}` : '',
 	].filter(Boolean);
 	if (credentials.length > 0) {
 		lines.push(credentials.join('  ·  '));
@@ -441,10 +445,12 @@ function pageFooter(currentPage: number): Node | null {
 		return null;
 	}
 	const contact = [
-		env.NEXT_PUBLIC_CONTACT_PHONE,
-		env.NEXT_PUBLIC_CONTACT_EMAIL,
-		env.NEXT_PUBLIC_WEB_URL.replace(URL_SCHEME, ''),
-	].join('  ·  ');
+		companyEnv('NEXT_PUBLIC_CONTACT_PHONE'),
+		companyEnv('NEXT_PUBLIC_CONTACT_EMAIL'),
+		companyEnv('NEXT_PUBLIC_WEB_URL').replace(URL_SCHEME, ''),
+	]
+		.filter(Boolean)
+		.join('  ·  ');
 	return {
 		columns: [
 			{ width: '*', text: contact, fontSize: F.band, color: C.linenMuted },
@@ -1571,7 +1577,7 @@ function anchorFromNode(
 	return null;
 }
 
-function buildDocDefinition(
+export function buildDocDefinition(
 	input: QuotationPdfInput,
 	font: string,
 	logoDataUrl: string,
@@ -1631,43 +1637,51 @@ function buildDocDefinition(
 	};
 }
 
-export async function buildClientQuotationPdfBlob(
+/**
+ * The document definition for an unsigned quotation, ready for
+ * `renderPdfToBuffer(..., QUOTATION_FONTS)`.
+ */
+export function buildQuotationDocDefinition(
 	input: QuotationPdfInput
-): Promise<Blob> {
-	const [{ font, pdfMake }, logoDataUrl] = await Promise.all([
-		getPdfMakeWithInter(),
-		getClientQuotationPdfLogoDataUrl(),
-	]);
-	const pdf = pdfMake.createPdf(buildDocDefinition(input, font, logoDataUrl));
-	return await pdf.getBlob();
+): Record<string, unknown> {
+	return buildDocDefinition(
+		input,
+		QUOTATION_BODY_FONT,
+		QUOTATION_LOGO_DATA_URL
+	) as Record<string, unknown>;
 }
 
 /**
- * The same document with the script faces loaded, plus where every signing box
- * landed so the signing UI can put its affordances over them.
+ * The same document with the signing boxes tracked, for
+ * `renderPdfToBuffer(..., QUOTATION_SIGNATURE_FONTS)`.
  *
- * Separate from `buildClientQuotationPdfBlob` because the anchors are only
- * meaningful while signatures are being collected, and the extra three font
- * fetches are wasted on the composer's preview.
+ * The anchors map is filled during layout, so it is only populated once the
+ * printer has actually rendered the definition — read it after the render, not
+ * before. `collectAnchors` sorts what landed in it.
  */
-export async function buildClientQuotationSignaturePdf(
+export function buildQuotationSignatureDocDefinition(
 	input: QuotationPdfInput
-): Promise<{ anchors: QuotationPdfAnchor[]; blob: Blob }> {
-	const [{ font, pdfMake }, logoDataUrl] = await Promise.all([
-		getPdfMakeWithSignatureFonts(),
-		getClientQuotationPdfLogoDataUrl(),
-	]);
+): {
+	anchors: Map<string, QuotationPdfAnchor>;
+	docDefinition: Record<string, unknown>;
+} {
 	const anchors = new Map<string, QuotationPdfAnchor>();
-	const pdf = pdfMake.createPdf(
-		buildDocDefinition(input, font, logoDataUrl, anchors)
-	);
-	const blob = await pdf.getBlob();
-
 	return {
-		// Document order, so "next unsigned box" walks the way the reader reads.
-		anchors: [...anchors.values()].sort(
-			(a, b) => a.page - b.page || a.top - b.top || a.left - b.left
-		),
-		blob,
+		anchors,
+		docDefinition: buildDocDefinition(
+			input,
+			QUOTATION_BODY_FONT,
+			QUOTATION_LOGO_DATA_URL,
+			anchors
+		) as Record<string, unknown>,
 	};
+}
+
+/** Document order, so "next unsigned box" walks the way the reader reads. */
+export function collectAnchors(
+	anchors: Map<string, QuotationPdfAnchor>
+): QuotationPdfAnchor[] {
+	return [...anchors.values()].sort(
+		(a, b) => a.page - b.page || a.top - b.top || a.left - b.left
+	);
 }

@@ -1,15 +1,15 @@
 /**
  * The script faces a signer can sign a quotation in.
  *
- * Deliberately isomorphic: the same registry drives the style cards in the DOM
- * (via `cssFamily`, backed by the `@font-face` rules in app/portal-theme.css)
- * and the marks baked into the PDF (via `pdfFont`, registered with pdfmake by
- * `getPdfMakeWithSignatureFonts`). Both read the same TTF, so what a signer
- * previews is exactly what the document ends up carrying.
+ * Deliberately isomorphic, and deliberately here rather than in an app: the same
+ * registry drives the style cards in the portal DOM (via `cssFamily`, backed by
+ * the `@font-face` rules in app/portal-theme.css), the style cards in the mobile
+ * app (via `expo-font`), and the marks baked into the PDF (via `pdfFont`,
+ * registered with pdfmake by `pdf/fonts.ts`). All three read the same TTF, so
+ * what a signer previews is exactly what the document ends up carrying.
  *
- * The ids are mirrored by `quotationSignatureStyleValidator` in
- * packages/backend/convex/clientQuotations/shared.ts — adding a style means
- * editing both.
+ * The ids are mirrored by `quotationSignatureStyleValidator` in `./shared.ts` —
+ * adding a style means editing both, plus vendoring the TTF into `pdf/fonts/`.
  */
 export const SIGNATURE_STYLES = [
 	{

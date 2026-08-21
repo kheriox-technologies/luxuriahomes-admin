@@ -3,9 +3,11 @@ import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import {
+	FileSignature,
 	FileText,
 	Handshake,
 	LogOut,
+	ScrollText,
 	Users,
 	Wallet,
 } from 'lucide-react-native';
@@ -152,6 +154,38 @@ function AppDrawer({ onClose }: { onClose: () => void }) {
 				<View className="border-border border-b" />
 
 				<ScrollView className="flex-1" contentContainerClassName="p-4">
+					<Pressable
+						accessibilityLabel="Quotations"
+						accessibilityRole="button"
+						className="h-12 flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+						onPress={() => {
+							onClose();
+							router.push('/(app)/quotations');
+						}}
+					>
+						<FileSignature
+							color={colors.foreground}
+							size={20}
+							strokeWidth={2}
+						/>
+						<Text className="font-sans-medium text-base text-foreground">
+							Quotations
+						</Text>
+					</Pressable>
+					<Pressable
+						accessibilityLabel="Quotation Templates"
+						accessibilityRole="button"
+						className="h-12 flex-row items-center gap-3 rounded-lg px-3 active:bg-muted"
+						onPress={() => {
+							onClose();
+							router.push('/(app)/quotation-templates');
+						}}
+					>
+						<ScrollText color={colors.foreground} size={20} strokeWidth={2} />
+						<Text className="font-sans-medium text-base text-foreground">
+							Quotation Templates
+						</Text>
+					</Pressable>
 					<Pressable
 						accessibilityLabel="Budgets"
 						accessibilityRole="button"

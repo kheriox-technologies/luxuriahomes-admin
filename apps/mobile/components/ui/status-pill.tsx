@@ -9,8 +9,18 @@ export type KanbanStatus = 'planned' | 'in_progress' | 'blocked' | 'done';
 // projectOrders statuses
 export type OrderStatus = 'Pending' | 'Ordered' | 'In Transit' | 'Delivered';
 
-// projectQuotations statuses
+// projectQuotations statuses — the subcontractor quotes on a project, which are
+// a different thing entirely from the client quotations below.
 export type QuotationStatus = 'Under Review' | 'Approved' | 'Rejected';
+
+// clientQuotations lifecycle — mirrors clientQuotationStatusValidator in
+// packages/backend/convex/clientQuotations/shared.ts.
+export type ClientQuotationStatus =
+	| 'Draft'
+	| 'Under Review'
+	| 'Approved'
+	| 'Awaiting Signatures'
+	| 'Signed';
 
 const scheduleVariants: Record<ScheduleStatus, BadgeVariant> = {
 	Pending: 'default',
@@ -45,6 +55,14 @@ const quotationVariants: Record<QuotationStatus, BadgeVariant> = {
 	Rejected: 'destructive',
 };
 
+const clientQuotationVariants: Record<ClientQuotationStatus, BadgeVariant> = {
+	Draft: 'default',
+	'Under Review': 'warning',
+	Approved: 'success',
+	'Awaiting Signatures': 'info',
+	Signed: 'gold',
+};
+
 export function ScheduleStatusPill({ status }: { status: ScheduleStatus }) {
 	return (
 		<Badge variant={scheduleVariants[status] ?? 'default'}>{status}</Badge>
@@ -70,6 +88,18 @@ export function OrderStatusPill({ status }: { status: string }) {
 export function QuotationStatusPill({ status }: { status: string }) {
 	return (
 		<Badge variant={quotationVariants[status as QuotationStatus] ?? 'default'}>
+			{status}
+		</Badge>
+	);
+}
+
+export function ClientQuotationStatusPill({ status }: { status: string }) {
+	return (
+		<Badge
+			variant={
+				clientQuotationVariants[status as ClientQuotationStatus] ?? 'default'
+			}
+		>
 			{status}
 		</Badge>
 	);

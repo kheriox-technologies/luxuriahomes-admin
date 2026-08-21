@@ -1,6 +1,7 @@
 'use client';
 
 import type { Doc } from '@workspace/backend/dataModel';
+import { GST_RATE_LABEL } from '@workspace/backend/quotationPdfTheme';
 import {
 	Combobox,
 	ComboboxEmpty,
@@ -21,7 +22,6 @@ import {
 	InputGroupInput,
 	InputGroupText,
 } from '@workspace/ui/components/input-group';
-import { GST_RATE_LABEL } from '@/lib/client/pdf/client-quotation-theme';
 import { formatAud } from '@/lib/currency';
 import { splitGst } from './client-quotation-form-shared';
 

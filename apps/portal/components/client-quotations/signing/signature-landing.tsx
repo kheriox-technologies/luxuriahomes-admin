@@ -1,6 +1,12 @@
 'use client';
 
 import type { Id } from '@workspace/backend/dataModel';
+import {
+	DEFAULT_SIGNATURE_STYLE,
+	deriveInitials,
+	SIGNATURE_STYLES,
+	type SignatureStyleId,
+} from '@workspace/backend/quotationSignatureStyles';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -19,12 +25,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { formatIssueDate } from '@/components/client-quotations/client-quotation-form-shared';
 import type { QuotationSurface } from '@/components/client-quotations/quotation-surface';
-import {
-	DEFAULT_SIGNATURE_STYLE,
-	deriveInitials,
-	SIGNATURE_STYLES,
-	type SignatureStyleId,
-} from '@/lib/client/pdf/signature-styles';
 import { formatAudWhole } from '@/lib/currency';
 import { UNAUTHORIZED_HREF, useSigningContext } from './use-signing-context';
 

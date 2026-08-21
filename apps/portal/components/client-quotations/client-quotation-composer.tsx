@@ -1,6 +1,5 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
 import { useForm, useStore } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
@@ -31,15 +30,11 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeading from '@/components/page-heading';
 import SelectSpecialInclusionsSheet from '@/components/quotation-special-inclusions/select-special-inclusions-sheet';
-import {
-	buildClientQuotationPdfBlob,
-	type QuotationPdfInput,
-	type QuotationPdfVersion,
-} from '@/lib/client/pdf/client-quotation-pdf';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { formatAudWhole } from '@/lib/currency';
 import {
 	applyMargin,
+	type ClientQuotationFormValues,
 	COVER_DESCRIPTION_MAX_LENGTH,
 	clientQuotationFormSchema,
 	computeStageAmounts,
@@ -50,12 +45,10 @@ import {
 	MAX_QUOTATION_CLIENTS,
 	PERCENT_EPSILON,
 	parseMoney,
-	QUOTATION_FOLDER_NAME,
 	quotationFieldError,
 	REQUIRED_PERCENT_TOTAL,
 	round2,
 	specialInclusionsTotal,
-	splitGst,
 } from './client-quotation-form-shared';
 import QuotationAddressField from './quotation-address-field';
 import QuotationClientsField from './quotation-clients-field';
@@ -71,9 +64,6 @@ import QuotationTermsEditor from './quotation-terms-editor';
 import QuotationVersionDialog from './quotation-version-dialog';
 import { useQuotationDraft } from './use-quotation-draft';
 
-// Long enough for the new tab to fetch the blob before the URL is released.
-const PREVIEW_URL_TTL_MS = 60_000;
-const PDF_CONTENT_TYPE = 'application/pdf';
 const LIST_HREF = '/quotations';
 const FIRST_VERSION = 1;
 // Statuses a new version sends back to Under Review: the clients agreed to
@@ -146,7 +136,6 @@ export default function ClientQuotationComposer({
 }) {
 	const router = useRouter();
 	const editing = quotationId !== undefined;
-	const { user } = useUser();
 
 	const quotation = useQuery(
 		api.clientQuotations.get.get,
@@ -180,13 +169,9 @@ export default function ClientQuotationComposer({
 	const reserveReference = useMutation(
 		api.clientQuotations.reserveReference.reserveReference
 	);
-	const ensureFolder = useMutation(
-		api.companyDocuments.ensureFolder.ensureFolder
+	const generatePdf = useAction(
+		api.clientQuotations.pdf.generate.generateQuotationPdf
 	);
-	const generateUploadUrl = useAction(
-		api.companyDocuments.generateUploadUrl.generateUploadUrl
-	);
-	const createDocument = useMutation(api.companyDocuments.create.create);
 	const createQuotation = useMutation(api.clientQuotations.create.create);
 	const updateQuotation = useMutation(api.clientQuotations.update.update);
 	const saveQuotationVersion = useMutation(
@@ -352,9 +337,6 @@ export default function ClientQuotationComposer({
 		return null;
 	}, [quotation, terms]);
 
-	const savedBy =
-		user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? 'Unknown';
-
 	/**
 	 * The revisions alone, oldest first.
 	 *
@@ -396,126 +378,180 @@ export default function ClientQuotationComposer({
 			: [];
 
 	/**
-	 * The trail printed on page 2: the issued revisions, then the pending one.
-	 * An amendment has no pending version — it replaces the row for the version
-	 * being rewritten, so the trail still reads one row per version.
+	 * The body of the quotation, in the shape both the renderer and the save
+	 * mutations take.
 	 *
-	 * Revisions only. A PDF is built once, when its version is saved, so any
-	 * lifecycle event after that — an approval, a re-send — could never appear on
-	 * it however it were ordered. Printing what the document has said over time is
-	 * a promise the file can keep; the live history in the app is where the
-	 * lifecycle is read.
+	 * Built here rather than inside `handleSave` because the preview needs the
+	 * same thing: the PDF is rendered server-side now, so previewing means
+	 * posting the snapshot rather than handing a local builder some form state.
 	 */
-	const pdfVersionHistory: QuotationPdfVersion[] = useMemo(() => {
-		const pending = {
-			description: editing ? 'This revision' : 'Initial version',
-			updatedAtLabel: formatIssueDate(new Date()),
-			updatedBy: savedBy,
-			version: targetVersion,
-		};
-		const issued = revisions.map((row) =>
-			amending && row.version === targetVersion
-				? pending
-				: {
-						description: row.description,
-						updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
-						updatedBy: row.updatedBy,
-						version: row.version,
-					}
-		);
-		return amending ? issued : [...issued, pending];
-	}, [revisions, amending, editing, targetVersion, savedBy]);
+	const buildSnapshotBody = useCallback(
+		(data: ClientQuotationFormValues) => {
+			if (!termsContent) {
+				return null;
+			}
+			const selectedTemplate = budgetTemplates?.find(
+				(template) => template._id === data.budgetTemplateId
+			);
+			const templateUnchanged =
+				quotation?.budgetTemplateId === data.budgetTemplateId;
 
-	const pdfInput: QuotationPdfInput | null = useMemo(() => {
-		if (!(termsContent && draft.hydrated)) {
-			return null;
-		}
-		const { contractSumExclGst, gstAmount } = splitGst(totalInclGst);
-		return {
-			acknowledgementHtml: termsContent.acknowledgementHtml,
-			address: values.address,
-			clients: values.clients,
-			contractSumExclGst,
-			description: values.description || undefined,
-			disclaimerHtml: termsContent.disclaimerHtml,
-			exclusions: draft.exclusions.map((entry) => entry.text),
-			gstAmount,
-			issuedAtLabel: formatIssueDate(issuedAt),
-			notes: draft.notes.map((entry) => entry.text),
-			projectName: values.projectName || 'Untitled project',
-			reference,
-			// Text only — the amounts are admin reference and never print.
-			specialInclusions: draft.specialInclusions.map((entry) => entry.text),
-			stages: draft.stages.map((stage) => ({
-				amount: stageRowByKey.get(stage.key)?.amount ?? 0,
-				name: stage.name,
-				percent: Number(stageRowByKey.get(stage.key)?.percent ?? '0') || 0,
-				scopeSummary: stage.scopeSummary,
-				sections: stage.sections
-					.filter((section) => section.items.length > 0)
-					.map((section) => ({
+			return {
+				projectName: data.projectName,
+				description: data.description || undefined,
+				clients: data.clients,
+				address: data.address as {
+					postcode: string;
+					state: 'ACT' | 'NSW' | 'NT' | 'QLD' | 'SA' | 'TAS' | 'VIC' | 'WA';
+					street: string;
+					suburb: string;
+				},
+				budgetTemplateId: selectedTemplate?._id as
+					| Id<'budgetTemplates'>
+					| undefined,
+				// A template deleted since the quotation was issued must not erase the
+				// provenance it was priced from.
+				budgetTemplateTitle:
+					selectedTemplate?.title ??
+					(templateUnchanged ? quotation?.budgetTemplateTitle : undefined),
+				budgetTemplateTotal:
+					selectedTemplate?.totalPrice ??
+					(templateUnchanged ? quotation?.budgetTemplateTotal : undefined),
+				budgetAmount: parseMoney(data.budgetAmount),
+				marginPercent: data.marginPercent
+					? Number(data.marginPercent)
+					: undefined,
+				totalInclGst,
+				stages: draft.stages.map((stage, index) => ({
+					stageId: stage.stageId,
+					name: stage.name,
+					order: index,
+					percent: Number(stageRowByKey.get(stage.key)?.percent ?? '0') || 0,
+					amount: stageRowByKey.get(stage.key)?.amount ?? 0,
+					scopeSummary: stage.scopeSummary,
+					sections: stage.sections
+						.filter((section) => section.items.length > 0)
+						.map((section, sectionIndex) => ({
+							// Provenance where the row came from the catalogue; absent for
+							// sections and items added on this quotation.
+							sectionId: section.sectionId,
+							name: section.name,
+							order: sectionIndex,
+							items: section.items.map((item, itemIndex) => ({
+								itemId: item.itemId,
+								name: item.name,
+								order: itemIndex,
+							})),
+						})),
+				})),
+				terms: {
+					disclaimerHtml: termsContent.disclaimerHtml,
+					acknowledgementHtml: termsContent.acknowledgementHtml,
+					sections: draft.termSections.map((section, index) => ({
 						name: section.name,
-						items: section.items.map((item) => ({ name: item.name })),
+						order: index,
+						items: section.items.map((item) => item.text),
 					})),
-			})),
-			termSections: draft.termSections.map((section) => ({
-				name: section.name,
-				items: section.items.map((item) => item.text),
-			})),
+				},
+				specialInclusions: draft.specialInclusions.map((entry, index) => ({
+					text: entry.text,
+					amount: parseMoney(entry.amount) || undefined,
+					order: index,
+				})),
+				templateId: resolvedTemplateId,
+				exclusions: draft.exclusions.map((entry, index) => ({
+					text: entry.text,
+					order: index,
+				})),
+				notes: draft.notes.map((entry, index) => ({
+					text: entry.text,
+					order: index,
+				})),
+			};
+		},
+		[
+			budgetTemplates,
+			draft.exclusions,
+			draft.notes,
+			draft.specialInclusions,
+			draft.stages,
+			draft.termSections,
+			quotation,
+			resolvedTemplateId,
+			stageRowByKey,
+			termsContent,
 			totalInclGst,
+		]
+	);
+
+	/**
+	 * The revisions already issued, in the shape the renderer needs to print the
+	 * trail on page 2. It works out the pending row itself — see
+	 * `buildPendingVersionHistory` in the backend.
+	 */
+	const issuedVersions = useMemo(
+		() =>
+			revisions.map((row) => ({
+				changeType: 'Revision' as const,
+				description: row.description,
+				updatedAt: row.updatedAt,
+				updatedBy: row.updatedBy,
+				version: row.version,
+			})),
+		[revisions]
+	);
+
+	/** Everything the renderer needs beyond the snapshot itself. */
+	const renderArgs = useCallback(
+		(reference: string, versionDescription?: string) => ({
+			amending,
+			issuedAt: issuedAt.getTime(),
+			issuedVersions,
+			pendingDescription:
+				versionDescription ?? (editing ? 'This revision' : 'Initial version'),
+			reference,
 			version: targetVersion,
-			versionHistory: pdfVersionHistory,
-		};
-	}, [
-		termsContent,
-		values,
-		issuedAt,
-		reference,
-		stageRowByKey,
-		draft.exclusions,
-		draft.hydrated,
-		draft.notes,
-		draft.specialInclusions,
-		draft.stages,
-		draft.termSections,
-		totalInclGst,
-		targetVersion,
-		pdfVersionHistory,
-	]);
+		}),
+		[amending, editing, issuedAt, issuedVersions, targetVersion]
+	);
+
+	const renderable = Boolean(termsContent && draft.hydrated);
 
 	const canSave =
 		formIsValid &&
 		percentsValid &&
 		draft.itemCount > 0 &&
-		draft.hydrated &&
+		renderable &&
 		!saving;
 
 	const handlePreview = async () => {
-		if (!pdfInput) {
+		const parsed = clientQuotationFormSchema.safeParse(values);
+		const snapshot = parsed.success ? buildSnapshotBody(parsed.data) : null;
+		if (!snapshot) {
 			return;
 		}
 		// Open the tab synchronously — popup blockers reject a `window.open` that
-		// happens after an await, however short the render takes.
+		// happens after an await, and the render is now a round trip.
 		const tab = window.open('', '_blank');
 		setPreviewing(true);
 		try {
-			const blob = await buildClientQuotationPdfBlob(pdfInput);
-			const url = URL.createObjectURL(blob);
+			const rendered = await generatePdf({
+				...snapshot,
+				...renderArgs(reference),
+				preview: true,
+			});
 			if (tab) {
-				tab.location.href = url;
+				tab.location.href = rendered.url;
 			} else {
-				window.open(url, '_blank', 'noopener');
+				window.open(rendered.url, '_blank', 'noopener');
 			}
-			// The tab holds its own reference to the blob, so the object URL can be
-			// released once it has had a chance to load.
-			setTimeout(() => URL.revokeObjectURL(url), PREVIEW_URL_TTL_MS);
 		} catch (error) {
 			tab?.close();
 			toastManager.add({
-				description:
-					error instanceof Error
-						? error.message
-						: 'Could not render the preview. Please try again in a moment.',
+				description: getConvexErrorMessage(
+					error,
+					'Could not render the preview. Please try again in a moment.'
+				),
 				title: 'Could not open preview',
 				type: 'error',
 			});
@@ -579,7 +615,8 @@ export default function ClientQuotationComposer({
 		emailClients = false
 	) => {
 		const parsed = clientQuotationFormSchema.safeParse(values);
-		if (!(canSave && parsed.success && pdfInput && termsContent)) {
+		const snapshotBody = parsed.success ? buildSnapshotBody(parsed.data) : null;
+		if (!(canSave && snapshotBody)) {
 			return;
 		}
 		// A revision is only ever saved through the version dialog — without a
@@ -590,139 +627,27 @@ export default function ClientQuotationComposer({
 		setSaving(true);
 		try {
 			// Confirm the code first so the reference printed on the PDF is the one
-			// stored. Only a collision changes it, and the blob is built afterwards.
-			// A revision already has its reference and keeps it.
+			// stored. Only a collision changes it, and the document is rendered
+			// afterwards. A revision already has its reference and keeps it.
 			const savedReference = quotation
 				? quotation.reference
 				: (await reserveReference({ preferred: candidateReference })).reference;
-			const folderPath = await ensureFolder({
-				parentPath: '',
-				segments: [QUOTATION_FOLDER_NAME],
-			});
 
-			const blob = await buildClientQuotationPdfBlob({
-				...pdfInput,
-				reference: savedReference,
-				// The trail in `pdfInput` carries a placeholder for the version being
-				// written, because the description is only given in the dialog. By here
-				// it is known, so the printed page 2 says what the history will say.
-				versionHistory: versionDescription
-					? pdfInput.versionHistory.map((row) =>
-							row.version === targetVersion
-								? { ...row, description: versionDescription }
-								: row
-						)
-					: pdfInput.versionHistory,
+			// Renders the document and files it in company documents. The version
+			// description reaches the printed trail on page 2 through
+			// `pendingDescription`, which is why this runs after the dialog.
+			const rendered = await generatePdf({
+				...snapshotBody,
+				...renderArgs(savedReference, versionDescription),
+				preview: false,
 			});
-			// Every version keeps its own file, so the name carries the version from
-			// the second one on — v1 files stay as they were named when issued.
-			const fileName =
-				targetVersion === FIRST_VERSION
-					? `${savedReference} - ${parsed.data.projectName}.pdf`
-					: `${savedReference} - ${parsed.data.projectName} - v${targetVersion}.pdf`;
-			const generated = await generateUploadUrl({
-				folderPath,
-				fileName,
-				contentType: PDF_CONTENT_TYPE,
-			});
-			const putResponse = await fetch(generated.uploadUrl, {
-				method: 'PUT',
-				body: blob,
-				headers: { 'Content-Type': PDF_CONTENT_TYPE },
-			});
-			if (!putResponse.ok) {
-				throw new Error('Upload failed. Please try again.');
-			}
-			const documentId = await createDocument({
-				folderPath,
-				kebabName: generated.kebabName,
-				name: fileName,
-				s3Key: generated.s3Key,
-				size: blob.size,
-				mimeType: PDF_CONTENT_TYPE,
-			});
-
-			const selectedTemplate = budgetTemplates?.find(
-				(template) => template._id === parsed.data.budgetTemplateId
-			);
-			const templateUnchanged =
-				quotation?.budgetTemplateId === parsed.data.budgetTemplateId;
 
 			const snapshot = {
-				projectName: parsed.data.projectName,
-				description: parsed.data.description || undefined,
-				clients: parsed.data.clients,
-				address: parsed.data.address as {
-					postcode: string;
-					state: 'ACT' | 'NSW' | 'NT' | 'QLD' | 'SA' | 'TAS' | 'VIC' | 'WA';
-					street: string;
-					suburb: string;
-				},
-				budgetTemplateId: selectedTemplate?._id as
-					| Id<'budgetTemplates'>
-					| undefined,
-				// A template deleted since the quotation was issued must not erase the
-				// provenance it was priced from.
-				budgetTemplateTitle:
-					selectedTemplate?.title ??
-					(templateUnchanged ? quotation?.budgetTemplateTitle : undefined),
-				budgetTemplateTotal:
-					selectedTemplate?.totalPrice ??
-					(templateUnchanged ? quotation?.budgetTemplateTotal : undefined),
-				budgetAmount,
-				marginPercent: parsed.data.marginPercent
-					? Number(parsed.data.marginPercent)
-					: undefined,
-				totalInclGst,
-				stages: draft.stages.map((stage, index) => ({
-					stageId: stage.stageId,
-					name: stage.name,
-					order: index,
-					percent: Number(stageRowByKey.get(stage.key)?.percent ?? '0') || 0,
-					amount: stageRowByKey.get(stage.key)?.amount ?? 0,
-					scopeSummary: stage.scopeSummary,
-					sections: stage.sections
-						.filter((section) => section.items.length > 0)
-						.map((section, sectionIndex) => ({
-							// Provenance where the row came from the catalogue; absent for
-							// sections and items added on this quotation.
-							sectionId: section.sectionId,
-							name: section.name,
-							order: sectionIndex,
-							items: section.items.map((item, itemIndex) => ({
-								itemId: item.itemId,
-								name: item.name,
-								order: itemIndex,
-							})),
-						})),
-				})),
-				terms: {
-					disclaimerHtml: termsContent.disclaimerHtml,
-					acknowledgementHtml: termsContent.acknowledgementHtml,
-					sections: draft.termSections.map((section, index) => ({
-						name: section.name,
-						order: index,
-						items: section.items.map((item) => item.text),
-					})),
-				},
-				specialInclusions: draft.specialInclusions.map((entry, index) => ({
-					text: entry.text,
-					amount: parseMoney(entry.amount) || undefined,
-					order: index,
-				})),
-				templateId: resolvedTemplateId,
-				exclusions: draft.exclusions.map((entry, index) => ({
-					text: entry.text,
-					order: index,
-				})),
-				notes: draft.notes.map((entry, index) => ({
-					text: entry.text,
-					order: index,
-				})),
-				documentId,
-				s3Key: generated.s3Key,
-				fileName,
-				folderPath,
+				...snapshotBody,
+				documentId: rendered.documentId,
+				s3Key: rendered.s3Key,
+				fileName: rendered.fileName,
+				folderPath: rendered.folderPath,
 			};
 
 			if (quotationId && versionDescription && amending) {
@@ -839,7 +764,7 @@ export default function ClientQuotationComposer({
 				rightSlot={
 					<div className="flex items-center gap-2">
 						<Button
-							disabled={!pdfInput || previewing}
+							disabled={!renderable || previewing}
 							loading={previewing}
 							onClick={() => {
 								handlePreview().catch(() => {
