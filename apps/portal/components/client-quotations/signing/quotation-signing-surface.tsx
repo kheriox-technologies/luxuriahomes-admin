@@ -2,6 +2,15 @@
 
 import { api } from '@workspace/backend/api';
 import type { Id } from '@workspace/backend/dataModel';
+import type { QuotationPdfAnchor } from '@workspace/backend/quotationPdfAnchors';
+import { A4_HEIGHT, A4_WIDTH } from '@workspace/backend/quotationPdfTheme';
+import {
+	DEFAULT_SIGNATURE_STYLE,
+	deriveInitials,
+	isSignatureStyleId,
+	type SignatureStyleId,
+	signatureStyle,
+} from '@workspace/backend/quotationSignatureStyles';
 import { Button } from '@workspace/ui/components/button';
 import { Spinner } from '@workspace/ui/components/spinner';
 import { toastManager } from '@workspace/ui/components/toast';
@@ -12,33 +21,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { QuotationSurface } from '@/components/client-quotations/quotation-surface';
 import { usePdfDocument } from '@/components/takeoffs/use-pdf-document';
-import {
-	buildClientQuotationSignaturePdf,
-	type QuotationPdfAnchor,
-} from '@/lib/client/pdf/client-quotation-pdf';
-import { A4_HEIGHT, A4_WIDTH } from '@/lib/client/pdf/client-quotation-theme';
-import {
-	buildQuotationPdfInput,
-	buildSignerSlots,
-} from '@/lib/client/pdf/quotation-pdf-input';
-import {
-	DEFAULT_SIGNATURE_STYLE,
-	deriveInitials,
-	isSignatureStyleId,
-	type SignatureStyleId,
-	signatureStyle,
-} from '@/lib/client/pdf/signature-styles';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
 import { UNAUTHORIZED_HREF, useSigningContext } from './use-signing-context';
 
 const PAGE_RENDER_WIDTH = 900;
-
-/**
- * What the countersignature box is captioned before it is signed. Fixed rather
- * than taken from whoever is viewing, so every signer's copy of an unsigned
- * document reads identically; once signed, the row carries the admin's own name.
- */
-const REPRESENTATIVE_PLACEHOLDER_NAME = 'Luxuria Homes';
 
 /** The one place a document's marks are held while the signer works. */
 interface AppliedMarks {
@@ -85,8 +71,8 @@ export default function QuotationSigningSurface({
 	});
 	const [submitting, setSubmitting] = useState(false);
 
-	const generateUploadUrl = useAction(
-		api.clientQuotations.generateSignatureUploadUrl.generateSignatureUploadUrl
+	const generateSigningPdf = useAction(
+		api.clientQuotations.pdf.generate.generateSigningPdf
 	);
 	const recordClientSignature = useMutation(
 		api.clientPortal.quotations.recordSignature.recordSignature
@@ -126,28 +112,18 @@ export default function QuotationSigningSurface({
 			return;
 		}
 		let cancelled = false;
-		let objectUrl: string | null = null;
 
 		(async () => {
 			try {
-				const signers = buildSignerSlots(
-					current.quotation,
-					current.signatures,
-					REPRESENTATIVE_PLACEHOLDER_NAME,
-					style
-				);
-				const { anchors, blob } = await buildClientQuotationSignaturePdf(
-					buildQuotationPdfInput({
-						quotation: current.quotation,
-						signers,
-						versions: current.versions,
-					})
-				);
+				const rendered = await generateSigningPdf({
+					quotationId,
+					surface,
+					preview: true,
+				});
 				if (cancelled) {
 					return;
 				}
-				objectUrl = URL.createObjectURL(blob);
-				setDoc({ anchors, url: objectUrl });
+				setDoc({ anchors: rendered.anchors, url: rendered.url });
 				// A fresh document means the marks placed on the old one no longer
 				// correspond to anything on screen.
 				setMarks({ initialled: new Set(), signed: false });
@@ -162,9 +138,6 @@ export default function QuotationSigningSurface({
 
 		return () => {
 			cancelled = true;
-			if (objectUrl) {
-				URL.revokeObjectURL(objectUrl);
-			}
 		};
 	}, [signatureFingerprint, style]);
 
@@ -220,57 +193,34 @@ export default function QuotationSigningSurface({
 		}
 		setSubmitting(true);
 		try {
-			// The final document: everyone else's marks, plus mine.
-			const signers = buildSignerSlots(
-				authorized.quotation,
-				[
-					...authorized.signatures,
-					{
-						initialsText: initials,
-						name: authorized.signer.name,
-						signatureText: authorized.signer.name,
-						signedAt: Date.now(),
-						slotKey: mySlotKey,
-						style,
-					},
-				],
-				REPRESENTATIVE_PLACEHOLDER_NAME,
-				style
-			);
-			const { blob } = await buildClientQuotationSignaturePdf(
-				buildQuotationPdfInput({
-					quotation: authorized.quotation,
-					signers,
-					versions: authorized.versions,
-				})
-			);
-
-			const upload = await generateUploadUrl({ quotationId });
-			const response = await fetch(upload.uploadUrl, {
-				method: 'PUT',
-				body: blob,
-				headers: { 'Content-Type': 'application/pdf' },
+			// The final document — everyone else's marks, plus mine — rendered and
+			// filed server-side. It hands back the basis ids it actually rendered
+			// against, so a signature collected while this page was open is caught
+			// by `recordSignature` rather than silently overwritten.
+			const rendered = await generateSigningPdf({
+				quotationId,
+				surface,
+				pending: {
+					initialsText: initials,
+					signatureText: authorized.signer.name,
+					style,
+				},
+				preview: false,
 			});
-			if (!response.ok) {
-				throw new Error('Upload failed');
+			if (!rendered.document) {
+				throw new Error('The signed document was not filed.');
 			}
 
 			const record =
 				surface === 'client' ? recordClientSignature : recordAdminSignature;
 			const result = await record({
 				quotationId,
-				version: authorized.quotation.version ?? 1,
-				basisSignatureIds: authorized.basisSignatureIds,
+				version: rendered.version,
+				basisSignatureIds: rendered.basisSignatureIds,
 				style,
 				signatureText: authorized.signer.name,
 				initialsText: initials,
-				document: {
-					fileName: upload.fileName,
-					folderPath: upload.folderPath,
-					kebabName: upload.kebabName,
-					s3Key: upload.s3Key,
-					size: blob.size,
-				},
+				document: rendered.document,
 			});
 
 			toastManager.add({

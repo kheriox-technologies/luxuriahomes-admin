@@ -1,11 +1,12 @@
-import type { Doc } from '@workspace/backend/dataModel';
-import { formatIssueDate } from '@/components/client-quotations/client-quotation-form-shared';
+import type { Doc } from '../../_generated/dataModel';
+import { formatIssueDate } from '../formatting';
+import { type QuotationSnapshotArgs, splitGst } from '../shared';
+import type { SignatureStyleId } from '../signatureStyles';
 import type {
 	QuotationPdfInput,
 	QuotationPdfSignerSlot,
 	QuotationPdfVersion,
-} from './client-quotation-pdf';
-import type { SignatureStyleId } from './signature-styles';
+} from './docDefinition';
 
 /**
  * Rebuilds a quotation's PDF input from the stored snapshot.
@@ -170,4 +171,104 @@ export function buildQuotationPdfInput(options: {
 		version: quotation.version ?? 1,
 		versionHistory: buildPdfVersionHistory(versions),
 	};
+}
+
+/**
+ * The PDF input for a quotation that has not been saved yet.
+ *
+ * The composer renders a document before the row exists — that is how the
+ * issued PDF's key reaches `create` — so it posts the same snapshot it is about
+ * to save and the input is assembled here. Mirrors `buildQuotationPdfInput`
+ * above field for field; the only difference is that the GST split is derived
+ * rather than read back off a stored row.
+ */
+export function pdfInputFromSnapshot(options: {
+	issuedAt: number;
+	reference: string;
+	signers?: QuotationPdfSignerSlot[];
+	snapshot: QuotationSnapshotArgs;
+	version: number;
+	versionHistory: QuotationPdfVersion[];
+}): QuotationPdfInput {
+	const { issuedAt, reference, signers, snapshot, version, versionHistory } =
+		options;
+	const { contractSumExclGst, gstAmount } = splitGst(snapshot.totalInclGst);
+
+	return {
+		acknowledgementHtml: snapshot.terms.acknowledgementHtml,
+		address: snapshot.address,
+		clients: snapshot.clients,
+		contractSumExclGst,
+		description: snapshot.description || undefined,
+		disclaimerHtml: snapshot.terms.disclaimerHtml,
+		exclusions: byOrder(snapshot.exclusions).map((entry) => entry.text),
+		gstAmount,
+		issuedAtLabel: formatIssueDate(new Date(issuedAt)),
+		notes: byOrder(snapshot.notes).map((entry) => entry.text),
+		projectName: snapshot.projectName || 'Untitled project',
+		reference,
+		signers,
+		// Text only — the amounts kept alongside these are admin reference and
+		// must never reach the document.
+		specialInclusions: byOrder(snapshot.specialInclusions).map(
+			(entry) => entry.text
+		),
+		stages: byOrder(snapshot.stages).map((stage) => ({
+			amount: stage.amount,
+			name: stage.name,
+			percent: stage.percent,
+			scopeSummary: stage.scopeSummary,
+			sections: byOrder(stage.sections)
+				.filter((section) => section.items.length > 0)
+				.map((section) => ({
+					name: section.name,
+					items: byOrder(section.items).map((item) => ({ name: item.name })),
+				})),
+		})),
+		termSections: byOrder(snapshot.terms.sections).map((section) => ({
+			name: section.name,
+			items: section.items,
+		})),
+		totalInclGst: snapshot.totalInclGst,
+		version,
+		versionHistory,
+	};
+}
+
+/** The stored arrays all carry an explicit print order; nothing relies on insertion order. */
+function byOrder<T extends { order: number }>(rows: readonly T[]): T[] {
+	return rows.slice().sort((a, b) => a.order - b.order);
+}
+
+/** The trail for a document being issued now, oldest first. */
+export function buildPendingVersionHistory(options: {
+	amending: boolean;
+	issued: StoredVersion[];
+	pendingDescription: string;
+	savedAt: number;
+	savedBy: string;
+	version: number;
+}): QuotationPdfVersion[] {
+	const pending: QuotationPdfVersion = {
+		description: options.pendingDescription,
+		updatedAtLabel: formatIssueDate(new Date(options.savedAt)),
+		updatedBy: options.savedBy,
+		version: options.version,
+	};
+	const issued = options.issued
+		.filter((row) => row.changeType === 'Revision')
+		.sort((a, b) => a.version - b.version || a.updatedAt - b.updatedAt)
+		.map((row) =>
+			// An amendment rewrites a version in place, so it replaces that row
+			// rather than adding one — the trail stays one row per version.
+			options.amending && row.version === options.version
+				? pending
+				: {
+						description: row.description,
+						updatedAtLabel: formatIssueDate(new Date(row.updatedAt)),
+						updatedBy: row.updatedBy,
+						version: row.version,
+					}
+		);
+	return options.amending ? issued : [...issued, pending];
 }

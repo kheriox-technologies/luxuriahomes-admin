@@ -52,6 +52,12 @@ export default function RootLayout() {
 		Inter_500Medium,
 		Inter_600SemiBold,
 		Inter_700Bold,
+		// The quotation signature faces. Registered under the same names the PDF
+		// renderer uses (`pdfFont` in the shared signature-styles registry) so a
+		// signer's on-screen preview is the face the document ends up carrying.
+		Caveat: require('../assets/fonts/Caveat-Regular.ttf'),
+		DancingScript: require('../assets/fonts/DancingScript-Regular.ttf'),
+		GreatVibes: require('../assets/fonts/GreatVibes-Regular.ttf'),
 	});
 
 	useEffect(() => {
