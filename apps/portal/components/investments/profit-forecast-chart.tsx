@@ -64,7 +64,7 @@ export default function ProfitForecastChart({
 		scenarios.map((scenario, index) => [
 			seriesKey(index),
 			{
-				label: formatAudCompact(scenario.basePrice),
+				label: formatAudWhole(scenario.basePrice),
 				color: SERIES_COLORS[index % SERIES_COLORS.length],
 			},
 		])
@@ -114,8 +114,8 @@ export default function ProfitForecastChart({
 								</div>
 								{point ? (
 									<div className="mt-0.5 text-muted-foreground">
-										Loan {formatAudCompact(point.loanBalance)} · holding{' '}
-										{formatAudCompact(point.futureHolding)}
+										Loan {formatAudWhole(point.loanBalance)} · holding{' '}
+										{formatAudWhole(point.futureHolding)}
 									</div>
 								) : null}
 								<div className="mt-2 grid gap-1">
@@ -132,7 +132,7 @@ export default function ProfitForecastChart({
 															SERIES_COLORS[index % SERIES_COLORS.length],
 													}}
 												/>
-												{formatAudCompact(scenario.salePrice)}
+												{formatAudWhole(scenario.salePrice)}
 											</span>
 											<span className="font-mono tabular-nums">
 												{formatAudWhole(scenario.profit)}
@@ -142,7 +142,7 @@ export default function ProfitForecastChart({
 								</div>
 								<div className="mt-2 border-t pt-1.5 text-muted-foreground">
 									Investor share at{' '}
-									{formatAudCompact(point?.scenarios[0]?.salePrice ?? 0)}:{' '}
+									{formatAudWhole(point?.scenarios[0]?.salePrice ?? 0)}:{' '}
 									<span className="font-mono text-foreground tabular-nums">
 										{formatAudWhole(point?.scenarios[0]?.investorShare ?? 0)}
 									</span>

@@ -12,7 +12,7 @@ import {
 	TrendingDown,
 	TrendingUp,
 } from 'lucide-react';
-import { formatAudCompact, formatAudWhole } from '@/lib/currency';
+import { formatAudWhole } from '@/lib/currency';
 import type { ForecastPoint } from '@/lib/investment-forecast';
 
 interface KpiTile {
@@ -75,39 +75,39 @@ export default function InvestmentKpiBar({
 	const tiles: KpiTile[] = [
 		{
 			label: 'Capital in',
-			value: formatAudCompact(capitalIn),
+			value: formatAudWhole(capitalIn),
 			hint: 'Deposits and settlement',
 			icon: PiggyBank,
 		},
 		{
 			label: 'Holding spent',
-			value: formatAudCompact(holdingSpent),
+			value: formatAudWhole(holdingSpent),
 			hint: 'Paid to date',
 			icon: Receipt,
 		},
 		{
 			label: 'Loan balance',
-			value: formatAudCompact(sellNow.loanBalance),
+			value: formatAudWhole(sellNow.loanBalance),
 			hint: `Burning ${formatAudWhole(burn)}/mo held`,
 			icon: Landmark,
 		},
 		{
 			label: 'Profit if sold now',
-			value: formatAudCompact(scenario.profit),
-			hint: `At ${formatAudCompact(scenario.salePrice)} sale price`,
+			value: formatAudWhole(scenario.profit),
+			hint: `At ${formatAudWhole(scenario.salePrice)} sale price`,
 			icon: scenario.profit >= 0 ? TrendingUp : TrendingDown,
 			tone: scenario.profit >= 0 ? 'positive' : 'negative',
 		},
 		{
 			label: 'Management fee',
-			value: formatAudCompact(scenario.projectManagementFee),
+			value: formatAudWhole(scenario.projectManagementFee),
 			hint: 'Share less amount already paid',
 			icon: Briefcase,
 			tone: scenario.projectManagementFee >= 0 ? 'default' : 'negative',
 		},
 		{
 			label: 'Investor share',
-			value: formatAudCompact(scenario.investorShare),
+			value: formatAudWhole(scenario.investorShare),
 			hint: 'Profit less management fee',
 			icon: Banknote,
 			tone: scenario.investorShare >= 0 ? 'positive' : 'negative',
@@ -137,7 +137,7 @@ export default function InvestmentKpiBar({
 						</div>
 						<p
 							className={cn(
-								'mt-2 font-semibold text-2xl tabular-nums tracking-tight',
+								'mt-2 font-semibold text-xl tabular-nums tracking-tight',
 								tile.tone === 'positive' && 'text-success-foreground',
 								tile.tone === 'negative' && 'text-destructive-foreground'
 							)}
