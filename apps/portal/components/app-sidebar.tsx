@@ -108,20 +108,6 @@ const items: SidebarItem[] = [
 		icon: Wallet,
 	},
 	{
-		title: 'Investments',
-		url: '#',
-		path: '#',
-		icon: TrendingUp,
-		superAdminOnly: true,
-		items: [
-			{
-				title: 'Camp Hill',
-				url: '/investments/camp-hill',
-				path: '/investments/camp-hill',
-			},
-		],
-	},
-	{
 		title: 'Documents',
 		url: '/documents',
 		path: '/documents',
@@ -212,6 +198,20 @@ const items: SidebarItem[] = [
 				title: 'Email Signatures',
 				url: '/settings/signatures',
 				path: '/settings/signatures',
+			},
+		],
+	},
+	{
+		title: 'Investments',
+		url: '#',
+		path: '#',
+		icon: TrendingUp,
+		superAdminOnly: true,
+		items: [
+			{
+				title: 'Camp Hill',
+				url: '/investments/camp-hill',
+				path: '/investments/camp-hill',
 			},
 		],
 	},

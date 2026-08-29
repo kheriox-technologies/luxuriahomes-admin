@@ -23,15 +23,18 @@ const dateFormat = new Intl.DateTimeFormat('en-AU', {
 
 export default function InvestmentTransactionsTable({
 	description,
+	initialPageSize = 10,
 	onAdd,
 	onEdit,
 	title,
 	transactions,
 }: {
 	description: string;
+	initialPageSize?: number;
 	onAdd: () => void;
 	onEdit: (transaction: Transaction) => void;
 	title: string;
+	/** Rendered in the order given. */
 	transactions: Transaction[];
 }) {
 	const removeTransaction = useMutation(
@@ -151,7 +154,7 @@ export default function InvestmentTransactionsTable({
 				columns={columns}
 				data={transactions}
 				emptyMessage="No entries yet."
-				initialPageSize={10}
+				initialPageSize={initialPageSize}
 			/>
 		</div>
 	);
