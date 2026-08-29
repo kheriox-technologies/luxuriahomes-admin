@@ -143,8 +143,12 @@ export default function CampHillPageContent() {
 		() => (transactions ?? []).filter((row) => row.kind === 'capital'),
 		[transactions]
 	);
+	// Newest first: the most recent payments are the ones being reviewed.
 	const holdingRows = useMemo(
-		() => (transactions ?? []).filter((row) => row.kind === 'holding'),
+		() =>
+			(transactions ?? [])
+				.filter((row) => row.kind === 'holding')
+				.sort((a, b) => b.date - a.date),
 		[transactions]
 	);
 
@@ -205,6 +209,7 @@ export default function CampHillPageContent() {
 					<TabsPanel value="holding">
 						<InvestmentTransactionsTable
 							description="Mortgage, staging, rates and utilities paid while holding."
+							initialPageSize={50}
 							onAdd={() => {
 								setEditing(null);
 								setSheetKind('holding');
