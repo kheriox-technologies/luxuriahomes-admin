@@ -170,7 +170,6 @@ export default function CampHillPageContent() {
 	return (
 		<div className="flex min-w-0 flex-1 flex-col gap-6">
 			<PageHeading
-				description={`${investment.address.street}, ${investment.address.suburb} ${investment.address.state} ${investment.address.postcode}`}
 				heading={investment.name}
 				icon={TrendingUp}
 				titleTrailing={<Badge variant="outline">Holding</Badge>}
