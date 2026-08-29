@@ -1,3 +1,4 @@
+import '@/lib/crypto-polyfill';
 import '../global.css';
 
 import { ClerkProvider, useAuth } from '@clerk/clerk-expo';

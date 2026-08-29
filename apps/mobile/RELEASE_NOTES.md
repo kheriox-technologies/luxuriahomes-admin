@@ -32,7 +32,7 @@ App Store Connect, paste the bullet list from that version's section into the
 
 ## 1.0.1 — In review
 
-_iOS build 26 · Android versionCode 7_
+_iOS build 28 · Android versionCode 9_
 
 - Add a location picker when composing letters
 - Bug fixes and performance improvements
@@ -49,6 +49,39 @@ _iOS build 26 · Android versionCode 7_
   • Add sponsor marketing banners in 16:9 and 9:16
   • Truncate long date-field labels instead of overflowing the pill
   • Keep select chevron inside the pill on narrow rows
+  • Bring quotation templates and client quotations to mobile
+  • Keep a standard list of special inclusions
+  • Build quotations from named templates
+  • Collect signatures on a client quotation
+  • Title the client portal header for clients
+  • Send a revised quotation back for approval
+  • Open a client's quotation PDF straight from its row
+  • Send client quotations to their clients
+  • Approve a client quotation without revising it
+  • Give every client quotation a status
+  • Convert HEIC note images to JPEG before upload
+  • Read every note log as a timeline
+  • Add notes to client quotations
+  • Name the quote-items list Quotation Catalogue
+  • Title the quotations page Quotations
+  • Move client quotations to /quotations
+  • Price quotations from a budget plus margin
+  • Drop quotation validity and retune the composer's top row
+  • Widen the Add Quotation layout and allow four clients
+  • Make the quotation body editable per client quotation
+  • Collapse quote items to a single line of text
+  • Streamline the quotations Items and Terms tabs
+  • Add Exclusions and Notes tabs and reseed the quote catalogue
+  • Combine Quote Items and Quote Terms into a tabbed Quotations page
+  • Add Client Quotations
+  • Add Quote Terms page for quotation boilerplate
+  • Seed quote catalogue from the client quotation template
+  • added quote template
+  • Add quote items catalogue
+  • Add a QBCC licence line to email signatures
+  • Show signatures as cards instead of a table
+  • Replace text email signatures with structured branded HTML
+  • fixed mobile bug
 -->
 
 ---

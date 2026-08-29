@@ -13,6 +13,12 @@ import {
 	quotationTermsSnapshotValidator,
 } from './clientQuotations/shared';
 import {
+	investmentAssumptionsFields,
+	investmentCategoryValidator,
+	investmentStatusValidator,
+	investmentTransactionKindValidator,
+} from './investments/shared';
+import {
 	australianAddressValidator,
 	projectClientValidator,
 	projectStatusValidator,
@@ -1111,4 +1117,34 @@ export default defineSchema({
 		read: v.optional(v.boolean()),
 		createdAt: v.number(),
 	}).index('by_createdAt', ['createdAt']),
+	// Investment properties the business holds on its own balance sheet (as
+	// opposed to `projects`, which are built for clients). Restricted to
+	// super-admins everywhere: sidebar, route and every Convex function.
+	investments: defineTable({
+		slug: v.string(),
+		name: v.string(),
+		address: australianAddressValidator,
+		status: investmentStatusValidator,
+		searchText: v.string(),
+	})
+		.index('by_slug', ['slug'])
+		.searchIndex('search_investments', { searchField: 'searchText' }),
+	// The money ledger for an investment. `date` is a ms epoch, `amount` is
+	// whole dollars and always positive — `kind` decides how it is grouped, and
+	// both kinds count against the sale proceeds.
+	investmentTransactions: defineTable({
+		investmentId: v.id('investments'),
+		kind: investmentTransactionKindValidator,
+		date: v.number(),
+		description: v.string(),
+		category: investmentCategoryValidator,
+		amount: v.number(),
+		notes: v.optional(v.string()),
+	}).index('by_investment_date', ['investmentId', 'date']),
+	// Singleton row per investment holding the forecast inputs. See
+	// `investments/shared.ts` for the field list and units.
+	investmentAssumptions: defineTable({
+		investmentId: v.id('investments'),
+		...investmentAssumptionsFields,
+	}).index('by_investment', ['investmentId']),
 });
