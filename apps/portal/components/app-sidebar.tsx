@@ -36,6 +36,7 @@ import {
 	Package,
 	Settings,
 	SquaresIntersect,
+	TrendingUp,
 	Users,
 	Wallet,
 } from 'lucide-react';
@@ -105,6 +106,20 @@ const items: SidebarItem[] = [
 		url: '/budgets',
 		path: '/budgets',
 		icon: Wallet,
+	},
+	{
+		title: 'Investments',
+		url: '#',
+		path: '#',
+		icon: TrendingUp,
+		superAdminOnly: true,
+		items: [
+			{
+				title: 'Camp Hill',
+				url: '/investments/camp-hill',
+				path: '/investments/camp-hill',
+			},
+		],
 	},
 	{
 		title: 'Documents',
@@ -307,15 +322,20 @@ const AppSidebar = () => {
 		);
 	};
 
+	// A super-admin-only group shows all of its children: `hasAccessToPath` only
+	// passes for the `admin` role or an explicitly granted permission path, so a
+	// super-admin without `admin` would otherwise get an empty group.
+	const visibleSubItemsFor = (item: SidebarItemWithSub) =>
+		item.superAdminOnly && isSuperAdmin
+			? item.items
+			: item.items.filter((sub) => hasAccessToPath(sub.path));
+
 	const filteredItems = items.filter((item) => {
 		if (item.superAdminOnly) {
 			return isSuperAdmin;
 		}
 		if (isItemWithSub(item)) {
-			const visibleSubItems = item.items.filter((sub) =>
-				hasAccessToPath(sub.path)
-			);
-			return visibleSubItems.length > 0;
+			return visibleSubItemsFor(item).length > 0;
 		}
 		return hasAccessToPath(item.path);
 	});
@@ -366,9 +386,7 @@ const AppSidebar = () => {
 						<SidebarMenu className="gap-2">
 							{filteredItems.map((item) => {
 								if (isItemWithSub(item)) {
-									const visibleSubItems = item.items.filter((sub) =>
-										hasAccessToPath(sub.path)
-									);
+									const visibleSubItems = visibleSubItemsFor(item);
 									const isOpen = hasActiveSubItem(visibleSubItems);
 
 									return (
