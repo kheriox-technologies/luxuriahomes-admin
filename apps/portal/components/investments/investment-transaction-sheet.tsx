@@ -4,7 +4,14 @@ import { useForm } from '@tanstack/react-form';
 import { api } from '@workspace/backend/api';
 import type { Doc, Id } from '@workspace/backend/dataModel';
 import { Button } from '@workspace/ui/components/button';
-import { Combobox } from '@workspace/ui/components/combobox';
+import {
+	Combobox,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+	ComboboxPopup,
+} from '@workspace/ui/components/combobox';
 import { Field, FieldError, FieldLabel } from '@workspace/ui/components/field';
 import { Input } from '@workspace/ui/components/input';
 import {
@@ -18,7 +25,8 @@ import {
 } from '@workspace/ui/components/sheet';
 import { toastManager } from '@workspace/ui/components/toast';
 import { useMutation } from 'convex/react';
-import { Check } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
+import { useState } from 'react';
 import { z } from 'zod';
 import { formatFieldErrors } from '@/components/projects/project-form-shared';
 import { getConvexErrorMessage } from '@/lib/convex-errors';
@@ -27,8 +35,8 @@ const FORM_ID = 'investment-transaction-form';
 
 type Transaction = Doc<'investmentTransactions'>;
 type TransactionKind = Transaction['kind'];
-type TransactionCategory = Transaction['category'];
 
+/** Seeds the picker; anything already used on the ledger is offered too. */
 export const TRANSACTION_CATEGORIES = [
 	'Deposit',
 	'Settlement',
@@ -39,15 +47,36 @@ export const TRANSACTION_CATEGORIES = [
 	'Electricity',
 	'Legal',
 	'Other',
-] as const satisfies readonly TransactionCategory[];
+] as const;
 
 const transactionSchema = z.object({
 	date: z.string().min(1, 'Date is required'),
 	description: z.string().trim().min(1, 'Description is required'),
-	category: z.enum(TRANSACTION_CATEGORIES),
+	category: z.string().trim().min(1, 'Category is required'),
 	amount: z.number().positive('Amount must be greater than zero'),
 	notes: z.string().trim().optional(),
 });
+
+/** Defaults, the ledger's existing categories and the current value, de-duped. */
+function categoryOptions(
+	existing: string[] | undefined,
+	current: string
+): string[] {
+	const seen = new Set<string>();
+	const options: string[] = [];
+	for (const category of [
+		...TRANSACTION_CATEGORIES,
+		...(existing ?? []),
+		current,
+	]) {
+		const trimmed = category.trim();
+		if (trimmed && !seen.has(trimmed)) {
+			seen.add(trimmed);
+			options.push(trimmed);
+		}
+	}
+	return options;
+}
 
 /** `<input type="date">` works in `yyyy-mm-dd`; the ledger stores UTC midnight. */
 function toDateInput(ms: number): string {
@@ -59,12 +88,15 @@ function fromDateInput(value: string): number {
 }
 
 export default function InvestmentTransactionSheet({
+	categories,
 	investmentId,
 	kind,
 	onOpenChange,
 	open,
 	transaction,
 }: {
+	/** Categories already used on this investment, offered alongside the defaults. */
+	categories?: string[];
 	investmentId: Id<'investments'>;
 	/** Which ledger a newly created row lands in. */
 	kind: TransactionKind;
@@ -83,11 +115,18 @@ export default function InvestmentTransactionSheet({
 	const isEdit = transaction !== null;
 	const activeKind = transaction?.kind ?? kind;
 
+	const [creatingCategory, setCreatingCategory] = useState(false);
+	const [newCategory, setNewCategory] = useState('');
+	const resetNewCategory = () => {
+		setCreatingCategory(false);
+		setNewCategory('');
+	};
+
 	const form = useForm({
 		defaultValues: {
 			date: toDateInput(transaction?.date ?? Date.now()),
 			description: transaction?.description ?? '',
-			category: (transaction?.category ?? 'Other') as TransactionCategory,
+			category: transaction?.category ?? 'Other',
 			amount: transaction?.amount ?? 0,
 			notes: transaction?.notes ?? '',
 		},
@@ -130,6 +169,7 @@ export default function InvestmentTransactionSheet({
 				onOpenChange(next);
 				if (!next) {
 					form.reset();
+					resetNewCategory();
 				}
 			}}
 			open={open}
@@ -210,22 +250,101 @@ export default function InvestmentTransactionSheet({
 						</form.Field>
 
 						<form.Field name="category">
-							{(field) => (
-								<Field>
-									<FieldLabel htmlFor={field.name}>Category</FieldLabel>
-									<Combobox<TransactionCategory>
-										id={field.name}
-										items={[...TRANSACTION_CATEGORIES]}
-										itemToStringLabel={(item) => item}
-										onValueChange={(next) => {
-											if (next) {
-												field.handleChange(next);
-											}
-										}}
-										value={field.state.value}
-									/>
-								</Field>
-							)}
+							{(field) => {
+								const invalid =
+									field.state.meta.isTouched && !field.state.meta.isValid;
+								const options = categoryOptions(categories, field.state.value);
+								return (
+									<Field data-invalid={invalid}>
+										<FieldLabel htmlFor={field.name}>Category</FieldLabel>
+										<Combobox<string>
+											items={options}
+											itemToStringLabel={(item) => item}
+											onValueChange={(next) => {
+												if (next) {
+													field.handleChange(next);
+												}
+											}}
+											value={field.state.value}
+										>
+											<ComboboxInput
+												aria-invalid={invalid}
+												className="w-full"
+												id={field.name}
+												onBlur={field.handleBlur}
+												placeholder="Select a category"
+											/>
+											<ComboboxPopup>
+												<ComboboxEmpty>No category found.</ComboboxEmpty>
+												<ComboboxList>
+													{(item: string) => (
+														<ComboboxItem key={item} value={item}>
+															{item}
+														</ComboboxItem>
+													)}
+												</ComboboxList>
+											</ComboboxPopup>
+										</Combobox>
+										{invalid ? (
+											<FieldError>
+												{formatFieldErrors(field.state.meta.errors)}
+											</FieldError>
+										) : null}
+										{creatingCategory ? (
+											<div className="flex flex-col gap-3 rounded-md border p-3">
+												<Field>
+													<FieldLabel htmlFor="new-category">
+														Category name
+													</FieldLabel>
+													<Input
+														id="new-category"
+														nativeInput
+														onChange={(e) => setNewCategory(e.target.value)}
+														placeholder="e.g. Insurance"
+														value={newCategory}
+													/>
+												</Field>
+												<div className="flex justify-end gap-2">
+													<Button
+														onClick={resetNewCategory}
+														size="sm"
+														type="button"
+														variant="outline"
+													>
+														<X aria-hidden /> Cancel
+													</Button>
+													<Button
+														onClick={() => {
+															const name = newCategory.trim();
+															if (!name) {
+																return;
+															}
+															field.handleChange(name);
+															resetNewCategory();
+														}}
+														size="sm"
+														type="button"
+														variant="outline"
+													>
+														<Plus aria-hidden /> Use category
+													</Button>
+												</div>
+											</div>
+										) : (
+											<div>
+												<Button
+													onClick={() => setCreatingCategory(true)}
+													size="sm"
+													type="button"
+													variant="ghost"
+												>
+													<Plus aria-hidden /> New category
+												</Button>
+											</div>
+										)}
+									</Field>
+								);
+							}}
 						</form.Field>
 
 						<form.Field name="amount">

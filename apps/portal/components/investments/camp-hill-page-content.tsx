@@ -152,6 +152,14 @@ export default function CampHillPageContent() {
 		[transactions]
 	);
 
+	// Categories already on the ledger, so the picker offers them next time.
+	const usedCategories = useMemo(() => {
+		const unique = new Set(
+			(transactions ?? []).map((row) => row.category.trim()).filter(Boolean)
+		);
+		return [...unique].sort((a, b) => a.localeCompare(b));
+	}, [transactions]);
+
 	const forecast = useMemo(() => {
 		if (!assumptions) {
 			return [];
@@ -200,63 +208,62 @@ export default function CampHillPageContent() {
 				</FramePanel>
 			</Frame>
 
-			<div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-				<Tabs defaultValue="holding">
-					<TabsList>
-						<TabsTab value="holding">Holding costs</TabsTab>
-						<TabsTab value="capital">Capital in</TabsTab>
-					</TabsList>
-					<TabsPanel value="holding">
-						<InvestmentTransactionsTable
-							description="Mortgage, staging, rates and utilities paid while holding."
-							initialPageSize={50}
-							onAdd={() => {
-								setEditing(null);
-								setSheetKind('holding');
-								setSheetOpen(true);
-							}}
-							onEdit={(row) => {
-								setEditing(row);
-								setSheetOpen(true);
-							}}
-							title="Holding costs"
-							transactions={holdingRows}
-						/>
-					</TabsPanel>
-					<TabsPanel value="capital">
-						<InvestmentTransactionsTable
-							description="Deposits and settlement funds put into the property."
-							onAdd={() => {
-								setEditing(null);
-								setSheetKind('capital');
-								setSheetOpen(true);
-							}}
-							onEdit={(row) => {
-								setEditing(row);
-								setSheetOpen(true);
-							}}
-							title="Capital in"
-							transactions={capitalRows}
-						/>
-					</TabsPanel>
-				</Tabs>
+			<InvestmentAssumptionsPanel
+				assumptions={assumptions}
+				onChange={(key, value) =>
+					persist({
+						...assumptions,
+						[key]: Number.isFinite(value) ? value : 0,
+					})
+				}
+				onScenarioPricesChange={(scenarioPrices) =>
+					persist({ ...assumptions, scenarioPrices })
+				}
+			/>
 
-				<InvestmentAssumptionsPanel
-					assumptions={assumptions}
-					onChange={(key, value) =>
-						persist({
-							...assumptions,
-							[key]: Number.isFinite(value) ? value : 0,
-						})
-					}
-					onScenarioPricesChange={(scenarioPrices) =>
-						persist({ ...assumptions, scenarioPrices })
-					}
-				/>
-			</div>
+			<Tabs defaultValue="holding">
+				<TabsList>
+					<TabsTab value="holding">Holding costs</TabsTab>
+					<TabsTab value="capital">Capital in</TabsTab>
+				</TabsList>
+				<TabsPanel value="holding">
+					<InvestmentTransactionsTable
+						description="Mortgage, staging, rates and utilities paid while holding."
+						initialPageSize={50}
+						onAdd={() => {
+							setEditing(null);
+							setSheetKind('holding');
+							setSheetOpen(true);
+						}}
+						onEdit={(row) => {
+							setEditing(row);
+							setSheetOpen(true);
+						}}
+						title="Holding costs"
+						transactions={holdingRows}
+					/>
+				</TabsPanel>
+				<TabsPanel value="capital">
+					<InvestmentTransactionsTable
+						description="Deposits and settlement funds put into the property."
+						onAdd={() => {
+							setEditing(null);
+							setSheetKind('capital');
+							setSheetOpen(true);
+						}}
+						onEdit={(row) => {
+							setEditing(row);
+							setSheetOpen(true);
+						}}
+						title="Capital in"
+						transactions={capitalRows}
+					/>
+				</TabsPanel>
+			</Tabs>
 
 			{investmentId ? (
 				<InvestmentTransactionSheet
+					categories={usedCategories}
 					investmentId={investmentId}
 					key={editing?._id ?? `new-${sheetKind}`}
 					kind={sheetKind}

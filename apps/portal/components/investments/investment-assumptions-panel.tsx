@@ -80,9 +80,9 @@ const SPLIT_FIELDS: AssumptionField[] = [
 
 /** Per-field suffix so the reader knows what the number is measured against. */
 const UNIT_SUFFIX: Partial<Record<NumericKey, string>> = {
-	stagingPerWeek: '/ week',
-	monthlyRepayment: '/ month',
-	otherHoldingPerMonth: '/ month',
+	stagingPerWeek: '/W',
+	monthlyRepayment: '/M',
+	otherHoldingPerMonth: '/M',
 };
 
 function FieldGroup({
@@ -97,13 +97,13 @@ function FieldGroup({
 	values: ForecastAssumptions;
 }) {
 	return (
-		<Frame>
+		<Frame className="h-full">
 			<FrameHeader className="flex flex-row items-center py-3">
 				<FrameTitle className="min-w-0 truncate leading-none">
 					{title}
 				</FrameTitle>
 			</FrameHeader>
-			<FramePanel className="space-y-4">
+			<FramePanel className="flex-1 space-y-4">
 				{fields.map((field) => {
 					const id = `assumption-${field.key}`;
 					return (
@@ -155,7 +155,7 @@ export default function InvestmentAssumptionsPanel({
 	onScenarioPricesChange: (prices: number[]) => void;
 }) {
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 			<FieldGroup
 				fields={SALE_FIELDS}
 				onChange={onChange}
@@ -174,13 +174,13 @@ export default function InvestmentAssumptionsPanel({
 				title="Profit split"
 				values={assumptions}
 			/>
-			<Frame>
+			<Frame className="h-full">
 				<FrameHeader className="flex flex-row items-center py-3">
 					<FrameTitle className="min-w-0 truncate leading-none">
 						Chart scenarios
 					</FrameTitle>
 				</FrameHeader>
-				<FramePanel className="space-y-4">
+				<FramePanel className="flex-1 space-y-4">
 					<p className="text-muted-foreground text-xs">
 						Comparison prices plotted alongside the sale price above, which is
 						always the first line and the one the summary tiles report.

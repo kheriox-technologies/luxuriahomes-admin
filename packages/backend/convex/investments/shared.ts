@@ -12,17 +12,36 @@ export const investmentTransactionKindValidator = v.union(
 	v.literal('holding')
 );
 
-export const investmentCategoryValidator = v.union(
-	v.literal('Deposit'),
-	v.literal('Settlement'),
-	v.literal('Loan Repayment'),
-	v.literal('Styling'),
-	v.literal('Council Rates'),
-	v.literal('Utilities'),
-	v.literal('Electricity'),
-	v.literal('Legal'),
-	v.literal('Other')
-);
+/**
+ * Free text so a category can be created from the ledger form without a schema
+ * change. `DEFAULT_INVESTMENT_CATEGORIES` seeds the picker; anything already
+ * used by the investment's rows is offered alongside it.
+ */
+export const investmentCategoryValidator = v.string();
+
+export const DEFAULT_INVESTMENT_CATEGORIES = [
+	'Deposit',
+	'Settlement',
+	'Loan Repayment',
+	'Styling',
+	'Council Rates',
+	'Utilities',
+	'Electricity',
+	'Legal',
+	'Other',
+] as const;
+
+/** Categories are compared by their trimmed text, so store them that way. */
+export function normalizeCategory(category: string): string {
+	const trimmed = category.trim();
+	if (!trimmed) {
+		throw new ConvexError({
+			code: 'INVALID_CATEGORY',
+			message: 'Category is required',
+		});
+	}
+	return trimmed;
+}
 
 export const investmentStatusValidator = v.union(
 	v.literal('building'),
