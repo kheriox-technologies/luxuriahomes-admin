@@ -5,6 +5,7 @@ import {
 	assertPositiveAmount,
 	investmentCategoryValidator,
 	investmentTransactionKindValidator,
+	normalizeCategory,
 } from './shared';
 
 export const updateTransaction = mutation({
@@ -27,6 +28,9 @@ export const updateTransaction = mutation({
 				message: 'Transaction not found',
 			});
 		}
-		await ctx.db.patch(transactionId, fields);
+		await ctx.db.patch(transactionId, {
+			...fields,
+			category: normalizeCategory(fields.category),
+		});
 	},
 });
